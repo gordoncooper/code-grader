@@ -1,0 +1,3979 @@
+{
+  "suite_version": "4.2.1",
+  "mode": "full",
+  "run": {
+    "project": "schedule",
+    "commit": "82a43db",
+    "base_commit": null,
+    "date": "2026-11-07",
+    "grader": "Claude Opus 5.5 (claude-opus-5-5)",
+    "run_index": 1,
+    "run_count": 1,
+    "suite_source": "https://gordoncooper.github.io/code-grader/AGENT.md (4.2.1)"
+  },
+  "component": null,
+  "project_context_inferred": "Small, widely used open-source Python library (MIT) for in-process periodic job scheduling; zero runtime dependencies, optional pytz for timezones.",
+  "config": {
+    "hash": "39a297f11c42a5c8",
+    "preset": "oss_library",
+    "source": "project.toml",
+    "component": null
+  },
+  "commands_run": [
+    {
+      "command": "python -m pytest test_schedule.py schedule -q --cov schedule --cov-branch --cov-report term-missing",
+      "exit_code": 0,
+      "result_summary": "81 passed; 99% line, 97.2% branch coverage"
+    },
+    {
+      "command": "python -m pytest test_schedule.py -q  (venv without pytz)",
+      "exit_code": 0,
+      "result_summary": "40 passed, 41 skipped"
+    },
+    {
+      "command": "python -m mypy -p schedule",
+      "exit_code": 0,
+      "result_summary": "no issues (default settings)"
+    },
+    {
+      "command": "python -m mypy --strict -p schedule",
+      "exit_code": 1,
+      "result_summary": "45 errors, mostly missing annotations"
+    },
+    {
+      "command": "black==20.8b1 --check .",
+      "exit_code": 0,
+      "result_summary": "clean at the pinned version"
+    },
+    {
+      "command": "flake8 schedule --max-line-length 88",
+      "exit_code": 1,
+      "result_summary": "3 issues (2 long lines)"
+    },
+    {
+      "command": "radon cc schedule -s -a",
+      "exit_code": 0,
+      "result_summary": "average A (2.75); max D (25) in Job.at"
+    },
+    {
+      "command": "vulture schedule --min-confidence 60",
+      "exit_code": 0,
+      "result_summary": "only public API flagged"
+    },
+    {
+      "command": "sphinx-build -W -b html docs _build",
+      "exit_code": 0,
+      "result_summary": "docs build cleanly"
+    },
+    {
+      "command": "python -m build",
+      "exit_code": 0,
+      "result_summary": "wheel and sdist built; setuptools deprecation warnings with a 2027-02-18 deadline"
+    },
+    {
+      "command": "pip-audit -r requirements-dev.txt",
+      "exit_code": 1,
+      "result_summary": "black 20.8b1 has 4 advisories (dev-only)"
+    },
+    {
+      "command": "README quickstart in a fresh venv with only the built wheel",
+      "exit_code": 1,
+      "result_summary": "ModuleNotFoundError: pytz"
+    },
+    {
+      "command": "pip install -r requirements-dev.txt && py.test test_schedule.py --flake8 ...",
+      "exit_code": 1,
+      "result_summary": "pytest-flake8 fails to load; no tests run"
+    },
+    {
+      "command": "python /tmp/probe.py (behavior probes)",
+      "exit_code": 0,
+      "result_summary": "confirmed A1-001, A1-002, A3-001, D2-001, D4-001"
+    }
+  ],
+  "scope_examined": "Read schedule/__init__.py (the only hot zone) in full; read setup.py, pyproject.toml, setup.cfg, tox.ini, requirements-dev.txt, CI workflow, README and all docs pages; sampled test_schedule.py (fixtures, SchedulerTests, timezone tests); skipped docs/_static and docs/_templates (cold).",
+  "metrics": {
+    "build_passes": true,
+    "tests_total": 81,
+    "tests_failed": 0,
+    "tests_skipped": 0,
+    "flaky_tests_detected": 0,
+    "line_coverage_pct": 99.2,
+    "branch_coverage_pct": 97.2,
+    "core_branch_coverage_pct": 97.2,
+    "mutation_score_pct": null,
+    "lint_errors": 3,
+    "lint_warnings": 0,
+    "lint_suppressions": 0,
+    "type_errors_strict": 45,
+    "type_escape_hatches": 3,
+    "vulns_critical": 0,
+    "vulns_high": 0,
+    "vulns_medium": 0,
+    "vulns_low": 0,
+    "secrets_found": 0,
+    "deps_direct": 0,
+    "deps_transitive": 0,
+    "deps_outdated_major": 0,
+    "deps_unused": 0,
+    "loc_source": 512,
+    "loc_tests": 1137,
+    "complexity_p95": 10,
+    "complexity_max": 25,
+    "duplication_pct": null,
+    "functions_over_50_lines": 2,
+    "dependency_cycles": 0,
+    "todo_fixme_count": 1,
+    "dead_code_items": 0,
+    "artifact_size_bytes": 12286,
+    "ci_duration_seconds": null,
+    "setup_second_run_passes": null,
+    "time_to_first_success_minutes": null,
+    "time_to_first_test_minutes": null,
+    "quickstart_steps": 2
+  },
+  "metrics_notes": {
+    "mutation_score_pct": "no mutation tool run",
+    "duplication_pct": "no duplication tool available; duplication judged by reading (C2-001)",
+    "core_branch_coverage_pct": "core = schedule/__init__.py, the only module",
+    "vulns_critical": "runtime dependencies: none. Dev-only black 20.8b1 has 4 advisories (F6-002), not counted here",
+    "lint_errors": "flake8 at black's 88-column width; the project has no lint config",
+    "loc_source": "radon SLOC",
+    "ci_duration_seconds": "CI runs of dbader/schedule not visible from this session",
+    "setup_second_run_passes": "no setup, seed or migration scripts",
+    "time_to_first_success_minutes": "the literal quickstart fails (E1-001); not timed",
+    "time_to_first_test_minutes": "the documented dev setup never reaches a passing test (E3-001); an undocumented venv + pytest route took about a minute",
+    "artifact_size_bytes": "wheel size"
+  },
+  "feature_inventory": [
+    {
+      "feature": "every(n).<unit>.do(job, *args, **kwargs)",
+      "source": "README",
+      "status": "complete",
+      "evidence": [
+        {
+          "type": "command",
+          "command": "python -m pytest test_schedule.py schedule -q --cov schedule --cov-branch --cov-report term-missing",
+          "excerpt": "81 passed in 0.58s",
+          "note": ""
+        }
+      ]
+    },
+    {
+      "feature": "Daily/hourly/minutely .at() times",
+      "source": "README",
+      "status": "complete",
+      "evidence": [
+        {
+          "type": "code",
+          "file": "schedule/__init__.py",
+          "lines": "512-513",
+          "quote": "if self.unit == \"days\" or self.start_day:\nif not re.match(r\"^[0-2]\\d:[0-5]\\d(:[0-5]\\d)?$\", time_str):",
+          "note": "validated per unit"
+        }
+      ]
+    },
+    {
+      "feature": "Weekday scheduling (.monday ... .sunday)",
+      "source": "README",
+      "status": "complete",
+      "evidence": [
+        {
+          "type": "code",
+          "file": "schedule/__init__.py",
+          "lines": "388-389",
+          "quote": "self.start_day = \"monday\"\nreturn self.weeks",
+          "note": ""
+        }
+      ]
+    },
+    {
+      "feature": "Timezones in .at()",
+      "source": "README, docs/timezones.rst",
+      "status": "partial",
+      "evidence": [
+        {
+          "type": "code",
+          "file": "schedule/__init__.py",
+          "lines": "503-505",
+          "quote": "elif isinstance(tz, pytz.BaseTzInfo):\nself.at_time_zone = tz\nelse:",
+          "note": "pytz only; README install omits pytz (E1-001, D2-001)"
+        }
+      ]
+    },
+    {
+      "feature": "Randomized intervals .to()",
+      "source": "README",
+      "status": "complete",
+      "evidence": [
+        {
+          "type": "code",
+          "file": "schedule/__init__.py",
+          "lines": "561",
+          "quote": "def to(self, latest: int):",
+          "note": ""
+        }
+      ]
+    },
+    {
+      "feature": "Run until a deadline .until()",
+      "source": "docs/examples.rst",
+      "status": "complete",
+      "evidence": [
+        {
+          "type": "code",
+          "file": "schedule/__init__.py",
+          "lines": "605-606",
+          "quote": "if isinstance(until_time, datetime.datetime):\nself.cancel_after = until_time",
+          "note": ""
+        }
+      ]
+    },
+    {
+      "feature": "Tags: get_jobs(tag), clear(tag)",
+      "source": "docs/examples.rst",
+      "status": "complete",
+      "evidence": [
+        {
+          "type": "code",
+          "file": "schedule/__init__.py",
+          "lines": "130-131",
+          "quote": "if tag is None:\nreturn self.jobs[:]",
+          "note": ""
+        }
+      ]
+    },
+    {
+      "feature": "Cancel from inside a job (CancelJob)",
+      "source": "docs/examples.rst",
+      "status": "complete",
+      "evidence": [
+        {
+          "type": "code",
+          "file": "schedule/__init__.py",
+          "lines": "173-175",
+          "quote": "ret = job.run()\nif isinstance(ret, CancelJob) or ret is CancelJob:\nself.cancel_job(job)",
+          "note": ""
+        }
+      ]
+    },
+    {
+      "feature": "@repeat decorator",
+      "source": "docs/examples.rst",
+      "status": "complete",
+      "evidence": [
+        {
+          "type": "code",
+          "file": "schedule/__init__.py",
+          "lines": "909-911",
+          "quote": "def _schedule_decorator(decorated_function):\njob.do(decorated_function, *args, **kwargs)\nreturn decorated_function",
+          "note": ""
+        }
+      ]
+    },
+    {
+      "feature": "run_all(delay_seconds)",
+      "source": "docs/reference.rst",
+      "status": "complete",
+      "evidence": [
+        {
+          "type": "code",
+          "file": "schedule/__init__.py",
+          "lines": "118-120",
+          "quote": "for job in self.jobs[:]:\nself._run_job(job)\ntime.sleep(delay_seconds)",
+          "note": ""
+        }
+      ]
+    },
+    {
+      "feature": "next_run / idle_seconds",
+      "source": "docs/examples.rst",
+      "status": "complete",
+      "evidence": [
+        {
+          "type": "code",
+          "file": "schedule/__init__.py",
+          "lines": "197-198",
+          "quote": "@property\ndef idle_seconds(self) -> Optional[float]:",
+          "note": ""
+        }
+      ]
+    },
+    {
+      "feature": "Multiple schedulers",
+      "source": "docs/multiple-schedulers.rst",
+      "status": "complete",
+      "evidence": [
+        {
+          "type": "code",
+          "file": "schedule/__init__.py",
+          "lines": "86-87",
+          "quote": "def __init__(self) -> None:\nself.jobs: List[Job] = []",
+          "note": ""
+        }
+      ]
+    },
+    {
+      "feature": "Logging via the 'schedule' logger",
+      "source": "docs/logging.rst",
+      "status": "complete",
+      "evidence": [
+        {
+          "type": "code",
+          "file": "schedule/__init__.py",
+          "lines": "50",
+          "quote": "logger = logging.getLogger(\"schedule\")",
+          "note": ""
+        }
+      ]
+    }
+  ],
+  "gap_register": [
+    {
+      "id": "GAP-001",
+      "gap": "Standard-library zoneinfo timezones are not accepted",
+      "severity": "minor",
+      "necessity": "nice-to-have",
+      "status": "open",
+      "rationale": "Python 3.9+ ships zoneinfo; pytz is in maintenance mode",
+      "benchmark_ids": [
+        "D2"
+      ]
+    },
+    {
+      "id": "GAP-002",
+      "gap": "No built-in hook for job failures (users must wrap each job or subclass the scheduler)",
+      "severity": "minor",
+      "necessity": "nice-to-have",
+      "status": "open",
+      "rationale": "docs/exception-handling.rst points to a decorator and a third-party gist",
+      "benchmark_ids": [
+        "D2",
+        "A3"
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "id": "A1-001",
+      "benchmark_id": "A1",
+      "title": "at() reports an unformatted placeholder when the hour is out of range",
+      "severity": "minor",
+      "status": "new",
+      "first_seen_commit": "82a43db",
+      "evidence": [
+        {
+          "type": "code",
+          "file": "schedule/__init__.py",
+          "lines": "547-549",
+          "quote": "raise ScheduleValueError(\n\"Invalid number of hours ({} is not between 0 and 23)\"\n)",
+          "note": "the message is never .format()-ed, so users see a literal '{}'"
+        },
+        {
+          "type": "command",
+          "command": "python /tmp/probe.py  (every().day.at('25:00'))",
+          "excerpt": "2. message: Invalid number of hours ({} is not between 0 and 23)",
+          "note": ""
+        }
+      ],
+      "disposition": null,
+      "disposition_concern": null
+    },
+    {
+      "id": "A1-002",
+      "benchmark_id": "A1",
+      "title": "every(a).to(b) with b < a raises an error that states the opposite of the problem",
+      "severity": "minor",
+      "status": "new",
+      "first_seen_commit": "82a43db",
+      "evidence": [
+        {
+          "type": "code",
+          "file": "schedule/__init__.py",
+          "lines": "710-711",
+          "quote": "if not (self.latest >= self.interval):\nraise ScheduleError(\"`latest` is greater than `interval`\")",
+          "note": "condition is latest < interval, but the message says latest is greater"
+        },
+        {
+          "type": "command",
+          "command": "python /tmp/probe.py  (every(5).to(2).seconds)",
+          "excerpt": "3. message: `latest` is greater than `interval`",
+          "note": ""
+        }
+      ],
+      "disposition": null,
+      "disposition_concern": null
+    },
+    {
+      "id": "A2-001",
+      "benchmark_id": "A2",
+      "title": "No security or dependency scanning in CI",
+      "severity": "minor",
+      "status": "new",
+      "first_seen_commit": "82a43db",
+      "evidence": [
+        {
+          "type": "absence",
+          "searched": "secret, SAST or dependency-audit step in CI",
+          "method": "read .github/workflows/ci.yml and tox.ini in full",
+          "note": "CI runs tests, mypy, docs, black and setup.py check only"
+        }
+      ],
+      "disposition": null,
+      "disposition_concern": null,
+      "paths": [
+        ".github/workflows/**"
+      ]
+    },
+    {
+      "id": "A3-001",
+      "benchmark_id": "A3",
+      "title": "A job that raises is never rescheduled, and the rest of that tick's jobs are skipped",
+      "severity": "major",
+      "status": "new",
+      "first_seen_commit": "82a43db",
+      "evidence": [
+        {
+          "type": "code",
+          "file": "schedule/__init__.py",
+          "lines": "691-693",
+          "quote": "ret = self.job_func()\nself.last_run = datetime.datetime.now()\nself._schedule_next_run()",
+          "note": "an exception from job_func() skips _schedule_next_run(), so next_run stays in the past"
+        },
+        {
+          "type": "command",
+          "command": "python /tmp/probe.py  (hourly job that raises, run_pending() wrapped in try/except for 5 ticks)",
+          "excerpt": "1. failing hourly job ran 5 times in 5 consecutive ticks; next_run in past: True",
+          "note": "callers who catch exceptions around run_pending() (a common pattern) get a hot retry loop instead of an hourly retry"
+        }
+      ],
+      "disposition": null,
+      "disposition_concern": null
+    },
+    {
+      "id": "A3-002",
+      "benchmark_id": "A3",
+      "title": "should_run guards an invariant with assert, which python -O removes",
+      "severity": "minor",
+      "status": "new",
+      "first_seen_commit": "82a43db",
+      "evidence": [
+        {
+          "type": "code",
+          "file": "schedule/__init__.py",
+          "lines": "671",
+          "quote": "assert self.next_run is not None, \"must run _schedule_next_run before\"",
+          "note": "under -O this becomes a TypeError comparing datetime with None"
+        }
+      ],
+      "disposition": null,
+      "disposition_concern": null
+    },
+    {
+      "id": "A4-001",
+      "benchmark_id": "A4",
+      "title": "Calling do() again on the same job registers it twice, so it runs twice per tick",
+      "severity": "minor",
+      "status": "new",
+      "first_seen_commit": "82a43db",
+      "evidence": [
+        {
+          "type": "code",
+          "file": "schedule/__init__.py",
+          "lines": "663",
+          "quote": "self.scheduler.jobs.append(self)",
+          "note": "do() appends unconditionally"
+        },
+        {
+          "type": "command",
+          "command": "PYTHONPATH=. python - (job.do(f); job.do(f); run_pending())",
+          "excerpt": "jobs registered after calling do() twice on one job: 2",
+          "note": ""
+        }
+      ],
+      "disposition": null,
+      "disposition_concern": null
+    },
+    {
+      "id": "A4-002",
+      "benchmark_id": "A4",
+      "title": "Time and randomness are not injectable; tests patch datetime.datetime globally",
+      "severity": "minor",
+      "status": "new",
+      "first_seen_commit": "82a43db",
+      "evidence": [
+        {
+          "type": "code",
+          "file": "schedule/__init__.py",
+          "lines": "717",
+          "quote": "now = datetime.datetime.now(self.at_time_zone)",
+          "note": "wall clock read deep inside scheduling logic"
+        },
+        {
+          "type": "code",
+          "file": "schedule/__init__.py",
+          "lines": "712",
+          "quote": "interval = random.randint(self.interval, self.latest)",
+          "note": "unseeded module-level random"
+        },
+        {
+          "type": "code",
+          "file": "test_schedule.py",
+          "lines": "39",
+          "quote": "class mock_datetime:",
+          "note": "tests swap out datetime.datetime with a context manager instead of passing a clock"
+        }
+      ],
+      "disposition": null,
+      "disposition_concern": null
+    },
+    {
+      "id": "B1-001",
+      "benchmark_id": "B1",
+      "title": "Timezone handling is tied to pytz's normalize() throughout Job",
+      "severity": "minor",
+      "status": "new",
+      "first_seen_commit": "82a43db",
+      "evidence": [
+        {
+          "type": "code",
+          "file": "schedule/__init__.py",
+          "lines": "499",
+          "quote": "import pytz",
+          "note": "pytz imported lazily inside at()"
+        },
+        {
+          "type": "code",
+          "file": "schedule/__init__.py",
+          "lines": "789",
+          "quote": "moment = self.at_time_zone.normalize(moment)",
+          "note": "pytz-specific API used in the core next-run computation"
+        }
+      ],
+      "disposition": null,
+      "disposition_concern": null
+    },
+    {
+      "id": "B2-001",
+      "benchmark_id": "B2",
+      "title": "Module-level default scheduler exposes its live jobs list as a global alias",
+      "severity": "minor",
+      "status": "new",
+      "first_seen_commit": "82a43db",
+      "evidence": [
+        {
+          "type": "code",
+          "file": "schedule/__init__.py",
+          "lines": "840",
+          "quote": "jobs = default_scheduler.jobs  # todo: should this be a copy, e.g. jobs()?",
+          "note": "mutable alias to internal state; the authors' own TODO questions it"
+        }
+      ],
+      "disposition": null,
+      "disposition_concern": null
+    },
+    {
+      "id": "B4-001",
+      "benchmark_id": "B4",
+      "title": "Fluent builder properties and helpers are untyped, so typed callers get Any from every()-chains",
+      "severity": "major",
+      "status": "new",
+      "first_seen_commit": "82a43db",
+      "evidence": [
+        {
+          "type": "code",
+          "file": "schedule/__init__.py",
+          "lines": "331-333",
+          "quote": "@property\ndef seconds(self):\nself.unit = \"seconds\"",
+          "note": "no return annotation on unit properties; py.typed is shipped, so this leaks Any to users"
+        },
+        {
+          "type": "command",
+          "command": "python -m mypy --strict -p schedule",
+          "excerpt": "Found 45 errors in 1 file (checked 1 source file)",
+          "note": ""
+        }
+      ],
+      "disposition": null,
+      "disposition_concern": null
+    },
+    {
+      "id": "B4-002",
+      "benchmark_id": "B4",
+      "title": "Units and weekdays are plain strings, so invalid states are only caught at do() time",
+      "severity": "minor",
+      "status": "new",
+      "first_seen_commit": "82a43db",
+      "evidence": [
+        {
+          "type": "code",
+          "file": "schedule/__init__.py",
+          "lines": "233",
+          "quote": "self.unit: Optional[str] = None",
+          "note": "stringly-typed unit"
+        },
+        {
+          "type": "code",
+          "file": "schedule/__init__.py",
+          "lines": "704",
+          "quote": "if self.unit not in (\"seconds\", \"minutes\", \"hours\", \"days\", \"weeks\"):",
+          "note": "validated late, when the job is finally scheduled"
+        }
+      ],
+      "disposition": null,
+      "disposition_concern": null
+    },
+    {
+      "id": "B5-001",
+      "benchmark_id": "B5",
+      "title": "Supported units are hard-coded in several places; adding one means shotgun edits",
+      "severity": "minor",
+      "status": "new",
+      "first_seen_commit": "82a43db",
+      "evidence": [
+        {
+          "type": "code",
+          "file": "schedule/__init__.py",
+          "lines": "493",
+          "quote": "if self.unit not in (\"days\", \"hours\", \"minutes\") and not self.start_day:",
+          "note": "at() keeps its own unit list"
+        },
+        {
+          "type": "code",
+          "file": "schedule/__init__.py",
+          "lines": "704",
+          "quote": "if self.unit not in (\"seconds\", \"minutes\", \"hours\", \"days\", \"weeks\"):",
+          "note": "_schedule_next_run keeps another"
+        }
+      ],
+      "disposition": null,
+      "disposition_concern": null
+    },
+    {
+      "id": "C1-001",
+      "benchmark_id": "C1",
+      "title": "at() reuses hour/minute/second as both str and int across branches",
+      "severity": "minor",
+      "status": "new",
+      "first_seen_commit": "82a43db",
+      "evidence": [
+        {
+          "type": "code",
+          "file": "schedule/__init__.py",
+          "lines": "529-531",
+          "quote": "hour: Union[str, int]\nminute: Union[str, int]\nsecond: Union[str, int]",
+          "note": "the same names change type mid-function, which makes the parsing hard to follow"
+        }
+      ],
+      "disposition": null,
+      "disposition_concern": null
+    },
+    {
+      "id": "C2-001",
+      "benchmark_id": "C2",
+      "title": "Seven weekday properties are copy-pasted with only the day name changed",
+      "severity": "minor",
+      "status": "new",
+      "first_seen_commit": "82a43db",
+      "evidence": [
+        {
+          "type": "code",
+          "file": "schedule/__init__.py",
+          "lines": "388-389",
+          "quote": "self.start_day = \"monday\"\nreturn self.weeks",
+          "note": "repeated for monday...sunday with identical error text (lines 380-455)"
+        }
+      ],
+      "disposition": null,
+      "disposition_concern": null
+    },
+    {
+      "id": "C2-002",
+      "benchmark_id": "C2",
+      "title": "Job.at() is the complexity hotspot (cyclomatic 25, 89 lines)",
+      "severity": "minor",
+      "status": "new",
+      "first_seen_commit": "82a43db",
+      "evidence": [
+        {
+          "type": "command",
+          "command": "radon cc schedule -s",
+          "excerpt": "M 471:4 Job.at - D (25)",
+          "note": ""
+        }
+      ],
+      "disposition": null,
+      "disposition_concern": null
+    },
+    {
+      "id": "C3-001",
+      "benchmark_id": "C3",
+      "title": "Two string-formatting styles (%-style and str.format) are mixed in one module",
+      "severity": "minor",
+      "status": "new",
+      "first_seen_commit": "82a43db",
+      "evidence": [
+        {
+          "type": "code",
+          "file": "schedule/__init__.py",
+          "lines": "303",
+          "quote": "return \"Every %s %s at %s do %s %s\" % (",
+          "note": "%-formatting"
+        },
+        {
+          "type": "code",
+          "file": "schedule/__init__.py",
+          "lines": "943",
+          "quote": "\"Invalid start day (valid start days are {})\".format(weekdays)",
+          "note": "str.format"
+        }
+      ],
+      "disposition": null,
+      "disposition_concern": null
+    },
+    {
+      "id": "C4-001",
+      "benchmark_id": "C4",
+      "title": "No test covers a job that raises",
+      "severity": "minor",
+      "status": "new",
+      "first_seen_commit": "82a43db",
+      "evidence": [
+        {
+          "type": "absence",
+          "searched": "a test where a scheduled job raises an exception",
+          "method": "grep -n 'raise\\|Exception' test_schedule.py; read SchedulerTests",
+          "note": "every assertRaises targets configuration errors, not job failures; A3-001 went unnoticed as a result"
+        }
+      ],
+      "disposition": null,
+      "disposition_concern": null
+    },
+    {
+      "id": "D2-001",
+      "benchmark_id": "D2",
+      "title": "Timezones must be pytz objects; standard-library zoneinfo is rejected",
+      "severity": "minor",
+      "status": "new",
+      "first_seen_commit": "82a43db",
+      "evidence": [
+        {
+          "type": "code",
+          "file": "schedule/__init__.py",
+          "lines": "503-505",
+          "quote": "elif isinstance(tz, pytz.BaseTzInfo):\nself.at_time_zone = tz\nelse:",
+          "note": "only str or pytz.BaseTzInfo accepted"
+        },
+        {
+          "type": "command",
+          "command": "python /tmp/probe.py  (at('10:00', ZoneInfo('Europe/Amsterdam')))",
+          "excerpt": "4. zoneinfo: ScheduleValueError Timezone must be string or pytz.timezone object",
+          "note": ""
+        }
+      ],
+      "disposition": null,
+      "disposition_concern": null
+    },
+    {
+      "id": "D4-001",
+      "benchmark_id": "D4",
+      "title": "until('HH:MM') earlier than now raises instead of meaning tomorrow",
+      "severity": "minor",
+      "status": "new",
+      "first_seen_commit": "82a43db",
+      "evidence": [
+        {
+          "type": "code",
+          "file": "schedule/__init__.py",
+          "lines": "626-628",
+          "quote": "if \"-\" not in until_time:\n# the until_time is a time-only format. Set the date to today\nnow = datetime.datetime.now()",
+          "note": "time-only strings are always pinned to today"
+        },
+        {
+          "type": "command",
+          "command": "python /tmp/probe.py  (every().hour.until(<a minute ago>))",
+          "excerpt": "5. Cannot schedule a job to run until a time in the past",
+          "note": ""
+        }
+      ],
+      "disposition": null,
+      "disposition_concern": null
+    },
+    {
+      "id": "E1-001",
+      "benchmark_id": "E1",
+      "title": "The README quickstart crashes after the documented install",
+      "severity": "major",
+      "status": "new",
+      "first_seen_commit": "82a43db",
+      "evidence": [
+        {
+          "type": "code",
+          "file": "README.rst",
+          "lines": "27",
+          "quote": "$ pip install schedule",
+          "note": "the only install step"
+        },
+        {
+          "type": "code",
+          "file": "README.rst",
+          "lines": "44",
+          "quote": "schedule.every().day.at(\"12:42\", \"Europe/Amsterdam\").do(job)",
+          "note": "this line needs pytz, which 'pip install schedule' does not install"
+        },
+        {
+          "type": "command",
+          "command": "python qs_readme.py  (README example, fresh venv with only the built wheel)",
+          "excerpt": "ModuleNotFoundError: No module named 'pytz'",
+          "note": ""
+        }
+      ],
+      "disposition": null,
+      "disposition_concern": null
+    },
+    {
+      "id": "E2-001",
+      "benchmark_id": "E2",
+      "title": "Development docs give a test command that fails",
+      "severity": "major",
+      "status": "new",
+      "first_seen_commit": "82a43db",
+      "evidence": [
+        {
+          "type": "code",
+          "file": "docs/development.rst",
+          "lines": "22",
+          "quote": "py.test test_schedule.py --flake8 schedule -v --cov schedule --cov-report term-missing",
+          "note": "--flake8 relies on pytest-flake8, which can't load with current pytest"
+        },
+        {
+          "type": "command",
+          "command": "pip install -r requirements-dev.txt && py.test test_schedule.py --flake8 schedule -v --cov schedule --cov-report term-missing",
+          "excerpt": "Argument(s) {'path'} are declared in the hookimpl but can not be found in the hookspec",
+          "note": ""
+        }
+      ],
+      "disposition": null,
+      "disposition_concern": null
+    },
+    {
+      "id": "E2-002",
+      "benchmark_id": "E2",
+      "title": "README feature claims are inaccurate",
+      "severity": "minor",
+      "status": "new",
+      "first_seen_commit": "82a43db",
+      "evidence": [
+        {
+          "type": "code",
+          "file": "README.rst",
+          "lines": "18",
+          "quote": "- Very lightweight and no external dependencies.",
+          "note": "timezone support needs the optional pytz package"
+        },
+        {
+          "type": "code",
+          "file": "README.rst",
+          "lines": "20",
+          "quote": "- Tested on Python and 3.7, 3.8, 3.9, 3.10, 3.11, 3.12",
+          "note": "typo, and the 3.7 claim is unverifiable on current CI runners"
+        }
+      ],
+      "disposition": null,
+      "disposition_concern": null
+    },
+    {
+      "id": "E3-001",
+      "benchmark_id": "E3",
+      "title": "The documented dev environment cannot run pytest at all",
+      "severity": "major",
+      "status": "new",
+      "first_seen_commit": "82a43db",
+      "evidence": [
+        {
+          "type": "code",
+          "file": "requirements-dev.txt",
+          "lines": "5",
+          "quote": "pytest-flake8",
+          "note": "unpinned pytest-flake8 is incompatible with pytest 9; it breaks every pytest invocation in that env"
+        },
+        {
+          "type": "command",
+          "command": "pip install -r requirements-dev.txt && python -m pytest test_schedule.py -q",
+          "excerpt": "Argument(s) {'path'} are declared in the hookimpl but can not be found in the hookspec",
+          "note": ""
+        }
+      ],
+      "disposition": null,
+      "disposition_concern": null
+    },
+    {
+      "id": "E4-001",
+      "benchmark_id": "E4",
+      "title": "Packaging is half-migrated: metadata split between setup.py and pyproject.toml, checked with deprecated setup.py check",
+      "severity": "minor",
+      "status": "new",
+      "first_seen_commit": "82a43db",
+      "evidence": [
+        {
+          "type": "code",
+          "file": "setup.py",
+          "lines": "5",
+          "quote": "SCHEDULE_VERSION = \"1.2.2\"",
+          "note": "version lives in setup.py (and is repeated in docs/conf.py)"
+        },
+        {
+          "type": "code",
+          "file": "tox.ini",
+          "lines": "38",
+          "quote": "python setup.py check --strict --metadata --restructuredtext",
+          "note": "deprecated direct setup.py invocation in CI"
+        }
+      ],
+      "disposition": null,
+      "disposition_concern": null
+    },
+    {
+      "id": "F1-001",
+      "benchmark_id": "F1",
+      "title": "Releases are manual: version bumped in two files, tag, build and twine by hand",
+      "severity": "minor",
+      "status": "new",
+      "first_seen_commit": "82a43db",
+      "evidence": [
+        {
+          "type": "code",
+          "file": "docs/development.rst",
+          "lines": "53",
+          "quote": "Bump the version in ``setup.py`` and ``docs/conf.py``.",
+          "note": "two places to bump by hand"
+        },
+        {
+          "type": "code",
+          "file": "docs/development.rst",
+          "lines": "66",
+          "quote": "twine upload --repository schedule dist/*",
+          "note": "manual upload"
+        }
+      ],
+      "disposition": null,
+      "disposition_concern": null
+    },
+    {
+      "id": "F2-001",
+      "benchmark_id": "F2",
+      "title": "CI has no release automation and no lint step",
+      "severity": "minor",
+      "status": "new",
+      "first_seen_commit": "82a43db",
+      "evidence": [
+        {
+          "type": "absence",
+          "searched": "a publish/release workflow or a flake8/ruff step",
+          "method": "read .github/workflows/ci.yml and tox.ini in full",
+          "note": "only tests, mypy, docs, black and setup.py check run"
+        }
+      ],
+      "disposition": null,
+      "disposition_concern": null,
+      "paths": [
+        ".github/workflows/**"
+      ]
+    },
+    {
+      "id": "F5-001",
+      "benchmark_id": "F5",
+      "title": "The package claims OS independence, but tests are Unix-only and CI runs Linux only",
+      "severity": "minor",
+      "status": "new",
+      "first_seen_commit": "82a43db",
+      "evidence": [
+        {
+          "type": "code",
+          "file": "test_schedule.py",
+          "lines": "30",
+          "quote": "time.tzset()",
+          "note": "time.tzset() exists only on Unix, so the suite can't run on Windows"
+        },
+        {
+          "type": "code",
+          "file": ".github/workflows/ci.yml",
+          "lines": "13",
+          "quote": "runs-on: ubuntu-latest",
+          "note": "every CI job uses ubuntu"
+        }
+      ],
+      "disposition": null,
+      "disposition_concern": null
+    },
+    {
+      "id": "F6-001",
+      "benchmark_id": "F6",
+      "title": "Builds will stop working with setuptools after 2027-02-18 (deprecated license metadata)",
+      "severity": "major",
+      "status": "new",
+      "first_seen_commit": "82a43db",
+      "evidence": [
+        {
+          "type": "code",
+          "file": "pyproject.toml",
+          "lines": "10",
+          "quote": "license = {text = \"MIT License\"}",
+          "note": "TOML-table license is deprecated, as is the License classifier in setup.py"
+        },
+        {
+          "type": "command",
+          "command": "python -m build",
+          "excerpt": "By 2027-Feb-18, you need to update your project and remove deprecated calls",
+          "note": ""
+        }
+      ],
+      "disposition": null,
+      "disposition_concern": null
+    },
+    {
+      "id": "F6-002",
+      "benchmark_id": "F6",
+      "title": "Dev toolchain pinned to black 20.8b1 (2020), which has published advisories; no automated updates",
+      "severity": "minor",
+      "status": "new",
+      "first_seen_commit": "82a43db",
+      "evidence": [
+        {
+          "type": "code",
+          "file": "requirements-dev.txt",
+          "lines": "7",
+          "quote": "black==20.8b1",
+          "note": "pinned formatter from 2020"
+        },
+        {
+          "type": "command",
+          "command": "pip-audit -r requirements-dev.txt",
+          "excerpt": "black 20.8b1  PYSEC-2024-48   24.3.0",
+          "note": ""
+        }
+      ],
+      "disposition": null,
+      "disposition_concern": null
+    },
+    {
+      "id": "F6-003",
+      "benchmark_id": "F6",
+      "title": "Still declares support for end-of-life Python 3.7 and 3.8",
+      "severity": "minor",
+      "status": "new",
+      "first_seen_commit": "82a43db",
+      "evidence": [
+        {
+          "type": "code",
+          "file": "setup.py",
+          "lines": "54",
+          "quote": "python_requires=\">=3.7\",",
+          "note": "3.7 reached end of life in June 2023, 3.8 in October 2024"
+        }
+      ],
+      "disposition": null,
+      "disposition_concern": null
+    },
+    {
+      "id": "X2-001",
+      "benchmark_id": "X2",
+      "title": "No explicit public surface or deprecation mechanism",
+      "severity": "minor",
+      "status": "new",
+      "first_seen_commit": "82a43db",
+      "evidence": [
+        {
+          "type": "absence",
+          "searched": "__all__ or warnings.warn deprecations in schedule/__init__.py",
+          "method": "grep -n '__all__\\|warnings' schedule/__init__.py",
+          "note": "everything at module level, including helpers and the jobs alias, is implicitly public"
+        }
+      ],
+      "disposition": null,
+      "disposition_concern": null
+    },
+    {
+      "id": "X6-001",
+      "benchmark_id": "X6",
+      "title": "No agent or contributor instructions with working commands",
+      "severity": "minor",
+      "status": "new",
+      "first_seen_commit": "82a43db",
+      "evidence": [
+        {
+          "type": "absence",
+          "searched": "AGENTS.md, CLAUDE.md, CONTRIBUTING.md",
+          "method": "git ls-files",
+          "note": "the only guide is docs/development.rst, whose test command fails (E2-001)"
+        }
+      ],
+      "disposition": null,
+      "disposition_concern": null
+    }
+  ],
+  "benchmarks": [
+    {
+      "id": "A1",
+      "name": "Correctness & Functional Behavior",
+      "pillar": "A",
+      "applicability": "full",
+      "applicability_reason": null,
+      "config_weight": 3,
+      "weight": 3,
+      "weight_note": null,
+      "score": 8,
+      "confidence": "high",
+      "carried_forward": false,
+      "caps_applied": [],
+      "finding_ids": [
+        "A1-001",
+        "A1-002"
+      ],
+      "strengths": [
+        {
+          "note": "81 tests pass, with deliberate DST and timezone handling covered by tests",
+          "evidence": [
+            {
+              "type": "command",
+              "command": "python -m pytest test_schedule.py schedule -q --cov schedule --cov-branch --cov-report term-missing",
+              "excerpt": "81 passed in 0.58s",
+              "note": ""
+            },
+            {
+              "type": "code",
+              "file": "schedule/__init__.py",
+              "lines": "811-813",
+              "quote": "# We ended up in a DST Gap. The requested 'at' time does not exist\n# within the current timezone/utc-offset. As a best effort, we will\n# schedule the job 1 offset later than possible.",
+              "note": "DST gap handled explicitly"
+            }
+          ]
+        }
+      ],
+      "enforcement": [],
+      "gaming_flags": [],
+      "target": 10,
+      "path_to_target": [
+        {
+          "id": "A1-act-1",
+          "action": "In schedule/__init__.py, format the hour into the at() error (line 548) and reword the to() check at line 711 to '`latest` must be greater than or equal to `interval`'; add assertRaisesRegex tests for both messages",
+          "resolves": [
+            "A1-001",
+            "A1-002"
+          ],
+          "expected_new_score": 9,
+          "effort": "S",
+          "requires_human_decision": false,
+          "decision_question": null,
+          "optional": false
+        }
+      ],
+      "previous_score": null,
+      "change_explanation": null
+    },
+    {
+      "id": "A2",
+      "name": "Security & Privacy",
+      "pillar": "A",
+      "applicability": "full",
+      "applicability_reason": null,
+      "config_weight": 2,
+      "weight": 2,
+      "weight_note": null,
+      "score": 8,
+      "confidence": "high",
+      "carried_forward": false,
+      "caps_applied": [],
+      "finding_ids": [
+        "A2-001"
+      ],
+      "strengths": [
+        {
+          "note": "No runtime dependencies, no I/O, no eval or shell; inputs validated at the API edge",
+          "evidence": [
+            {
+              "type": "code",
+              "file": "schedule/__init__.py",
+              "lines": "466-467",
+              "quote": "if not all(isinstance(tag, Hashable) for tag in tags):\nraise TypeError(\"Tags must be hashable\")",
+              "note": "tags validated"
+            },
+            {
+              "type": "code",
+              "file": "schedule/__init__.py",
+              "lines": "513-514",
+              "quote": "if not re.match(r\"^[0-2]\\d:[0-5]\\d(:[0-5]\\d)?$\", time_str):\nraise ScheduleValueError(",
+              "note": "time strings validated with anchored regexes"
+            }
+          ]
+        }
+      ],
+      "enforcement": [],
+      "gaming_flags": [],
+      "target": 9,
+      "path_to_target": [
+        {
+          "id": "A2-act-1",
+          "action": "Add a CI job that runs pip-audit against requirements-dev.txt and a secret scan (e.g. gitleaks) on pull requests",
+          "resolves": [
+            "A2-001"
+          ],
+          "expected_new_score": 9,
+          "effort": "S",
+          "requires_human_decision": false,
+          "decision_question": null,
+          "optional": false
+        }
+      ],
+      "previous_score": null,
+      "change_explanation": null
+    },
+    {
+      "id": "A3",
+      "name": "Robustness & Error Handling",
+      "pillar": "A",
+      "applicability": "full",
+      "applicability_reason": null,
+      "config_weight": 2,
+      "weight": 2,
+      "weight_note": null,
+      "score": 5,
+      "confidence": "high",
+      "carried_forward": false,
+      "caps_applied": [],
+      "finding_ids": [
+        "A3-001",
+        "A3-002"
+      ],
+      "strengths": [
+        {
+          "note": "Configuration errors raise specific exception types with clear messages",
+          "evidence": [
+            {
+              "type": "code",
+              "file": "schedule/__init__.py",
+              "lines": "65-66",
+              "quote": "class IntervalError(ScheduleValueError):\n\"\"\"An improper interval was used\"\"\"",
+              "note": "IntervalError subclass"
+            },
+            {
+              "type": "code",
+              "file": "schedule/__init__.py",
+              "lines": "494-496",
+              "quote": "raise ScheduleValueError(\n\"Invalid unit (valid units are `days`, `hours`, and `minutes`)\"\n)",
+              "note": "explicit message for invalid units"
+            }
+          ]
+        }
+      ],
+      "enforcement": [],
+      "gaming_flags": [],
+      "target": 9,
+      "path_to_target": [
+        {
+          "id": "A3-act-1",
+          "action": "In Job.run(), compute last_run and _schedule_next_run() in a try/finally around job_func() so a failing job still moves to its next interval; let Scheduler.run_pending() continue with the remaining due jobs and re-raise afterwards; add tests for both",
+          "resolves": [
+            "A3-001"
+          ],
+          "expected_new_score": 8,
+          "effort": "M",
+          "requires_human_decision": true,
+          "decision_question": "Approve rescheduling a job's next run even when it raises, so a failing job retries at its next interval instead of on every tick?",
+          "optional": false
+        },
+        {
+          "id": "A3-act-2",
+          "action": "Replace the assert in Job.should_run with an explicit ScheduleError when next_run is None",
+          "resolves": [
+            "A3-002"
+          ],
+          "expected_new_score": 8,
+          "effort": "S",
+          "requires_human_decision": false,
+          "decision_question": null,
+          "optional": false
+        }
+      ],
+      "previous_score": null,
+      "change_explanation": null
+    },
+    {
+      "id": "A4",
+      "name": "Idempotence & Determinism",
+      "pillar": "A",
+      "applicability": "full",
+      "applicability_reason": null,
+      "config_weight": 2,
+      "weight": 2,
+      "weight_note": null,
+      "score": 6,
+      "confidence": "medium",
+      "carried_forward": false,
+      "caps_applied": [],
+      "finding_ids": [
+        "A4-001",
+        "A4-002"
+      ],
+      "strengths": [
+        {
+          "note": "Tests are deterministic: three consecutive runs gave identical results",
+          "evidence": [
+            {
+              "type": "command",
+              "command": "python -m pytest test_schedule.py -q  (x3)",
+              "excerpt": "81 passed in 0.09s",
+              "note": ""
+            }
+          ]
+        }
+      ],
+      "enforcement": [],
+      "gaming_flags": [],
+      "target": 9,
+      "path_to_target": [
+        {
+          "id": "A4-act-1",
+          "action": "Make Job.do() idempotent: if self is already in scheduler.jobs, update job_func instead of appending again; add a test",
+          "resolves": [
+            "A4-001"
+          ],
+          "expected_new_score": 7,
+          "effort": "S",
+          "requires_human_decision": false,
+          "decision_question": null,
+          "optional": false
+        },
+        {
+          "id": "A4-act-2",
+          "action": "Add an optional clock (callable returning now) and random.Random instance to Scheduler, passed to its jobs; switch tests from patching datetime.datetime to an injected fake clock",
+          "resolves": [
+            "A4-002"
+          ],
+          "expected_new_score": 8,
+          "effort": "M",
+          "requires_human_decision": false,
+          "decision_question": null,
+          "optional": false
+        }
+      ],
+      "previous_score": null,
+      "change_explanation": null
+    },
+    {
+      "id": "A5",
+      "name": "Durability & Recoverability",
+      "pillar": "A",
+      "applicability": "not_applicable",
+      "applicability_reason": "No persistent state by design: jobs are declared in code and rebuilt at startup; docs list job persistence under 'When not to use Schedule'.",
+      "config_weight": 1,
+      "weight": 0,
+      "weight_note": null,
+      "score": null,
+      "confidence": "high",
+      "carried_forward": false,
+      "caps_applied": [],
+      "finding_ids": [],
+      "strengths": [],
+      "enforcement": [],
+      "gaming_flags": [],
+      "target": null,
+      "path_to_target": [],
+      "previous_score": null,
+      "change_explanation": null
+    },
+    {
+      "id": "B1",
+      "name": "Architecture & Design Fitness",
+      "pillar": "B",
+      "applicability": "full",
+      "applicability_reason": null,
+      "config_weight": 3,
+      "weight": 3,
+      "weight_note": null,
+      "score": 7,
+      "confidence": "medium",
+      "carried_forward": false,
+      "caps_applied": [],
+      "finding_ids": [
+        "B1-001"
+      ],
+      "strengths": [
+        {
+          "note": "A small, fitting design: a Scheduler that owns jobs, a fluent Job builder, and a thin module-level facade",
+          "evidence": [
+            {
+              "type": "code",
+              "file": "schedule/__init__.py",
+              "lines": "843-845",
+              "quote": "def every(interval: int = 1) -> Job:\n\"\"\"Calls :meth:`every <Scheduler.every>` on the\n:data:`default scheduler instance <default_scheduler>`.",
+              "note": "facade delegates to the default scheduler"
+            }
+          ]
+        }
+      ],
+      "enforcement": [],
+      "gaming_flags": [],
+      "target": 10,
+      "path_to_target": [
+        {
+          "id": "B1-act-1",
+          "action": "Isolate timezone conversion behind a small internal helper (normalize/localize) so Job no longer calls pytz APIs directly",
+          "resolves": [
+            "B1-001"
+          ],
+          "expected_new_score": 8,
+          "effort": "M",
+          "requires_human_decision": false,
+          "decision_question": null,
+          "optional": false
+        }
+      ],
+      "previous_score": null,
+      "change_explanation": null
+    },
+    {
+      "id": "B2",
+      "name": "Modularity & Decoupling",
+      "pillar": "B",
+      "applicability": "full",
+      "applicability_reason": null,
+      "config_weight": 3,
+      "weight": 3,
+      "weight_note": null,
+      "score": 7,
+      "confidence": "medium",
+      "carried_forward": false,
+      "caps_applied": [],
+      "finding_ids": [
+        "B2-001"
+      ],
+      "strengths": [
+        {
+          "note": "Scheduler instances are independent; multiple schedulers are supported and documented",
+          "evidence": [
+            {
+              "type": "code",
+              "file": "schedule/__init__.py",
+              "lines": "86-87",
+              "quote": "def __init__(self) -> None:\nself.jobs: List[Job] = []",
+              "note": "state is per instance"
+            }
+          ]
+        }
+      ],
+      "enforcement": [],
+      "gaming_flags": [],
+      "target": 10,
+      "path_to_target": [
+        {
+          "id": "B2-act-1",
+          "action": "Deprecate the module-level `jobs` alias in favour of get_jobs(), emitting a DeprecationWarning on access via module __getattr__",
+          "resolves": [
+            "B2-001"
+          ],
+          "expected_new_score": 8,
+          "effort": "S",
+          "requires_human_decision": true,
+          "decision_question": "Approve deprecating the public module-level `schedule.jobs` list in favour of `schedule.get_jobs()`?",
+          "optional": false
+        }
+      ],
+      "previous_score": null,
+      "change_explanation": null
+    },
+    {
+      "id": "B3",
+      "name": "Structure & Organization",
+      "pillar": "B",
+      "applicability": "full",
+      "applicability_reason": null,
+      "config_weight": 1,
+      "weight": 1,
+      "weight_note": null,
+      "score": 8,
+      "confidence": "high",
+      "carried_forward": false,
+      "caps_applied": [],
+      "finding_ids": [],
+      "strengths": [
+        {
+          "note": "Tidy single-package layout with tests, docs and CI cleanly separated",
+          "evidence": [
+            {
+              "type": "absence",
+              "searched": "misplaced or junk files",
+              "method": "git ls-files; read MANIFEST.in",
+              "note": "31 tracked files, all in expected places"
+            }
+          ]
+        }
+      ],
+      "enforcement": [],
+      "gaming_flags": [],
+      "target": 8,
+      "path_to_target": [],
+      "previous_score": null,
+      "change_explanation": null
+    },
+    {
+      "id": "B4",
+      "name": "Interface Design & Contracts",
+      "pillar": "B",
+      "applicability": "full",
+      "applicability_reason": null,
+      "config_weight": 3,
+      "weight": 3,
+      "weight_note": null,
+      "score": 5,
+      "confidence": "high",
+      "carried_forward": false,
+      "caps_applied": [],
+      "finding_ids": [
+        "B4-001",
+        "B4-002"
+      ],
+      "strengths": [
+        {
+          "note": "Default mypy passes and runtime validation is thorough",
+          "evidence": [
+            {
+              "type": "command",
+              "command": "python -m mypy -p schedule",
+              "excerpt": "Success: no issues found in 1 source file",
+              "note": ""
+            }
+          ]
+        }
+      ],
+      "enforcement": [],
+      "gaming_flags": [],
+      "target": 10,
+      "path_to_target": [
+        {
+          "id": "B4-act-1",
+          "action": "Annotate every Job property and builder method to return 'Job' (and the remaining helpers), then switch setup.cfg [mypy] to strict = True and keep CI green",
+          "resolves": [
+            "B4-001"
+          ],
+          "expected_new_score": 8,
+          "effort": "M",
+          "requires_human_decision": false,
+          "decision_question": null,
+          "optional": false
+        },
+        {
+          "id": "B4-act-2",
+          "action": "Introduce Literal types for unit and start_day",
+          "resolves": [
+            "B4-002"
+          ],
+          "expected_new_score": 8,
+          "effort": "S",
+          "requires_human_decision": false,
+          "decision_question": null,
+          "optional": false
+        }
+      ],
+      "previous_score": null,
+      "change_explanation": null
+    },
+    {
+      "id": "B5",
+      "name": "Flexibility & Extensibility",
+      "pillar": "B",
+      "applicability": "full",
+      "applicability_reason": null,
+      "config_weight": 1,
+      "weight": 1,
+      "weight_note": null,
+      "score": 6,
+      "confidence": "medium",
+      "carried_forward": false,
+      "caps_applied": [],
+      "finding_ids": [
+        "B5-001"
+      ],
+      "strengths": [
+        {
+          "note": "Multiple schedulers and the repeat decorator let users extend behavior without forking",
+          "evidence": [
+            {
+              "type": "code",
+              "file": "schedule/__init__.py",
+              "lines": "909-911",
+              "quote": "def _schedule_decorator(decorated_function):\njob.do(decorated_function, *args, **kwargs)\nreturn decorated_function",
+              "note": "decorator built on the same Job API"
+            }
+          ]
+        }
+      ],
+      "enforcement": [],
+      "gaming_flags": [],
+      "target": 8,
+      "path_to_target": [
+        {
+          "id": "B5-act-1",
+          "action": "Define the supported units once (a module constant) and derive at()'s and _schedule_next_run's checks from it",
+          "resolves": [
+            "B5-001"
+          ],
+          "expected_new_score": 7,
+          "effort": "S",
+          "requires_human_decision": false,
+          "decision_question": null,
+          "optional": false
+        }
+      ],
+      "previous_score": null,
+      "change_explanation": null
+    },
+    {
+      "id": "B6",
+      "name": "Leanness",
+      "pillar": "B",
+      "applicability": "full",
+      "applicability_reason": null,
+      "config_weight": 2,
+      "weight": 2,
+      "weight_note": null,
+      "score": 9,
+      "confidence": "high",
+      "carried_forward": false,
+      "caps_applied": [],
+      "finding_ids": [],
+      "strengths": [
+        {
+          "note": "No runtime dependencies and about 510 source lines for the whole feature set; vulture finds only public API",
+          "evidence": [
+            {
+              "type": "command",
+              "command": "python -c 'import tomllib; ...[\"project\"][\"dependencies\"]'",
+              "excerpt": "[]",
+              "note": ""
+            },
+            {
+              "type": "command",
+              "command": "vulture schedule --min-confidence 60",
+              "excerpt": "schedule/__init__.py:471: unused method 'at' (60% confidence)",
+              "note": "all hits are public API used by callers"
+            }
+          ]
+        }
+      ],
+      "enforcement": [],
+      "gaming_flags": [],
+      "target": 9,
+      "path_to_target": [],
+      "previous_score": null,
+      "change_explanation": null
+    },
+    {
+      "id": "C1",
+      "name": "Readability & Clarity",
+      "pillar": "C",
+      "applicability": "full",
+      "applicability_reason": null,
+      "config_weight": 2,
+      "weight": 2,
+      "weight_note": null,
+      "score": 7,
+      "confidence": "medium",
+      "carried_forward": false,
+      "caps_applied": [],
+      "finding_ids": [
+        "C1-001"
+      ],
+      "strengths": [
+        {
+          "note": "Docstrings on every public method explain behavior and edge cases",
+          "evidence": [
+            {
+              "type": "code",
+              "file": "schedule/__init__.py",
+              "lines": "93-95",
+              "quote": "Please note that it is *intended behavior that run_pending()\ndoes not run missed jobs*. For example, if you've registered a job\nthat should run every minute and you only call run_pending()",
+              "note": "documents the missed-run policy"
+            }
+          ]
+        }
+      ],
+      "enforcement": [],
+      "gaming_flags": [],
+      "target": 9,
+      "path_to_target": [
+        {
+          "id": "C1-act-1",
+          "action": "Split Job.at() into _validate_at_format(unit, time_str) and _parse_at_time(...) -> datetime.time, using int-only locals",
+          "resolves": [
+            "C1-001"
+          ],
+          "expected_new_score": 8,
+          "effort": "S",
+          "requires_human_decision": false,
+          "decision_question": null,
+          "optional": false
+        }
+      ],
+      "previous_score": null,
+      "change_explanation": null
+    },
+    {
+      "id": "C2",
+      "name": "Maintainability & Complexity",
+      "pillar": "C",
+      "applicability": "full",
+      "applicability_reason": null,
+      "config_weight": 3,
+      "weight": 3,
+      "weight_note": null,
+      "score": 7,
+      "confidence": "high",
+      "carried_forward": false,
+      "caps_applied": [],
+      "finding_ids": [
+        "C2-001",
+        "C2-002"
+      ],
+      "strengths": [
+        {
+          "note": "Average complexity is low (A, 2.75) and there is only one TODO",
+          "evidence": [
+            {
+              "type": "command",
+              "command": "radon cc schedule -s -a",
+              "excerpt": "Average complexity: A (2.75)",
+              "note": ""
+            }
+          ]
+        }
+      ],
+      "enforcement": [],
+      "gaming_flags": [],
+      "target": 10,
+      "path_to_target": [
+        {
+          "id": "C2-act-1",
+          "action": "Generate the seven weekday properties from one helper (e.g. a _weekday(name) factory) with a single error message",
+          "resolves": [
+            "C2-001"
+          ],
+          "expected_new_score": 8,
+          "effort": "S",
+          "requires_human_decision": false,
+          "decision_question": null,
+          "optional": false
+        },
+        {
+          "id": "C2-act-2",
+          "action": "Reduce Job.at() below complexity 10 by splitting it as in C1-act-1, and add a radon/xenon complexity gate to CI",
+          "resolves": [
+            "C2-002"
+          ],
+          "expected_new_score": 9,
+          "effort": "M",
+          "requires_human_decision": false,
+          "decision_question": null,
+          "optional": false
+        }
+      ],
+      "previous_score": null,
+      "change_explanation": null
+    },
+    {
+      "id": "C3",
+      "name": "Consistency & Idiomatic Code",
+      "pillar": "C",
+      "applicability": "full",
+      "applicability_reason": null,
+      "config_weight": 2,
+      "weight": 2,
+      "weight_note": null,
+      "score": 8,
+      "confidence": "high",
+      "carried_forward": false,
+      "caps_applied": [],
+      "finding_ids": [
+        "C3-001"
+      ],
+      "strengths": [
+        {
+          "note": "black --check enforced in CI at the pinned version",
+          "evidence": [
+            {
+              "type": "code",
+              "file": ".github/workflows/ci.yml",
+              "lines": "77-78",
+              "quote": "- name: Check formatting\nrun: tox -e format",
+              "note": "formatting job"
+            },
+            {
+              "type": "command",
+              "command": "black==20.8b1 --check .",
+              "excerpt": "4 files would be left unchanged.",
+              "note": ""
+            }
+          ]
+        }
+      ],
+      "enforcement": [],
+      "gaming_flags": [],
+      "target": 9,
+      "path_to_target": [
+        {
+          "id": "C3-act-1",
+          "action": "Use f-strings consistently for messages and keep %-style only for logger arguments",
+          "resolves": [
+            "C3-001"
+          ],
+          "expected_new_score": 9,
+          "effort": "S",
+          "requires_human_decision": false,
+          "decision_question": null,
+          "optional": false
+        }
+      ],
+      "previous_score": null,
+      "change_explanation": null
+    },
+    {
+      "id": "C4",
+      "name": "Test Suite Quality",
+      "pillar": "C",
+      "applicability": "full",
+      "applicability_reason": null,
+      "config_weight": 2,
+      "weight": 2,
+      "weight_note": null,
+      "score": 8,
+      "confidence": "high",
+      "carried_forward": false,
+      "caps_applied": [],
+      "finding_ids": [
+        "C4-001"
+      ],
+      "strengths": [
+        {
+          "note": "99% line / 97% branch coverage, deterministic, run on six Python versions with and without pytz",
+          "evidence": [
+            {
+              "type": "command",
+              "command": "python -m pytest test_schedule.py schedule -q --cov schedule --cov-branch --cov-report term-missing",
+              "excerpt": "schedule/__init__.py     385      3    144      4    99%   552->555, 659, 755, 800",
+              "note": ""
+            },
+            {
+              "type": "code",
+              "file": "tox.ini",
+              "lines": "2",
+              "quote": "envlist = py3{7,8,9,10,11,12}{,-pytz}",
+              "note": "matrix with and without pytz"
+            }
+          ]
+        }
+      ],
+      "enforcement": [],
+      "gaming_flags": [],
+      "target": 9,
+      "path_to_target": [
+        {
+          "id": "C4-act-1",
+          "action": "Add tests for a job that raises: the exception propagates, the job's next_run moves forward and other due jobs still run (pairs with A3-act-1)",
+          "resolves": [
+            "C4-001"
+          ],
+          "expected_new_score": 9,
+          "effort": "S",
+          "requires_human_decision": false,
+          "decision_question": null,
+          "optional": false
+        }
+      ],
+      "previous_score": null,
+      "change_explanation": null
+    },
+    {
+      "id": "D1",
+      "name": "Feature Completeness",
+      "pillar": "D",
+      "applicability": "full",
+      "applicability_reason": null,
+      "config_weight": 2,
+      "weight": 2,
+      "weight_note": null,
+      "score": 9,
+      "confidence": "medium",
+      "carried_forward": false,
+      "caps_applied": [],
+      "finding_ids": [],
+      "strengths": [
+        {
+          "note": "Every feature in README and docs exercised by tests and works end to end (timezones with the documented pytz extra)",
+          "evidence": [
+            {
+              "type": "command",
+              "command": "python -m pytest test_schedule.py schedule -q --cov schedule --cov-branch --cov-report term-missing",
+              "excerpt": "81 passed in 0.58s",
+              "note": ""
+            },
+            {
+              "type": "code",
+              "file": "pyproject.toml",
+              "lines": "19-20",
+              "quote": "[project.optional-dependencies]\ntimezone = [\"pytz\"]",
+              "note": "timezone extra declared"
+            }
+          ]
+        }
+      ],
+      "enforcement": [],
+      "gaming_flags": [],
+      "target": 9,
+      "path_to_target": [],
+      "previous_score": null,
+      "change_explanation": null
+    },
+    {
+      "id": "D2",
+      "name": "Gap Coverage",
+      "pillar": "D",
+      "applicability": "full",
+      "applicability_reason": null,
+      "config_weight": 2,
+      "weight": 2,
+      "weight_note": null,
+      "score": 8,
+      "confidence": "medium",
+      "carried_forward": false,
+      "caps_applied": [],
+      "finding_ids": [
+        "D2-001"
+      ],
+      "strengths": [
+        {
+          "note": "Scope boundaries are documented explicitly",
+          "evidence": [
+            {
+              "type": "code",
+              "file": "docs/index.rst",
+              "lines": "59-61",
+              "quote": "* Job persistence (remember schedule between restarts)\n* Exact timing (sub-second precision execution)\n* Concurrent execution (multiple threads)",
+              "note": "the 'When not to use Schedule' list"
+            }
+          ]
+        }
+      ],
+      "enforcement": [],
+      "gaming_flags": [],
+      "target": 9,
+      "path_to_target": [
+        {
+          "id": "D2-act-1",
+          "action": "Accept zoneinfo.ZoneInfo (and any tzinfo) in at() alongside pytz, keeping pytz optional; add tests on 3.9+",
+          "resolves": [
+            "D2-001"
+          ],
+          "expected_new_score": 9,
+          "effort": "M",
+          "requires_human_decision": true,
+          "decision_question": "Support standard-library zoneinfo alongside pytz in 1.x, or migrate fully to zoneinfo and drop pytz in a 2.0?",
+          "optional": false
+        }
+      ],
+      "previous_score": null,
+      "change_explanation": null
+    },
+    {
+      "id": "D3",
+      "name": "Practicality",
+      "pillar": "D",
+      "applicability": "full",
+      "applicability_reason": null,
+      "config_weight": 2,
+      "weight": 2,
+      "weight_note": null,
+      "score": 9,
+      "confidence": "medium",
+      "carried_forward": false,
+      "caps_applied": [],
+      "finding_ids": [],
+      "strengths": [
+        {
+          "note": "Pragmatic in-process design with trade-offs documented (missed runs, persistence, threads)",
+          "evidence": [
+            {
+              "type": "code",
+              "file": "schedule/__init__.py",
+              "lines": "93-95",
+              "quote": "Please note that it is *intended behavior that run_pending()\ndoes not run missed jobs*. For example, if you've registered a job\nthat should run every minute and you only call run_pending()",
+              "note": "missed-run behavior documented"
+            },
+            {
+              "type": "code",
+              "file": "docs/index.rst",
+              "lines": "59-61",
+              "quote": "* Job persistence (remember schedule between restarts)\n* Exact timing (sub-second precision execution)\n* Concurrent execution (multiple threads)",
+              "note": "honest scope"
+            }
+          ]
+        }
+      ],
+      "enforcement": [],
+      "gaming_flags": [],
+      "target": 9,
+      "path_to_target": [],
+      "previous_score": null,
+      "change_explanation": null
+    },
+    {
+      "id": "D4",
+      "name": "Intuitiveness",
+      "pillar": "D",
+      "applicability": "full",
+      "applicability_reason": null,
+      "config_weight": 2,
+      "weight": 2,
+      "weight_note": null,
+      "score": 8,
+      "confidence": "medium",
+      "carried_forward": false,
+      "caps_applied": [],
+      "finding_ids": [
+        "D4-001"
+      ],
+      "strengths": [
+        {
+          "note": "The fluent API reads like English and rejects nonsense early",
+          "evidence": [
+            {
+              "type": "code",
+              "file": "schedule/__init__.py",
+              "lines": "383-385",
+              "quote": "raise IntervalError(\n\"Scheduling .monday() jobs is only allowed for weekly jobs. \"\n\"Using .monday() on a job scheduled to run every 2 or more weeks \"",
+              "note": "explains why every(2).monday is rejected"
+            }
+          ]
+        }
+      ],
+      "enforcement": [],
+      "gaming_flags": [],
+      "target": 9,
+      "path_to_target": [
+        {
+          "id": "D4-act-1",
+          "action": "When until() gets a time-only string that has already passed today, either roll it to tomorrow or raise a message that says so; document the choice",
+          "resolves": [
+            "D4-001"
+          ],
+          "expected_new_score": 9,
+          "effort": "S",
+          "requires_human_decision": true,
+          "decision_question": "Should until('HH:MM') earlier than now mean tomorrow, or keep raising with a clearer message?",
+          "optional": false
+        }
+      ],
+      "previous_score": null,
+      "change_explanation": null
+    },
+    {
+      "id": "E1",
+      "name": "Adopter Friendliness",
+      "pillar": "E",
+      "applicability": "full",
+      "applicability_reason": null,
+      "config_weight": 3,
+      "weight": 3,
+      "weight_note": null,
+      "score": 4,
+      "confidence": "high",
+      "carried_forward": false,
+      "caps_applied": [
+        "Quickstart fails → max 4"
+      ],
+      "finding_ids": [
+        "E1-001"
+      ],
+      "strengths": [
+        {
+          "note": "Standard pip install, MIT license, runnable examples in docs",
+          "evidence": [
+            {
+              "type": "code",
+              "file": "README.rst",
+              "lines": "27",
+              "quote": "$ pip install schedule",
+              "note": "one-line install"
+            },
+            {
+              "type": "code",
+              "file": "setup.py",
+              "lines": "24",
+              "quote": "license=\"MIT\",",
+              "note": "license declared"
+            }
+          ]
+        }
+      ],
+      "enforcement": [],
+      "gaming_flags": [],
+      "target": 10,
+      "path_to_target": [
+        {
+          "id": "E1-act-1",
+          "action": "In README.rst and docs/index.rst, either move the timezone line into a separate example preceded by `pip install schedule[timezone]`, or add that install line to the quickstart; run the README snippet in CI (e.g. a doctest or script step)",
+          "resolves": [
+            "E1-001"
+          ],
+          "expected_new_score": 8,
+          "effort": "S",
+          "requires_human_decision": false,
+          "decision_question": null,
+          "optional": false
+        }
+      ],
+      "previous_score": null,
+      "change_explanation": null
+    },
+    {
+      "id": "E2",
+      "name": "Documentation",
+      "pillar": "E",
+      "applicability": "full",
+      "applicability_reason": null,
+      "config_weight": 3,
+      "weight": 3,
+      "weight_note": null,
+      "score": 5,
+      "confidence": "high",
+      "carried_forward": false,
+      "caps_applied": [
+        "Wrong setup instructions → max 5"
+      ],
+      "finding_ids": [
+        "E2-001",
+        "E2-002"
+      ],
+      "strengths": [
+        {
+          "note": "Layered docs on Read the Docs: examples, timezones, exception handling, FAQ, autodoc reference, changelog; built with -W in CI",
+          "evidence": [
+            {
+              "type": "code",
+              "file": ".github/workflows/ci.yml",
+              "lines": "64-65",
+              "quote": "- name: Check docs\nrun: tox -e docs",
+              "note": "docs built in CI"
+            },
+            {
+              "type": "command",
+              "command": "sphinx-build -W -b html . _build",
+              "excerpt": "exit 0",
+              "note": ""
+            }
+          ]
+        }
+      ],
+      "enforcement": [],
+      "gaming_flags": [],
+      "target": 10,
+      "path_to_target": [
+        {
+          "id": "E2-act-1",
+          "action": "Fix docs/development.rst: replace the --flake8 command with `tox` (or `pytest test_schedule.py`) and `flake8 schedule`, and drop the black 20.8b1 instruction once F6-act-2 lands",
+          "resolves": [
+            "E2-001"
+          ],
+          "expected_new_score": 8,
+          "effort": "S",
+          "requires_human_decision": false,
+          "decision_question": null,
+          "optional": false
+        },
+        {
+          "id": "E2-act-2",
+          "action": "Correct README feature bullets: say timezone support needs `schedule[timezone]`; fix 'Tested on Python and 3.7' to the versions CI actually runs",
+          "resolves": [
+            "E2-002"
+          ],
+          "expected_new_score": 8,
+          "effort": "S",
+          "requires_human_decision": false,
+          "decision_question": null,
+          "optional": false
+        }
+      ],
+      "previous_score": null,
+      "change_explanation": null
+    },
+    {
+      "id": "E3",
+      "name": "Developer Experience & Inner Loop",
+      "pillar": "E",
+      "applicability": "full",
+      "applicability_reason": null,
+      "config_weight": 2,
+      "weight": 2,
+      "weight_note": null,
+      "score": 5,
+      "confidence": "high",
+      "carried_forward": false,
+      "caps_applied": [],
+      "finding_ids": [
+        "E3-001"
+      ],
+      "strengths": [
+        {
+          "note": "Tests are tiny and fast; tox covers every environment",
+          "evidence": [
+            {
+              "type": "command",
+              "command": "python -m pytest test_schedule.py -q",
+              "excerpt": "81 passed in 0.09s",
+              "note": ""
+            }
+          ]
+        }
+      ],
+      "enforcement": [],
+      "gaming_flags": [],
+      "target": 9,
+      "path_to_target": [
+        {
+          "id": "E3-act-1",
+          "action": "Remove pytest-flake8 from requirements-dev.txt, add flake8 (or ruff) as its own tox env, and pin dev tools with a constraints file",
+          "resolves": [
+            "E3-001"
+          ],
+          "expected_new_score": 8,
+          "effort": "S",
+          "requires_human_decision": false,
+          "decision_question": null,
+          "optional": false
+        }
+      ],
+      "previous_score": null,
+      "change_explanation": null
+    },
+    {
+      "id": "E4",
+      "name": "Native Tooling & Ecosystem Fit",
+      "pillar": "E",
+      "applicability": "full",
+      "applicability_reason": null,
+      "config_weight": 2,
+      "weight": 2,
+      "weight_note": null,
+      "score": 7,
+      "confidence": "high",
+      "carried_forward": false,
+      "caps_applied": [],
+      "finding_ids": [
+        "E4-001"
+      ],
+      "strengths": [
+        {
+          "note": "Standard ecosystem tools throughout: pytest, tox, mypy, black, Sphinx, wheel builds",
+          "evidence": [
+            {
+              "type": "code",
+              "file": "tox.ini",
+              "lines": "22-24",
+              "quote": "commands =\npy.test test_schedule.py schedule -v --cov schedule --cov-report term-missing\npython -m mypy -p schedule --install-types --non-interactive",
+              "note": "standard test env"
+            }
+          ]
+        }
+      ],
+      "enforcement": [],
+      "gaming_flags": [],
+      "target": 9,
+      "path_to_target": [
+        {
+          "id": "E4-act-1",
+          "action": "Move all metadata (version, classifiers, keywords, authors) into pyproject.toml, read the version in docs/conf.py from package metadata, delete setup.py, and replace `setup.py check` with `python -m build && twine check dist/*`",
+          "resolves": [
+            "E4-001"
+          ],
+          "expected_new_score": 9,
+          "effort": "M",
+          "requires_human_decision": false,
+          "decision_question": null,
+          "optional": false
+        }
+      ],
+      "previous_score": null,
+      "change_explanation": null
+    },
+    {
+      "id": "F1",
+      "name": "Ease of Deployability",
+      "pillar": "F",
+      "applicability": "full",
+      "applicability_reason": null,
+      "config_weight": 1,
+      "weight": 1,
+      "weight_note": null,
+      "score": 6,
+      "confidence": "medium",
+      "carried_forward": false,
+      "caps_applied": [],
+      "finding_ids": [
+        "F1-001"
+      ],
+      "strengths": [
+        {
+          "note": "The release procedure is written down",
+          "evidence": [
+            {
+              "type": "code",
+              "file": "docs/development.rst",
+              "lines": "53",
+              "quote": "Bump the version in ``setup.py`` and ``docs/conf.py``.",
+              "note": "documented steps"
+            }
+          ]
+        }
+      ],
+      "enforcement": [],
+      "gaming_flags": [],
+      "target": 8,
+      "path_to_target": [
+        {
+          "id": "F1-act-1",
+          "action": "Add a tag-triggered GitHub Actions workflow that builds and publishes to PyPI via trusted publishing; single-source the version",
+          "resolves": [
+            "F1-001"
+          ],
+          "expected_new_score": 8,
+          "effort": "M",
+          "requires_human_decision": true,
+          "decision_question": "Set up PyPI trusted publishing from GitHub Actions for releases?",
+          "optional": false
+        }
+      ],
+      "previous_score": null,
+      "change_explanation": null
+    },
+    {
+      "id": "F2",
+      "name": "Build, CI/CD & Automation",
+      "pillar": "F",
+      "applicability": "full",
+      "applicability_reason": null,
+      "config_weight": 3,
+      "weight": 3,
+      "weight_note": null,
+      "score": 7,
+      "confidence": "medium",
+      "carried_forward": false,
+      "caps_applied": [],
+      "finding_ids": [
+        "F2-001"
+      ],
+      "strengths": [
+        {
+          "note": "CI gates tests on six Python versions plus mypy, docs, formatting and packaging checks",
+          "evidence": [
+            {
+              "type": "code",
+              "file": ".github/workflows/ci.yml",
+              "lines": "17",
+              "quote": "python-version: ['3.7', '3.8', '3.9', '3.10', '3.11', '3.12']",
+              "note": "version matrix"
+            },
+            {
+              "type": "code",
+              "file": "tox.ini",
+              "lines": "23-24",
+              "quote": "py.test test_schedule.py schedule -v --cov schedule --cov-report term-missing\npython -m mypy -p schedule --install-types --non-interactive",
+              "note": "pytest with coverage, then mypy"
+            }
+          ]
+        }
+      ],
+      "enforcement": [],
+      "gaming_flags": [],
+      "target": 10,
+      "path_to_target": [
+        {
+          "id": "F2-act-1",
+          "action": "Add a lint job (flake8 or ruff) and pip caching to CI; release automation via F1-act-1",
+          "resolves": [
+            "F2-001"
+          ],
+          "expected_new_score": 8,
+          "effort": "S",
+          "requires_human_decision": false,
+          "decision_question": null,
+          "optional": false
+        }
+      ],
+      "previous_score": null,
+      "change_explanation": null
+    },
+    {
+      "id": "F3",
+      "name": "Observability & Debuggability",
+      "pillar": "F",
+      "applicability": "limited",
+      "applicability_reason": "An in-process library of about 500 lines with no service surface; logging is the only relevant signal. Would be fully relevant if it ran as a daemon.",
+      "config_weight": 1,
+      "weight": 1,
+      "weight_note": null,
+      "score": 7,
+      "confidence": "medium",
+      "carried_forward": false,
+      "caps_applied": [],
+      "finding_ids": [],
+      "strengths": [
+        {
+          "note": "Uses a named 'schedule' logger with debug messages for runs and cancellations, documented in docs/logging.rst",
+          "evidence": [
+            {
+              "type": "code",
+              "file": "schedule/__init__.py",
+              "lines": "50",
+              "quote": "logger = logging.getLogger(\"schedule\")",
+              "note": "named logger"
+            },
+            {
+              "type": "code",
+              "file": "schedule/__init__.py",
+              "lines": "690",
+              "quote": "logger.debug(\"Running job %s\", self)",
+              "note": "each run logged"
+            }
+          ]
+        }
+      ],
+      "enforcement": [],
+      "gaming_flags": [],
+      "target": 8,
+      "path_to_target": [
+        {
+          "id": "F3-act-1",
+          "action": "Log at warning level, with the job repr, when a job raises before the exception propagates",
+          "resolves": [],
+          "expected_new_score": 8,
+          "effort": "S",
+          "requires_human_decision": false,
+          "decision_question": null,
+          "optional": true
+        }
+      ],
+      "previous_score": null,
+      "change_explanation": null
+    },
+    {
+      "id": "F4",
+      "name": "Performance, Efficiency & Scalability",
+      "pillar": "F",
+      "applicability": "full",
+      "applicability_reason": null,
+      "config_weight": 1,
+      "weight": 1,
+      "weight_note": null,
+      "score": 8,
+      "confidence": "medium",
+      "carried_forward": false,
+      "caps_applied": [],
+      "finding_ids": [],
+      "strengths": [
+        {
+          "note": "Hot path is one pass over the job list per tick; fine at the documented scale",
+          "evidence": [
+            {
+              "type": "code",
+              "file": "schedule/__init__.py",
+              "lines": "99-101",
+              "quote": "runnable_jobs = (job for job in self.jobs if job.should_run)\nfor job in sorted(runnable_jobs):\nself._run_job(job)",
+              "note": "filter then sort due jobs"
+            }
+          ]
+        }
+      ],
+      "enforcement": [],
+      "gaming_flags": [],
+      "target": 8,
+      "path_to_target": [],
+      "previous_score": null,
+      "change_explanation": null
+    },
+    {
+      "id": "F5",
+      "name": "Portability",
+      "pillar": "F",
+      "applicability": "full",
+      "applicability_reason": null,
+      "config_weight": 2,
+      "weight": 2,
+      "weight_note": null,
+      "score": 7,
+      "confidence": "medium",
+      "carried_forward": false,
+      "caps_applied": [],
+      "finding_ids": [
+        "F5-001"
+      ],
+      "strengths": [
+        {
+          "note": "Pure Python with no platform calls in the library",
+          "evidence": [
+            {
+              "type": "absence",
+              "searched": "os/platform/subprocess use in schedule/",
+              "method": "grep -n 'import os\\|subprocess\\|platform' schedule/__init__.py",
+              "note": "none found"
+            }
+          ]
+        }
+      ],
+      "enforcement": [],
+      "gaming_flags": [],
+      "target": 9,
+      "path_to_target": [
+        {
+          "id": "F5-act-1",
+          "action": "Make the timezone tests skip time.tzset() on Windows (or use zoneinfo-based fixtures) and add windows-latest and macos-latest to the CI matrix",
+          "resolves": [
+            "F5-001"
+          ],
+          "expected_new_score": 9,
+          "effort": "M",
+          "requires_human_decision": false,
+          "decision_question": null,
+          "optional": false
+        }
+      ],
+      "previous_score": null,
+      "change_explanation": null
+    },
+    {
+      "id": "F6",
+      "name": "Dependency Health & Longevity",
+      "pillar": "F",
+      "applicability": "full",
+      "applicability_reason": null,
+      "config_weight": 2,
+      "weight": 2,
+      "weight_note": null,
+      "score": 5,
+      "confidence": "high",
+      "carried_forward": false,
+      "caps_applied": [],
+      "finding_ids": [
+        "F6-001",
+        "F6-002",
+        "F6-003"
+      ],
+      "strengths": [
+        {
+          "note": "Zero runtime dependencies; pytz is an optional extra",
+          "evidence": [
+            {
+              "type": "code",
+              "file": "pyproject.toml",
+              "lines": "13",
+              "quote": "dependencies = []",
+              "note": "no install-time dependencies"
+            }
+          ]
+        }
+      ],
+      "enforcement": [],
+      "gaming_flags": [],
+      "target": 9,
+      "path_to_target": [
+        {
+          "id": "F6-act-1",
+          "action": "Switch to `license = \"MIT\"` (SPDX) with `license-files`, drop the License classifier, and require setuptools>=77 in build-system",
+          "resolves": [
+            "F6-001"
+          ],
+          "expected_new_score": 7,
+          "effort": "S",
+          "requires_human_decision": false,
+          "decision_question": null,
+          "optional": false
+        },
+        {
+          "id": "F6-act-2",
+          "action": "Upgrade black (and click pin) to a current release, reformat once, and add Dependabot for pip and GitHub Actions",
+          "resolves": [
+            "F6-002"
+          ],
+          "expected_new_score": 8,
+          "effort": "S",
+          "requires_human_decision": false,
+          "decision_question": null,
+          "optional": false
+        },
+        {
+          "id": "F6-act-3",
+          "action": "Drop Python 3.7 and 3.8 from python_requires, classifiers, tox and CI; add 3.13",
+          "resolves": [
+            "F6-003"
+          ],
+          "expected_new_score": 9,
+          "effort": "S",
+          "requires_human_decision": true,
+          "decision_question": "Approve dropping Python 3.7 and 3.8 support in the next minor release?",
+          "optional": false
+        }
+      ],
+      "previous_score": null,
+      "change_explanation": null
+    },
+    {
+      "id": "X1",
+      "name": "Accessibility, UX & Internationalization",
+      "pillar": "X",
+      "applicability": "not_applicable",
+      "applicability_reason": "Library with no user interface.",
+      "config_weight": 2,
+      "weight": 0,
+      "weight_note": null,
+      "score": null,
+      "confidence": "high",
+      "carried_forward": false,
+      "caps_applied": [],
+      "finding_ids": [],
+      "strengths": [],
+      "enforcement": [],
+      "gaming_flags": [],
+      "target": null,
+      "path_to_target": [],
+      "previous_score": null,
+      "change_explanation": null
+    },
+    {
+      "id": "X2",
+      "name": "Public API Stability & Upgradeability",
+      "pillar": "X",
+      "applicability": "full",
+      "applicability_reason": null,
+      "config_weight": 3,
+      "weight": 3,
+      "weight_note": null,
+      "score": 7,
+      "confidence": "medium",
+      "carried_forward": false,
+      "caps_applied": [],
+      "finding_ids": [
+        "X2-001"
+      ],
+      "strengths": [
+        {
+          "note": "Semantic versioning with a detailed changelog that calls out behavior-changing fixes",
+          "evidence": [
+            {
+              "type": "code",
+              "file": "HISTORY.rst",
+              "lines": "6",
+              "quote": "1.2.2 (2024-05-25)",
+              "note": "dated releases"
+            }
+          ]
+        }
+      ],
+      "enforcement": [],
+      "gaming_flags": [],
+      "target": 10,
+      "path_to_target": [
+        {
+          "id": "X2-act-1",
+          "action": "Declare __all__ with the public API and add a short deprecation policy (DeprecationWarning for one minor release before removal) to the docs",
+          "resolves": [
+            "X2-001"
+          ],
+          "expected_new_score": 9,
+          "effort": "S",
+          "requires_human_decision": true,
+          "decision_question": "Approve declaring __all__ (it changes what `from schedule import *` exports)?",
+          "optional": false
+        }
+      ],
+      "previous_score": null,
+      "change_explanation": null
+    },
+    {
+      "id": "X3",
+      "name": "Concurrency Safety",
+      "pillar": "X",
+      "applicability": "limited",
+      "applicability_reason": "The scheduler is single-threaded by design; concurrency only arises when users run job bodies on threads, as the docs show.",
+      "config_weight": 2,
+      "weight": 1,
+      "weight_note": null,
+      "score": 7,
+      "confidence": "medium",
+      "carried_forward": false,
+      "caps_applied": [],
+      "finding_ids": [],
+      "strengths": [
+        {
+          "note": "Thread usage is explicitly out of scope for the scheduler itself and the docs show safe patterns for running jobs on threads",
+          "evidence": [
+            {
+              "type": "code",
+              "file": "docs/index.rst",
+              "lines": "61",
+              "quote": "* Concurrent execution (multiple threads)",
+              "note": "concurrency listed under 'When not to use'"
+            }
+          ]
+        }
+      ],
+      "enforcement": [],
+      "gaming_flags": [],
+      "target": 8,
+      "path_to_target": [],
+      "previous_score": null,
+      "change_explanation": null
+    },
+    {
+      "id": "X4",
+      "name": "Cost Efficiency",
+      "pillar": "X",
+      "applicability": "not_applicable",
+      "applicability_reason": "Runs in the user's process; no paid infrastructure or API calls.",
+      "config_weight": 2,
+      "weight": 0,
+      "weight_note": null,
+      "score": null,
+      "confidence": "high",
+      "carried_forward": false,
+      "caps_applied": [],
+      "finding_ids": [],
+      "strengths": [],
+      "enforcement": [],
+      "gaming_flags": [],
+      "target": null,
+      "path_to_target": [],
+      "previous_score": null,
+      "change_explanation": null
+    },
+    {
+      "id": "X5",
+      "name": "Compliance & Licensing",
+      "pillar": "X",
+      "applicability": "full",
+      "applicability_reason": null,
+      "config_weight": 2,
+      "weight": 2,
+      "weight_note": null,
+      "score": 9,
+      "confidence": "medium",
+      "carried_forward": false,
+      "caps_applied": [],
+      "finding_ids": [],
+      "strengths": [
+        {
+          "note": "MIT license shipped in the sdist, zero runtime dependencies, and the optional pytz is MIT too",
+          "evidence": [
+            {
+              "type": "code",
+              "file": "MANIFEST.in",
+              "lines": "3",
+              "quote": "include LICENSE.txt",
+              "note": "license included in the distribution"
+            }
+          ]
+        }
+      ],
+      "enforcement": [],
+      "gaming_flags": [],
+      "target": 9,
+      "path_to_target": [],
+      "previous_score": null,
+      "change_explanation": null
+    },
+    {
+      "id": "X6",
+      "name": "Agent-Readiness",
+      "pillar": "X",
+      "applicability": "full",
+      "applicability_reason": null,
+      "config_weight": 1,
+      "weight": 1,
+      "weight_note": null,
+      "score": 5,
+      "confidence": "medium",
+      "carried_forward": false,
+      "caps_applied": [],
+      "finding_ids": [
+        "X6-001"
+      ],
+      "strengths": [
+        {
+          "note": "tox gives one command per check, so an agent can verify a change",
+          "evidence": [
+            {
+              "type": "code",
+              "file": "tox.ini",
+              "lines": "2",
+              "quote": "envlist = py3{7,8,9,10,11,12}{,-pytz}",
+              "note": "env list"
+            }
+          ]
+        }
+      ],
+      "enforcement": [],
+      "gaming_flags": [],
+      "target": 8,
+      "path_to_target": [
+        {
+          "id": "X6-act-1",
+          "action": "Add AGENTS.md listing `tox -e py312`, `tox -e format`, `tox -e docs`, the one-file layout and the rule to update HISTORY.rst",
+          "resolves": [
+            "X6-001"
+          ],
+          "expected_new_score": 8,
+          "effort": "S",
+          "requires_human_decision": false,
+          "decision_question": null,
+          "optional": false
+        }
+      ],
+      "previous_score": null,
+      "change_explanation": null
+    }
+  ],
+  "integrity_flags": [],
+  "holdout": {
+    "run": false,
+    "checks_run": null,
+    "pass_rate": null,
+    "private_details": null
+  },
+  "rollup": {
+    "computed_by": "gradekit.py",
+    "config_hash": "39a297f11c42a5c8",
+    "pillar_scores": {
+      "A": 6.9,
+      "B": 6.8,
+      "C": 7.4,
+      "D": 8.5,
+      "E": 5.1,
+      "F": 6.6,
+      "X": 7.3
+    },
+    "overall_score_uncapped": 6.9,
+    "overall_score": 6.9,
+    "overall_cap_applied": false,
+    "gates": [
+      {
+        "benchmark_id": "A1",
+        "why": [
+          "always"
+        ],
+        "score": 8,
+        "status": "passed"
+      },
+      {
+        "benchmark_id": "A2",
+        "why": [
+          "always"
+        ],
+        "score": 8,
+        "status": "passed"
+      }
+    ],
+    "maturity": {
+      "current_level": "L1",
+      "level_before_integrity_cap": null,
+      "next_level": "L2",
+      "blockers": [
+        {
+          "requirement": "at most 0 open critical findings in hot zones",
+          "current": 2,
+          "finding_ids": [
+            "A3-001",
+            "B4-001"
+          ]
+        }
+      ]
+    },
+    "open_gaps": {
+      "critical": 0,
+      "major_must_have": 0
+    },
+    "open_findings_by_zone": {
+      "hot": {
+        "minor": 0,
+        "major": 14,
+        "critical": 2
+      },
+      "normal": {
+        "minor": 11,
+        "major": 3,
+        "critical": 0
+      },
+      "cold": {
+        "minor": 2,
+        "major": 0,
+        "critical": 0
+      }
+    },
+    "finding_zones": {
+      "A1-001": {
+        "zone": "scheduler-core",
+        "criticality": "hot",
+        "severity": "minor",
+        "effective_severity": "major",
+        "status": "new",
+        "benchmark_id": "A1"
+      },
+      "A1-002": {
+        "zone": "scheduler-core",
+        "criticality": "hot",
+        "severity": "minor",
+        "effective_severity": "major",
+        "status": "new",
+        "benchmark_id": "A1"
+      },
+      "A2-001": {
+        "zone": null,
+        "criticality": "normal",
+        "severity": "minor",
+        "effective_severity": "minor",
+        "status": "new",
+        "benchmark_id": "A2"
+      },
+      "A3-001": {
+        "zone": "scheduler-core",
+        "criticality": "hot",
+        "severity": "major",
+        "effective_severity": "critical",
+        "status": "new",
+        "benchmark_id": "A3"
+      },
+      "A3-002": {
+        "zone": "scheduler-core",
+        "criticality": "hot",
+        "severity": "minor",
+        "effective_severity": "major",
+        "status": "new",
+        "benchmark_id": "A3"
+      },
+      "A4-001": {
+        "zone": "scheduler-core",
+        "criticality": "hot",
+        "severity": "minor",
+        "effective_severity": "major",
+        "status": "new",
+        "benchmark_id": "A4"
+      },
+      "A4-002": {
+        "zone": "scheduler-core",
+        "criticality": "hot",
+        "severity": "minor",
+        "effective_severity": "major",
+        "status": "new",
+        "benchmark_id": "A4"
+      },
+      "B1-001": {
+        "zone": "scheduler-core",
+        "criticality": "hot",
+        "severity": "minor",
+        "effective_severity": "major",
+        "status": "new",
+        "benchmark_id": "B1"
+      },
+      "B2-001": {
+        "zone": "scheduler-core",
+        "criticality": "hot",
+        "severity": "minor",
+        "effective_severity": "major",
+        "status": "new",
+        "benchmark_id": "B2"
+      },
+      "B4-001": {
+        "zone": "scheduler-core",
+        "criticality": "hot",
+        "severity": "major",
+        "effective_severity": "critical",
+        "status": "new",
+        "benchmark_id": "B4"
+      },
+      "B4-002": {
+        "zone": "scheduler-core",
+        "criticality": "hot",
+        "severity": "minor",
+        "effective_severity": "major",
+        "status": "new",
+        "benchmark_id": "B4"
+      },
+      "B5-001": {
+        "zone": "scheduler-core",
+        "criticality": "hot",
+        "severity": "minor",
+        "effective_severity": "major",
+        "status": "new",
+        "benchmark_id": "B5"
+      },
+      "C1-001": {
+        "zone": "scheduler-core",
+        "criticality": "hot",
+        "severity": "minor",
+        "effective_severity": "major",
+        "status": "new",
+        "benchmark_id": "C1"
+      },
+      "C2-001": {
+        "zone": "scheduler-core",
+        "criticality": "hot",
+        "severity": "minor",
+        "effective_severity": "major",
+        "status": "new",
+        "benchmark_id": "C2"
+      },
+      "C2-002": {
+        "zone": null,
+        "criticality": "normal",
+        "severity": "minor",
+        "effective_severity": "minor",
+        "status": "new",
+        "benchmark_id": "C2"
+      },
+      "C3-001": {
+        "zone": "scheduler-core",
+        "criticality": "hot",
+        "severity": "minor",
+        "effective_severity": "major",
+        "status": "new",
+        "benchmark_id": "C3"
+      },
+      "C4-001": {
+        "zone": null,
+        "criticality": "normal",
+        "severity": "minor",
+        "effective_severity": "minor",
+        "status": "new",
+        "benchmark_id": "C4"
+      },
+      "D2-001": {
+        "zone": "scheduler-core",
+        "criticality": "hot",
+        "severity": "minor",
+        "effective_severity": "major",
+        "status": "new",
+        "benchmark_id": "D2"
+      },
+      "D4-001": {
+        "zone": "scheduler-core",
+        "criticality": "hot",
+        "severity": "minor",
+        "effective_severity": "major",
+        "status": "new",
+        "benchmark_id": "D4"
+      },
+      "E1-001": {
+        "zone": null,
+        "criticality": "normal",
+        "severity": "major",
+        "effective_severity": "major",
+        "status": "new",
+        "benchmark_id": "E1"
+      },
+      "E2-001": {
+        "zone": "docs",
+        "criticality": "cold",
+        "severity": "major",
+        "effective_severity": "minor",
+        "status": "new",
+        "benchmark_id": "E2"
+      },
+      "E2-002": {
+        "zone": null,
+        "criticality": "normal",
+        "severity": "minor",
+        "effective_severity": "minor",
+        "status": "new",
+        "benchmark_id": "E2"
+      },
+      "E3-001": {
+        "zone": null,
+        "criticality": "normal",
+        "severity": "major",
+        "effective_severity": "major",
+        "status": "new",
+        "benchmark_id": "E3"
+      },
+      "E4-001": {
+        "zone": null,
+        "criticality": "normal",
+        "severity": "minor",
+        "effective_severity": "minor",
+        "status": "new",
+        "benchmark_id": "E4"
+      },
+      "F1-001": {
+        "zone": "docs",
+        "criticality": "cold",
+        "severity": "minor",
+        "effective_severity": "minor",
+        "status": "new",
+        "benchmark_id": "F1"
+      },
+      "F2-001": {
+        "zone": null,
+        "criticality": "normal",
+        "severity": "minor",
+        "effective_severity": "minor",
+        "status": "new",
+        "benchmark_id": "F2"
+      },
+      "F5-001": {
+        "zone": null,
+        "criticality": "normal",
+        "severity": "minor",
+        "effective_severity": "minor",
+        "status": "new",
+        "benchmark_id": "F5"
+      },
+      "F6-001": {
+        "zone": null,
+        "criticality": "normal",
+        "severity": "major",
+        "effective_severity": "major",
+        "status": "new",
+        "benchmark_id": "F6"
+      },
+      "F6-002": {
+        "zone": null,
+        "criticality": "normal",
+        "severity": "minor",
+        "effective_severity": "minor",
+        "status": "new",
+        "benchmark_id": "F6"
+      },
+      "F6-003": {
+        "zone": null,
+        "criticality": "normal",
+        "severity": "minor",
+        "effective_severity": "minor",
+        "status": "new",
+        "benchmark_id": "F6"
+      },
+      "X2-001": {
+        "zone": null,
+        "criticality": "normal",
+        "severity": "minor",
+        "effective_severity": "minor",
+        "status": "new",
+        "benchmark_id": "X2"
+      },
+      "X6-001": {
+        "zone": null,
+        "criticality": "normal",
+        "severity": "minor",
+        "effective_severity": "minor",
+        "status": "new",
+        "benchmark_id": "X6"
+      }
+    },
+    "targets": {
+      "A1": 10,
+      "A2": 9,
+      "A3": 9,
+      "A4": 9,
+      "A5": null,
+      "B1": 10,
+      "B2": 10,
+      "B3": 8,
+      "B4": 10,
+      "B5": 8,
+      "B6": 9,
+      "C1": 9,
+      "C2": 10,
+      "C3": 9,
+      "C4": 9,
+      "D1": 9,
+      "D2": 9,
+      "D3": 9,
+      "D4": 9,
+      "E1": 10,
+      "E2": 10,
+      "E3": 9,
+      "E4": 9,
+      "F1": 8,
+      "F2": 10,
+      "F3": 8,
+      "F4": 8,
+      "F5": 9,
+      "F6": 9,
+      "X1": null,
+      "X2": 10,
+      "X3": 8,
+      "X4": null,
+      "X5": 9,
+      "X6": 8
+    },
+    "below_target": [
+      {
+        "benchmark_id": "E1",
+        "score": 4,
+        "target": 10,
+        "gap": 6,
+        "weight": 3,
+        "weighted_gap": 18
+      },
+      {
+        "benchmark_id": "B4",
+        "score": 5,
+        "target": 10,
+        "gap": 5,
+        "weight": 3,
+        "weighted_gap": 15
+      },
+      {
+        "benchmark_id": "E2",
+        "score": 5,
+        "target": 10,
+        "gap": 5,
+        "weight": 3,
+        "weighted_gap": 15
+      },
+      {
+        "benchmark_id": "B1",
+        "score": 7,
+        "target": 10,
+        "gap": 3,
+        "weight": 3,
+        "weighted_gap": 9
+      },
+      {
+        "benchmark_id": "B2",
+        "score": 7,
+        "target": 10,
+        "gap": 3,
+        "weight": 3,
+        "weighted_gap": 9
+      },
+      {
+        "benchmark_id": "C2",
+        "score": 7,
+        "target": 10,
+        "gap": 3,
+        "weight": 3,
+        "weighted_gap": 9
+      },
+      {
+        "benchmark_id": "F2",
+        "score": 7,
+        "target": 10,
+        "gap": 3,
+        "weight": 3,
+        "weighted_gap": 9
+      },
+      {
+        "benchmark_id": "X2",
+        "score": 7,
+        "target": 10,
+        "gap": 3,
+        "weight": 3,
+        "weighted_gap": 9
+      },
+      {
+        "benchmark_id": "A3",
+        "score": 5,
+        "target": 9,
+        "gap": 4,
+        "weight": 2,
+        "weighted_gap": 8
+      },
+      {
+        "benchmark_id": "E3",
+        "score": 5,
+        "target": 9,
+        "gap": 4,
+        "weight": 2,
+        "weighted_gap": 8
+      },
+      {
+        "benchmark_id": "F6",
+        "score": 5,
+        "target": 9,
+        "gap": 4,
+        "weight": 2,
+        "weighted_gap": 8
+      },
+      {
+        "benchmark_id": "A1",
+        "score": 8,
+        "target": 10,
+        "gap": 2,
+        "weight": 3,
+        "weighted_gap": 6
+      },
+      {
+        "benchmark_id": "A4",
+        "score": 6,
+        "target": 9,
+        "gap": 3,
+        "weight": 2,
+        "weighted_gap": 6
+      },
+      {
+        "benchmark_id": "C1",
+        "score": 7,
+        "target": 9,
+        "gap": 2,
+        "weight": 2,
+        "weighted_gap": 4
+      },
+      {
+        "benchmark_id": "E4",
+        "score": 7,
+        "target": 9,
+        "gap": 2,
+        "weight": 2,
+        "weighted_gap": 4
+      },
+      {
+        "benchmark_id": "F5",
+        "score": 7,
+        "target": 9,
+        "gap": 2,
+        "weight": 2,
+        "weighted_gap": 4
+      },
+      {
+        "benchmark_id": "X6",
+        "score": 5,
+        "target": 8,
+        "gap": 3,
+        "weight": 1,
+        "weighted_gap": 3
+      },
+      {
+        "benchmark_id": "A2",
+        "score": 8,
+        "target": 9,
+        "gap": 1,
+        "weight": 2,
+        "weighted_gap": 2
+      },
+      {
+        "benchmark_id": "B5",
+        "score": 6,
+        "target": 8,
+        "gap": 2,
+        "weight": 1,
+        "weighted_gap": 2
+      },
+      {
+        "benchmark_id": "C3",
+        "score": 8,
+        "target": 9,
+        "gap": 1,
+        "weight": 2,
+        "weighted_gap": 2
+      },
+      {
+        "benchmark_id": "C4",
+        "score": 8,
+        "target": 9,
+        "gap": 1,
+        "weight": 2,
+        "weighted_gap": 2
+      },
+      {
+        "benchmark_id": "D2",
+        "score": 8,
+        "target": 9,
+        "gap": 1,
+        "weight": 2,
+        "weighted_gap": 2
+      },
+      {
+        "benchmark_id": "D4",
+        "score": 8,
+        "target": 9,
+        "gap": 1,
+        "weight": 2,
+        "weighted_gap": 2
+      },
+      {
+        "benchmark_id": "F1",
+        "score": 6,
+        "target": 8,
+        "gap": 2,
+        "weight": 1,
+        "weighted_gap": 2
+      },
+      {
+        "benchmark_id": "F3",
+        "score": 7,
+        "target": 8,
+        "gap": 1,
+        "weight": 1,
+        "weighted_gap": 1
+      },
+      {
+        "benchmark_id": "X3",
+        "score": 7,
+        "target": 8,
+        "gap": 1,
+        "weight": 1,
+        "weighted_gap": 1
+      }
+    ],
+    "priorities": [
+      {
+        "action_id": "B4-act-1",
+        "benchmark_id": "B4",
+        "tier": 0,
+        "priority": 9.0,
+        "zone": "hot",
+        "gain": 3,
+        "effort": "M",
+        "requires_human_decision": false,
+        "decision_question": null,
+        "action": "Annotate every Job property and builder method to return 'Job' (and the remaining helpers), then switch setup.cfg [mypy] to strict = True and keep CI green",
+        "decision": null,
+        "rank": 1
+      },
+      {
+        "action_id": "A3-act-1",
+        "benchmark_id": "A3",
+        "tier": 0,
+        "priority": 6.0,
+        "zone": "hot",
+        "gain": 3,
+        "effort": "M",
+        "requires_human_decision": true,
+        "decision_question": "Approve rescheduling a job's next run even when it raises, so a failing job retries at its next interval instead of on every tick?",
+        "action": "In Job.run(), compute last_run and _schedule_next_run() in a try/finally around job_func() so a failing job still moves to its next interval; let Scheduler.run_pending() continue with the remaining due jobs and re-raise afterwards; add tests for both",
+        "decision": {
+          "status": "pending"
+        },
+        "rank": 2
+      },
+      {
+        "action_id": "B4-act-2",
+        "benchmark_id": "B4",
+        "tier": 2,
+        "priority": 18.0,
+        "zone": "hot",
+        "gain": 3,
+        "effort": "S",
+        "requires_human_decision": false,
+        "decision_question": null,
+        "action": "Introduce Literal types for unit and start_day",
+        "decision": null,
+        "rank": 3
+      },
+      {
+        "action_id": "A3-act-2",
+        "benchmark_id": "A3",
+        "tier": 2,
+        "priority": 12.0,
+        "zone": "hot",
+        "gain": 3,
+        "effort": "S",
+        "requires_human_decision": false,
+        "decision_question": null,
+        "action": "Replace the assert in Job.should_run with an explicit ScheduleError when next_run is None",
+        "decision": null,
+        "rank": 4
+      },
+      {
+        "action_id": "E1-act-1",
+        "benchmark_id": "E1",
+        "tier": 2,
+        "priority": 12.0,
+        "zone": "normal",
+        "gain": 4,
+        "effort": "S",
+        "requires_human_decision": false,
+        "decision_question": null,
+        "action": "In README.rst and docs/index.rst, either move the timezone line into a separate example preceded by `pip install schedule[timezone]`, or add that install line to the quickstart; run the README snippet in CI (e.g. a doctest or script step)",
+        "decision": null,
+        "rank": 5
+      },
+      {
+        "action_id": "E2-act-2",
+        "benchmark_id": "E2",
+        "tier": 2,
+        "priority": 9.0,
+        "zone": "normal",
+        "gain": 3,
+        "effort": "S",
+        "requires_human_decision": false,
+        "decision_question": null,
+        "action": "Correct README feature bullets: say timezone support needs `schedule[timezone]`; fix 'Tested on Python and 3.7' to the versions CI actually runs",
+        "decision": null,
+        "rank": 6
+      },
+      {
+        "action_id": "F6-act-3",
+        "benchmark_id": "F6",
+        "tier": 2,
+        "priority": 8.0,
+        "zone": "normal",
+        "gain": 4,
+        "effort": "S",
+        "requires_human_decision": true,
+        "decision_question": "Approve dropping Python 3.7 and 3.8 support in the next minor release?",
+        "action": "Drop Python 3.7 and 3.8 from python_requires, classifiers, tox and CI; add 3.13",
+        "decision": {
+          "status": "pending"
+        },
+        "rank": 7
+      },
+      {
+        "action_id": "A1-act-1",
+        "benchmark_id": "A1",
+        "tier": 2,
+        "priority": 6.0,
+        "zone": "hot",
+        "gain": 1,
+        "effort": "S",
+        "requires_human_decision": false,
+        "decision_question": null,
+        "action": "In schedule/__init__.py, format the hour into the at() error (line 548) and reword the to() check at line 711 to '`latest` must be greater than or equal to `interval`'; add assertRaisesRegex tests for both messages",
+        "decision": null,
+        "rank": 8
+      },
+      {
+        "action_id": "B2-act-1",
+        "benchmark_id": "B2",
+        "tier": 2,
+        "priority": 6.0,
+        "zone": "hot",
+        "gain": 1,
+        "effort": "S",
+        "requires_human_decision": true,
+        "decision_question": "Approve deprecating the public module-level `schedule.jobs` list in favour of `schedule.get_jobs()`?",
+        "action": "Deprecate the module-level `jobs` alias in favour of get_jobs(), emitting a DeprecationWarning on access via module __getattr__",
+        "decision": {
+          "status": "pending"
+        },
+        "rank": 9
+      },
+      {
+        "action_id": "C2-act-1",
+        "benchmark_id": "C2",
+        "tier": 2,
+        "priority": 6.0,
+        "zone": "hot",
+        "gain": 1,
+        "effort": "S",
+        "requires_human_decision": false,
+        "decision_question": null,
+        "action": "Generate the seven weekday properties from one helper (e.g. a _weekday(name) factory) with a single error message",
+        "decision": null,
+        "rank": 10
+      },
+      {
+        "action_id": "E3-act-1",
+        "benchmark_id": "E3",
+        "tier": 2,
+        "priority": 6.0,
+        "zone": "normal",
+        "gain": 3,
+        "effort": "S",
+        "requires_human_decision": false,
+        "decision_question": null,
+        "action": "Remove pytest-flake8 from requirements-dev.txt, add flake8 (or ruff) as its own tox env, and pin dev tools with a constraints file",
+        "decision": null,
+        "rank": 11
+      },
+      {
+        "action_id": "F6-act-2",
+        "benchmark_id": "F6",
+        "tier": 2,
+        "priority": 6.0,
+        "zone": "normal",
+        "gain": 3,
+        "effort": "S",
+        "requires_human_decision": false,
+        "decision_question": null,
+        "action": "Upgrade black (and click pin) to a current release, reformat once, and add Dependabot for pip and GitHub Actions",
+        "decision": null,
+        "rank": 12
+      },
+      {
+        "action_id": "X2-act-1",
+        "benchmark_id": "X2",
+        "tier": 2,
+        "priority": 6.0,
+        "zone": "normal",
+        "gain": 2,
+        "effort": "S",
+        "requires_human_decision": true,
+        "decision_question": "Approve declaring __all__ (it changes what `from schedule import *` exports)?",
+        "action": "Declare __all__ with the public API and add a short deprecation policy (DeprecationWarning for one minor release before removal) to the docs",
+        "decision": {
+          "status": "pending"
+        },
+        "rank": 13
+      },
+      {
+        "action_id": "E2-act-1",
+        "benchmark_id": "E2",
+        "tier": 2,
+        "priority": 4.5,
+        "zone": "cold",
+        "gain": 3,
+        "effort": "S",
+        "requires_human_decision": false,
+        "decision_question": null,
+        "action": "Fix docs/development.rst: replace the --flake8 command with `tox` (or `pytest test_schedule.py`) and `flake8 schedule`, and drop the black 20.8b1 instruction once F6-act-2 lands",
+        "decision": null,
+        "rank": 14
+      },
+      {
+        "action_id": "A4-act-1",
+        "benchmark_id": "A4",
+        "tier": 2,
+        "priority": 4.0,
+        "zone": "hot",
+        "gain": 1,
+        "effort": "S",
+        "requires_human_decision": false,
+        "decision_question": null,
+        "action": "Make Job.do() idempotent: if self is already in scheduler.jobs, update job_func instead of appending again; add a test",
+        "decision": null,
+        "rank": 15
+      },
+      {
+        "action_id": "A4-act-2",
+        "benchmark_id": "A4",
+        "tier": 2,
+        "priority": 4.0,
+        "zone": "hot",
+        "gain": 2,
+        "effort": "M",
+        "requires_human_decision": false,
+        "decision_question": null,
+        "action": "Add an optional clock (callable returning now) and random.Random instance to Scheduler, passed to its jobs; switch tests from patching datetime.datetime to an injected fake clock",
+        "decision": null,
+        "rank": 16
+      },
+      {
+        "action_id": "C1-act-1",
+        "benchmark_id": "C1",
+        "tier": 2,
+        "priority": 4.0,
+        "zone": "hot",
+        "gain": 1,
+        "effort": "S",
+        "requires_human_decision": false,
+        "decision_question": null,
+        "action": "Split Job.at() into _validate_at_format(unit, time_str) and _parse_at_time(...) -> datetime.time, using int-only locals",
+        "decision": null,
+        "rank": 17
+      },
+      {
+        "action_id": "C3-act-1",
+        "benchmark_id": "C3",
+        "tier": 2,
+        "priority": 4.0,
+        "zone": "hot",
+        "gain": 1,
+        "effort": "S",
+        "requires_human_decision": false,
+        "decision_question": null,
+        "action": "Use f-strings consistently for messages and keep %-style only for logger arguments",
+        "decision": null,
+        "rank": 18
+      },
+      {
+        "action_id": "D4-act-1",
+        "benchmark_id": "D4",
+        "tier": 2,
+        "priority": 4.0,
+        "zone": "hot",
+        "gain": 1,
+        "effort": "S",
+        "requires_human_decision": true,
+        "decision_question": "Should until('HH:MM') earlier than now mean tomorrow, or keep raising with a clearer message?",
+        "action": "When until() gets a time-only string that has already passed today, either roll it to tomorrow or raise a message that says so; document the choice",
+        "decision": {
+          "status": "pending"
+        },
+        "rank": 19
+      },
+      {
+        "action_id": "F6-act-1",
+        "benchmark_id": "F6",
+        "tier": 2,
+        "priority": 4.0,
+        "zone": "normal",
+        "gain": 2,
+        "effort": "S",
+        "requires_human_decision": false,
+        "decision_question": null,
+        "action": "Switch to `license = \"MIT\"` (SPDX) with `license-files`, drop the License classifier, and require setuptools>=77 in build-system",
+        "decision": null,
+        "rank": 20
+      },
+      {
+        "action_id": "B1-act-1",
+        "benchmark_id": "B1",
+        "tier": 2,
+        "priority": 3.0,
+        "zone": "hot",
+        "gain": 1,
+        "effort": "M",
+        "requires_human_decision": false,
+        "decision_question": null,
+        "action": "Isolate timezone conversion behind a small internal helper (normalize/localize) so Job no longer calls pytz APIs directly",
+        "decision": null,
+        "rank": 21
+      },
+      {
+        "action_id": "C2-act-2",
+        "benchmark_id": "C2",
+        "tier": 2,
+        "priority": 3.0,
+        "zone": "normal",
+        "gain": 2,
+        "effort": "M",
+        "requires_human_decision": false,
+        "decision_question": null,
+        "action": "Reduce Job.at() below complexity 10 by splitting it as in C1-act-1, and add a radon/xenon complexity gate to CI",
+        "decision": null,
+        "rank": 22
+      },
+      {
+        "action_id": "F2-act-1",
+        "benchmark_id": "F2",
+        "tier": 2,
+        "priority": 3.0,
+        "zone": "normal",
+        "gain": 1,
+        "effort": "S",
+        "requires_human_decision": false,
+        "decision_question": null,
+        "action": "Add a lint job (flake8 or ruff) and pip caching to CI; release automation via F1-act-1",
+        "decision": null,
+        "rank": 23
+      },
+      {
+        "action_id": "X6-act-1",
+        "benchmark_id": "X6",
+        "tier": 2,
+        "priority": 3.0,
+        "zone": "normal",
+        "gain": 3,
+        "effort": "S",
+        "requires_human_decision": false,
+        "decision_question": null,
+        "action": "Add AGENTS.md listing `tox -e py312`, `tox -e format`, `tox -e docs`, the one-file layout and the rule to update HISTORY.rst",
+        "decision": null,
+        "rank": 24
+      },
+      {
+        "action_id": "A2-act-1",
+        "benchmark_id": "A2",
+        "tier": 2,
+        "priority": 2.0,
+        "zone": "normal",
+        "gain": 1,
+        "effort": "S",
+        "requires_human_decision": false,
+        "decision_question": null,
+        "action": "Add a CI job that runs pip-audit against requirements-dev.txt and a secret scan (e.g. gitleaks) on pull requests",
+        "decision": null,
+        "rank": 25
+      },
+      {
+        "action_id": "B5-act-1",
+        "benchmark_id": "B5",
+        "tier": 2,
+        "priority": 2.0,
+        "zone": "hot",
+        "gain": 1,
+        "effort": "S",
+        "requires_human_decision": false,
+        "decision_question": null,
+        "action": "Define the supported units once (a module constant) and derive at()'s and _schedule_next_run's checks from it",
+        "decision": null,
+        "rank": 26
+      },
+      {
+        "action_id": "C4-act-1",
+        "benchmark_id": "C4",
+        "tier": 2,
+        "priority": 2.0,
+        "zone": "normal",
+        "gain": 1,
+        "effort": "S",
+        "requires_human_decision": false,
+        "decision_question": null,
+        "action": "Add tests for a job that raises: the exception propagates, the job's next_run moves forward and other due jobs still run (pairs with A3-act-1)",
+        "decision": null,
+        "rank": 27
+      },
+      {
+        "action_id": "D2-act-1",
+        "benchmark_id": "D2",
+        "tier": 2,
+        "priority": 2.0,
+        "zone": "hot",
+        "gain": 1,
+        "effort": "M",
+        "requires_human_decision": true,
+        "decision_question": "Support standard-library zoneinfo alongside pytz in 1.x, or migrate fully to zoneinfo and drop pytz in a 2.0?",
+        "action": "Accept zoneinfo.ZoneInfo (and any tzinfo) in at() alongside pytz, keeping pytz optional; add tests on 3.9+",
+        "decision": {
+          "status": "pending"
+        },
+        "rank": 28
+      },
+      {
+        "action_id": "E4-act-1",
+        "benchmark_id": "E4",
+        "tier": 2,
+        "priority": 2.0,
+        "zone": "normal",
+        "gain": 2,
+        "effort": "M",
+        "requires_human_decision": false,
+        "decision_question": null,
+        "action": "Move all metadata (version, classifiers, keywords, authors) into pyproject.toml, read the version in docs/conf.py from package metadata, delete setup.py, and replace `setup.py check` with `python -m build && twine check dist/*`",
+        "decision": null,
+        "rank": 29
+      },
+      {
+        "action_id": "F5-act-1",
+        "benchmark_id": "F5",
+        "tier": 2,
+        "priority": 2.0,
+        "zone": "normal",
+        "gain": 2,
+        "effort": "M",
+        "requires_human_decision": false,
+        "decision_question": null,
+        "action": "Make the timezone tests skip time.tzset() on Windows (or use zoneinfo-based fixtures) and add windows-latest and macos-latest to the CI matrix",
+        "decision": null,
+        "rank": 30
+      },
+      {
+        "action_id": "F1-act-1",
+        "benchmark_id": "F1",
+        "tier": 2,
+        "priority": 0.5,
+        "zone": "cold",
+        "gain": 2,
+        "effort": "M",
+        "requires_human_decision": true,
+        "decision_question": "Set up PyPI trusted publishing from GitHub Actions for releases?",
+        "action": "Add a tag-triggered GitHub Actions workflow that builds and publishes to PyPI via trusted publishing; single-source the version",
+        "decision": {
+          "status": "pending"
+        },
+        "rank": 31
+      },
+      {
+        "action_id": "F3-act-1",
+        "benchmark_id": "F3",
+        "tier": 3,
+        "priority": 1.0,
+        "zone": "normal",
+        "gain": 1,
+        "effort": "S",
+        "requires_human_decision": false,
+        "decision_question": null,
+        "action": "Log at warning level, with the job repr, when a job raises before the exception propagates",
+        "decision": null,
+        "rank": 32
+      }
+    ],
+    "weight_issues": [],
+    "applicability": {
+      "limited": [
+        "F3",
+        "X3"
+      ],
+      "not_applicable": [
+        "A5",
+        "X1",
+        "X4"
+      ],
+      "weight_notes": {}
+    }
+  },
+  "top_priorities": [
+    {
+      "rank": 1,
+      "benchmark_id": "B4",
+      "action_id": "B4-act-1",
+      "why_first": "Tier 0: closes a hot-zone critical finding that blocks L2; typed callers currently get Any from every chain",
+      "expected_gain": "+3 on B4"
+    },
+    {
+      "rank": 2,
+      "benchmark_id": "A3",
+      "action_id": "A3-act-1",
+      "why_first": "Tier 0: closes the other L2 blocker; a failing job hot-loops instead of retrying at its interval (needs a decision)",
+      "expected_gain": "+3 on A3"
+    },
+    {
+      "rank": 3,
+      "benchmark_id": "B4",
+      "action_id": "B4-act-2",
+      "why_first": "Cheap follow-up to B4-act-1 in the hot zone",
+      "expected_gain": "+3 on B4"
+    },
+    {
+      "rank": 4,
+      "benchmark_id": "A3",
+      "action_id": "A3-act-2",
+      "why_first": "One-line hardening in the core run path",
+      "expected_gain": "+3 on A3"
+    },
+    {
+      "rank": 5,
+      "benchmark_id": "E1",
+      "action_id": "E1-act-1",
+      "why_first": "Biggest gain for adopters: the README quickstart crashes today",
+      "expected_gain": "+4 on E1"
+    },
+    {
+      "rank": 6,
+      "benchmark_id": "E2",
+      "action_id": "E2-act-2",
+      "why_first": "Small docs fix that removes inaccurate claims",
+      "expected_gain": "+3 on E2"
+    },
+    {
+      "rank": 7,
+      "benchmark_id": "F6",
+      "action_id": "F6-act-3",
+      "why_first": "Clears EOL runtimes before setuptools and CI drop them (needs a decision)",
+      "expected_gain": "+4 on F6"
+    },
+    {
+      "rank": 8,
+      "benchmark_id": "A1",
+      "action_id": "A1-act-1",
+      "why_first": "Two misleading error messages in the hot zone; trivial to fix",
+      "expected_gain": "+1 on A1"
+    },
+    {
+      "rank": 9,
+      "benchmark_id": "B2",
+      "action_id": "B2-act-1",
+      "why_first": "Removes a mutable global alias from the public API (needs a decision)",
+      "expected_gain": "+1 on B2"
+    },
+    {
+      "rank": 10,
+      "benchmark_id": "C2",
+      "action_id": "C2-act-1",
+      "why_first": "Removes the largest block of duplication",
+      "expected_gain": "+1 on C2"
+    }
+  ],
+  "limitations": [
+    "CI history of dbader/schedule wasn't visible from this session, so CI pass/fail, duration and whether the Python 3.7 job still finds a runner are unverified (F2, F5 confidence medium).",
+    "No mutation testing or duplication tool was run; C2 and C4 rely on reading plus coverage.",
+    "Single grader run (1 of 1); this report is the end-to-end test of the suite website, graded by the same agent that tested the site, not by an independent session.",
+    "The project's project.toml was not yet merged to the grading repo's default branch, so the report branch is based on the setup branch."
+  ]
+}
