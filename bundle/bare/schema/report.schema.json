@@ -2,65 +2,208 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://example.invalid/code-grading-suite/report.schema.json",
   "title": "Code Grading Suite report",
-  "description": "Suite v3.x. Structural schema; gradekit.py validate adds semantic checks (IDs, weights, caps, enforcement).",
+  "description": "Suite v4.x. Structural schema; gradekit.py validate adds semantic checks (config weights, IDs, caps, enforcement, leaks).",
   "type": "object",
-  "required": ["suite_version", "mode", "run", "profile", "target_mode", "commands_run", "scope_examined",
-               "metrics", "feature_inventory", "gap_register", "findings", "benchmarks", "integrity_flags",
-               "holdout", "top_priorities", "limitations"],
+  "required": [
+    "suite_version",
+    "mode",
+    "run",
+    "config",
+    "commands_run",
+    "scope_examined",
+    "metrics",
+    "feature_inventory",
+    "gap_register",
+    "findings",
+    "benchmarks",
+    "integrity_flags",
+    "holdout",
+    "top_priorities",
+    "limitations"
+  ],
   "properties": {
-    "suite_version": {"type": "string", "pattern": "^3\\.\\d+\\.\\d+$"},
-    "mode": {"enum": ["full", "pr"]},
+    "suite_version": {
+      "type": "string",
+      "pattern": "^4\\.\\d+\\.\\d+$"
+    },
+    "mode": {
+      "enum": [
+        "full",
+        "pr"
+      ]
+    },
     "run": {
       "type": "object",
-      "required": ["commit"],
+      "required": [
+        "commit"
+      ],
       "properties": {
-        "commit": {"type": "string", "minLength": 1},
-        "base_commit": {"type": ["string", "null"]},
-        "date": {"type": "string"},
-        "grader": {"type": "string"},
-        "run_index": {"type": ["integer", "null"], "minimum": 1},
-        "run_count": {"type": ["integer", "null"], "minimum": 1},
-        "suite_source": {"type": ["string", "null"], "description": "Where the suite came from: local path or hosted AGENT.md URL, plus version"}
+        "commit": {
+          "type": "string",
+          "minLength": 1
+        },
+        "base_commit": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "date": {
+          "type": "string"
+        },
+        "grader": {
+          "type": "string"
+        },
+        "run_index": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "run_count": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "suite_source": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Where the suite came from: local path or hosted AGENT.md URL, plus version"
+        }
       }
     },
     "component": {
-      "type": ["object", "null"],
-      "required": ["name"],
+      "type": [
+        "object",
+        "null"
+      ],
+      "required": [
+        "name"
+      ],
       "properties": {
-        "name": {"type": "string"},
-        "path": {"type": "string"},
-        "weight": {"type": "number", "exclusiveMinimum": 0}
+        "name": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "weight": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        }
       }
     },
-    "project_context_inferred": {"type": "string"},
-    "profile": {"enum": ["Default", "Library", "Service/API", "Web app", "CLI", "Prototype"]},
-    "target_mode": {"type": "string", "pattern": "^(proportional|maximal|level:L[0-4])$"},
-    "target_overrides": {"type": "object", "additionalProperties": {"type": "integer", "minimum": 1, "maximum": 10}},
+    "project_context_inferred": {
+      "type": "string"
+    },
+    "config": {
+      "type": "object",
+      "required": [
+        "hash",
+        "preset"
+      ],
+      "description": "The effective config the grader used (from `gradekit resolve`).",
+      "properties": {
+        "hash": {
+          "type": "string",
+          "minLength": 8
+        },
+        "preset": {
+          "type": "string"
+        },
+        "source": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "component": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
     "commands_run": {
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["command", "result_summary"],
+        "required": [
+          "command",
+          "result_summary"
+        ],
         "properties": {
-          "command": {"type": "string"},
-          "exit_code": {"type": ["integer", "null"]},
-          "result_summary": {"type": "string"}
+          "command": {
+            "type": "string"
+          },
+          "exit_code": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "result_summary": {
+            "type": "string"
+          }
         }
       }
     },
-    "scope_examined": {"type": "string"},
-    "metrics": {"type": "object", "additionalProperties": {"type": ["number", "boolean", "null"]}},
-    "metrics_notes": {"type": "object", "additionalProperties": {"type": "string"}},
+    "scope_examined": {
+      "type": "string"
+    },
+    "metrics": {
+      "type": "object",
+      "additionalProperties": {
+        "type": [
+          "number",
+          "boolean",
+          "null"
+        ]
+      }
+    },
+    "metrics_notes": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
     "feature_inventory": {
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["feature", "source", "status"],
+        "required": [
+          "feature",
+          "source",
+          "status"
+        ],
         "properties": {
-          "feature": {"type": "string"},
-          "source": {"type": "string"},
-          "status": {"enum": ["complete", "partial", "stub", "broken", "undocumented"]},
-          "evidence": {"type": "array", "items": {"$ref": "#/$defs/evidence"}}
+          "feature": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "complete",
+              "partial",
+              "stub",
+              "broken",
+              "undocumented"
+            ]
+          },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/evidence"
+            }
+          }
         }
       }
     },
@@ -68,159 +211,525 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["id", "gap", "severity", "necessity", "status", "benchmark_ids"],
+        "required": [
+          "id",
+          "gap",
+          "severity",
+          "necessity",
+          "status",
+          "benchmark_ids"
+        ],
         "properties": {
-          "id": {"type": "string", "pattern": "^GAP-\\d{3,}$"},
-          "gap": {"type": "string"},
-          "severity": {"enum": ["critical", "major", "minor"]},
-          "necessity": {"enum": ["must-have", "nice-to-have"]},
-          "status": {"enum": ["new", "open", "fixed", "regressed", "accepted"]},
-          "rationale": {"type": "string"},
-          "benchmark_ids": {"type": "array", "items": {"$ref": "#/$defs/benchmarkId"}}
+          "id": {
+            "type": "string",
+            "pattern": "^GAP-\\d{3,}$"
+          },
+          "gap": {
+            "type": "string"
+          },
+          "severity": {
+            "enum": [
+              "critical",
+              "major",
+              "minor"
+            ]
+          },
+          "necessity": {
+            "enum": [
+              "must-have",
+              "nice-to-have"
+            ]
+          },
+          "status": {
+            "enum": [
+              "new",
+              "open",
+              "fixed",
+              "regressed",
+              "accepted"
+            ]
+          },
+          "rationale": {
+            "type": "string"
+          },
+          "benchmark_ids": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/benchmarkId"
+            }
+          }
         }
       }
     },
-    "findings": {"type": "array", "items": {"$ref": "#/$defs/finding"}},
-    "benchmarks": {"type": "array", "items": {"$ref": "#/$defs/benchmark"}},
+    "findings": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/finding"
+      }
+    },
+    "benchmarks": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/benchmark"
+      }
+    },
     "integrity_flags": {
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["description", "evidence"],
+        "required": [
+          "description",
+          "evidence"
+        ],
         "properties": {
-          "description": {"type": "string"},
-          "evidence": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/evidence"}}
+          "description": {
+            "type": "string"
+          },
+          "evidence": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "$ref": "#/$defs/evidence"
+            }
+          }
         }
       }
     },
     "holdout": {
       "type": "object",
-      "required": ["run"],
+      "required": [
+        "run"
+      ],
       "properties": {
-        "run": {"type": "boolean"},
-        "checks_run": {"type": ["integer", "null"], "minimum": 0},
-        "pass_rate": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
+        "run": {
+          "type": "boolean"
+        },
+        "checks_run": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "pass_rate": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
         "private_details": {}
       }
     },
-    "rollup": {"type": ["object", "null"]},
+    "rollup": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
     "top_priorities": {
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["rank", "benchmark_id", "why_first"],
+        "required": [
+          "rank",
+          "benchmark_id",
+          "why_first"
+        ],
         "properties": {
-          "rank": {"type": "integer", "minimum": 1},
-          "benchmark_id": {"$ref": "#/$defs/benchmarkId"},
-          "action_id": {"type": ["string", "null"]},
-          "why_first": {"type": "string"},
-          "expected_gain": {"type": "string"}
+          "rank": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "benchmark_id": {
+            "$ref": "#/$defs/benchmarkId"
+          },
+          "action_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "why_first": {
+            "type": "string"
+          },
+          "expected_gain": {
+            "type": "string"
+          }
         }
       }
     },
-    "limitations": {"type": "array", "items": {"type": "string"}}
+    "limitations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
   },
   "$defs": {
-    "benchmarkId": {"type": "string", "pattern": "^[A-FX]\\d$"},
+    "benchmarkId": {
+      "type": "string",
+      "pattern": "^[A-FX]\\d$"
+    },
     "evidence": {
       "oneOf": [
         {
           "type": "object",
-          "required": ["type", "file", "lines", "quote"],
+          "required": [
+            "type",
+            "file",
+            "lines",
+            "quote"
+          ],
           "properties": {
-            "type": {"const": "code"},
-            "file": {"type": "string", "minLength": 1},
-            "lines": {"type": "string", "pattern": "^\\d+(-\\d+)?$"},
-            "quote": {"type": "string", "minLength": 1},
-            "note": {"type": "string"}
+            "type": {
+              "const": "code"
+            },
+            "file": {
+              "type": "string",
+              "minLength": 1
+            },
+            "lines": {
+              "type": "string",
+              "pattern": "^\\d+(-\\d+)?$"
+            },
+            "quote": {
+              "type": "string",
+              "minLength": 1
+            },
+            "note": {
+              "type": "string"
+            }
           }
         },
         {
           "type": "object",
-          "required": ["type", "command", "excerpt"],
+          "required": [
+            "type",
+            "command",
+            "excerpt"
+          ],
           "properties": {
-            "type": {"const": "command"},
-            "command": {"type": "string", "minLength": 1},
-            "excerpt": {"type": "string", "minLength": 1},
-            "note": {"type": "string"}
+            "type": {
+              "const": "command"
+            },
+            "command": {
+              "type": "string",
+              "minLength": 1
+            },
+            "excerpt": {
+              "type": "string",
+              "minLength": 1
+            },
+            "note": {
+              "type": "string"
+            }
           }
         },
         {
           "type": "object",
-          "required": ["type", "searched", "method"],
+          "required": [
+            "type",
+            "searched",
+            "method"
+          ],
           "properties": {
-            "type": {"const": "absence"},
-            "searched": {"type": "string", "minLength": 1},
-            "method": {"type": "string", "minLength": 1},
-            "note": {"type": "string"}
+            "type": {
+              "const": "absence"
+            },
+            "searched": {
+              "type": "string",
+              "minLength": 1
+            },
+            "method": {
+              "type": "string",
+              "minLength": 1
+            },
+            "note": {
+              "type": "string"
+            }
           }
         }
       ]
     },
     "finding": {
       "type": "object",
-      "required": ["id", "benchmark_id", "title", "severity", "status", "evidence"],
+      "required": [
+        "id",
+        "benchmark_id",
+        "title",
+        "severity",
+        "status",
+        "evidence"
+      ],
       "properties": {
-        "id": {"type": "string", "pattern": "^[A-FX]\\d-\\d{3,}$"},
-        "benchmark_id": {"$ref": "#/$defs/benchmarkId"},
-        "title": {"type": "string"},
-        "severity": {"enum": ["critical", "major", "minor"]},
-        "status": {"enum": ["new", "open", "fixed", "regressed", "accepted"]},
-        "first_seen_commit": {"type": ["string", "null"]},
-        "evidence": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/evidence"}},
-        "disposition": {"type": ["string", "null"]},
-        "disposition_concern": {"type": ["string", "null"]}
+        "id": {
+          "type": "string",
+          "pattern": "^[A-FX]\\d-\\d{3,}$"
+        },
+        "benchmark_id": {
+          "$ref": "#/$defs/benchmarkId"
+        },
+        "title": {
+          "type": "string"
+        },
+        "severity": {
+          "enum": [
+            "critical",
+            "major",
+            "minor"
+          ]
+        },
+        "status": {
+          "enum": [
+            "new",
+            "open",
+            "fixed",
+            "regressed",
+            "accepted"
+          ]
+        },
+        "first_seen_commit": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "evidence": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/evidence"
+          }
+        },
+        "disposition": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "disposition_concern": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "paths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Repo-relative paths or globs the finding concerns; used for zones when there's no code evidence"
+        }
       }
     },
     "action": {
       "type": "object",
-      "required": ["id", "action", "resolves", "expected_new_score", "effort", "requires_human_decision"],
+      "required": [
+        "id",
+        "action",
+        "resolves",
+        "expected_new_score",
+        "effort",
+        "requires_human_decision"
+      ],
       "properties": {
-        "id": {"type": "string", "pattern": "^[A-FX]\\d-act-\\d+$"},
-        "action": {"type": "string", "minLength": 10},
-        "resolves": {"type": "array", "items": {"type": "string"}},
-        "expected_new_score": {"type": "integer", "minimum": 1, "maximum": 10},
-        "effort": {"enum": ["S", "M", "L"]},
-        "requires_human_decision": {"type": "boolean"},
-        "decision_question": {"type": ["string", "null"]},
-        "optional": {"type": "boolean"}
+        "id": {
+          "type": "string",
+          "pattern": "^[A-FX]\\d-act-\\d+$"
+        },
+        "action": {
+          "type": "string",
+          "minLength": 10
+        },
+        "resolves": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "expected_new_score": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10
+        },
+        "effort": {
+          "enum": [
+            "S",
+            "M",
+            "L"
+          ]
+        },
+        "requires_human_decision": {
+          "type": "boolean"
+        },
+        "decision_question": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "optional": {
+          "type": "boolean"
+        }
       }
     },
     "benchmark": {
       "type": "object",
-      "required": ["id", "name", "pillar", "applicability", "profile_weight", "weight", "score", "confidence",
-                   "caps_applied", "finding_ids", "strengths", "enforcement", "gaming_flags", "path_to_target"],
+      "required": [
+        "id",
+        "name",
+        "pillar",
+        "applicability",
+        "config_weight",
+        "weight",
+        "score",
+        "confidence",
+        "caps_applied",
+        "finding_ids",
+        "strengths",
+        "enforcement",
+        "gaming_flags",
+        "path_to_target"
+      ],
       "properties": {
-        "id": {"$ref": "#/$defs/benchmarkId"},
-        "name": {"type": "string"},
-        "pillar": {"enum": ["A", "B", "C", "D", "E", "F", "X"]},
-        "applicability": {"enum": ["full", "limited", "not_applicable"]},
-        "applicability_reason": {"type": ["string", "null"]},
-        "profile_weight": {"type": "integer", "minimum": 0, "maximum": 3},
-        "weight": {"type": "integer", "minimum": 0, "maximum": 3},
-        "weight_note": {"type": ["string", "null"]},
-        "score": {"type": ["integer", "null"], "minimum": 1, "maximum": 10},
-        "confidence": {"enum": ["high", "medium", "low", null]},
-        "carried_forward": {"type": "boolean"},
-        "caps_applied": {"type": "array", "items": {"type": "string"}},
-        "finding_ids": {"type": "array", "items": {"type": "string"}},
+        "id": {
+          "$ref": "#/$defs/benchmarkId"
+        },
+        "name": {
+          "type": "string"
+        },
+        "pillar": {
+          "enum": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E",
+            "F",
+            "X"
+          ]
+        },
+        "applicability": {
+          "enum": [
+            "full",
+            "limited",
+            "not_applicable"
+          ]
+        },
+        "applicability_reason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "config_weight": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 3,
+          "description": "Weight from the effective config, before applicability"
+        },
+        "weight": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 3
+        },
+        "weight_note": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "score": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1,
+          "maximum": 10
+        },
+        "confidence": {
+          "enum": [
+            "high",
+            "medium",
+            "low",
+            null
+          ]
+        },
+        "carried_forward": {
+          "type": "boolean"
+        },
+        "caps_applied": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "finding_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
         "strengths": {
           "type": "array",
           "items": {
             "type": "object",
-            "required": ["note", "evidence"],
+            "required": [
+              "note",
+              "evidence"
+            ],
             "properties": {
-              "note": {"type": "string"},
-              "evidence": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/evidence"}}
+              "note": {
+                "type": "string"
+              },
+              "evidence": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "$ref": "#/$defs/evidence"
+                }
+              }
             }
           }
         },
-        "enforcement": {"type": "array", "items": {"$ref": "#/$defs/evidence"}},
-        "gaming_flags": {"type": "array", "items": {"type": "string"}},
-        "target": {"type": ["integer", "null"]},
-        "path_to_target": {"type": "array", "items": {"$ref": "#/$defs/action"}},
-        "previous_score": {"type": ["integer", "null"]},
-        "change_explanation": {"type": ["string", "null"]}
+        "enforcement": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/evidence"
+          }
+        },
+        "gaming_flags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "target": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "path_to_target": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/action"
+          }
+        },
+        "previous_score": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "change_explanation": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
       }
     }
   }

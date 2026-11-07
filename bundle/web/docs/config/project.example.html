@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Example project config · Code Grading Suite</title>
+<meta name="description" content="A rubric and prompts for AI coding agents to grade codebases from 1 to 10 on 35 benchmarks and improve them.">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/favicon.svg" type="image/svg+xml">
+<link rel="alternate" type="text/markdown" href="../../AGENT.md" title="Agent entry point">
+</head>
+<body>
+<header class="topbar">
+  <button class='menu-btn' type='button'>Menu</button>
+  <a class="brand" href="../../index.html">Code <span>Grading</span> Suite</a>
+  <span class="ver">v4.0.0</span>
+  <span class="spacer"></span>
+  
+  <a class="top" href="../../docs/README.html">Docs</a>
+  <a class="top opt" href="../../AGENT.md">AGENT.md</a>
+  <a class="top opt" href="../../downloads/code-grading-suite-4.0.0.zip">Download</a>
+</header>
+<div class="layout"><nav class="sidebar" aria-label="Documentation"><h4>Start</h4><a href="../../docs/README.html">Overview &amp; workflow</a><a href="../../docs/AGENT.html">Agent entry point</a><a href="../../docs/DEPLOY.html">Hosting this site</a><h4>Configuration</h4><a href="../../docs/TUNING.html">Tuning guide</a><a href="../../docs/rubric/weights.html">How scoring works</a><a href="../../docs/config/defaults.html">Default config</a><a href="../../docs/config/project.example.html" class="active" aria-current="page">Example project config</a><h4>Prompts</h4><a href="../../docs/prompts/grader.html">Grader</a><a href="../../docs/prompts/improver.html">Improver</a><a href="../../docs/prompts/pr-review.html">PR quick mode</a><h4>Rubric</h4><a href="../../docs/rubric/A-correctness-trust.html">A · Correctness &amp; Trust</a><a href="../../docs/rubric/B-design-structure.html">B · Design &amp; Structure</a><a href="../../docs/rubric/C-code-health.html">C · Code Health</a><a href="../../docs/rubric/D-value-fitness.html">D · Value &amp; Fitness</a><a href="../../docs/rubric/E-adoption-experience.html">E · Adoption &amp; Experience</a><a href="../../docs/rubric/F-operations-delivery.html">F · Operations &amp; Delivery</a><a href="../../docs/rubric/X-conditional.html">X · Conditional</a><h4>Guides</h4><a href="../../docs/calibration/README.html">Calibration</a><a href="../../docs/holdout/README.html">Hidden checks</a><a href="../../docs/CHANGELOG.html">Changelog</a></nav><main class="doc"><div class="docbar"><a class="btn" href="../../suite/config/project.example.toml">View raw .toml</a><button class="btn" type="button" data-copy="../../suite/config/project.example.toml">Copy raw URL for an agent</button></div><h1 id="example-project-config">Example project config<a class="anchor" href="#example-project-config" aria-label="Link to this section">#</a></h1>
+<p><code>config/project.example.toml</code>. Download the raw file with the button above.</p>
+<pre><code class="language-toml"># EXAMPLE project configuration for the Code Grading Suite (v4.0.0)
+# Keep this file OUTSIDE the repository being graded, owned by humans.
+# Check it with:  python3 SUITE_DIR/tools/gradekit.py resolve --config project.toml
+
+[project]
+name            = &quot;orders-api&quot;
+description     = &quot;REST API that takes orders and payments for the web shop&quot;
+preset          = &quot;service&quot;            # default | service | web_app | library | oss_library | cli | internal_tool | prototype
+languages       = &quot;Python 3.12, FastAPI, Postgres&quot;
+users           = &quot;The web shop front end and the internal sales dashboard&quot;
+maturity_target = &quot;production&quot;
+scope           = &quot;Create, list and cancel orders; idempotent payments; CSV export (see docs/requirements.md)&quot;
+out_of_scope    = [&quot;vendor/**&quot;, &quot;src/generated/**&quot;]
+
+# Answers override the preset. Delete a line to use the preset's answer.
+# Run `gradekit resolve --explain ID` to see how answers moved a weight.
+[answers]
+data_sensitivity  = &quot;financial&quot;   # What is the most sensitive data this code handles?  (none | internal | personal | financial | regulated)
+audience          = &quot;internal_org&quot;   # Who uses it?  (just_me | team | internal_org | public | developers)
+lifespan          = &quot;years&quot;   # How long will this code live?  (throwaway | months | years | indefinite)
+failure_impact    = &quot;revenue_loss&quot;   # What happens when it fails?  (inconvenience | degraded_work | revenue_loss | safety_or_legal)
+team              = &quot;small&quot;   # Who works on it?  (solo | small | large | open_source)
+change_rate       = &quot;regular&quot;   # How often does it change?  (rare | regular | constant)
+delivery          = &quot;service&quot;   # How is it delivered?  (mixed | service | website | package | installed_app | internal_script)
+scale             = &quot;moderate&quot;   # What load or data volume does it face?  (small | moderate | large | massive)
+
+# Criticality zones: first match wins, so list specific zones first.
+# hot = matters most (money, auth, data writes); cold = matters least (scripts, examples).
+[[zones]]
+name        = &quot;payments&quot;
+paths       = [&quot;src/payments/**&quot;, &quot;src/billing/**&quot;]
+criticality = &quot;hot&quot;
+why         = &quot;Moves money&quot;
+
+[[zones]]
+name        = &quot;auth&quot;
+paths       = [&quot;src/auth/**&quot;]
+criticality = &quot;hot&quot;
+why         = &quot;Controls who can do what&quot;
+
+[[zones]]
+name        = &quot;tooling&quot;
+paths       = [&quot;scripts/**&quot;, &quot;examples/**&quot;, &quot;tests/fixtures/**&quot;]
+criticality = &quot;cold&quot;
+why         = &quot;Developer convenience; never runs in production&quot;
+
+# Where improving agents stop: proportional (default) | maximal | level:L3
+[targets]
+mode = &quot;proportional&quot;
+# overrides = { F4 = 10 }
+
+# Explicit weight overrides (always need a reason):
+[weights.overrides]
+F4 = { weight = 3, reason = &quot;Checkout calls this synchronously; p99 latency budget is 150 ms&quot; }
+
+# Extra gates for this project, or (rarely) remove one:
+# [gates]
+# extra   = [&quot;C4&quot;]
+# exclude = []
+
+# Monorepos: one block per component. Each can set its own preset, answers, zones and gates.
+# Grade each with:  gradekit resolve --config project.toml --component NAME
+# [[components]]
+# name    = &quot;web&quot;
+# path    = &quot;apps/web&quot;
+# weight  = 1
+# preset  = &quot;web_app&quot;
+# answers = { scale = &quot;large&quot; }
+
+</code></pre>
+<nav class="pager"><a href="../../docs/config/defaults.html"><small>Previous</small>Default config</a><a href="../../docs/prompts/grader.html" style="margin-left:auto;text-align:right"><small>Next</small>Grader</a></nav></main></div>
+<script src="../../assets/site.js"></script>
+</body>
+</html>

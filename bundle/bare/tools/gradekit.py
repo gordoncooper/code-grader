@@ -1,19 +1,27 @@
 #!/usr/bin/env python3
-"""gradekit: companion tool for the Code Grading Suite (v3).
+"""gradekit: companion tool for the Code Grading Suite (v4).
 
 Never trust a grader's arithmetic or citations; check them.
 
-Commands:
-  validate         Check a report against the schema and the suite's rules.
+Configuration:
+  init             Write a starter project.toml from a preset.
+  resolve          Combine defaults + your configs into the effective config (weights, gates, zones…).
+  presets          Compare weights and gates across presets.
+
+Reports:
+  validate         Check a report against the schema, the config and the suite's rules.
   verify-evidence  Confirm every code citation exists in the repo and the quote matches.
-  rollup           Compute weights check, targets, pillar/overall scores, caps and maturity.
+  rollup           Compute gates, zones, pillar/overall scores, targets, maturity and ranked priorities.
   stability        Merge several independent runs on one commit into a median consensus.
   diff             Compare two reports (score deltas, findings, regressions, divergence).
   calibrate        Compare a report against human-expected scores for a reference repo.
   redact           Strip hidden-check details so a report can be shared with improvers.
   rollup-repo      Combine per-component reports for a monorepo.
 
-Standard library only; uses `jsonschema` for structural validation when installed.
+Commands that need the config take --config (repeatable): TOML files layered over
+config/defaults.toml in order, or one effective-config JSON produced by `resolve --out`.
+
+Python 3.11+ (uses tomllib); standard library only. Uses `jsonschema` when installed.
 Exit codes: 0 ok, 1 invalid/failed check, 2 regression (diff --fail-on-regression),
 3 unstable runs (stability --strict), 4 calibration failed.
 """
@@ -21,42 +29,71 @@ from __future__ import annotations
 
 import argparse
 import copy
+import hashlib
 import json
 import re
 import statistics
 import sys
 from pathlib import Path
 
+try:
+    import tomllib  # Python 3.11+
+except ModuleNotFoundError:  # pragma: no cover
+    try:
+        import tomli as tomllib  # type: ignore
+    except ModuleNotFoundError:
+        tomllib = None  # type: ignore
+
 SUITE_DIR = Path(__file__).resolve().parent.parent
-WEIGHTS_PATH = SUITE_DIR / "rubric" / "weights.json"
+CATALOG_PATH = SUITE_DIR / "rubric" / "catalog.json"
+DEFAULTS_PATH = SUITE_DIR / "config" / "defaults.toml"
 SCHEMA_PATH = SUITE_DIR / "schema" / "report.schema.json"
 PILLARS = ["A", "B", "C", "D", "E", "F", "X"]
 OPEN_STATUSES = {"new", "open", "regressed"}
+SEVERITIES = ["minor", "major", "critical"]
+HEAT = {"cold": 0, "normal": 1, "hot": 2}
 
 
-# --------------------------------------------------------------------------- helpers
+# =========================================================================== helpers
 
-def load_json(path: str | Path) -> dict:
+def die(msg: str, code: int = 1):
+    print(f"error: {msg}", file=sys.stderr)
+    sys.exit(code)
+
+
+def load_json(path) -> dict:
     try:
         with open(path, encoding="utf-8") as fh:
             return json.load(fh)
     except FileNotFoundError:
-        sys.exit(f"error: file not found: {path}")
+        die(f"file not found: {path}")
     except json.JSONDecodeError as exc:
-        sys.exit(f"error: {path} is not valid JSON: {exc}")
+        die(f"{path} is not valid JSON: {exc}")
 
 
-def write_json(path: str | Path, data: dict) -> None:
+def write_json(path, data: dict) -> None:
     with open(path, "w", encoding="utf-8") as fh:
         json.dump(data, fh, indent=2, ensure_ascii=False)
         fh.write("\n")
 
 
-def load_weights() -> dict:
-    return load_json(WEIGHTS_PATH)
+def load_toml(path) -> dict:
+    if tomllib is None:
+        die("reading TOML needs Python 3.11+ (or `pip install tomli`)")
+    try:
+        with open(path, "rb") as fh:
+            return tomllib.load(fh)
+    except FileNotFoundError:
+        die(f"file not found: {path}")
+    except tomllib.TOMLDecodeError as exc:
+        die(f"{path} is not valid TOML: {exc}")
 
 
-def major(version: str) -> str:
+def load_catalog() -> dict:
+    return load_json(CATALOG_PATH)
+
+
+def major(version) -> str:
     return str(version).split(".")[0]
 
 
@@ -68,12 +105,24 @@ def benchmarks_by_id(report: dict) -> dict:
     return {b.get("id"): b for b in report.get("benchmarks", [])}
 
 
-def expected_weight(applicability: str, profile_weight: int) -> int:
+def expected_weight(applicability: str, config_weight: int) -> int:
     if applicability == "limited":
-        return min(profile_weight, 1)
+        return min(config_weight, 1)
     if applicability == "not_applicable":
         return 0
-    return profile_weight
+    return config_weight
+
+
+def all_text(obj) -> str:
+    if isinstance(obj, dict):
+        return " ".join(all_text(v) for v in obj.values())
+    if isinstance(obj, list):
+        return " ".join(all_text(v) for v in obj)
+    return str(obj) if obj is not None else ""
+
+
+def norm(text: str) -> str:
+    return re.sub(r"\s+", " ", text).strip()
 
 
 def iter_evidence(report: dict):
@@ -95,54 +144,306 @@ def iter_evidence(report: dict):
             yield f"integrity flag #{i + 1}", ev, None
 
 
-def all_text(obj) -> str:
-    if isinstance(obj, dict):
-        return " ".join(all_text(v) for v in obj.values())
-    if isinstance(obj, list):
-        return " ".join(all_text(v) for v in obj)
-    return str(obj) if obj is not None else ""
+# =========================================================================== configuration
+
+def deep_merge(base: dict, over: dict) -> dict:
+    out = copy.deepcopy(base)
+    for k, v in over.items():
+        if isinstance(v, dict) and isinstance(out.get(k), dict):
+            out[k] = deep_merge(out[k], v)
+        else:
+            out[k] = copy.deepcopy(v)
+    return out
 
 
-def norm(text: str) -> str:
-    return re.sub(r"\s+", " ", text).strip()
+def config_hash(cfg: dict) -> str:
+    body = {k: v for k, v in cfg.items() if k not in ("hash", "sources", "warnings")}
+    return hashlib.sha256(json.dumps(body, sort_keys=True, ensure_ascii=False).encode()).hexdigest()[:16]
 
 
-# --------------------------------------------------------------------------- validate
-
-def validate_report(report: dict, weights: dict) -> tuple[list[str], list[str]]:
+def resolve_config(paths: list[str], component: str | None = None, preset_fallback: str | None = None,
+                   component_required: bool = True) -> dict:
+    catalog = load_catalog()
+    ids = [b["id"] for b in catalog["benchmarks"]]
+    names = {b["id"]: b["name"] for b in catalog["benchmarks"]}
+    merged = load_toml(DEFAULTS_PATH)
+    sources = [str(DEFAULTS_PATH.relative_to(SUITE_DIR))]
+    for p in paths:
+        merged = deep_merge(merged, load_toml(p))
+        sources.append(str(p))
     errors: list[str] = []
     warnings: list[str] = []
 
-    # Structural schema
+    if major(merged.get("suite_version", "0")) != major(catalog["suite_version"]):
+        errors.append(f"config suite_version {merged.get('suite_version')} does not match suite {catalog['suite_version']}")
+
+    project = merged.get("project", {}) or {}
+    comp = None
+    if component:
+        comps = {c.get("name"): c for c in merged.get("components", []) or []}
+        if component not in comps:
+            if component_required:
+                errors.append(f"unknown component '{component}' (known: {', '.join(comps) or 'none'})")
+            else:
+                warnings.append(f"report names component '{component}', which the config doesn't define; using project settings")
+        else:
+            comp = comps[component]
+
+    presets = merged.get("presets", {})
+    preset = (comp or {}).get("preset") or project.get("preset") or preset_fallback or "default"
+    if preset not in presets:
+        errors.append(f"unknown preset '{preset}' (known: {', '.join(presets)})")
+        preset_answers = {}
+    else:
+        preset_answers = presets[preset].get("answers", {}) or {}
+
+    questions = merged.get("questions", {})
+    project_answers = merged.get("answers", {}) or {}
+    comp_answers = (comp or {}).get("answers", {}) or {}
+    for src_name, src in (("project [answers]", project_answers), ("component answers", comp_answers), (f"preset {preset}", preset_answers)):
+        for q in src:
+            if q not in questions:
+                errors.append(f"{src_name}: unknown question '{q}'")
+
+    answers: dict[str, dict] = {}
+    for q, qdef in questions.items():
+        if q in comp_answers:
+            a, how = comp_answers[q], "component"
+        elif q in project_answers:
+            a, how = project_answers[q], "project"
+        elif q in preset_answers:
+            a, how = preset_answers[q], f"preset:{preset}"
+        else:
+            a, how = qdef.get("default"), "default"
+        opts = qdef.get("options", {})
+        if a not in opts:
+            errors.append(f"question '{q}': unknown answer '{a}' (options: {', '.join(opts)})")
+            continue
+        answers[q] = {"answer": a, "source": how, "label": opts[a].get("label", a)}
+        for bid in list(opts[a].get("effects", {})) + list(opts[a].get("gates", [])):
+            if bid not in ids:
+                errors.append(f"question '{q}' option '{a}': unknown benchmark '{bid}'")
+
+    wcfg = merged.get("weights", {})
+    wmin, wmax = int(wcfg.get("min", 1)), int(wcfg.get("max", 3))
+    base = wcfg.get("base", {})
+    overrides = dict(wcfg.get("overrides", {}) or {})
+    overrides.update(((comp or {}).get("weights", {}) or {}).get("overrides", {}) or {})
+    weights: dict[str, dict] = {}
+    for bid in ids:
+        if bid not in base:
+            errors.append(f"weights.base is missing {bid}")
+            continue
+        b = int(base[bid])
+        trace = []
+        total = b
+        for q, ans in answers.items():
+            delta = questions[q]["options"][ans["answer"]].get("effects", {}).get(bid, 0)
+            if delta:
+                trace.append({"because": f"{q}={ans['answer']}", "delta": delta})
+                total += delta
+        clamped = max(wmin, min(wmax, total))
+        entry = {"name": names[bid], "base": b, "trace": trace, "raw": total, "weight": clamped,
+                 "clamped": clamped != total, "override": None}
+        if bid in overrides:
+            ov = overrides[bid]
+            if not isinstance(ov, dict) or "weight" not in ov:
+                errors.append(f"weights.overrides.{bid} must look like {{ weight = 3, reason = \"...\" }}")
+            else:
+                if not str(ov.get("reason", "")).strip():
+                    errors.append(f"weights.overrides.{bid} needs a reason")
+                w = int(ov["weight"])
+                if not 0 <= w <= wmax:
+                    errors.append(f"weights.overrides.{bid}: weight {w} outside 0..{wmax}")
+                entry["override"] = {"weight": w, "reason": ov.get("reason", "")}
+                entry["weight"] = w
+        weights[bid] = entry
+    for bid in overrides:
+        if bid not in ids:
+            errors.append(f"weights.overrides: unknown benchmark '{bid}'")
+
+    gcfg = merged.get("gates", {})
+    gate_why: dict[str, list[str]] = {}
+    for bid in gcfg.get("always", []):
+        gate_why.setdefault(bid, []).append("always")
+    for q, ans in answers.items():
+        for bid in questions[q]["options"][ans["answer"]].get("gates", []):
+            gate_why.setdefault(bid, []).append(f"{q}={ans['answer']}")
+    for bid in gcfg.get("extra", []) + ((comp or {}).get("gates", {}) or {}).get("extra", []):
+        gate_why.setdefault(bid, []).append("extra")
+    for bid in gcfg.get("exclude", []):
+        if bid in ("A1", "A2"):
+            warnings.append(f"gate {bid} excluded: correctness/security can now be averaged away. Be sure.")
+        gate_why.pop(bid, None)
+    for bid in gate_why:
+        if bid not in ids:
+            errors.append(f"gates: unknown benchmark '{bid}'")
+
+    zs = merged.get("zone_settings", {})
+    zones = list((comp or {}).get("zones", []) or []) + list(merged.get("zones", []) or [])
+    for z in zones:
+        if z.get("criticality") not in HEAT:
+            errors.append(f"zone '{z.get('name')}': criticality must be hot, normal or cold")
+        if not z.get("paths"):
+            errors.append(f"zone '{z.get('name')}': needs at least one path pattern")
+    if zs.get("default", "normal") not in HEAT:
+        errors.append("zone_settings.default must be hot, normal or cold")
+
+    targets = copy.deepcopy(merged.get("targets", {}))
+    for bid in (targets.get("overrides") or {}):
+        if bid not in ids:
+            errors.append(f"targets.overrides: unknown benchmark '{bid}'")
+    mode = targets.get("mode", "proportional")
+    if not re.fullmatch(r"proportional|maximal|level:L[0-9]", str(mode)):
+        errors.append(f"targets.mode '{mode}' must be proportional, maximal or level:L<n>")
+
+    if errors:
+        for e in errors:
+            print(f"config error: {e}", file=sys.stderr)
+        die(f"{len(errors)} configuration error(s)")
+
+    cfg = {
+        "suite_version": merged.get("suite_version"),
+        "generated_by": "gradekit.py resolve",
+        "sources": sources,
+        "project": project,
+        "component": ({k: comp.get(k) for k in ("name", "path", "weight")} if comp else None),
+        "preset": preset,
+        "answers": answers,
+        "weights": weights,
+        "gates": {"benchmarks": sorted(gate_why), "why": gate_why,
+                  "hard_floor": gcfg.get("hard_floor", 3), "overall_cap": gcfg.get("overall_cap", 4.0)},
+        "zones": {"list": zones, "default": zs.get("default", "normal"),
+                  "severity_shift": zs.get("severity_shift", {"hot": 1, "normal": 0, "cold": -1}),
+                  "never_downgrade": zs.get("never_downgrade", ["A2"]),
+                  "priority_multiplier": zs.get("priority_multiplier", {"hot": 2.0, "normal": 1.0, "cold": 0.5})},
+        "targets": targets,
+        "maturity": merged.get("maturity", {}),
+        "priorities": merged.get("priorities", {}),
+        "warnings": warnings,
+    }
+    cfg["hash"] = config_hash(cfg)
+    return cfg
+
+
+def load_config(args, report: dict | None = None, quiet: bool = False) -> dict:
+    paths = getattr(args, "config", None) or []
+    comp = getattr(args, "component", None)
+    required = comp is not None
+    if report and not comp:
+        comp = (report.get("component") or {}).get("name")
+        if comp == "repo":
+            comp = None
+    if len(paths) == 1 and paths[0].endswith(".json"):
+        cfg = load_json(paths[0])
+        if cfg.get("hash") != config_hash(cfg):
+            die(f"{paths[0]} has been edited after it was generated (hash mismatch); re-run resolve")
+        return cfg
+    if any(p.endswith(".json") for p in paths):
+        die("--config takes either TOML files or a single effective-config JSON, not both")
+    fallback = ((report or {}).get("config") or {}).get("preset")
+    if not paths and not quiet:
+        print(f"note: no --config given; using suite defaults with preset '{fallback or 'default'}'")
+    return resolve_config(paths, component=comp, preset_fallback=fallback, component_required=required)
+
+
+# =========================================================================== zones & severity
+
+def glob_to_regex(pattern: str) -> re.Pattern:
+    p = pattern.strip().lstrip("./")
+    if p.endswith("/"):
+        p += "**"
+    out, i = "", 0
+    while i < len(p):
+        if p.startswith("**/", i):
+            out += r"(?:.*/)?"
+            i += 3
+        elif p.startswith("**", i):
+            out += r".*"
+            i += 2
+        elif p[i] == "*":
+            out += r"[^/]*"
+            i += 1
+        elif p[i] == "?":
+            out += r"[^/]"
+            i += 1
+        else:
+            out += re.escape(p[i])
+            i += 1
+    return re.compile(rf"^{out}$")
+
+
+def zone_for_path(path: str, cfg: dict) -> tuple[str | None, str]:
+    path = str(path).lstrip("./")
+    for z in cfg["zones"]["list"]:
+        for pat in z.get("paths", []):
+            if glob_to_regex(pat).match(path):
+                return z.get("name"), z.get("criticality")
+    return None, cfg["zones"]["default"]
+
+
+def finding_zone(finding: dict, cfg: dict) -> tuple[str | None, str]:
+    """The hottest zone among the files a finding cites (code evidence + `paths`)."""
+    files = [ev.get("file") for ev in finding.get("evidence", []) if ev.get("type") == "code" and ev.get("file")]
+    files += list(finding.get("paths", []) or [])
+    if not files:
+        return None, cfg["zones"]["default"]
+    return max((zone_for_path(f, cfg) for f in files), key=lambda z: HEAT[z[1]])
+
+
+def effective_severity(finding: dict, criticality: str, cfg: dict) -> str:
+    sev = finding.get("severity", "minor")
+    if sev not in SEVERITIES:
+        return sev
+    shift = int(cfg["zones"]["severity_shift"].get(criticality, 0))
+    if shift < 0 and finding.get("benchmark_id") in cfg["zones"]["never_downgrade"]:
+        shift = 0
+    idx = max(0, min(len(SEVERITIES) - 1, SEVERITIES.index(sev) + shift))
+    return SEVERITIES[idx]
+
+
+def analyze_findings(report: dict, cfg: dict) -> dict:
+    out = {}
+    for f in report.get("findings", []):
+        zname, crit = finding_zone(f, cfg)
+        out[f.get("id")] = {"zone": zname, "criticality": crit, "severity": f.get("severity"),
+                            "effective_severity": effective_severity(f, crit, cfg),
+                            "status": f.get("status"), "benchmark_id": f.get("benchmark_id")}
+    return out
+
+
+# =========================================================================== validate
+
+def validate_report(report: dict, cfg: dict, catalog: dict) -> tuple[list[str], list[str]]:
+    errors: list[str] = []
+    warnings: list[str] = []
     try:
         import jsonschema  # type: ignore
 
-        schema = load_json(SCHEMA_PATH)
-        validator = jsonschema.Draft202012Validator(schema)
+        validator = jsonschema.Draft202012Validator(load_json(SCHEMA_PATH))
         for err in sorted(validator.iter_errors(report), key=lambda e: list(e.path)):
             loc = "/".join(str(p) for p in err.path) or "(root)"
             errors.append(f"schema: {loc}: {err.message}")
     except ImportError:
         warnings.append("jsonschema not installed; structural schema check skipped (semantic checks still run)")
-        for key in ("suite_version", "mode", "run", "profile", "benchmarks", "findings"):
+        for key in ("suite_version", "mode", "run", "config", "benchmarks", "findings"):
             if key not in report:
                 errors.append(f"missing required field '{key}'")
-
-    if errors and not isinstance(report.get("benchmarks"), list):
+    if not isinstance(report.get("benchmarks"), list):
         return errors, warnings
 
-    # Suite version
-    if major(report.get("suite_version", "0")) != major(weights["suite_version"]):
-        errors.append(f"suite_version {report.get('suite_version')} does not match suite major version {weights['suite_version']}")
+    if major(report.get("suite_version", "0")) != major(catalog["suite_version"]):
+        errors.append(f"suite_version {report.get('suite_version')} does not match suite {catalog['suite_version']}")
+    rc = report.get("config", {}) or {}
+    if rc.get("hash") != cfg["hash"]:
+        errors.append(f"report was graded with config {rc.get('hash')} but checked against {cfg['hash']} "
+                      "(pass the same --config the grader used)")
+    if rc.get("preset") and rc.get("preset") != cfg["preset"]:
+        errors.append(f"report preset '{rc.get('preset')}' differs from config preset '{cfg['preset']}'")
 
-    profile = report.get("profile")
-    if profile not in weights["profiles"]:
-        errors.append(f"unknown profile '{profile}'")
-        return errors, warnings
-
-    canon = {b["id"]: b for b in weights["benchmarks"]}
+    canon = {b["id"]: b for b in catalog["benchmarks"]}
     seen: dict[str, int] = {}
-    for b in report.get("benchmarks", []):
+    for b in report["benchmarks"]:
         seen[b.get("id")] = seen.get(b.get("id"), 0) + 1
     for bid in canon:
         if bid not in seen:
@@ -163,27 +464,31 @@ def validate_report(report: dict, weights: dict) -> tuple[list[str], list[str]]:
             errors.append(f"finding {fid}: status 'accepted' requires disposition text")
         if f.get("disposition") and f.get("status") != "accepted":
             warnings.append(f"finding {fid}: has a disposition but status is '{f.get('status')}'")
+    fz = analyze_findings(report, cfg)
 
+    gates = set(cfg["gates"]["benchmarks"])
     referenced: set[str] = set()
     action_ids: set[str] = set()
-    for b in report.get("benchmarks", []):
+    for b in report["benchmarks"]:
         bid = b.get("id")
         if bid not in canon:
             continue
         c = canon[bid]
         if b.get("name") != c["name"]:
-            warnings.append(f"{bid}: name '{b.get('name')}' differs from canonical '{c['name']}'")
+            warnings.append(f"{bid}: name '{b.get('name')}' differs from catalog '{c['name']}'")
         if b.get("pillar") != c["pillar"]:
             errors.append(f"{bid}: pillar '{b.get('pillar')}' should be '{c['pillar']}'")
         app = b.get("applicability")
-        pw = c["weights"][profile]
-        if b.get("profile_weight") != pw:
-            errors.append(f"{bid}: profile_weight {b.get('profile_weight')} should be {pw} for profile {profile}")
-        want = expected_weight(app, pw)
+        cw = cfg["weights"][bid]["weight"]
+        if b.get("config_weight") != cw:
+            errors.append(f"{bid}: config_weight {b.get('config_weight')} should be {cw} (from the effective config)")
+        want = expected_weight(app, cw)
         if app != "not_applicable" and b.get("weight") != want:
-            errors.append(f"{bid}: weight {b.get('weight')} should be {want} ({app} applicability, profile weight {pw})")
+            errors.append(f"{bid}: weight {b.get('weight')} should be {want} ({app} applicability, config weight {cw})")
         if app in ("limited", "not_applicable") and not (b.get("applicability_reason") or "").strip():
             errors.append(f"{bid}: applicability '{app}' requires applicability_reason")
+        if bid in gates and app != "full":
+            warnings.append(f"{bid} is a gate but marked '{app}'; gates should almost always fully apply. Double-check.")
         score = b.get("score")
         if app == "not_applicable":
             if score is not None:
@@ -200,6 +505,10 @@ def validate_report(report: dict, weights: dict) -> tuple[list[str], list[str]]:
                 errors.append(f"{bid}: score 10 requires 'enforcement' evidence (otherwise max 9)")
             if score <= 6 and not b.get("finding_ids") and not b.get("carried_forward"):
                 warnings.append(f"{bid}: score {score} but no findings explain what is wrong")
+            crit_open = [fid for fid in b.get("finding_ids", [])
+                         if fz.get(fid, {}).get("effective_severity") == "critical" and fz.get(fid, {}).get("status") in OPEN_STATUSES]
+            if crit_open and score > 5:
+                warnings.append(f"{bid}: score {score} despite open effective-critical finding(s) {', '.join(crit_open)}")
         for fid in b.get("finding_ids", []):
             referenced.add(fid)
             if fid not in findings:
@@ -226,7 +535,6 @@ def validate_report(report: dict, weights: dict) -> tuple[list[str], list[str]]:
     gap_ids = [g.get("id") for g in report.get("gap_register", [])]
     if len(gap_ids) != len(set(gap_ids)):
         errors.append("duplicate gap IDs")
-
     for p in report.get("top_priorities", []):
         aid = p.get("action_id")
         if aid and aid not in action_ids:
@@ -235,7 +543,6 @@ def validate_report(report: dict, weights: dict) -> tuple[list[str], list[str]]:
     holdout = report.get("holdout", {})
     if holdout.get("run") and holdout.get("pass_rate") is None:
         errors.append("holdout.run is true but pass_rate is null")
-    # Leak check: names of hidden checks must not appear elsewhere in the report.
     private = holdout.get("private_details")
     names: set[str] = set()
     if isinstance(private, list):
@@ -252,18 +559,17 @@ def validate_report(report: dict, weights: dict) -> tuple[list[str], list[str]]:
         for n in sorted(names):
             if n in public_text:
                 errors.append(f"hidden-check leak: '{n}' appears outside holdout.private_details")
-
-    if report.get("mode") == "full" and any(b.get("carried_forward") for b in report.get("benchmarks", [])):
+    if report.get("mode") == "full" and any(b.get("carried_forward") for b in report["benchmarks"]):
         warnings.append("full-mode report has carried_forward benchmarks; full audits should grade everything")
-
     return errors, warnings
 
 
 def cmd_validate(args) -> int:
-    weights = load_weights()
+    catalog = load_catalog()
     report = load_json(args.report)
-    errors, warnings = validate_report(report, weights)
-    for w in warnings:
+    cfg = load_config(args, report)
+    errors, warnings = validate_report(report, cfg, catalog)
+    for w in cfg.get("warnings", []) + warnings:
         print(f"warning: {w}")
     for e in errors:
         print(f"ERROR:   {e}")
@@ -271,7 +577,7 @@ def cmd_validate(args) -> int:
     return 1 if errors else 0
 
 
-# --------------------------------------------------------------------------- verify-evidence
+# =========================================================================== verify-evidence
 
 def check_code_evidence(ev: dict, repo: Path, tolerance: int) -> str | None:
     rel = ev.get("file", "")
@@ -287,8 +593,7 @@ def check_code_evidence(ev: dict, repo: Path, tolerance: int) -> str | None:
     m = re.fullmatch(r"(\d+)(?:-(\d+))?", str(ev.get("lines", "")))
     if not m:
         return f"bad line range '{ev.get('lines')}'"
-    start = int(m.group(1))
-    end = int(m.group(2) or start)
+    start, end = int(m.group(1)), int(m.group(2) or m.group(1))
     if end < start or start < 1:
         return f"bad line range '{ev.get('lines')}'"
     try:
@@ -297,9 +602,7 @@ def check_code_evidence(ev: dict, repo: Path, tolerance: int) -> str | None:
         return f"cannot read {rel}: {exc}"
     if end > len(lines):
         return f"{rel} has {len(lines)} lines; cited {start}-{end}"
-    lo = max(0, start - 1 - tolerance)
-    hi = min(len(lines), end + tolerance)
-    window = norm("\n".join(lines[lo:hi]))
+    window = norm("\n".join(lines[max(0, start - 1 - tolerance):min(len(lines), end + tolerance)]))
     quote = norm(ev.get("quote", ""))
     if not quote:
         return "empty quote"
@@ -312,7 +615,7 @@ def cmd_verify_evidence(args) -> int:
     report = load_json(args.report)
     repo = Path(args.repo).resolve()
     if not repo.is_dir():
-        sys.exit(f"error: repo not found: {repo}")
+        die(f"repo not found: {repo}")
     carried = {b["id"] for b in report.get("benchmarks", []) if b.get("carried_forward")}
     checked = skipped = 0
     failures: list[str] = []
@@ -331,106 +634,127 @@ def cmd_verify_evidence(args) -> int:
             failures.append(f"{loc}: {problem}")
     for f in failures:
         print(f"FAIL: {f}")
-    print(f"\ncode citations checked: {checked}, failed: {len(failures)}, "
-          f"skipped (carried forward): {skipped}; command: {other.get('command', 0)}, "
-          f"absence: {other.get('absence', 0)} (not machine-checkable)")
+    print(f"\ncode citations checked: {checked}, failed: {len(failures)}, skipped (carried forward): {skipped}; "
+          f"command: {other.get('command', 0)}, absence: {other.get('absence', 0)} (not machine-checkable)")
     return 1 if failures else 0
 
 
-# --------------------------------------------------------------------------- rollup
+# =========================================================================== rollup
 
-def compute_targets(report: dict, weights: dict) -> dict:
-    mode = report.get("target_mode", "proportional")
-    overrides = report.get("target_overrides", {}) or {}
-    tcfg = weights["targets"]
+def level_defs(cfg: dict) -> list[dict]:
+    return cfg["maturity"].get("levels", [])
+
+
+def compute_targets(report: dict, cfg: dict) -> dict:
+    t = cfg["targets"]
+    mode = t.get("mode", "proportional")
+    overrides = t.get("overrides", {}) or {}
+    gates = set(cfg["gates"]["benchmarks"])
     level_req = None
-    if mode.startswith("level:"):
+    if str(mode).startswith("level:"):
         lvl = mode.split(":", 1)[1]
-        level_req = next((l for l in weights["maturity_levels"] if l["level"] == lvl), None)
+        level_req = next((l for l in level_defs(cfg) if l["level"] == lvl), None)
         if level_req is None:
-            raise SystemExit(f"error: unknown target level '{lvl}'")
-    targets = {}
+            die(f"targets.mode refers to unknown level '{lvl}'")
+    out = {}
     for b in report.get("benchmarks", []):
         bid = b.get("id")
         if b.get("applicability") == "not_applicable" or b.get("score") is None:
-            targets[bid] = None
+            out[bid] = None
             continue
-        w = b.get("weight", 1)
         if mode == "maximal":
-            t = 10
+            tv = 10
         elif level_req is not None:
-            if b.get("pillar") == "A":
-                t = level_req.get("pillar_A_min", level_req.get("any_min", 1))
-            else:
-                t = level_req.get("any_min", 1)
+            tv = level_req.get("gate_min", level_req.get("any_min", 1)) if bid in gates else level_req.get("any_min", 1)
         else:
-            t = tcfg["proportional_by_weight"].get(str(w), 8)
+            tv = int(t.get("by_weight", {}).get(str(b.get("weight", 1)), 8))
         if b.get("applicability") == "limited":
-            t = min(t, tcfg["limited_cap"])
+            tv = min(tv, int(t.get("limited_cap", 8)))
         if bid in overrides:
-            t = overrides[bid]
-        targets[bid] = t
-    return targets
+            tv = int(overrides[bid])
+        out[bid] = tv
+    return out
 
 
-def weighted(items: list[tuple[int, int]]) -> float | None:
-    total_w = sum(w for _, w in items)
-    if total_w == 0:
-        return None
-    return round(sum(s * w for s, w in items) / total_w, 1)
+def weighted(items) -> float | None:
+    tw = sum(w for _, w in items)
+    return round(sum(s * w for s, w in items) / tw, 1) if tw else None
 
 
-def compute_rollup(report: dict, weights: dict) -> dict:
-    canon = {b["id"]: b for b in weights["benchmarks"]}
-    profile = report.get("profile")
+def compute_rollup(report: dict, cfg: dict) -> dict:
     weight_issues = []
-    scored: list[dict] = []
+    scored = []
     for b in report.get("benchmarks", []):
         bid = b.get("id")
-        if bid in canon and profile in weights["profiles"]:
-            pw = canon[bid]["weights"][profile]
-            want = expected_weight(b.get("applicability"), pw)
+        if bid in cfg["weights"]:
+            want = expected_weight(b.get("applicability"), cfg["weights"][bid]["weight"])
             if b.get("applicability") != "not_applicable" and b.get("weight") != want:
-                weight_issues.append(f"{bid}: weight {b.get('weight')} but rules give {want}")
+                weight_issues.append(f"{bid}: weight {b.get('weight')} but the config gives {want}")
         if b.get("applicability") != "not_applicable" and isinstance(b.get("score"), int) and b.get("weight", 0) > 0:
             scored.append(b)
-
-    pillar_scores = {}
-    for p in PILLARS:
-        pillar_scores[p] = weighted([(b["score"], b["weight"]) for b in scored if b.get("pillar") == p])
-    overall_raw = weighted([(b["score"], b["weight"]) for b in scored])
-    cap = weights["overall_cap"]
     by_id = {b["id"]: b for b in scored}
-    cap_applied = any(by_id.get(i, {}).get("score", 99) <= cap["score_at_or_below"] for i in cap["if_any_of"])
-    overall = overall_raw
-    if cap_applied and overall is not None:
-        overall = min(overall, cap["overall_max"])
 
-    gaps_open = [g for g in report.get("gap_register", []) if g.get("status") in OPEN_STATUSES]
-    critical_gaps = sum(1 for g in gaps_open if g.get("severity") == "critical")
-    major_must = sum(1 for g in gaps_open if g.get("severity") == "major" and g.get("necessity") == "must-have")
+    pillar_scores = {p: weighted([(b["score"], b["weight"]) for b in scored if b.get("pillar") == p]) for p in PILLARS}
+    overall_raw = weighted([(b["score"], b["weight"]) for b in scored])
+
+    g = cfg["gates"]
+    gates = [bid for bid in g["benchmarks"]]
+    gate_status = []
+    failed_hard = []
+    for bid in gates:
+        b = by_id.get(bid)
+        st = {"benchmark_id": bid, "why": g["why"].get(bid, []), "score": b["score"] if b else None}
+        if b and b["score"] <= g["hard_floor"]:
+            st["status"] = "failed"
+            failed_hard.append(bid)
+        else:
+            st["status"] = "passed" if b else "not scored"
+        gate_status.append(st)
+    overall = overall_raw
+    cap_applied = bool(failed_hard) and overall is not None and overall > g["overall_cap"]
+    if failed_hard and overall is not None:
+        overall = min(overall, g["overall_cap"])
+
+    fz = analyze_findings(report, cfg)
+    open_f = {fid: z for fid, z in fz.items() if z["status"] in OPEN_STATUSES}
+    by_zone: dict[str, dict[str, int]] = {}
+    for z in open_f.values():
+        by_zone.setdefault(z["criticality"], {s: 0 for s in SEVERITIES})
+        if z["effective_severity"] in SEVERITIES:
+            by_zone[z["criticality"]][z["effective_severity"]] += 1
+
+    gaps_open = [x for x in report.get("gap_register", []) if x.get("status") in OPEN_STATUSES]
+    critical_gaps = sum(1 for x in gaps_open if x.get("severity") == "critical")
+    major_must = sum(1 for x in gaps_open if x.get("severity") == "major" and x.get("necessity") == "must-have")
     holdout = report.get("holdout", {}) or {}
     hold_rate = holdout.get("pass_rate") if holdout.get("run") else None
-    pillar_a = [b for b in scored if b.get("pillar") == "A"]
 
     def unmet(level: dict) -> list[dict]:
         out = []
         if "overall_min" in level and (overall is None or overall < level["overall_min"]):
             out.append({"requirement": f"overall ≥ {level['overall_min']}", "current": overall})
-        if "pillar_A_min" in level:
-            for b in pillar_a:
-                if b["score"] < level["pillar_A_min"]:
-                    out.append({"requirement": f"Pillar A ≥ {level['pillar_A_min']}", "benchmark_id": b["id"],
-                                "current": b["score"], "required": level["pillar_A_min"]})
+        if "gate_min" in level:
+            for bid in gates:
+                b = by_id.get(bid)
+                if b and b["score"] < level["gate_min"]:
+                    out.append({"requirement": f"gate ≥ {level['gate_min']}", "benchmark_id": bid,
+                                "current": b["score"], "required": level["gate_min"]})
         if "any_min" in level:
             for b in scored:
-                if b["score"] < level["any_min"] and not (b.get("pillar") == "A" and "pillar_A_min" in level and b["score"] < level["pillar_A_min"]):
+                if b["score"] < level["any_min"] and not (b["id"] in gates and "gate_min" in level and b["score"] < level["gate_min"]):
                     out.append({"requirement": f"no benchmark < {level['any_min']}", "benchmark_id": b["id"],
                                 "current": b["score"], "required": level["any_min"]})
         if "max_critical_gaps" in level and critical_gaps > level["max_critical_gaps"]:
             out.append({"requirement": "no critical gaps", "current": critical_gaps})
         if "max_major_must_have_gaps" in level and major_must > level["max_major_must_have_gaps"]:
             out.append({"requirement": "no major must-have gaps", "current": major_must})
+        for lim in level.get("findings_limits", []) or []:
+            ids = [fid for fid, z in open_f.items() if z["effective_severity"] == lim.get("severity")
+                   and (not lim.get("zone") or z["criticality"] == lim["zone"])]
+            if len(ids) > lim.get("max", 0):
+                where = f" in {lim['zone']} zones" if lim.get("zone") else ""
+                out.append({"requirement": f"at most {lim.get('max', 0)} open {lim.get('severity')} findings{where}",
+                            "current": len(ids), "finding_ids": sorted(ids)})
         if level.get("tens_require_enforcement"):
             for b in scored:
                 if b["score"] == 10 and not b.get("enforcement"):
@@ -439,55 +763,87 @@ def compute_rollup(report: dict, weights: dict) -> dict:
             out.append({"requirement": f"hidden-check pass rate ≥ {level['holdout_pass_rate_min']}", "current": hold_rate})
         return out
 
-    levels = [l for l in weights["maturity_levels"] if l["level"] != "L0"]
-    current = "L0"
-    blockers: list[dict] = []
-    next_level = None
-    if not cap_applied:
+    levels = [l for l in level_defs(cfg) if l["level"] != "L0"]
+    current, next_level, blockers = "L0", None, []
+    if failed_hard:
+        next_level = levels[0]["level"] if levels else None
+        blockers = [{"requirement": f"gate above {g['hard_floor']}", "benchmark_id": bid, "current": by_id[bid]["score"]}
+                    for bid in failed_hard]
+        blockers += unmet(levels[0]) if levels else []
+    else:
         for lvl in levels:
             missing = unmet(lvl)
             if missing:
                 next_level, blockers = lvl["level"], missing
                 break
             current = lvl["level"]
-    else:
-        next_level = "L1"
-        blockers = [{"requirement": "score above 3 (A1/A2 floor)", "benchmark_id": i, "current": by_id[i]["score"]}
-                    for i in cap["if_any_of"] if i in by_id and by_id[i]["score"] <= cap["score_at_or_below"]]
-        blockers += unmet(levels[0])
-
     integrity = bool(report.get("integrity_flags"))
-    level_before_integrity = current
-    if integrity and level_num(current) > 1:
-        current = "L1"
-        next_level = "L2"
+    before_integrity = current
+    icap = cfg["maturity"].get("integrity_cap", "L1")
+    if integrity and level_num(current) > level_num(icap):
+        current = icap
+        next_level = f"L{level_num(icap) + 1}"
         blockers = [{"requirement": "no integrity flags", "current": len(report["integrity_flags"])}]
 
-    targets = compute_targets(report, weights)
-    to_target = []
+    targets = compute_targets(report, cfg)
+    below = []
     for b in scored:
-        t = targets.get(b["id"])
-        if t is not None and b["score"] < t:
-            to_target.append({"benchmark_id": b["id"], "score": b["score"], "target": t,
-                              "gap": t - b["score"], "weight": b["weight"],
-                              "weighted_gap": (t - b["score"]) * b["weight"]})
-    to_target.sort(key=lambda x: (-x["weighted_gap"], x["benchmark_id"]))
+        tv = targets.get(b["id"])
+        if tv is not None and b["score"] < tv:
+            below.append({"benchmark_id": b["id"], "score": b["score"], "target": tv, "gap": tv - b["score"],
+                          "weight": b["weight"], "weighted_gap": (tv - b["score"]) * b["weight"]})
+    below.sort(key=lambda x: (-x["weighted_gap"], x["benchmark_id"]))
+
+    # ranked priorities
+    pcfg = cfg.get("priorities", {})
+    cost = pcfg.get("effort_cost", {"S": 1, "M": 2, "L": 4})
+    mult = cfg["zones"]["priority_multiplier"]
+    blocker_ids = {x.get("benchmark_id") for x in blockers if x.get("benchmark_id")}
+    blocker_findings = {fid for x in blockers for fid in x.get("finding_ids", [])}
+    prios = []
+    for b in report.get("benchmarks", []):
+        if b.get("applicability") == "not_applicable" or not isinstance(b.get("score"), int):
+            continue
+        tv = targets.get(b["id"])
+        for act in b.get("path_to_target", []):
+            resolved = [fz[f] for f in act.get("resolves", []) if f in fz]
+            heat = max((r["criticality"] for r in resolved), key=lambda c: HEAT[c], default=cfg["zones"]["default"])
+            gain = max(0, min(act.get("expected_new_score", b["score"]), tv if tv is not None else 10) - b["score"])
+            score = round(b.get("weight", 1) * gain * float(mult.get(heat, 1.0)) / float(cost.get(act.get("effort", "M"), 2)), 2)
+            hot_critical = any(r["criticality"] == "hot" and r["effective_severity"] == "critical" and r["status"] in OPEN_STATUSES
+                               for r in resolved)
+            if b["id"] in failed_hard or hot_critical:
+                tier = 0
+            elif b["id"] in blocker_ids or blocker_findings.intersection(act.get("resolves", [])):
+                tier = 1
+            elif tv is not None and b["score"] < tv and not act.get("optional"):
+                tier = 2
+            else:
+                tier = 3
+            prios.append({"action_id": act.get("id"), "benchmark_id": b["id"], "tier": tier, "priority": score,
+                          "zone": heat, "gain": gain, "effort": act.get("effort"),
+                          "requires_human_decision": bool(act.get("requires_human_decision")),
+                          "decision_question": act.get("decision_question"), "action": act.get("action")})
+    prios.sort(key=lambda p: (p["tier"], -p["priority"], p["action_id"] or ""))
+    for i, p in enumerate(prios, 1):
+        p["rank"] = i
 
     return {
         "computed_by": "gradekit.py",
+        "config_hash": cfg["hash"],
         "pillar_scores": pillar_scores,
         "overall_score_uncapped": overall_raw,
         "overall_score": overall,
         "overall_cap_applied": cap_applied,
-        "maturity": {
-            "current_level": current,
-            "level_before_integrity_cap": level_before_integrity if integrity else None,
-            "next_level": next_level,
-            "blockers": blockers,
-        },
+        "gates": gate_status,
+        "maturity": {"current_level": current, "level_before_integrity_cap": before_integrity if integrity else None,
+                     "next_level": next_level, "blockers": blockers},
         "open_gaps": {"critical": critical_gaps, "major_must_have": major_must},
+        "open_findings_by_zone": by_zone,
+        "finding_zones": fz,
         "targets": targets,
-        "below_target": to_target,
+        "below_target": below,
+        "priorities": prios,
         "weight_issues": weight_issues,
         "applicability": {
             "limited": [b["id"] for b in report.get("benchmarks", []) if b.get("applicability") == "limited"],
@@ -497,31 +853,36 @@ def compute_rollup(report: dict, weights: dict) -> dict:
     }
 
 
-def apply_rollup(report: dict, weights: dict) -> dict:
-    roll = compute_rollup(report, weights)
+def apply_rollup(report: dict, cfg: dict) -> dict:
+    roll = compute_rollup(report, cfg)
     report["rollup"] = roll
     for b in report.get("benchmarks", []):
         b["target"] = roll["targets"].get(b.get("id"))
     return roll
 
 
-def print_rollup(roll: dict, label: str = "") -> None:
-    if label:
-        print(f"== {label} ==")
+def print_rollup(roll: dict) -> None:
     ps = "  ".join(f"{p}:{'—' if v is None else v}" for p, v in roll["pillar_scores"].items())
     print(f"Pillars   {ps}")
-    capnote = " (capped by A1/A2)" if roll["overall_cap_applied"] else ""
-    print(f"Overall   {roll['overall_score']}{capnote}")
+    print(f"Overall   {roll['overall_score']}" + (" (capped by a failed gate)" if roll["overall_cap_applied"] else ""))
+    gates = ", ".join(f"{g['benchmark_id']}={g['score']}{'✗' if g['status'] == 'failed' else ''}" for g in roll["gates"])
+    print(f"Gates     {gates}")
     m = roll["maturity"]
     print(f"Maturity  {m['current_level']}" + (f" → next {m['next_level']}" if m["next_level"] else " (top level)"))
     for blk in m["blockers"]:
         bid = f" {blk['benchmark_id']}" if "benchmark_id" in blk else ""
         req = f" (needs {blk['required']})" if "required" in blk else ""
-        print(f"  blocker:{bid} {blk['requirement']}: current {blk['current']}{req}")
-    if roll["below_target"]:
-        print("Below target (by weighted gap):")
-        for t in roll["below_target"][:10]:
-            print(f"  {t['benchmark_id']}: {t['score']} → {t['target']} (weight {t['weight']})")
+        fids = f" [{', '.join(blk['finding_ids'])}]" if blk.get("finding_ids") else ""
+        print(f"  blocker:{bid} {blk['requirement']}: current {blk['current']}{req}{fids}")
+    z = roll["open_findings_by_zone"]
+    if z:
+        print("Open findings (effective severity): " + "; ".join(
+            f"{k}: " + ", ".join(f"{n} {s}" for s, n in v.items() if n) for k, v in sorted(z.items(), key=lambda kv: -HEAT[kv[0]]) if any(v.values())))
+    if roll["priorities"]:
+        print("Top priorities:")
+        for p in roll["priorities"][:8]:
+            hd = "  [needs human decision]" if p["requires_human_decision"] else ""
+            print(f"  {p['rank']}. T{p['tier']} {p['action_id']} ({p['zone']}, +{p['gain']}, {p['effort']}) score {p['priority']}{hd}")
     a = roll["applicability"]
     if a["limited"] or a["not_applicable"] or a["weight_notes"]:
         print(f"Limited: {', '.join(a['limited']) or 'none'} · N/A: {', '.join(a['not_applicable']) or 'none'}"
@@ -531,9 +892,11 @@ def print_rollup(roll: dict, label: str = "") -> None:
 
 
 def cmd_rollup(args) -> int:
-    weights = load_weights()
     report = load_json(args.report)
-    roll = apply_rollup(report, weights)
+    cfg = load_config(args, report)
+    if (report.get("config") or {}).get("hash") not in (None, cfg["hash"]):
+        print(f"warning: report config hash {report['config']['hash']} ≠ {cfg['hash']}; scoring with the latter")
+    roll = apply_rollup(report, cfg)
     print_rollup(roll)
     if args.write or args.out:
         out = args.out or args.report
@@ -542,83 +905,70 @@ def cmd_rollup(args) -> int:
     return 1 if roll["weight_issues"] else 0
 
 
-# --------------------------------------------------------------------------- stability
+# =========================================================================== stability
 
 def cmd_stability(args) -> int:
-    weights = load_weights()
     runs = [load_json(p) for p in args.reports]
     if len(runs) < 2:
-        sys.exit("error: need at least two runs")
+        die("need at least two runs")
+    cfg = load_config(args, runs[0])
     commits = {r.get("run", {}).get("commit") for r in runs}
     if len(commits) > 1:
         print(f"warning: runs graded different commits: {sorted(map(str, commits))}")
-    ids = [b["id"] for b in weights["benchmarks"]]
-    rows = []
-    medians: dict[str, dict] = {}
-    unstable = []
+    hashes = {(r.get("config") or {}).get("hash") for r in runs}
+    if len(hashes) > 1:
+        print(f"warning: runs used different configs: {sorted(map(str, hashes))}")
+    ids = [b["id"] for b in load_catalog()["benchmarks"]]
+    medians, unstable, rows = {}, [], []
     for bid in ids:
         entries = [benchmarks_by_id(r).get(bid, {}) for r in runs]
         apps = [e.get("applicability", "not_applicable") for e in entries]
         scores = [e.get("score") for e in entries]
-        na_votes = apps.count("not_applicable")
-        majority_na = na_votes > len(runs) / 2
+        majority_na = apps.count("not_applicable") > len(runs) / 2
         nums = [s for s in scores if isinstance(s, int)]
         med = None if majority_na or not nums else statistics.median_low(nums)
         spread = (max(nums) - min(nums)) if nums else 0
-        app_split = len(set(apps)) > 1
-        flag = spread > 1 or app_split
+        split = len(set(apps)) > 1
+        flag = spread > 1 or split
         if flag:
             unstable.append(bid)
-        applicable_apps = [a for a in apps if a != "not_applicable"]
-        maj_app = "not_applicable" if majority_na else statistics.mode(applicable_apps)
+        applicable = [a for a in apps if a != "not_applicable"]
+        maj_app = "not_applicable" if majority_na else statistics.mode(applicable)
         medians[bid] = {"median": med, "applicability": maj_app, "scores": scores,
                         "applicability_votes": apps, "spread": spread, "unstable": flag}
-        rows.append((bid, scores, med, spread, flag, app_split))
+        rows.append((bid, scores, med, spread, flag, split))
 
     def distance(r):
-        d = 0
         bb = benchmarks_by_id(r)
-        for bid, m in medians.items():
-            s = bb.get(bid, {}).get("score")
-            if isinstance(s, int) and m["median"] is not None:
-                d += abs(s - m["median"])
-        return d
+        return sum(abs(bb.get(b, {}).get("score") - m["median"]) for b, m in medians.items()
+                   if isinstance(bb.get(b, {}).get("score"), int) and m["median"] is not None)
 
     base_idx = min(range(len(runs)), key=lambda i: distance(runs[i]))
     consensus = copy.deepcopy(runs[base_idx])
-    canon = {b["id"]: b for b in weights["benchmarks"]}
     for b in consensus.get("benchmarks", []):
         m = medians.get(b.get("id"))
         if not m:
             continue
         if m["applicability"] == "not_applicable":
-            b["applicability"] = "not_applicable"
-            b["score"] = None
-            b["confidence"] = None
-            b.setdefault("applicability_reason", "majority of runs judged not applicable")
+            b.update(applicability="not_applicable", score=None, confidence=None)
+            b["applicability_reason"] = b.get("applicability_reason") or "majority of runs judged not applicable"
         else:
             if b.get("applicability") == "not_applicable":
                 b["applicability"] = m["applicability"]
                 b["applicability_reason"] = b.get("applicability_reason") or "consensus of other runs"
                 b["confidence"] = "low"
             b["score"] = m["median"]
-            pw = canon[b["id"]]["weights"][consensus["profile"]]
-            b["weight"] = expected_weight(b["applicability"], pw)
-    overall_by_run = [compute_rollup(r, weights)["overall_score"] for r in runs]
-    consensus["stability"] = {
-        "runs": len(runs),
-        "base_run_index": base_idx + 1,
-        "method": "median_low of integer scores; majority vote on applicability",
-        "overall_by_run": overall_by_run,
-        "unstable_benchmarks": unstable,
-        "per_benchmark": medians,
-    }
-    roll = apply_rollup(consensus, weights)
-
+            b["config_weight"] = cfg["weights"][b["id"]]["weight"]
+            b["weight"] = expected_weight(b["applicability"], b["config_weight"])
+    overall_by_run = [compute_rollup(r, cfg)["overall_score"] for r in runs]
+    consensus["stability"] = {"runs": len(runs), "base_run_index": base_idx + 1,
+                              "method": "median_low of integer scores; majority vote on applicability",
+                              "overall_by_run": overall_by_run, "unstable_benchmarks": unstable, "per_benchmark": medians}
+    roll = apply_rollup(consensus, cfg)
     print(f"{'ID':<4} {'scores':<20} {'median':>6} {'spread':>6}")
-    for bid, scores, med, spread, flag, app_split in rows:
+    for bid, scores, med, spread, flag, split in rows:
         s = ",".join("–" if x is None else str(x) for x in scores)
-        mark = "  ← unstable" + (" (applicability split)" if app_split else "") if flag else ""
+        mark = ("  ← unstable" + (" (applicability split)" if split else "")) if flag else ""
         print(f"{bid:<4} {s:<20} {('–' if med is None else med):>6} {spread:>6}{mark}")
     print(f"\noverall by run: {overall_by_run}  → consensus {roll['overall_score']} ({roll['maturity']['current_level']})")
     print(f"unstable benchmarks: {', '.join(unstable) or 'none'}  (spread > 1 or applicability split: tighten their rubric wording)")
@@ -628,23 +978,29 @@ def cmd_stability(args) -> int:
     return 3 if (args.strict and unstable) else 0
 
 
-# --------------------------------------------------------------------------- diff
+# =========================================================================== diff
 
 def cmd_diff(args) -> int:
-    weights = load_weights()
     old, new = load_json(args.old), load_json(args.new)
-    regressions: list[str] = []
-    notes: list[str] = []
+    cfg_new = load_config(args, new)
+    if args.old_config:
+        ns = argparse.Namespace(config=args.old_config, component=getattr(args, "component", None))
+        cfg_old = load_config(ns, old, quiet=True)
+    else:
+        cfg_old = cfg_new
+    regressions, notes = [], []
     same_major = major(old.get("suite_version", "0")) == major(new.get("suite_version", "0"))
-    r_old, r_new = compute_rollup(old, weights), compute_rollup(new, weights)
-
+    oh, nh = (old.get("config") or {}).get("hash"), (new.get("config") or {}).get("hash")
+    if oh != nh:
+        notes.append(f"reports used different configs ({oh} → {nh}); weights may differ, so overall and maturity "
+                     "changes can come from re-weighting, not code changes")
+    r_old, r_new = compute_rollup(old, cfg_old), compute_rollup(new, cfg_new)
     print(f"{old.get('run', {}).get('commit')} → {new.get('run', {}).get('commit')}  (mode: {new.get('mode')})")
     if not same_major:
         notes.append("suite major versions differ; score deltas are not comparable and are not used for regressions")
-
     ob, nb = benchmarks_by_id(old), benchmarks_by_id(new)
     changes = []
-    for bid in [b["id"] for b in weights["benchmarks"]]:
+    for bid in [b["id"] for b in load_catalog()["benchmarks"]]:
         so, sn = ob.get(bid, {}).get("score"), nb.get(bid, {}).get("score")
         if so != sn:
             changes.append((bid, so, sn))
@@ -653,10 +1009,8 @@ def cmd_diff(args) -> int:
             if same_major and isinstance(so, int) and sn is None:
                 notes.append(f"{bid} went from {so} to N/A; check the applicability reason")
         go = set(ob.get(bid, {}).get("gaming_flags", []) or [])
-        gn = set(nb.get(bid, {}).get("gaming_flags", []) or [])
-        for g in sorted(gn - go):
-            regressions.append(f"{bid} new gaming flag: {g}")
-
+        for gflag in sorted(set(nb.get(bid, {}).get("gaming_flags", []) or []) - go):
+            regressions.append(f"{bid} new gaming flag: {gflag}")
     print("\nScore changes:" if changes else "\nScore changes: none")
     for bid, so, sn in changes:
         print(f"  {bid}: {'–' if so is None else so} → {'–' if sn is None else sn}")
@@ -664,19 +1018,25 @@ def cmd_diff(args) -> int:
           f"Maturity: {r_old['maturity']['current_level']} → {r_new['maturity']['current_level']}")
     if level_num(r_new["maturity"]["current_level"]) < level_num(r_old["maturity"]["current_level"]):
         regressions.append(f"maturity dropped {r_old['maturity']['current_level']} → {r_new['maturity']['current_level']}")
+    newly_failed = {g["benchmark_id"] for g in r_new["gates"] if g["status"] == "failed"} - \
+                   {g["benchmark_id"] for g in r_old["gates"] if g["status"] == "failed"}
+    for bid in sorted(newly_failed):
+        regressions.append(f"gate {bid} newly failed")
 
     of = {f["id"]: f for f in old.get("findings", [])}
     nf = {f["id"]: f for f in new.get("findings", [])}
+    nz = r_new["finding_zones"]
     new_ids = [i for i, f in nf.items() if i not in of or f.get("status") == "new"]
     fixed = [i for i, f in nf.items() if f.get("status") == "fixed" and of.get(i, {}).get("status") != "fixed"]
     regressed = [i for i, f in nf.items() if f.get("status") == "regressed"]
     vanished = [i for i, f in of.items() if i not in nf and f.get("status") in OPEN_STATUSES]
     print(f"\nFindings: {len(new_ids)} new, {len(fixed)} fixed, {len(regressed)} regressed")
     for i in new_ids:
-        f = nf[i]
-        print(f"  new       {i} [{f.get('severity')}] {f.get('title')}")
-        if f.get("severity") in ("critical", "major"):
-            regressions.append(f"new {f.get('severity')} finding {i}: {f.get('title')}")
+        eff = nz.get(i, {}).get("effective_severity", nf[i].get("severity"))
+        zone = nz.get(i, {}).get("criticality", "normal")
+        print(f"  new       {i} [{eff}, {zone}] {nf[i].get('title')}")
+        if eff in ("critical", "major"):
+            regressions.append(f"new {eff} finding {i} ({zone} zone): {nf[i].get('title')}")
     for i in fixed:
         print(f"  fixed     {i} {nf[i].get('title')}")
     for i in regressed:
@@ -684,10 +1044,8 @@ def cmd_diff(args) -> int:
         regressions.append(f"finding regressed {i}: {nf[i].get('title')}")
     for i in vanished:
         notes.append(f"open finding {i} disappeared without a 'fixed' status (finding IDs must be stable)")
-
     if new.get("integrity_flags"):
         regressions.append(f"{len(new['integrity_flags'])} integrity flag(s) in the new report")
-
     ho, hn = old.get("holdout", {}) or {}, new.get("holdout", {}) or {}
     if ho.get("run") and hn.get("run") and ho.get("pass_rate") is not None and hn.get("pass_rate") is not None:
         print(f"Hidden checks: {ho['pass_rate']:.0%} → {hn['pass_rate']:.0%}")
@@ -696,7 +1054,6 @@ def cmd_diff(args) -> int:
             if (r_new["overall_score"] or 0) - (r_old["overall_score"] or 0) >= 0.5:
                 notes.append("DIVERGENCE: visible scores rose while hidden checks fell; suspect the code is being "
                              "tuned to the rubric. Review the changes by hand before trusting these scores.")
-
     for n in notes:
         print(f"note: {n}")
     if regressions:
@@ -709,48 +1066,40 @@ def cmd_diff(args) -> int:
     return 2 if (args.fail_on_regression and regressions) else 0
 
 
-# --------------------------------------------------------------------------- calibrate
+# =========================================================================== calibrate / redact / rollup-repo
 
 def cmd_calibrate(args) -> int:
-    report = load_json(args.report)
-    exp = load_json(args.expected)
+    report, exp = load_json(args.report), load_json(args.expected)
     crit = {"within_tolerance_pct": 90, "mae_max": 0.75, **exp.get("criteria", {})}
     bb = benchmarks_by_id(report)
     total = within = 0
-    abs_errors = []
-    app_mismatch = []
+    errs, mism, deltas = [], [], []
     print(f"{'ID':<4} {'expected':>8} {'actual':>6} {'Δ':>4}")
     for bid, e in sorted(exp.get("expected", {}).items()):
         b = bb.get(bid, {})
         actual = b.get("score")
         if e.get("applicability") and e["applicability"] != b.get("applicability"):
-            app_mismatch.append(f"{bid}: expected {e['applicability']}, got {b.get('applicability')}")
+            mism.append(f"{bid}: expected {e['applicability']}, got {b.get('applicability')}")
         if e.get("score") is None or actual is None:
             continue
         tol = e.get("tolerance", 1)
-        delta = actual - e["score"]
+        d = actual - e["score"]
         total += 1
-        within += abs(delta) <= tol
-        abs_errors.append(abs(delta))
-        mark = "" if abs(delta) <= tol else "  ← outside tolerance"
-        print(f"{bid:<4} {e['score']:>8} {actual:>6} {delta:>+4}{mark}")
+        within += abs(d) <= tol
+        errs.append(abs(d))
+        deltas.append(d)
+        print(f"{bid:<4} {e['score']:>8} {actual:>6} {d:>+4}" + ("" if abs(d) <= tol else "  ← outside tolerance"))
     if not total:
-        sys.exit("error: no comparable benchmarks")
-    pct = 100 * within / total
-    mae = sum(abs_errors) / total
-    bias = sum((bb[b]["score"] - e["score"]) for b, e in exp["expected"].items()
-               if e.get("score") is not None and bb.get(b, {}).get("score") is not None) / total
-    for m in app_mismatch:
+        die("no comparable benchmarks")
+    pct, mae, bias = 100 * within / total, sum(errs) / total, sum(deltas) / total
+    for m in mism:
         print(f"applicability mismatch: {m}")
-    ok = pct >= crit["within_tolerance_pct"] and mae <= crit["mae_max"] and not app_mismatch
-    print(f"\nwithin tolerance: {pct:.0f}% (need ≥ {crit['within_tolerance_pct']}%)  "
-          f"MAE: {mae:.2f} (need ≤ {crit['mae_max']})  bias: {bias:+.2f} "
-          f"({'grader runs generous' if bias > 0.25 else 'grader runs harsh' if bias < -0.25 else 'no clear bias'})")
+    ok = pct >= crit["within_tolerance_pct"] and mae <= crit["mae_max"] and not mism
+    print(f"\nwithin tolerance: {pct:.0f}% (need ≥ {crit['within_tolerance_pct']}%)  MAE: {mae:.2f} (need ≤ {crit['mae_max']})  "
+          f"bias: {bias:+.2f} ({'grader runs generous' if bias > 0.25 else 'grader runs harsh' if bias < -0.25 else 'no clear bias'})")
     print("calibration: PASS" if ok else "calibration: FAIL")
     return 0 if ok else 4
 
-
-# --------------------------------------------------------------------------- redact
 
 def strip_private(obj):
     if isinstance(obj, dict):
@@ -761,8 +1110,7 @@ def strip_private(obj):
 
 
 def cmd_redact(args) -> int:
-    report = load_json(args.report)
-    shared = strip_private(copy.deepcopy(report))
+    shared = strip_private(copy.deepcopy(load_json(args.report)))
     if "holdout" in shared:
         shared["holdout"]["private_details"] = "[redacted]"
     out = args.out or re.sub(r"\.json$", "", args.report) + ".shared.json"
@@ -771,27 +1119,25 @@ def cmd_redact(args) -> int:
     return 0
 
 
-# --------------------------------------------------------------------------- rollup-repo
-
 def cmd_rollup_repo(args) -> int:
-    weights = load_weights()
-    reports = [load_json(p) for p in args.reports]
     rows = []
-    for path, r in zip(args.reports, reports):
+    for path in args.reports:
+        r = load_json(path)
+        roll = r.get("rollup")
+        if not roll:
+            die(f"{path} has no rollup; run `gradekit rollup --write` on it first (with its component's config)")
         comp = r.get("component") or {}
-        name = comp.get("name") or Path(path).stem
-        cw = comp.get("weight", 1)
-        roll = compute_rollup(r, weights)
-        rows.append({"component": name, "weight": cw, "profile": r.get("profile"),
-                     "overall": roll["overall_score"], "level": roll["maturity"]["current_level"],
-                     "next_level": roll["maturity"]["next_level"], "blockers": roll["maturity"]["blockers"]})
-    scored = [(r["overall"], r["weight"]) for r in rows if r["overall"] is not None]
+        rows.append({"component": comp.get("name") or Path(path).stem, "weight": comp.get("weight", 1),
+                     "preset": (r.get("config") or {}).get("preset"), "overall": roll["overall_score"],
+                     "level": roll["maturity"]["current_level"], "failed_gates": [g["benchmark_id"] for g in roll["gates"] if g["status"] == "failed"]})
+    scored = [(x["overall"], x["weight"]) for x in rows if x["overall"] is not None]
     tw = sum(w for _, w in scored)
     overall = round(sum(s * w for s, w in scored) / tw, 1) if tw else None
-    lowest = min(rows, key=lambda r: level_num(r["level"]))
-    print(f"{'component':<20} {'profile':<12} {'weight':>6} {'overall':>7} level")
-    for r in rows:
-        print(f"{r['component']:<20} {str(r['profile']):<12} {r['weight']:>6} {str(r['overall']):>7} {r['level']}")
+    lowest = min(rows, key=lambda x: level_num(x["level"]))
+    print(f"{'component':<20} {'preset':<14} {'weight':>6} {'overall':>7} level")
+    for x in rows:
+        fg = f"  failed gates: {', '.join(x['failed_gates'])}" if x["failed_gates"] else ""
+        print(f"{x['component']:<20} {str(x['preset']):<14} {x['weight']:>6} {str(x['overall']):>7} {x['level']}{fg}")
     print(f"\nrepo overall (component-weighted): {overall}")
     print(f"repo maturity (lowest component): {lowest['level']}  ← limited by '{lowest['component']}'")
     if args.out:
@@ -801,14 +1147,212 @@ def cmd_rollup_repo(args) -> int:
     return 0
 
 
-# --------------------------------------------------------------------------- main
+# =========================================================================== config commands
+
+def cmd_resolve(args) -> int:
+    cfg = load_config(args)
+    if args.explain:
+        bid = args.explain.upper()
+        w = cfg["weights"].get(bid)
+        if not w:
+            die(f"unknown benchmark {bid}")
+        print(f"{bid} {w['name']}")
+        print(f"  base weight            {w['base']}")
+        for t in w["trace"]:
+            print(f"  {t['delta']:+d}  because {t['because']}")
+        if w["clamped"]:
+            lo_hi = "max" if w["raw"] > w["base"] else "min"
+            print(f"  = {w['raw']}, clamped to the {lo_hi} weight")
+        if w["override"]:
+            print(f"  override → {w['override']['weight']}  ({w['override']['reason']})")
+        print(f"  final weight           {w['weight']}")
+        if bid in cfg["gates"]["benchmarks"]:
+            print(f"  GATE because: {', '.join(cfg['gates']['why'][bid])}")
+        return 0
+    comp = f" · component {cfg['component']['name']}" if cfg.get("component") else ""
+    print(f"Effective config {cfg['hash']} · preset {cfg['preset']}{comp}")
+    print(f"Sources: {' → '.join(cfg['sources'])}\n")
+    print("Answers:")
+    for q, a in cfg["answers"].items():
+        print(f"  {q:<17} {a['answer']:<16} ({a['source']})")
+    print("\nWeights (base → final):")
+    for pid in PILLARS:
+        items = [(bid, w) for bid, w in cfg["weights"].items() if bid.startswith(pid)]
+        cells = []
+        for bid, w in items:
+            mark = "*" if w["override"] else ("↑" if w["weight"] > w["base"] else "↓" if w["weight"] < w["base"] else " ")
+            cells.append(f"{bid} {w['weight']}{mark}")
+        print("  " + "  ".join(cells))
+    print("  (↑/↓ changed by answers, * explicit override; `resolve --explain ID` shows why)")
+    print("\nGates: " + ", ".join(f"{b} ({'/'.join(cfg['gates']['why'][b])})" for b in cfg["gates"]["benchmarks"]))
+    print(f"  any gate ≤ {cfg['gates']['hard_floor']} caps overall at {cfg['gates']['overall_cap']}")
+    if cfg["zones"]["list"]:
+        print("\nZones (first match wins):")
+        for z in cfg["zones"]["list"]:
+            print(f"  {z.get('criticality'):<6} {z.get('name', ''):<14} {', '.join(z.get('paths', []))}")
+    else:
+        print(f"\nZones: none defined (all code is '{cfg['zones']['default']}')")
+    t = cfg["targets"]
+    print(f"\nTargets: {t.get('mode')}" + (f" · overrides {t.get('overrides')}" if t.get("overrides") else ""))
+    for w in cfg.get("warnings", []):
+        print(f"warning: {w}")
+    if args.out:
+        write_json(args.out, cfg)
+        print(f"\nwrote {args.out}")
+    return 0
+
+
+def cmd_presets(args) -> int:
+    defaults = load_toml(DEFAULTS_PATH)
+    for extra in args.config or []:
+        defaults = deep_merge(defaults, load_toml(extra))
+    names = list(defaults["presets"])
+    # Org-level configs (if any) are layered in; each preset is then applied with no project answers.
+    cfgs = {n: resolve_config(list(args.config or []), preset_fallback=n) for n in names}
+    catalog = load_catalog()
+    short = {"default": "Default", "service": "Service", "web_app": "Web app", "library": "Library",
+             "oss_library": "OSS lib", "cli": "CLI", "internal_tool": "Internal", "prototype": "Prototype"}
+    if args.markdown:
+        print("| ID | Benchmark | Base | " + " | ".join(short.get(n, n) for n in names) + " |")
+        print("|---|---|:-:|" + ":-:|" * len(names))
+        for b in catalog["benchmarks"]:
+            bid = b["id"]
+            cells = []
+            for n in names:
+                w = cfgs[n]["weights"][bid]["weight"]
+                g = "**" if bid in cfgs[n]["gates"]["benchmarks"] else ""
+                cells.append(f"{g}{w}{g}")
+            print(f"| {bid} | {b['name']} | {defaults['weights']['base'][bid]} | " + " | ".join(cells) + " |")
+        print("\n**Bold** = gate for that preset.")
+    else:
+        print(f"{'ID':<4} {'base':>4} " + " ".join(f"{short.get(n, n)[:9]:>9}" for n in names))
+        for b in catalog["benchmarks"]:
+            bid = b["id"]
+            cells = []
+            for n in names:
+                w = cfgs[n]["weights"][bid]["weight"]
+                cells.append(f"{str(w) + ('g' if bid in cfgs[n]['gates']['benchmarks'] else ' '):>9}")
+            print(f"{bid:<4} {defaults['weights']['base'][bid]:>4} " + " ".join(cells))
+        print("\n(g = gate)")
+    return 0
+
+
+INIT_TEMPLATE = """# Project configuration for the Code Grading Suite (v{version})
+# Keep this file OUTSIDE the repository being graded, owned by humans.
+# Check it with:  python3 SUITE_DIR/tools/gradekit.py resolve --config project.toml
+
+[project]
+name            = "{name}"
+description     = "<what it is, in one sentence>"
+preset          = "{preset}"            # {presets}
+languages       = "<e.g. Python 3.12, FastAPI, Postgres>"
+users           = "<who uses it>"
+maturity_target = "<prototype | internal tool | production | public open source>"
+scope           = "<stated scope or link to requirements>"
+out_of_scope    = []                     # e.g. ["vendor/**", "generated/**"]
+
+# Answers override the preset. Delete a line to use the preset's answer.
+# Run `gradekit resolve --explain ID` to see how answers moved a weight.
+[answers]
+{answers}
+
+# Criticality zones: first match wins, so list specific zones first.
+# hot = matters most (money, auth, data writes); cold = matters least (scripts, examples).
+# [[zones]]
+# name        = "payments"
+# paths       = ["src/payments/**"]
+# criticality = "hot"
+# why         = "Moves money"
+#
+# [[zones]]
+# name        = "scripts"
+# paths       = ["scripts/**", "examples/**"]
+# criticality = "cold"
+# why         = "Developer convenience only"
+
+# Where improving agents stop: proportional (default) | maximal | level:L3
+[targets]
+mode = "proportional"
+# overrides = {{ F4 = 10 }}
+
+# Explicit weight overrides (always need a reason):
+# [weights.overrides]
+# F4 = {{ weight = 3, reason = "Contractual p99 latency SLA" }}
+
+# Extra gates for this project, or (rarely) remove one:
+# [gates]
+# extra   = ["C4"]
+# exclude = []
+"""
+
+
+def cmd_init(args) -> int:
+    defaults = load_toml(DEFAULTS_PATH)
+    if args.preset not in defaults["presets"]:
+        die(f"unknown preset '{args.preset}' (known: {', '.join(defaults['presets'])})")
+    preset_answers = defaults["presets"][args.preset].get("answers", {}) or {}
+    given = {}
+    for kv in args.answer or []:
+        if "=" not in kv:
+            die(f"--answer must look like question=option, got '{kv}'")
+        k, v = kv.split("=", 1)
+        given[k.strip()] = v.strip()
+    lines = []
+    for q, qdef in defaults["questions"].items():
+        a = given.get(q, preset_answers.get(q, qdef.get("default")))
+        opts = " | ".join(qdef["options"])
+        lines.append(f'{q:<17} = "{a}"   # {qdef["prompt"]}  ({opts})')
+    for q in given:
+        if q not in defaults["questions"]:
+            die(f"unknown question '{q}'")
+    text = INIT_TEMPLATE.format(version=defaults["suite_version"], name=args.name, preset=args.preset,
+                                presets=" | ".join(defaults["presets"]), answers="\n".join(lines))
+    out = Path(args.out)
+    if out.exists() and not args.force:
+        die(f"{out} exists (use --force to overwrite)")
+    out.write_text(text, encoding="utf-8")
+    print(f"wrote {out}; next: gradekit resolve --config {out}")
+    return 0
+
+
+# =========================================================================== main
 
 def main(argv=None) -> int:
+    try:  # behave like a normal CLI when piped into `head` etc.
+        import signal
+        signal.signal(signal.SIGPIPE, signal.SIG_DFL)
+    except (AttributeError, ValueError):
+        pass
     ap = argparse.ArgumentParser(prog="gradekit", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
 
-    p = sub.add_parser("validate", help="schema + semantic checks")
+    def with_config(p):
+        p.add_argument("--config", action="append", metavar="FILE",
+                       help="config TOML (repeatable, layered in order over defaults) or one effective-config JSON")
+        p.add_argument("--component", help="monorepo component name from the project config")
+
+    p = sub.add_parser("init", help="write a starter project.toml")
+    p.add_argument("--preset", default="default")
+    p.add_argument("--name", default="my-project")
+    p.add_argument("--answer", action="append", metavar="Q=A", help="e.g. --answer data_sensitivity=financial")
+    p.add_argument("--out", default="project.toml")
+    p.add_argument("--force", action="store_true")
+    p.set_defaults(fn=cmd_init)
+
+    p = sub.add_parser("resolve", help="show / write the effective config")
+    with_config(p)
+    p.add_argument("--explain", metavar="ID", help="explain one benchmark's weight and gate status")
+    p.add_argument("--out", help="write the effective config JSON here")
+    p.set_defaults(fn=cmd_resolve)
+
+    p = sub.add_parser("presets", help="compare weights and gates across presets")
+    p.add_argument("--config", action="append", metavar="FILE", help="org-level config to layer in")
+    p.add_argument("--markdown", action="store_true")
+    p.set_defaults(fn=cmd_presets)
+
+    p = sub.add_parser("validate", help="schema + config + semantic checks")
     p.add_argument("report")
+    with_config(p)
     p.set_defaults(fn=cmd_validate)
 
     p = sub.add_parser("verify-evidence", help="check code citations against the repo")
@@ -817,14 +1361,16 @@ def main(argv=None) -> int:
     p.add_argument("--tolerance", type=int, default=2, help="line drift allowed around the cited range (default 2)")
     p.set_defaults(fn=cmd_verify_evidence)
 
-    p = sub.add_parser("rollup", help="compute pillar/overall scores, targets, maturity")
+    p = sub.add_parser("rollup", help="compute gates, zones, scores, targets, maturity and priorities")
     p.add_argument("report")
+    with_config(p)
     p.add_argument("--write", action="store_true", help="write rollup and targets back into the report")
     p.add_argument("--out", help="write the updated report here instead")
     p.set_defaults(fn=cmd_rollup)
 
     p = sub.add_parser("stability", help="median consensus across independent runs")
     p.add_argument("reports", nargs="+")
+    with_config(p)
     p.add_argument("--out", help="write the consensus report here")
     p.add_argument("--strict", action="store_true", help="exit 3 if any benchmark is unstable")
     p.set_defaults(fn=cmd_stability)
@@ -832,6 +1378,8 @@ def main(argv=None) -> int:
     p = sub.add_parser("diff", help="compare two reports")
     p.add_argument("old")
     p.add_argument("new")
+    with_config(p)
+    p.add_argument("--old-config", action="append", metavar="FILE", help="config the old report was graded with, if different")
     p.add_argument("--fail-on-regression", action="store_true")
     p.set_defaults(fn=cmd_diff)
 
@@ -845,7 +1393,7 @@ def main(argv=None) -> int:
     p.add_argument("--out")
     p.set_defaults(fn=cmd_redact)
 
-    p = sub.add_parser("rollup-repo", help="combine per-component reports")
+    p = sub.add_parser("rollup-repo", help="combine per-component reports (each must already have a rollup)")
     p.add_argument("reports", nargs="+")
     p.add_argument("--out")
     p.set_defaults(fn=cmd_rollup_repo)

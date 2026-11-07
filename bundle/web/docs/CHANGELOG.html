@@ -6,20 +6,21 @@
 <title>Changelog · Code Grading Suite</title>
 <meta name="description" content="A rubric and prompts for AI coding agents to grade codebases from 1 to 10 on 35 benchmarks and improve them.">
 <link rel="stylesheet" href="../assets/style.css">
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
 <link rel="alternate" type="text/markdown" href="../AGENT.md" title="Agent entry point">
 </head>
 <body>
 <header class="topbar">
   <button class='menu-btn' type='button'>Menu</button>
   <a class="brand" href="../index.html">Code <span>Grading</span> Suite</a>
-  <span class="ver">v3.1.0</span>
+  <span class="ver">v4.0.0</span>
   <span class="spacer"></span>
   
   <a class="top" href="../docs/README.html">Docs</a>
-  <a class="top" href="../AGENT.md">AGENT.md</a>
-  <a class="top" href="../downloads/code-grading-suite-3.1.0.zip">Download</a>
+  <a class="top opt" href="../AGENT.md">AGENT.md</a>
+  <a class="top opt" href="../downloads/code-grading-suite-4.0.0.zip">Download</a>
 </header>
-<div class="layout"><nav class="sidebar" aria-label="Documentation"><h4>Start</h4><a href="../docs/README.html">Overview &amp; workflow</a><a href="../docs/AGENT.html">Agent entry point</a><a href="../docs/DEPLOY.html">Hosting this site</a><h4>Prompts</h4><a href="../docs/prompts/grader.html">Grader</a><a href="../docs/prompts/improver.html">Improver</a><a href="../docs/prompts/pr-review.html">PR quick mode</a><h4>Rubric</h4><a href="../docs/rubric/A-correctness-trust.html">A · Correctness &amp; Trust</a><a href="../docs/rubric/B-design-structure.html">B · Design &amp; Structure</a><a href="../docs/rubric/C-code-health.html">C · Code Health</a><a href="../docs/rubric/D-value-fitness.html">D · Value &amp; Fitness</a><a href="../docs/rubric/E-adoption-experience.html">E · Adoption &amp; Experience</a><a href="../docs/rubric/F-operations-delivery.html">F · Operations &amp; Delivery</a><a href="../docs/rubric/X-conditional.html">X · Conditional</a><a href="../docs/rubric/weights.html">Weights, targets &amp; maturity</a><h4>Guides</h4><a href="../docs/calibration/README.html">Calibration</a><a href="../docs/holdout/README.html">Hidden checks</a><a href="../docs/CHANGELOG.html" class="active" aria-current="page">Changelog</a></nav><main class="doc"><div class="docbar"><a class="btn" href="../suite/CHANGELOG.md">View raw .md</a><button class="btn" type="button" data-copy="../suite/CHANGELOG.md">Copy raw URL for an agent</button></div><details class="toc"><summary>On this page</summary><ul><li><a href="#310">3.1.0</a></li><li><a href="#300">3.0.0</a></li><li><a href="#200">2.0.0</a></li><li><a href="#100">1.0.0</a></li></ul></details><h1 id="changelog">Changelog<a class="anchor" href="#changelog" aria-label="Link to this section">#</a></h1>
+<div class="layout"><nav class="sidebar" aria-label="Documentation"><h4>Start</h4><a href="../docs/README.html">Overview &amp; workflow</a><a href="../docs/AGENT.html">Agent entry point</a><a href="../docs/DEPLOY.html">Hosting this site</a><h4>Configuration</h4><a href="../docs/TUNING.html">Tuning guide</a><a href="../docs/rubric/weights.html">How scoring works</a><a href="../docs/config/defaults.html">Default config</a><a href="../docs/config/project.example.html">Example project config</a><h4>Prompts</h4><a href="../docs/prompts/grader.html">Grader</a><a href="../docs/prompts/improver.html">Improver</a><a href="../docs/prompts/pr-review.html">PR quick mode</a><h4>Rubric</h4><a href="../docs/rubric/A-correctness-trust.html">A · Correctness &amp; Trust</a><a href="../docs/rubric/B-design-structure.html">B · Design &amp; Structure</a><a href="../docs/rubric/C-code-health.html">C · Code Health</a><a href="../docs/rubric/D-value-fitness.html">D · Value &amp; Fitness</a><a href="../docs/rubric/E-adoption-experience.html">E · Adoption &amp; Experience</a><a href="../docs/rubric/F-operations-delivery.html">F · Operations &amp; Delivery</a><a href="../docs/rubric/X-conditional.html">X · Conditional</a><h4>Guides</h4><a href="../docs/calibration/README.html">Calibration</a><a href="../docs/holdout/README.html">Hidden checks</a><a href="../docs/CHANGELOG.html" class="active" aria-current="page">Changelog</a></nav><main class="doc"><div class="docbar"><a class="btn" href="../suite/CHANGELOG.md">View raw .md</a><button class="btn" type="button" data-copy="../suite/CHANGELOG.md">Copy raw URL for an agent</button></div><details class="toc"><summary>On this page</summary><ul><li><a href="#400">4.0.0</a></li><li><a href="#310">3.1.0</a></li><li><a href="#300">3.0.0</a></li><li><a href="#200">2.0.0</a></li><li><a href="#100">1.0.0</a></li></ul></details><h1 id="changelog">Changelog<a class="anchor" href="#changelog" aria-label="Link to this section">#</a></h1>
 <p>Versioning rules for the suite itself:</p>
 <ul>
 <li><strong>Major:</strong> any change that can move scores, i.e. new or removed benchmarks, changed anchors, caps, weights, targets or maturity rules. Scores from different major versions are <strong>not comparable</strong>. <code>gradekit diff</code> won't treat their deltas as regressions.</li>
@@ -27,6 +28,19 @@
 <li><strong>Patch:</strong> typos, formatting, documentation.</li>
 </ul>
 <p>After any major or minor change, re-run calibration (<code>calibration/README.md</code>) before trusting new scores.</p>
+<h2 id="400">4.0.0<a class="anchor" href="#400" aria-label="Link to this section">#</a></h2>
+<p>Weights changed, so scores are <strong>not comparable</strong> with 3.x.</p>
+<ul>
+<li><strong>Everything tunable is now config:</strong> <code>config/defaults.toml</code> (commented), layered with an optional org config and a per-project <code>project.toml</code>. Replaces <code>rubric/weights.json</code>; the benchmark list moved to <code>rubric/catalog.json</code>.</li>
+<li><strong>Weights from questions instead of fixed profile columns:</strong> eight questions about the project (data sensitivity, audience, lifespan, failure impact, team, change rate, delivery, scale) adjust base weights. Presets supply typical answers; overrides need a written reason. <code>gradekit resolve --explain</code> shows the reasoning behind each weight.</li>
+<li><strong>Gates:</strong> Correctness and Security always, plus benchmarks added by answers (e.g. handling money makes Idempotence and Durability gates). A failed gate caps the overall score; maturity levels set gate minimums (replacing &quot;Pillar A minimum&quot;).</li>
+<li><strong>Criticality zones:</strong> hot, normal and cold code. Findings get an effective severity shifted by zone. Maturity levels limit open findings by effective severity and zone, and hot-zone work ranks first.</li>
+<li><strong>Ranked priorities</strong> computed by <code>gradekit rollup</code> (tiers, then weight × gain × zone ÷ effort), instead of being ranked by the grader.</li>
+<li><strong>New commands:</strong> <code>init</code>, <code>resolve</code>, <code>presets</code>. Every command that scores takes <code>--config</code>. Reports record the config hash, and <code>validate</code> rejects a report checked against a different config.</li>
+<li><strong>Report changes:</strong> <code>config</code> block replaces <code>profile</code> / <code>target_mode</code> / <code>target_overrides</code>; <code>config_weight</code> replaces <code>profile_weight</code>; findings may carry <code>paths</code>.</li>
+<li>Requires Python 3.11+ (built-in TOML reader).</li>
+<li>New <code>TUNING.md</code> and <code>config/project.example.toml</code>; <code>rubric/weights.md</code> now explains how scoring works.</li>
+</ul>
 <h2 id="310">3.1.0<a class="anchor" href="#310" aria-label="Link to this section">#</a></h2>
 <ul>
 <li><strong>Web version:</strong> <code>tools/build_web.py</code> generates a static site you can host on any web server. It has a landing page, an <code>AGENT.md</code> entry point agents can be pointed at, rendered docs, raw files, a downloadable zip, and <code>manifest.json</code> / <code>SHA256SUMS</code> for checking downloads. See <code>DEPLOY.md</code>.</li>

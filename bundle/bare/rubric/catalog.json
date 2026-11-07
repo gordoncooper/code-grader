@@ -1,0 +1,246 @@
+{
+  "suite_version": "4.0.0",
+  "_comment": "Benchmark catalog: IDs, names and pillars. Weights, gates, targets and maturity rules live in config/defaults.toml.",
+  "pillars": {
+    "A": {
+      "name": "Correctness & Trust",
+      "rubric": "rubric/A-correctness-trust.md"
+    },
+    "B": {
+      "name": "Design & Structure",
+      "rubric": "rubric/B-design-structure.md"
+    },
+    "C": {
+      "name": "Code Health",
+      "rubric": "rubric/C-code-health.md"
+    },
+    "D": {
+      "name": "Value & Fitness for Purpose",
+      "rubric": "rubric/D-value-fitness.md"
+    },
+    "E": {
+      "name": "Adoption & Experience",
+      "rubric": "rubric/E-adoption-experience.md"
+    },
+    "F": {
+      "name": "Operations & Delivery",
+      "rubric": "rubric/F-operations-delivery.md"
+    },
+    "X": {
+      "name": "Conditional",
+      "rubric": "rubric/X-conditional.md"
+    }
+  },
+  "benchmarks": [
+    {
+      "id": "A1",
+      "name": "Correctness & Functional Behavior",
+      "pillar": "A",
+      "conditional": false
+    },
+    {
+      "id": "A2",
+      "name": "Security & Privacy",
+      "pillar": "A",
+      "conditional": false
+    },
+    {
+      "id": "A3",
+      "name": "Robustness & Error Handling",
+      "pillar": "A",
+      "conditional": false
+    },
+    {
+      "id": "A4",
+      "name": "Idempotence & Determinism",
+      "pillar": "A",
+      "conditional": false
+    },
+    {
+      "id": "A5",
+      "name": "Durability & Recoverability",
+      "pillar": "A",
+      "conditional": false
+    },
+    {
+      "id": "B1",
+      "name": "Architecture & Design Fitness",
+      "pillar": "B",
+      "conditional": false
+    },
+    {
+      "id": "B2",
+      "name": "Modularity & Decoupling",
+      "pillar": "B",
+      "conditional": false
+    },
+    {
+      "id": "B3",
+      "name": "Structure & Organization",
+      "pillar": "B",
+      "conditional": false
+    },
+    {
+      "id": "B4",
+      "name": "Interface Design & Contracts",
+      "pillar": "B",
+      "conditional": false
+    },
+    {
+      "id": "B5",
+      "name": "Flexibility & Extensibility",
+      "pillar": "B",
+      "conditional": false
+    },
+    {
+      "id": "B6",
+      "name": "Leanness",
+      "pillar": "B",
+      "conditional": false
+    },
+    {
+      "id": "C1",
+      "name": "Readability & Clarity",
+      "pillar": "C",
+      "conditional": false
+    },
+    {
+      "id": "C2",
+      "name": "Maintainability & Complexity",
+      "pillar": "C",
+      "conditional": false
+    },
+    {
+      "id": "C3",
+      "name": "Consistency & Idiomatic Code",
+      "pillar": "C",
+      "conditional": false
+    },
+    {
+      "id": "C4",
+      "name": "Test Suite Quality",
+      "pillar": "C",
+      "conditional": false
+    },
+    {
+      "id": "D1",
+      "name": "Feature Completeness",
+      "pillar": "D",
+      "conditional": false
+    },
+    {
+      "id": "D2",
+      "name": "Gap Coverage",
+      "pillar": "D",
+      "conditional": false
+    },
+    {
+      "id": "D3",
+      "name": "Practicality",
+      "pillar": "D",
+      "conditional": false
+    },
+    {
+      "id": "D4",
+      "name": "Intuitiveness",
+      "pillar": "D",
+      "conditional": false
+    },
+    {
+      "id": "E1",
+      "name": "Adopter Friendliness",
+      "pillar": "E",
+      "conditional": false
+    },
+    {
+      "id": "E2",
+      "name": "Documentation",
+      "pillar": "E",
+      "conditional": false
+    },
+    {
+      "id": "E3",
+      "name": "Developer Experience & Inner Loop",
+      "pillar": "E",
+      "conditional": false
+    },
+    {
+      "id": "E4",
+      "name": "Native Tooling & Ecosystem Fit",
+      "pillar": "E",
+      "conditional": false
+    },
+    {
+      "id": "F1",
+      "name": "Ease of Deployability",
+      "pillar": "F",
+      "conditional": false
+    },
+    {
+      "id": "F2",
+      "name": "Build, CI/CD & Automation",
+      "pillar": "F",
+      "conditional": false
+    },
+    {
+      "id": "F3",
+      "name": "Observability & Debuggability",
+      "pillar": "F",
+      "conditional": false
+    },
+    {
+      "id": "F4",
+      "name": "Performance, Efficiency & Scalability",
+      "pillar": "F",
+      "conditional": false
+    },
+    {
+      "id": "F5",
+      "name": "Portability",
+      "pillar": "F",
+      "conditional": false
+    },
+    {
+      "id": "F6",
+      "name": "Dependency Health & Longevity",
+      "pillar": "F",
+      "conditional": false
+    },
+    {
+      "id": "X1",
+      "name": "Accessibility, UX & Internationalization",
+      "pillar": "X",
+      "conditional": true
+    },
+    {
+      "id": "X2",
+      "name": "Public API Stability & Upgradeability",
+      "pillar": "X",
+      "conditional": true
+    },
+    {
+      "id": "X3",
+      "name": "Concurrency Safety",
+      "pillar": "X",
+      "conditional": true
+    },
+    {
+      "id": "X4",
+      "name": "Cost Efficiency",
+      "pillar": "X",
+      "conditional": true
+    },
+    {
+      "id": "X5",
+      "name": "Compliance & Licensing",
+      "pillar": "X",
+      "conditional": true
+    },
+    {
+      "id": "X6",
+      "name": "Agent-Readiness",
+      "pillar": "X",
+      "conditional": true
+    }
+  ]
+}

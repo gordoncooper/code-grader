@@ -10,13 +10,13 @@ The ready-built site comes in `code-grading-suite-web.zip`. If you've edited the
 python3 tools/build_web.py --out ../web
 ```
 
-This regenerates everything from the kit, including checksums. Rendered HTML pages need the Python `markdown` package (`pip install markdown`). Without it, the builder still works but shows docs as plain preformatted text. Agents read the raw `.md` files either way.
+This regenerates everything from the kit, including checksums. The builder needs Python 3.11+. Rendered HTML pages need `markdown-it-py` or `markdown` (`pip install markdown-it-py`). Without it, the builder still works but shows docs as plain preformatted text. Agents read the raw `.md` files either way.
 
 ## 2. Upload it
 
 Copy the *contents* of the built folder to a directory on your server, for example `/var/www/grading/` so it is served at `https://your-server/grading/`. Any path works because every link in the site is relative.
 
-**Recommended: one directory per version.** Deploy to `/grading/v3.1.0/` and point agents at that exact URL. An improvement loop that runs for weeks then can't have its rubric change underneath it. To also offer a "latest" URL, copy (or symlink) the newest version to `/grading/latest/`.
+**Recommended: one directory per version.** Deploy to `/grading/v4.0.0/` and point agents at that exact URL. An improvement loop that runs for weeks then can't have its rubric change underneath it. To also offer a "latest" URL, copy (or symlink) the newest version to `/grading/latest/`.
 
 ## 3. Make sure file types are served correctly
 
@@ -33,7 +33,7 @@ location /grading/ {
     add_header X-Content-Type-Options nosniff;
 
     location ~* \.md$          { types { } default_type text/markdown; }
-    location ~* \.(py|sql|txt)$ { types { } default_type text/plain; }
+    location ~* \.(py|sql|txt|toml)$ { types { } default_type text/plain; }
 }
 ```
 
@@ -44,7 +44,7 @@ your-server.example.com {
     file_server
     @md path *.md
     header @md Content-Type "text/markdown; charset=utf-8"
-    @txt path *.py *.sql *.txt
+    @txt path *.py *.sql *.txt *.toml
     header @txt Content-Type "text/plain; charset=utf-8"
 }
 ```
@@ -58,10 +58,10 @@ cd web && python3 -m http.server 8000
 ## 4. Check it
 
 ```bash
-BASE=https://your-server/grading/v3.1.0
+BASE=https://your-server/grading/v4.0.0
 curl -sI "$BASE/AGENT.md" | grep -i content-type     # expect text/markdown; charset=utf-8
 curl -s  "$BASE/SHA256SUMS" -o SHA256SUMS
-curl -s  "$BASE/downloads/code-grading-suite-3.1.0.zip" -o code-grading-suite-3.1.0.zip
+curl -s  "$BASE/downloads/code-grading-suite-4.0.0.zip" -o code-grading-suite-4.0.0.zip
 sha256sum -c SHA256SUMS --ignore-missing              # expect: OK
 ```
 
@@ -69,7 +69,7 @@ sha256sum -c SHA256SUMS --ignore-missing              # expect: OK
 
 Open the site's landing page. It shows ready-to-copy instructions for the grader, improver and pull-request roles, with your server's URL already filled in. For example:
 
-> Grade the code in this repository using the Code Grading Suite at https://your-server/grading/v3.1.0/AGENT.md. Act as the **grader**. …
+> Grade the code in this repository using the Code Grading Suite at https://your-server/grading/v4.0.0/AGENT.md. Act as the **grader**. …
 
 ## Security notes
 

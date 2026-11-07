@@ -6,20 +6,21 @@
 <title>Hidden checks · Code Grading Suite</title>
 <meta name="description" content="A rubric and prompts for AI coding agents to grade codebases from 1 to 10 on 35 benchmarks and improve them.">
 <link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/favicon.svg" type="image/svg+xml">
 <link rel="alternate" type="text/markdown" href="../../AGENT.md" title="Agent entry point">
 </head>
 <body>
 <header class="topbar">
   <button class='menu-btn' type='button'>Menu</button>
   <a class="brand" href="../../index.html">Code <span>Grading</span> Suite</a>
-  <span class="ver">v3.1.0</span>
+  <span class="ver">v4.0.0</span>
   <span class="spacer"></span>
   
   <a class="top" href="../../docs/README.html">Docs</a>
-  <a class="top" href="../../AGENT.md">AGENT.md</a>
-  <a class="top" href="../../downloads/code-grading-suite-3.1.0.zip">Download</a>
+  <a class="top opt" href="../../AGENT.md">AGENT.md</a>
+  <a class="top opt" href="../../downloads/code-grading-suite-4.0.0.zip">Download</a>
 </header>
-<div class="layout"><nav class="sidebar" aria-label="Documentation"><h4>Start</h4><a href="../../docs/README.html">Overview &amp; workflow</a><a href="../../docs/AGENT.html">Agent entry point</a><a href="../../docs/DEPLOY.html">Hosting this site</a><h4>Prompts</h4><a href="../../docs/prompts/grader.html">Grader</a><a href="../../docs/prompts/improver.html">Improver</a><a href="../../docs/prompts/pr-review.html">PR quick mode</a><h4>Rubric</h4><a href="../../docs/rubric/A-correctness-trust.html">A · Correctness &amp; Trust</a><a href="../../docs/rubric/B-design-structure.html">B · Design &amp; Structure</a><a href="../../docs/rubric/C-code-health.html">C · Code Health</a><a href="../../docs/rubric/D-value-fitness.html">D · Value &amp; Fitness</a><a href="../../docs/rubric/E-adoption-experience.html">E · Adoption &amp; Experience</a><a href="../../docs/rubric/F-operations-delivery.html">F · Operations &amp; Delivery</a><a href="../../docs/rubric/X-conditional.html">X · Conditional</a><a href="../../docs/rubric/weights.html">Weights, targets &amp; maturity</a><h4>Guides</h4><a href="../../docs/calibration/README.html">Calibration</a><a href="../../docs/holdout/README.html" class="active" aria-current="page">Hidden checks</a><a href="../../docs/CHANGELOG.html">Changelog</a></nav><main class="doc"><div class="docbar"><a class="btn" href="../../suite/holdout/README.md">View raw .md</a><button class="btn" type="button" data-copy="../../suite/holdout/README.md">Copy raw URL for an agent</button></div><h1 id="hidden-checks-the-holdout-set">Hidden checks (the holdout set)<a class="anchor" href="#hidden-checks-the-holdout-set" aria-label="Link to this section">#</a></h1>
+<div class="layout"><nav class="sidebar" aria-label="Documentation"><h4>Start</h4><a href="../../docs/README.html">Overview &amp; workflow</a><a href="../../docs/AGENT.html">Agent entry point</a><a href="../../docs/DEPLOY.html">Hosting this site</a><h4>Configuration</h4><a href="../../docs/TUNING.html">Tuning guide</a><a href="../../docs/rubric/weights.html">How scoring works</a><a href="../../docs/config/defaults.html">Default config</a><a href="../../docs/config/project.example.html">Example project config</a><h4>Prompts</h4><a href="../../docs/prompts/grader.html">Grader</a><a href="../../docs/prompts/improver.html">Improver</a><a href="../../docs/prompts/pr-review.html">PR quick mode</a><h4>Rubric</h4><a href="../../docs/rubric/A-correctness-trust.html">A · Correctness &amp; Trust</a><a href="../../docs/rubric/B-design-structure.html">B · Design &amp; Structure</a><a href="../../docs/rubric/C-code-health.html">C · Code Health</a><a href="../../docs/rubric/D-value-fitness.html">D · Value &amp; Fitness</a><a href="../../docs/rubric/E-adoption-experience.html">E · Adoption &amp; Experience</a><a href="../../docs/rubric/F-operations-delivery.html">F · Operations &amp; Delivery</a><a href="../../docs/rubric/X-conditional.html">X · Conditional</a><h4>Guides</h4><a href="../../docs/calibration/README.html">Calibration</a><a href="../../docs/holdout/README.html" class="active" aria-current="page">Hidden checks</a><a href="../../docs/CHANGELOG.html">Changelog</a></nav><main class="doc"><div class="docbar"><a class="btn" href="../../suite/holdout/README.md">View raw .md</a><button class="btn" type="button" data-copy="../../suite/holdout/README.md">Copy raw URL for an agent</button></div><h1 id="hidden-checks-the-holdout-set">Hidden checks (the holdout set)<a class="anchor" href="#hidden-checks-the-holdout-set" aria-label="Link to this section">#</a></h1>
 <p>When agents optimize against a visible rubric, scores can rise without the code actually improving. Hidden checks are a small set of tests and probes that <strong>improving agents never see</strong>. If visible scores rise while the hidden-check pass rate stays flat or falls, the code is being tuned to the rubric. <code>gradekit diff</code> flags this as <strong>divergence</strong>.</p>
 <h2 id="where-they-live">Where they live<a class="anchor" href="#where-they-live" aria-label="Link to this section">#</a></h2>
 <ul>
