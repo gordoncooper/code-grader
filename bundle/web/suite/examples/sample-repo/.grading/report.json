@@ -1,5 +1,5 @@
 {
-  "suite_version": "4.0.0",
+  "suite_version": "4.1.0",
   "mode": "full",
   "run": {
     "commit": "a1b2c3d",
@@ -13,9 +13,9 @@
   "component": null,
   "project_context_inferred": "Small internal orders API (Python), example only",
   "config": {
-    "hash": "06cfd807d4b75ede",
+    "hash": "128b47b4b9d54ad8",
     "preset": "service",
-    "source": "examples/sample-project.toml",
+    "source": ".grading/project.toml",
     "component": null
   },
   "commands_run": [
@@ -298,7 +298,7 @@
       "benchmark_id": "B5",
       "title": "Single payment gateway assumed",
       "severity": "minor",
-      "status": "new",
+      "status": "accepted",
       "first_seen_commit": "a1b2c3d",
       "evidence": [
         {
@@ -309,7 +309,7 @@
           "note": "no currency or provider abstraction"
         }
       ],
-      "disposition": null,
+      "disposition": "won't fix: one payment provider is a deliberate business constraint through 2027",
       "disposition_concern": null
     },
     {
@@ -1640,28 +1640,11 @@
     "run": true,
     "checks_run": 4,
     "pass_rate": 0.5,
-    "private_details": [
-      {
-        "check": "holdout-refund-edge-case",
-        "passed": false
-      },
-      {
-        "check": "holdout-seed-rerun",
-        "passed": false
-      },
-      {
-        "check": "holdout-total-rounding",
-        "passed": true
-      },
-      {
-        "check": "holdout-charge-replay",
-        "passed": true
-      }
-    ]
+    "private_details": "[kept with the hidden checks, not in the repo]"
   },
   "rollup": {
     "computed_by": "gradekit.py",
-    "config_hash": "06cfd807d4b75ede",
+    "config_hash": "128b47b4b9d54ad8",
     "pillar_scores": {
       "A": 4.6,
       "B": 6.1,
@@ -1734,7 +1717,7 @@
     "open_findings_by_zone": {
       "hot": {
         "minor": 0,
-        "major": 8,
+        "major": 7,
         "critical": 7
       },
       "cold": {
@@ -1826,7 +1809,7 @@
         "criticality": "hot",
         "severity": "minor",
         "effective_severity": "major",
-        "status": "new",
+        "status": "accepted",
         "benchmark_id": "B5"
       },
       "C2-001": {
@@ -2281,6 +2264,7 @@
         "requires_human_decision": false,
         "decision_question": null,
         "action": "In src/orders/service.py create_order, remove the bare except; let reserve_stock failures propagate as an OutOfStock error and return 409 from the API layer",
+        "decision": null,
         "rank": 1
       },
       {
@@ -2294,6 +2278,7 @@
         "requires_human_decision": false,
         "decision_question": null,
         "action": "Add .github/workflows/ci.yml running ruff, mypy --strict and pytest --cov with a branch-coverage floor, required on main",
+        "decision": null,
         "rank": 2
       },
       {
@@ -2307,6 +2292,7 @@
         "requires_human_decision": false,
         "decision_question": null,
         "action": "Rewrite scripts/seed.sql inserts as INSERT ... ON CONFLICT (id) DO NOTHING and add a CI step that runs the seed twice",
+        "decision": null,
         "rank": 3
       },
       {
@@ -2320,6 +2306,9 @@
         "requires_human_decision": true,
         "decision_question": "Implement CSV and XLSX export, or drop the export claim from the README?",
         "action": "Either implement CSV/XLSX export in a new src/export module with tests, or remove the claim from README.md",
+        "decision": {
+          "status": "pending"
+        },
         "rank": 4
       }
     ],

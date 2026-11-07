@@ -18,8 +18,12 @@ Reports:
   redact           Strip hidden-check details so a report can be shared with improvers.
   rollup-repo      Combine per-component reports for a monorepo.
 
-Commands that need the config take --config (repeatable): TOML files layered over
-config/defaults.toml in order, or one effective-config JSON produced by `resolve --out`.
+Defaults: commands look for .grading/project.toml and .grading/report.json in the current
+folder, so inside a repo set up with `init --grading-dir .grading` you can usually omit them.
+--config (repeatable) takes TOML files layered over config/defaults.toml in order, or one
+effective-config JSON produced by `resolve --out`.
+
+The website runs this same file in the browser (Pyodide) through web_api().
 
 Python 3.11+ (uses tomllib); standard library only. Uses `jsonschema` when installed.
 Exit codes: 0 ok, 1 invalid/failed check, 2 regression (diff --fail-on-regression),
@@ -48,6 +52,9 @@ SUITE_DIR = Path(__file__).resolve().parent.parent
 CATALOG_PATH = SUITE_DIR / "rubric" / "catalog.json"
 DEFAULTS_PATH = SUITE_DIR / "config" / "defaults.toml"
 SCHEMA_PATH = SUITE_DIR / "schema" / "report.schema.json"
+GRADING_DIR = Path(".grading")
+DEFAULT_PROJECT = GRADING_DIR / "project.toml"
+DEFAULT_REPORT = GRADING_DIR / "report.json"
 PILLARS = ["A", "B", "C", "D", "E", "F", "X"]
 OPEN_STATUSES = {"new", "open", "regressed"}
 SEVERITIES = ["minor", "major", "critical"]
@@ -56,9 +63,12 @@ HEAT = {"cold": 0, "normal": 1, "hot": 2}
 
 # =========================================================================== helpers
 
+class GradekitError(Exception):
+    """Raised for any user-facing problem; the CLI prints it, the web API returns it."""
+
+
 def die(msg: str, code: int = 1):
-    print(f"error: {msg}", file=sys.stderr)
-    sys.exit(code)
+    raise GradekitError(msg)
 
 
 def load_json(path) -> dict:
@@ -78,15 +88,21 @@ def write_json(path, data: dict) -> None:
 
 
 def load_toml(path) -> dict:
+    try:
+        with open(path, "rb") as fh:
+            data = fh.read()
+    except FileNotFoundError:
+        die(f"file not found: {path}")
+    return parse_toml(data.decode("utf-8"), str(path))
+
+
+def parse_toml(text: str, name: str = "TOML") -> dict:
     if tomllib is None:
         die("reading TOML needs Python 3.11+ (or `pip install tomli`)")
     try:
-        with open(path, "rb") as fh:
-            return tomllib.load(fh)
-    except FileNotFoundError:
-        die(f"file not found: {path}")
+        return tomllib.loads(text)
     except tomllib.TOMLDecodeError as exc:
-        die(f"{path} is not valid TOML: {exc}")
+        die(f"{name} is not valid TOML: {exc}")
 
 
 def load_catalog() -> dict:
@@ -156,21 +172,32 @@ def deep_merge(base: dict, over: dict) -> dict:
     return out
 
 
+HASHED_KEYS = ("suite_version", "preset", "answers", "weights", "gates", "zones", "targets", "maturity", "priorities")
+
+
 def config_hash(cfg: dict) -> str:
-    body = {k: v for k, v in cfg.items() if k not in ("hash", "sources", "warnings")}
+    """Fingerprint of everything that affects scoring. Project prose, dispositions and
+    decisions are deliberately excluded: they change between cycles without re-weighting."""
+    body = {k: cfg.get(k) for k in HASHED_KEYS}
+    body["out_of_scope"] = (cfg.get("project") or {}).get("out_of_scope", [])
     return hashlib.sha256(json.dumps(body, sort_keys=True, ensure_ascii=False).encode()).hexdigest()[:16]
 
 
 def resolve_config(paths: list[str], component: str | None = None, preset_fallback: str | None = None,
+                   component_required: bool = True) -> dict:
+    return resolve_layers([(str(p), load_toml(p)) for p in paths], component, preset_fallback, component_required)
+
+
+def resolve_layers(layers: list[tuple[str, dict]], component: str | None = None, preset_fallback: str | None = None,
                    component_required: bool = True) -> dict:
     catalog = load_catalog()
     ids = [b["id"] for b in catalog["benchmarks"]]
     names = {b["id"]: b["name"] for b in catalog["benchmarks"]}
     merged = load_toml(DEFAULTS_PATH)
     sources = [str(DEFAULTS_PATH.relative_to(SUITE_DIR))]
-    for p in paths:
-        merged = deep_merge(merged, load_toml(p))
-        sources.append(str(p))
+    for name, data in layers:
+        merged = deep_merge(merged, data)
+        sources.append(name)
     errors: list[str] = []
     warnings: list[str] = []
 
@@ -297,10 +324,22 @@ def resolve_config(paths: list[str], component: str | None = None, preset_fallba
     if not re.fullmatch(r"proportional|maximal|level:L[0-9]", str(mode)):
         errors.append(f"targets.mode '{mode}' must be proportional, maximal or level:L<n>")
 
+    dispositions = list(merged.get("dispositions", []) or [])
+    for i, d in enumerate(dispositions, 1):
+        if not (d.get("finding_id") or d.get("match")):
+            errors.append(f"dispositions #{i}: needs finding_id or match")
+        if not str(d.get("reason", "")).strip():
+            errors.append(f"dispositions #{i}: needs a reason")
+    decisions = list(merged.get("decisions", []) or [])
+    for i, d in enumerate(decisions, 1):
+        if not d.get("action_id"):
+            errors.append(f"decisions #{i}: needs action_id")
+        if not isinstance(d.get("approved"), bool):
+            errors.append(f"decisions #{i} ({d.get('action_id')}): approved must be true or false")
+    review = {"allow_agent_decisions": False, **(merged.get("review", {}) or {})}
+
     if errors:
-        for e in errors:
-            print(f"config error: {e}", file=sys.stderr)
-        die(f"{len(errors)} configuration error(s)")
+        die(f"{len(errors)} configuration error(s):\n" + "\n".join(f"  - {e}" for e in errors))
 
     cfg = {
         "suite_version": merged.get("suite_version"),
@@ -320,6 +359,9 @@ def resolve_config(paths: list[str], component: str | None = None, preset_fallba
         "targets": targets,
         "maturity": merged.get("maturity", {}),
         "priorities": merged.get("priorities", {}),
+        "dispositions": dispositions,
+        "decisions": decisions,
+        "review": review,
         "warnings": warnings,
     }
     cfg["hash"] = config_hash(cfg)
@@ -342,8 +384,12 @@ def load_config(args, report: dict | None = None, quiet: bool = False) -> dict:
     if any(p.endswith(".json") for p in paths):
         die("--config takes either TOML files or a single effective-config JSON, not both")
     fallback = ((report or {}).get("config") or {}).get("preset")
-    if not paths and not quiet:
-        print(f"note: no --config given; using suite defaults with preset '{fallback or 'default'}'")
+    if not paths and DEFAULT_PROJECT.exists():
+        paths = [str(DEFAULT_PROJECT)]
+        if not quiet:
+            print(f"note: using {DEFAULT_PROJECT} (pass --config to use another)")
+    elif not paths and not quiet:
+        print(f"note: no --config given and no {DEFAULT_PROJECT}; using suite defaults with preset '{fallback or 'default'}'")
     return resolve_config(paths, component=comp, preset_fallback=fallback, component_required=required)
 
 
@@ -462,6 +508,10 @@ def validate_report(report: dict, cfg: dict, catalog: dict) -> tuple[list[str], 
             errors.append(f"finding {fid}: ID prefix does not match benchmark_id {f.get('benchmark_id')}")
         if f.get("status") == "accepted" and not f.get("disposition"):
             errors.append(f"finding {fid}: status 'accepted' requires disposition text")
+        if f.get("status") == "accepted":
+            disp = cfg.get("dispositions", []) or []
+            if not any(d.get("finding_id") == fid for d in disp) and not any(d.get("match") for d in disp):
+                warnings.append(f"finding {fid} is 'accepted' but no [[dispositions]] entry in the project config covers it")
         if f.get("disposition") and f.get("status") != "accepted":
             warnings.append(f"finding {fid}: has a disposition but status is '{f.get('status')}'")
     fz = analyze_findings(report, cfg)
@@ -579,27 +629,22 @@ def cmd_validate(args) -> int:
 
 # =========================================================================== verify-evidence
 
-def check_code_evidence(ev: dict, repo: Path, tolerance: int) -> str | None:
-    rel = ev.get("file", "")
-    if Path(rel).is_absolute():
+def check_code_evidence(ev: dict, read_lines, tolerance: int) -> str | None:
+    """read_lines(rel_path) -> list of lines, or a string describing why it can't be read."""
+    rel = str(ev.get("file", ""))
+    if Path(rel).is_absolute() or rel.startswith("/"):
         return f"absolute path not allowed: {rel}"
-    target = (repo / rel).resolve()
-    try:
-        target.relative_to(repo)
-    except ValueError:
+    if ".." in Path(rel).parts:
         return f"path escapes the repo: {rel}"
-    if not target.is_file():
-        return f"file not found: {rel}"
+    lines = read_lines(rel)
+    if isinstance(lines, str):
+        return lines
     m = re.fullmatch(r"(\d+)(?:-(\d+))?", str(ev.get("lines", "")))
     if not m:
         return f"bad line range '{ev.get('lines')}'"
     start, end = int(m.group(1)), int(m.group(2) or m.group(1))
     if end < start or start < 1:
         return f"bad line range '{ev.get('lines')}'"
-    try:
-        lines = target.read_text(encoding="utf-8", errors="replace").splitlines()
-    except OSError as exc:
-        return f"cannot read {rel}: {exc}"
     if end > len(lines):
         return f"{rel} has {len(lines)} lines; cited {start}-{end}"
     window = norm("\n".join(lines[max(0, start - 1 - tolerance):min(len(lines), end + tolerance)]))
@@ -611,11 +656,43 @@ def check_code_evidence(ev: dict, repo: Path, tolerance: int) -> str | None:
     return None
 
 
-def cmd_verify_evidence(args) -> int:
-    report = load_json(args.report)
-    repo = Path(args.repo).resolve()
-    if not repo.is_dir():
-        die(f"repo not found: {repo}")
+def fs_reader(repo: Path):
+    repo = repo.resolve()
+
+    def read(rel: str):
+        target = (repo / rel).resolve()
+        try:
+            target.relative_to(repo)
+        except ValueError:
+            return f"path escapes the repo: {rel}"
+        if not target.is_file():
+            return f"file not found: {rel}"
+        try:
+            return target.read_text(encoding="utf-8", errors="replace").splitlines()
+        except OSError as exc:
+            return f"cannot read {rel}: {exc}"
+    return read
+
+
+def zip_reader(zip_path: str):
+    """Reads files from a repo archive, e.g. GitHub's "Download ZIP" (one top-level folder)."""
+    import zipfile
+
+    zf = zipfile.ZipFile(zip_path)
+    names = [n for n in zf.namelist() if not n.endswith("/")]
+    tops = {n.split("/", 1)[0] for n in names}
+    strip = len(tops) == 1 and all("/" in n for n in names)
+    index = {(n.split("/", 1)[1] if strip else n): n for n in names}
+
+    def read(rel: str):
+        key = rel.lstrip("./")
+        if key not in index:
+            return f"file not found in archive: {rel}"
+        return zf.read(index[key]).decode("utf-8", errors="replace").splitlines()
+    return read
+
+
+def verify_evidence(report: dict, read_lines, tolerance: int = 2) -> dict:
     carried = {b["id"] for b in report.get("benchmarks", []) if b.get("carried_forward")}
     checked = skipped = 0
     failures: list[str] = []
@@ -629,14 +706,28 @@ def cmd_verify_evidence(args) -> int:
             skipped += 1
             continue
         checked += 1
-        problem = check_code_evidence(ev, repo, args.tolerance)
+        problem = check_code_evidence(ev, read_lines, tolerance)
         if problem:
             failures.append(f"{loc}: {problem}")
-    for f in failures:
+    return {"checked": checked, "failures": failures, "skipped_carried_forward": skipped,
+            "command": other.get("command", 0), "absence": other.get("absence", 0)}
+
+
+def cmd_verify_evidence(args) -> int:
+    report = load_json(args.report)
+    repo = Path(args.repo)
+    if repo.suffix == ".zip" and repo.is_file():
+        res = verify_evidence(report, zip_reader(str(repo)), args.tolerance)
+    else:
+        if not repo.is_dir():
+            die(f"repo not found: {repo}")
+        res = verify_evidence(report, fs_reader(repo), args.tolerance)
+    for f in res["failures"]:
         print(f"FAIL: {f}")
-    print(f"\ncode citations checked: {checked}, failed: {len(failures)}, skipped (carried forward): {skipped}; "
-          f"command: {other.get('command', 0)}, absence: {other.get('absence', 0)} (not machine-checkable)")
-    return 1 if failures else 0
+    print(f"\ncode citations checked: {res['checked']}, failed: {len(res['failures'])}, "
+          f"skipped (carried forward): {res['skipped_carried_forward']}; command: {res['command']}, "
+          f"absence: {res['absence']} (not machine-checkable)")
+    return 1 if res["failures"] else 0
 
 
 # =========================================================================== rollup
@@ -823,7 +914,8 @@ def compute_rollup(report: dict, cfg: dict) -> dict:
             prios.append({"action_id": act.get("id"), "benchmark_id": b["id"], "tier": tier, "priority": score,
                           "zone": heat, "gain": gain, "effort": act.get("effort"),
                           "requires_human_decision": bool(act.get("requires_human_decision")),
-                          "decision_question": act.get("decision_question"), "action": act.get("action")})
+                          "decision_question": act.get("decision_question"), "action": act.get("action"),
+                          "decision": decision_for(act, cfg)})
     prios.sort(key=lambda p: (p["tier"], -p["priority"], p["action_id"] or ""))
     for i, p in enumerate(prios, 1):
         p["rank"] = i
@@ -851,6 +943,28 @@ def compute_rollup(report: dict, cfg: dict) -> dict:
             "weight_notes": {b["id"]: b["weight_note"] for b in report.get("benchmarks", []) if b.get("weight_note")},
         },
     }
+
+
+def decision_for(action: dict, cfg: dict) -> dict | None:
+    """The human (or permitted agent) answer to an action's decision question, if any."""
+    if not action.get("requires_human_decision"):
+        return None
+    allow_agents = bool((cfg.get("review") or {}).get("allow_agent_decisions"))
+    match = None
+    for d in cfg.get("decisions", []) or []:
+        if d.get("action_id") != action.get("id"):
+            continue
+        q1, q2 = norm(str(d.get("question") or "")).lower(), norm(str(action.get("decision_question") or "")).lower()
+        if q1 and q2 and q1 != q2:
+            continue  # same ID, different question: an answer from an earlier cycle
+        match = d  # last matching entry wins (append-only history)
+    if not match:
+        return {"status": "pending"}
+    by = str(match.get("decided_by") or "")
+    if by.lower().startswith("agent") and not allow_agents:
+        return {"status": "pending", "note": f"answered by {by}, but agent decisions are not allowed ([review] allow_agent_decisions)"}
+    return {"status": "approved" if match.get("approved") else "declined", "answer": match.get("answer"),
+            "decided_by": by, "date": match.get("date")}
 
 
 def apply_rollup(report: dict, cfg: dict) -> dict:
@@ -881,7 +995,7 @@ def print_rollup(roll: dict) -> None:
     if roll["priorities"]:
         print("Top priorities:")
         for p in roll["priorities"][:8]:
-            hd = "  [needs human decision]" if p["requires_human_decision"] else ""
+            hd = f"  [decision: {p['decision']['status']}]" if p.get("decision") else ""
             print(f"  {p['rank']}. T{p['tier']} {p['action_id']} ({p['zone']}, +{p['gain']}, {p['effort']}) score {p['priority']}{hd}")
     a = roll["applicability"]
     if a["limited"] or a["not_applicable"] or a["weight_notes"]:
@@ -907,17 +1021,16 @@ def cmd_rollup(args) -> int:
 
 # =========================================================================== stability
 
-def cmd_stability(args) -> int:
-    runs = [load_json(p) for p in args.reports]
+def compute_consensus(runs: list[dict], cfg: dict) -> dict:
     if len(runs) < 2:
         die("need at least two runs")
-    cfg = load_config(args, runs[0])
+    notes = []
     commits = {r.get("run", {}).get("commit") for r in runs}
     if len(commits) > 1:
-        print(f"warning: runs graded different commits: {sorted(map(str, commits))}")
+        notes.append(f"runs graded different commits: {sorted(map(str, commits))}")
     hashes = {(r.get("config") or {}).get("hash") for r in runs}
     if len(hashes) > 1:
-        print(f"warning: runs used different configs: {sorted(map(str, hashes))}")
+        notes.append(f"runs used different configs: {sorted(map(str, hashes))}")
     ids = [b["id"] for b in load_catalog()["benchmarks"]]
     medians, unstable, rows = {}, [], []
     for bid in ids:
@@ -925,7 +1038,7 @@ def cmd_stability(args) -> int:
         apps = [e.get("applicability", "not_applicable") for e in entries]
         scores = [e.get("score") for e in entries]
         majority_na = apps.count("not_applicable") > len(runs) / 2
-        nums = [s for s in scores if isinstance(s, int)]
+        nums = [x for x in scores if isinstance(x, int)]
         med = None if majority_na or not nums else statistics.median_low(nums)
         spread = (max(nums) - min(nums)) if nums else 0
         split = len(set(apps)) > 1
@@ -936,7 +1049,7 @@ def cmd_stability(args) -> int:
         maj_app = "not_applicable" if majority_na else statistics.mode(applicable)
         medians[bid] = {"median": med, "applicability": maj_app, "scores": scores,
                         "applicability_votes": apps, "spread": spread, "unstable": flag}
-        rows.append((bid, scores, med, spread, flag, split))
+        rows.append({"id": bid, "scores": scores, "median": med, "spread": spread, "unstable": flag, "split": split})
 
     def distance(r):
         bb = benchmarks_by_id(r)
@@ -965,20 +1078,100 @@ def cmd_stability(args) -> int:
                               "method": "median_low of integer scores; majority vote on applicability",
                               "overall_by_run": overall_by_run, "unstable_benchmarks": unstable, "per_benchmark": medians}
     roll = apply_rollup(consensus, cfg)
+    return {"report": consensus, "rows": rows, "unstable": unstable, "overall_by_run": overall_by_run,
+            "notes": notes, "rollup": roll}
+
+
+def cmd_stability(args) -> int:
+    runs = [load_json(p) for p in args.reports]
+    cfg = load_config(args, runs[0])
+    res = compute_consensus(runs, cfg)
+    for n in res["notes"]:
+        print(f"warning: {n}")
     print(f"{'ID':<4} {'scores':<20} {'median':>6} {'spread':>6}")
-    for bid, scores, med, spread, flag, split in rows:
-        s = ",".join("–" if x is None else str(x) for x in scores)
-        mark = ("  ← unstable" + (" (applicability split)" if split else "")) if flag else ""
-        print(f"{bid:<4} {s:<20} {('–' if med is None else med):>6} {spread:>6}{mark}")
-    print(f"\noverall by run: {overall_by_run}  → consensus {roll['overall_score']} ({roll['maturity']['current_level']})")
-    print(f"unstable benchmarks: {', '.join(unstable) or 'none'}  (spread > 1 or applicability split: tighten their rubric wording)")
+    for r in res["rows"]:
+        sc = ",".join("–" if x is None else str(x) for x in r["scores"])
+        mark = ("  ← unstable" + (" (applicability split)" if r["split"] else "")) if r["unstable"] else ""
+        print(f"{r['id']:<4} {sc:<20} {('–' if r['median'] is None else r['median']):>6} {r['spread']:>6}{mark}")
+    roll = res["rollup"]
+    print(f"\noverall by run: {res['overall_by_run']}  → consensus {roll['overall_score']} ({roll['maturity']['current_level']})")
+    print(f"unstable benchmarks: {', '.join(res['unstable']) or 'none'}  (spread > 1 or applicability split: tighten their rubric wording)")
     if args.out:
-        write_json(args.out, consensus)
+        write_json(args.out, res["report"])
         print(f"wrote consensus report to {args.out}")
-    return 3 if (args.strict and unstable) else 0
+    return 3 if (args.strict and res["unstable"]) else 0
 
 
 # =========================================================================== diff
+
+def compute_diff(old: dict, new: dict, cfg_old: dict, cfg_new: dict) -> dict:
+    regressions, notes = [], []
+    same_major = major(old.get("suite_version", "0")) == major(new.get("suite_version", "0"))
+    oh, nh = (old.get("config") or {}).get("hash"), (new.get("config") or {}).get("hash")
+    if oh != nh:
+        notes.append(f"reports used different configs ({oh} → {nh}); weights may differ, so overall and maturity "
+                     "changes can come from re-weighting, not code changes")
+    r_old, r_new = compute_rollup(old, cfg_old), compute_rollup(new, cfg_new)
+    if not same_major:
+        notes.append("suite major versions differ; score deltas are not comparable and are not used for regressions")
+    ob, nb = benchmarks_by_id(old), benchmarks_by_id(new)
+    changes = []
+    for bid in [b["id"] for b in load_catalog()["benchmarks"]]:
+        so, sn = ob.get(bid, {}).get("score"), nb.get(bid, {}).get("score")
+        if so != sn:
+            changes.append({"id": bid, "old": so, "new": sn})
+            if same_major and isinstance(so, int) and isinstance(sn, int) and sn < so:
+                regressions.append(f"{bid} dropped {so} → {sn}")
+            if same_major and isinstance(so, int) and sn is None:
+                notes.append(f"{bid} went from {so} to N/A; check the applicability reason")
+        go = set(ob.get(bid, {}).get("gaming_flags", []) or [])
+        for gflag in sorted(set(nb.get(bid, {}).get("gaming_flags", []) or []) - go):
+            regressions.append(f"{bid} new gaming flag: {gflag}")
+    lo, ln = r_old["maturity"]["current_level"], r_new["maturity"]["current_level"]
+    if level_num(ln) < level_num(lo):
+        regressions.append(f"maturity dropped {lo} → {ln}")
+    newly_failed = {g["benchmark_id"] for g in r_new["gates"] if g["status"] == "failed"} - \
+                   {g["benchmark_id"] for g in r_old["gates"] if g["status"] == "failed"}
+    for bid in sorted(newly_failed):
+        regressions.append(f"gate {bid} newly failed")
+    of = {f["id"]: f for f in old.get("findings", [])}
+    nf = {f["id"]: f for f in new.get("findings", [])}
+    nz = r_new["finding_zones"]
+
+    def brief(i):
+        return {"id": i, "title": nf[i].get("title"), "severity": nf[i].get("severity"),
+                "effective_severity": nz.get(i, {}).get("effective_severity", nf[i].get("severity")),
+                "zone": nz.get(i, {}).get("criticality", "normal")}
+    new_ids = [brief(i) for i, f in nf.items() if i not in of or f.get("status") == "new"]
+    fixed = [brief(i) for i, f in nf.items() if f.get("status") == "fixed" and of.get(i, {}).get("status") != "fixed"]
+    regressed = [brief(i) for i, f in nf.items() if f.get("status") == "regressed"]
+    for f in new_ids:
+        if f["effective_severity"] in ("critical", "major"):
+            regressions.append(f"new {f['effective_severity']} finding {f['id']} ({f['zone']} zone): {f['title']}")
+    for f in regressed:
+        regressions.append(f"finding regressed {f['id']}: {f['title']}")
+    for i, f in of.items():
+        if i not in nf and f.get("status") in OPEN_STATUSES:
+            notes.append(f"open finding {i} disappeared without a 'fixed' status (finding IDs must be stable)")
+    if new.get("integrity_flags"):
+        regressions.append(f"{len(new['integrity_flags'])} integrity flag(s) in the new report")
+    ho, hn = old.get("holdout", {}) or {}, new.get("holdout", {}) or {}
+    hold = None
+    if ho.get("run") and hn.get("run") and ho.get("pass_rate") is not None and hn.get("pass_rate") is not None:
+        hold = {"old": ho["pass_rate"], "new": hn["pass_rate"]}
+        if hn["pass_rate"] < ho["pass_rate"]:
+            regressions.append(f"hidden-check pass rate dropped {ho['pass_rate']:.0%} → {hn['pass_rate']:.0%}")
+            if (r_new["overall_score"] or 0) - (r_old["overall_score"] or 0) >= 0.5:
+                notes.append("DIVERGENCE: visible scores rose while hidden checks fell; suspect the code is being "
+                             "tuned to the rubric. Review the changes by hand before trusting these scores.")
+    return {"from_commit": old.get("run", {}).get("commit"), "to_commit": new.get("run", {}).get("commit"),
+            "mode": new.get("mode"), "score_changes": changes,
+            "overall": {"old": r_old["overall_score"], "new": r_new["overall_score"]},
+            "maturity": {"old": lo, "new": ln},
+            "findings": {"new": new_ids, "fixed": fixed, "regressed": regressed},
+            "holdout": hold, "regressions": regressions, "notes": notes,
+            "verdict": "FAIL" if regressions else "PASS"}
+
 
 def cmd_diff(args) -> int:
     old, new = load_json(args.old), load_json(args.new)
@@ -988,82 +1181,30 @@ def cmd_diff(args) -> int:
         cfg_old = load_config(ns, old, quiet=True)
     else:
         cfg_old = cfg_new
-    regressions, notes = [], []
-    same_major = major(old.get("suite_version", "0")) == major(new.get("suite_version", "0"))
-    oh, nh = (old.get("config") or {}).get("hash"), (new.get("config") or {}).get("hash")
-    if oh != nh:
-        notes.append(f"reports used different configs ({oh} → {nh}); weights may differ, so overall and maturity "
-                     "changes can come from re-weighting, not code changes")
-    r_old, r_new = compute_rollup(old, cfg_old), compute_rollup(new, cfg_new)
-    print(f"{old.get('run', {}).get('commit')} → {new.get('run', {}).get('commit')}  (mode: {new.get('mode')})")
-    if not same_major:
-        notes.append("suite major versions differ; score deltas are not comparable and are not used for regressions")
-    ob, nb = benchmarks_by_id(old), benchmarks_by_id(new)
-    changes = []
-    for bid in [b["id"] for b in load_catalog()["benchmarks"]]:
-        so, sn = ob.get(bid, {}).get("score"), nb.get(bid, {}).get("score")
-        if so != sn:
-            changes.append((bid, so, sn))
-            if same_major and isinstance(so, int) and isinstance(sn, int) and sn < so:
-                regressions.append(f"{bid} dropped {so} → {sn}")
-            if same_major and isinstance(so, int) and sn is None:
-                notes.append(f"{bid} went from {so} to N/A; check the applicability reason")
-        go = set(ob.get(bid, {}).get("gaming_flags", []) or [])
-        for gflag in sorted(set(nb.get(bid, {}).get("gaming_flags", []) or []) - go):
-            regressions.append(f"{bid} new gaming flag: {gflag}")
-    print("\nScore changes:" if changes else "\nScore changes: none")
-    for bid, so, sn in changes:
-        print(f"  {bid}: {'–' if so is None else so} → {'–' if sn is None else sn}")
-    print(f"Overall: {r_old['overall_score']} → {r_new['overall_score']}   "
-          f"Maturity: {r_old['maturity']['current_level']} → {r_new['maturity']['current_level']}")
-    if level_num(r_new["maturity"]["current_level"]) < level_num(r_old["maturity"]["current_level"]):
-        regressions.append(f"maturity dropped {r_old['maturity']['current_level']} → {r_new['maturity']['current_level']}")
-    newly_failed = {g["benchmark_id"] for g in r_new["gates"] if g["status"] == "failed"} - \
-                   {g["benchmark_id"] for g in r_old["gates"] if g["status"] == "failed"}
-    for bid in sorted(newly_failed):
-        regressions.append(f"gate {bid} newly failed")
-
-    of = {f["id"]: f for f in old.get("findings", [])}
-    nf = {f["id"]: f for f in new.get("findings", [])}
-    nz = r_new["finding_zones"]
-    new_ids = [i for i, f in nf.items() if i not in of or f.get("status") == "new"]
-    fixed = [i for i, f in nf.items() if f.get("status") == "fixed" and of.get(i, {}).get("status") != "fixed"]
-    regressed = [i for i, f in nf.items() if f.get("status") == "regressed"]
-    vanished = [i for i, f in of.items() if i not in nf and f.get("status") in OPEN_STATUSES]
-    print(f"\nFindings: {len(new_ids)} new, {len(fixed)} fixed, {len(regressed)} regressed")
-    for i in new_ids:
-        eff = nz.get(i, {}).get("effective_severity", nf[i].get("severity"))
-        zone = nz.get(i, {}).get("criticality", "normal")
-        print(f"  new       {i} [{eff}, {zone}] {nf[i].get('title')}")
-        if eff in ("critical", "major"):
-            regressions.append(f"new {eff} finding {i} ({zone} zone): {nf[i].get('title')}")
-    for i in fixed:
-        print(f"  fixed     {i} {nf[i].get('title')}")
-    for i in regressed:
-        print(f"  regressed {i} {nf[i].get('title')}")
-        regressions.append(f"finding regressed {i}: {nf[i].get('title')}")
-    for i in vanished:
-        notes.append(f"open finding {i} disappeared without a 'fixed' status (finding IDs must be stable)")
-    if new.get("integrity_flags"):
-        regressions.append(f"{len(new['integrity_flags'])} integrity flag(s) in the new report")
-    ho, hn = old.get("holdout", {}) or {}, new.get("holdout", {}) or {}
-    if ho.get("run") and hn.get("run") and ho.get("pass_rate") is not None and hn.get("pass_rate") is not None:
-        print(f"Hidden checks: {ho['pass_rate']:.0%} → {hn['pass_rate']:.0%}")
-        if hn["pass_rate"] < ho["pass_rate"]:
-            regressions.append(f"hidden-check pass rate dropped {ho['pass_rate']:.0%} → {hn['pass_rate']:.0%}")
-            if (r_new["overall_score"] or 0) - (r_old["overall_score"] or 0) >= 0.5:
-                notes.append("DIVERGENCE: visible scores rose while hidden checks fell; suspect the code is being "
-                             "tuned to the rubric. Review the changes by hand before trusting these scores.")
-    for n in notes:
+    d = compute_diff(old, new, cfg_old, cfg_new)
+    print(f"{d['from_commit']} → {d['to_commit']}  (mode: {d['mode']})")
+    print("\nScore changes:" if d["score_changes"] else "\nScore changes: none")
+    for c in d["score_changes"]:
+        print(f"  {c['id']}: {'–' if c['old'] is None else c['old']} → {'–' if c['new'] is None else c['new']}")
+    print(f"Overall: {d['overall']['old']} → {d['overall']['new']}   Maturity: {d['maturity']['old']} → {d['maturity']['new']}")
+    fs = d["findings"]
+    print(f"\nFindings: {len(fs['new'])} new, {len(fs['fixed'])} fixed, {len(fs['regressed'])} regressed")
+    for f in fs["new"]:
+        print(f"  new       {f['id']} [{f['effective_severity']}, {f['zone']}] {f['title']}")
+    for f in fs["fixed"]:
+        print(f"  fixed     {f['id']} {f['title']}")
+    for f in fs["regressed"]:
+        print(f"  regressed {f['id']} {f['title']}")
+    if d["holdout"]:
+        print(f"Hidden checks: {d['holdout']['old']:.0%} → {d['holdout']['new']:.0%}")
+    for n in d["notes"]:
         print(f"note: {n}")
-    if regressions:
+    if d["regressions"]:
         print("\nREGRESSIONS:")
-        for r in regressions:
+        for r in d["regressions"]:
             print(f"  - {r}")
-        print("\nverdict: FAIL")
-    else:
-        print("\nverdict: PASS")
-    return 2 if (args.fail_on_regression and regressions) else 0
+    print(f"\nverdict: {d['verdict']}")
+    return 2 if (args.fail_on_regression and d["regressions"]) else 0
 
 
 # =========================================================================== calibrate / redact / rollup-repo
@@ -1237,53 +1378,199 @@ def cmd_presets(args) -> int:
     return 0
 
 
-INIT_TEMPLATE = """# Project configuration for the Code Grading Suite (v{version})
-# Keep this file OUTSIDE the repository being graded, owned by humans.
-# Check it with:  python3 SUITE_DIR/tools/gradekit.py resolve --config project.toml
+# =========================================================================== project.toml rendering
 
-[project]
-name            = "{name}"
-description     = "<what it is, in one sentence>"
-preset          = "{preset}"            # {presets}
-languages       = "<e.g. Python 3.12, FastAPI, Postgres>"
-users           = "<who uses it>"
-maturity_target = "<prototype | internal tool | production | public open source>"
-scope           = "<stated scope or link to requirements>"
-out_of_scope    = []                     # e.g. ["vendor/**", "generated/**"]
+def toml_key(k: str) -> str:
+    return k if re.fullmatch(r"[A-Za-z0-9_-]+", str(k)) else json.dumps(str(k), ensure_ascii=False)
 
-# Answers override the preset. Delete a line to use the preset's answer.
-# Run `gradekit resolve --explain ID` to see how answers moved a weight.
-[answers]
-{answers}
 
-# Criticality zones: first match wins, so list specific zones first.
-# hot = matters most (money, auth, data writes); cold = matters least (scripts, examples).
-# [[zones]]
-# name        = "payments"
-# paths       = ["src/payments/**"]
-# criticality = "hot"
-# why         = "Moves money"
-#
-# [[zones]]
-# name        = "scripts"
-# paths       = ["scripts/**", "examples/**"]
-# criticality = "cold"
-# why         = "Developer convenience only"
+def toml_value(v) -> str:
+    if isinstance(v, bool):
+        return "true" if v else "false"
+    if isinstance(v, int):
+        return str(v)
+    if isinstance(v, float):
+        return repr(v)
+    if isinstance(v, str):
+        return json.dumps(v, ensure_ascii=False)
+    if isinstance(v, list):
+        return "[" + ", ".join(toml_value(x) for x in v if x is not None) + "]"
+    if isinstance(v, dict):
+        items = [f"{toml_key(k)} = {toml_value(x)}" for k, x in v.items() if x is not None]
+        return "{ " + ", ".join(items) + " }" if items else "{}"
+    raise GradekitError(f"can't write {type(v).__name__} to TOML")
 
-# Where improving agents stop: proportional (default) | maximal | level:L3
-[targets]
-mode = "proportional"
-# overrides = {{ F4 = 10 }}
 
-# Explicit weight overrides (always need a reason):
-# [weights.overrides]
-# F4 = {{ weight = 3, reason = "Contractual p99 latency SLA" }}
+def _emit_table(name: str, table: dict, out: list[str], array: bool = False) -> None:
+    scalars = {k: v for k, v in table.items() if v is not None and not isinstance(v, dict)
+               and not (isinstance(v, list) and v and all(isinstance(x, dict) for x in v))}
+    out.append(f"[[{name}]]" if array else f"[{name}]")
+    width = max([len(toml_key(k)) for k in scalars] + [1])
+    for k, v in scalars.items():
+        out.append(f"{toml_key(k):<{width}} = {toml_value(v)}")
+    out.append("")
+    for k, v in table.items():
+        if isinstance(v, dict):
+            _emit_table(f"{name}.{toml_key(k)}", v, out)
+        elif isinstance(v, list) and v and all(isinstance(x, dict) for x in v):
+            for item in v:
+                _emit_table(f"{name}.{toml_key(k)}", item, out, array=True)
 
-# Extra gates for this project, or (rarely) remove one:
-# [gates]
-# extra   = ["C4"]
-# exclude = []
+
+PROJECT_HEADER = """# Code Grading Suite (v{version}): project configuration
+# Humans own this file. Agents may read it but must never change it.
+# Check it with:  python3 SUITE_DIR/tools/gradekit.py resolve --config {path}
+# Or use the "Set up a project" page on the suite's website.
 """
+
+
+def render_project_toml(data: dict, defaults: dict | None = None, path: str = "project.toml") -> str:
+    """Write a project config in the suite's standard layout, with helpful comments."""
+    defaults = defaults or load_toml(DEFAULTS_PATH)
+    d = copy.deepcopy(data or {})
+    out = [PROJECT_HEADER.format(version=defaults.get("suite_version"), path=path)]
+
+    proj = d.pop("project", {}) or {}
+    hints = {"preset": " | ".join(defaults.get("presets", {})),
+             "maturity_target": "prototype | internal tool | production | public open source",
+             "out_of_scope": "paths the grader skips, e.g. \"vendor/**\""}
+    order = ["name", "description", "preset", "languages", "users", "maturity_target", "scope", "out_of_scope"]
+    out.append("[project]")
+    keys = [k for k in order if k in proj] + [k for k in proj if k not in order]
+    width = max([len(k) for k in keys] + [15])
+    for k in keys:
+        if proj[k] is None:
+            continue
+        hint = f"   # {hints[k]}" if k in hints else ""
+        out.append(f"{toml_key(k):<{width}} = {toml_value(proj[k])}{hint}")
+    out.append("")
+
+    answers = d.pop("answers", {}) or {}
+    questions = defaults.get("questions", {})
+    out.append("# Answers override the preset. Each one moves specific weights; see `gradekit resolve --explain ID`.")
+    out.append("[answers]")
+    for q in list(questions) + [q for q in answers if q not in questions]:
+        if q not in answers:
+            continue
+        qd = questions.get(q, {})
+        opts = " | ".join(qd.get("options", {}))
+        comment = f"   # {qd.get('prompt', '')} ({opts})" if qd else ""
+        out.append(f"{toml_key(q):<17} = {toml_value(answers[q])}{comment}")
+    out.append("")
+
+    zones = d.pop("zones", []) or []
+    out.append("# Criticality zones: the first match wins, so list specific zones first.")
+    out.append("# hot = matters most (money, auth, data writes); cold = matters least (scripts, examples).")
+    if zones:
+        out.append("")
+        for z in zones:
+            _emit_table("zones", {k: z.get(k) for k in ("name", "paths", "criticality", "why") if z.get(k) is not None}
+                        | {k: v for k, v in z.items() if k not in ("name", "paths", "criticality", "why")}, out, array=True)
+    else:
+        out += ["# [[zones]]", '# name        = "payments"', '# paths       = ["src/payments/**"]',
+                '# criticality = "hot"', '# why         = "Moves money"', ""]
+
+    targets = d.pop("targets", {}) or {}
+    out.append("# Where improving agents stop: proportional (default) | maximal | level:L3")
+    out.append("[targets]")
+    out.append(f"mode = {toml_value(targets.get('mode', 'proportional'))}")
+    if targets.get("overrides"):
+        out.append(f"overrides = {toml_value(targets['overrides'])}")
+    else:
+        out.append("# overrides = { F4 = 10 }")
+    for k, v in targets.items():
+        if k not in ("mode", "overrides"):
+            out.append(f"{toml_key(k)} = {toml_value(v)}")
+    out.append("")
+
+    weights = d.pop("weights", {}) or {}
+    ov = weights.pop("overrides", {}) or {}
+    out.append("# Explicit weight overrides (each needs a reason).")
+    if ov:
+        out.append("[weights.overrides]")
+        for k, v in ov.items():
+            out.append(f"{toml_key(k)} = {toml_value(v)}")
+        out.append("")
+    else:
+        out += ["# [weights.overrides]", '# F4 = { weight = 3, reason = "Contractual p99 latency SLA" }', ""]
+    for k, v in weights.items():
+        if isinstance(v, dict):
+            _emit_table(f"weights.{toml_key(k)}", v, out)
+
+    gates = d.pop("gates", {}) or {}
+    if gates:
+        _emit_table("gates", gates, out)
+    else:
+        out += ["# Extra gates for this project, or (rarely) remove one:", "# [gates]", '# extra   = ["C4"]', "# exclude = []", ""]
+
+    review = d.pop("review", None)
+    if review:
+        _emit_table("review", review, out)
+    else:
+        out += ["# Let agent reviewers approve decision questions (default: humans only):", "# [review]",
+                "# allow_agent_decisions = true", ""]
+
+    for comp in d.pop("components", []) or []:
+        _emit_table("components", comp, out, array=True)
+
+    disp = d.pop("dispositions", []) or []
+    out.append("# Accepted findings: the grader marks these 'accepted' and they stop lowering scores.")
+    if disp:
+        out.append("")
+        for x in disp:
+            _emit_table("dispositions", x, out, array=True)
+    else:
+        out += ["# [[dispositions]]", '# finding_id = "B5-001"', '# decision   = "won\'t fix"',
+                '# reason     = "Single payment provider is a deliberate constraint through 2027"',
+                '# decided_by = "jane@example.com"', '# date       = "2026-11-07"', ""]
+
+    dec = d.pop("decisions", []) or []
+    out.append("# Answers to decision questions from grading reports (append new ones at the end).")
+    if dec:
+        out.append("")
+        for x in dec:
+            _emit_table("decisions", x, out, array=True)
+    else:
+        out += ["# [[decisions]]", '# action_id  = "D1-act-1"', '# question   = "Implement CSV export, or drop the claim from the README?"',
+                "# approved   = true", '# answer     = "Implement CSV only"', '# decided_by = "jane@example.com"',
+                '# date       = "2026-11-07"', ""]
+
+    for k, v in d.items():  # anything else (org-style overrides) is written generically
+        if isinstance(v, dict):
+            _emit_table(toml_key(k), v, out)
+        elif isinstance(v, list) and v and all(isinstance(x, dict) for x in v):
+            for item in v:
+                _emit_table(toml_key(k), item, out, array=True)
+        elif v is not None:
+            out.insert(1, f"{toml_key(k)} = {toml_value(v)}")
+    text = "\n".join(out).rstrip() + "\n"
+    parse_toml(text, "generated project.toml")  # never hand out a file that doesn't parse
+    return text
+
+
+def render_decisions_toml(decisions: list[dict]) -> str:
+    out: list[str] = []
+    for d in decisions:
+        _emit_table("decisions", {k: d.get(k) for k in ("action_id", "question", "approved", "answer", "decided_by", "date")
+                                  if d.get(k) is not None}, out, array=True)
+    return "\n".join(out).rstrip() + "\n"
+
+
+GRADING_README = """# .grading/
+
+This folder holds the Code Grading Suite setup and the latest grading report for this repository.
+It is part of the grading process, not part of the code being graded.
+
+| File | Written by | What it is |
+|---|---|---|
+| `project.toml` | Humans | Grading settings, accepted findings and answers to decision questions |
+| `report.json`, `report.md` | Grader agents | The latest grading report (older ones are in git history) |
+
+Improving agents and contributors: read these files, but don't change them in your pull requests.
+Changes here belong in grading-report PRs (report files) or human decisions (`project.toml`).
+"""
+
+CODEOWNERS_HINT = "/.grading/  @your-team-or-username"
 
 
 def cmd_init(args) -> int:
@@ -1297,22 +1584,154 @@ def cmd_init(args) -> int:
             die(f"--answer must look like question=option, got '{kv}'")
         k, v = kv.split("=", 1)
         given[k.strip()] = v.strip()
-    lines = []
-    for q, qdef in defaults["questions"].items():
-        a = given.get(q, preset_answers.get(q, qdef.get("default")))
-        opts = " | ".join(qdef["options"])
-        lines.append(f'{q:<17} = "{a}"   # {qdef["prompt"]}  ({opts})')
     for q in given:
         if q not in defaults["questions"]:
             die(f"unknown question '{q}'")
-    text = INIT_TEMPLATE.format(version=defaults["suite_version"], name=args.name, preset=args.preset,
-                                presets=" | ".join(defaults["presets"]), answers="\n".join(lines))
-    out = Path(args.out)
+    answers = {q: given.get(q, preset_answers.get(q, qd.get("default"))) for q, qd in defaults["questions"].items()}
+    data = {"project": {"name": args.name, "description": "<what it is, in one sentence>", "preset": args.preset,
+                        "languages": "<e.g. Python 3.12, FastAPI, Postgres>", "users": "<who uses it>",
+                        "maturity_target": "<choose one>",
+                        "scope": "<stated scope or link to requirements>", "out_of_scope": []},
+            "answers": answers}
+    if args.grading_dir:
+        gdir = Path(args.grading_dir)
+        out = gdir / "project.toml"
+    else:
+        gdir, out = None, Path(args.out)
     if out.exists() and not args.force:
         die(f"{out} exists (use --force to overwrite)")
+    text = render_project_toml(data, defaults, path=str(out))
+    out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(text, encoding="utf-8")
-    print(f"wrote {out}; next: gradekit resolve --config {out}")
+    print(f"wrote {out}")
+    if gdir is not None:
+        readme = gdir / "README.md"
+        if not readme.exists():
+            readme.write_text(GRADING_README, encoding="utf-8")
+            print(f"wrote {readme}")
+        print(f"tip: protect the folder with a CODEOWNERS line:  {CODEOWNERS_HINT}")
+    print(f"next: edit {out}, then run: gradekit resolve --config {out}")
     return 0
+
+
+# =========================================================================== web API (used by the website via Pyodide)
+
+def _web_layers(p: dict) -> list[tuple[str, dict]]:
+    layers = []
+    if p.get("org_toml"):
+        layers.append(("org.toml", parse_toml(p["org_toml"], "org.toml")))
+    if p.get("project_toml"):
+        layers.append(("project.toml", parse_toml(p["project_toml"], "project.toml")))
+    if p.get("project") is not None:
+        layers.append(("project (form)", p["project"]))
+    return layers
+
+
+def _web_cfg(p: dict, report: dict | None = None) -> tuple[dict, str]:
+    layers = _web_layers(p)
+    comp = ((report or {}).get("component") or {}).get("name")
+    comp = None if comp == "repo" else comp
+    fallback = ((report or {}).get("config") or {}).get("preset")
+    cfg = resolve_layers(layers, component=comp, preset_fallback=fallback, component_required=False)
+    source = " + ".join(n for n, _ in layers) if layers else f"suite defaults (preset '{cfg['preset']}' from the report)"
+    return cfg, source
+
+
+def _api_info(p):
+    merged = load_toml(DEFAULTS_PATH)
+    for _, layer in _web_layers({"org_toml": p.get("org_toml")}):
+        merged = deep_merge(merged, layer)
+    return {"suite_version": merged.get("suite_version"), "catalog": load_catalog(),
+            "questions": merged.get("questions", {}), "presets": merged.get("presets", {}),
+            "base_weights": merged.get("weights", {}).get("base", {}), "gates": merged.get("gates", {}),
+            "zone_settings": merged.get("zone_settings", {}), "targets": merged.get("targets", {}),
+            "maturity": merged.get("maturity", {}), "review": merged.get("review", {}),
+            "grading_readme": GRADING_README, "codeowners_hint": CODEOWNERS_HINT}
+
+
+def _api_build(p):
+    defaults = load_toml(DEFAULTS_PATH)
+    text = render_project_toml(p.get("project") or {}, defaults, path=p.get("path") or ".grading/project.toml")
+    try:
+        cfg, _ = _web_cfg({"org_toml": p.get("org_toml"), "project_toml": text})
+        return {"toml": text, "config": cfg, "config_error": None}
+    except GradekitError as e:
+        return {"toml": text, "config": None, "config_error": str(e)}
+
+
+def _api_parse(p):
+    return {"project": parse_toml(p.get("toml", ""), p.get("name") or "project.toml")}
+
+
+def _api_zone_test(p):
+    cfg, _ = _web_cfg(p)
+    out = []
+    for path in p.get("paths", []):
+        zname, crit = zone_for_path(path, cfg)
+        out.append({"path": path, "zone": zname, "criticality": crit})
+    return {"results": out}
+
+
+def _api_check(p):
+    report = p["report"]
+    cfg, source = _web_cfg(p, report)
+    errors, warnings = validate_report(report, cfg, load_catalog())
+    roll = compute_rollup(report, cfg)
+    rc = report.get("config") or {}
+    return {"validation": {"errors": errors, "warnings": cfg.get("warnings", []) + warnings},
+            "rollup": roll, "config_source": source, "config_hash_match": rc.get("hash") == cfg["hash"],
+            "config": {k: cfg.get(k) for k in ("hash", "preset", "answers", "gates", "project", "review", "zones")},
+            "weights": {k: v["weight"] for k, v in cfg["weights"].items()}}
+
+
+def _api_consensus(p):
+    runs = p["runs"]
+    cfg, source = _web_cfg(p, runs[0] if runs else None)
+    res = compute_consensus(runs, cfg)
+    return {**res, "config_source": source}
+
+
+def _api_compare(p):
+    cfg, source = _web_cfg(p, p.get("new"))
+    return {"diff": compute_diff(p["old"], p["new"], cfg, cfg), "config_source": source}
+
+
+def _api_verify_zip(p):
+    return verify_evidence(p["report"], zip_reader(p["zip_path"]), int(p.get("tolerance", 2)))
+
+
+def _api_redact(p):
+    shared = strip_private(copy.deepcopy(p["report"]))
+    if "holdout" in shared:
+        shared["holdout"]["private_details"] = "[redacted]"
+    return {"report": shared}
+
+
+def _api_decisions_toml(p):
+    block = render_decisions_toml(p.get("decisions", []))
+    out = {"toml": block}
+    if p.get("project_toml"):
+        updated = p["project_toml"].rstrip() + "\n\n" + block
+        parse_toml(updated, "updated project.toml")
+        out["updated_project_toml"] = updated
+    return out
+
+
+WEB_API = {"info": _api_info, "build": _api_build, "parse": _api_parse, "zone_test": _api_zone_test,
+           "check": _api_check, "consensus": _api_consensus, "compare": _api_compare,
+           "verify_zip": _api_verify_zip, "redact": _api_redact, "decisions_toml": _api_decisions_toml}
+
+
+def web_api(name: str, payload: dict) -> dict:
+    fn = WEB_API.get(name)
+    if fn is None:
+        return {"ok": False, "error": f"unknown call '{name}'"}
+    try:
+        return {"ok": True, **fn(payload or {})}
+    except GradekitError as e:
+        return {"ok": False, "error": str(e)}
+    except (KeyError, TypeError, ValueError, AttributeError) as e:
+        return {"ok": False, "error": f"unexpected input ({type(e).__name__}: {e})"}
 
 
 # =========================================================================== main
@@ -1336,6 +1755,7 @@ def main(argv=None) -> int:
     p.add_argument("--name", default="my-project")
     p.add_argument("--answer", action="append", metavar="Q=A", help="e.g. --answer data_sensitivity=financial")
     p.add_argument("--out", default="project.toml")
+    p.add_argument("--grading-dir", metavar="DIR", help="write DIR/project.toml and DIR/README.md instead (e.g. .grading)")
     p.add_argument("--force", action="store_true")
     p.set_defaults(fn=cmd_init)
 
@@ -1351,18 +1771,18 @@ def main(argv=None) -> int:
     p.set_defaults(fn=cmd_presets)
 
     p = sub.add_parser("validate", help="schema + config + semantic checks")
-    p.add_argument("report")
+    p.add_argument("report", nargs="?", help=f"report JSON (default: {DEFAULT_REPORT})")
     with_config(p)
     p.set_defaults(fn=cmd_validate)
 
     p = sub.add_parser("verify-evidence", help="check code citations against the repo")
-    p.add_argument("report")
-    p.add_argument("--repo", required=True)
+    p.add_argument("report", nargs="?", help=f"report JSON (default: {DEFAULT_REPORT})")
+    p.add_argument("--repo", default=".", help="repo folder, or a .zip of it (default: current folder)")
     p.add_argument("--tolerance", type=int, default=2, help="line drift allowed around the cited range (default 2)")
     p.set_defaults(fn=cmd_verify_evidence)
 
     p = sub.add_parser("rollup", help="compute gates, zones, scores, targets, maturity and priorities")
-    p.add_argument("report")
+    p.add_argument("report", nargs="?", help=f"report JSON (default: {DEFAULT_REPORT})")
     with_config(p)
     p.add_argument("--write", action="store_true", help="write rollup and targets back into the report")
     p.add_argument("--out", help="write the updated report here instead")
@@ -1389,7 +1809,7 @@ def main(argv=None) -> int:
     p.set_defaults(fn=cmd_calibrate)
 
     p = sub.add_parser("redact", help="strip hidden-check details for sharing")
-    p.add_argument("report")
+    p.add_argument("report", nargs="?", help=f"report JSON (default: {DEFAULT_REPORT})")
     p.add_argument("--out")
     p.set_defaults(fn=cmd_redact)
 
@@ -1399,7 +1819,15 @@ def main(argv=None) -> int:
     p.set_defaults(fn=cmd_rollup_repo)
 
     args = ap.parse_args(argv)
-    return args.fn(args)
+    if hasattr(args, "report") and args.report is None:
+        if not DEFAULT_REPORT.exists():
+            ap.error(f"give a report file (no {DEFAULT_REPORT} here)")
+        args.report = str(DEFAULT_REPORT)
+    try:
+        return args.fn(args)
+    except GradekitError as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 1
 
 
 if __name__ == "__main__":

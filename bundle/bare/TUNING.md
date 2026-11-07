@@ -18,14 +18,16 @@ gradekit resolve --config org.toml --config project.toml --explain F3 # why F3 h
 gradekit presets --config org.toml                                    # all presets side by side, with your org rules
 ```
 
-**Keep org and project configs outside the repo being graded, owned by humans.** An improving agent that could edit them could re-weight its way to a better score.
+**Org and project configs are owned by people.** `project.toml` normally lives in the repo's `.grading/` folder, protected by CODEOWNERS; the pull-request check fails any improvement PR that changes it. For the strictest setup, keep it in a separate private repo instead.
 
 ## Start a project in one minute
 
+The easiest way is the website's **Set up a project** page: pick a preset, answer the questions, mark zones, and download the file. From the command line:
+
 ```bash
 python3 SUITE_DIR/tools/gradekit.py init --preset service --name orders-api \
-    --answer data_sensitivity=financial --out project.toml
-python3 SUITE_DIR/tools/gradekit.py resolve --config project.toml
+    --answer data_sensitivity=financial --grading-dir .grading
+python3 SUITE_DIR/tools/gradekit.py resolve
 ```
 
 `init` writes a commented `project.toml` with every question answered, from the preset plus any `--answer` flags. Edit the file, re-run `resolve`, and check that the weights and gates look right before grading. `config/project.example.toml` is a fully filled-in example.
@@ -116,6 +118,35 @@ options.yes = { label = "Yes", effects = { F4 = 2, X3 = 1 }, gates = ["F4"] }
 [presets.payments_service]
 description = "A service that moves money"
 answers = { delivery = "service", failure_impact = "revenue_loss", data_sensitivity = "financial", realtime = "yes" }
+```
+
+### 8. Accepted findings and decisions (per project)
+These also live in `project.toml`, so one file holds everything people decide. Both are **append-only**: add new entries at the end and never edit old ones. For decisions, the newest answer to a question wins.
+
+```toml
+[[dispositions]]                 # a finding you accept as-is; it stops lowering the score
+finding_id = "B5-001"
+decision   = "won't fix"
+reason     = "One payment provider is a deliberate constraint through 2027"
+decided_by = "jane@example.com"
+date       = "2026-11-07"
+
+[[decisions]]                    # an answer to a report's decision question
+action_id  = "D1-act-1"
+question   = "Implement CSV and XLSX export, or drop the export claim from the README?"
+approved   = true
+answer     = "Implement CSV only; remove XLSX from the README."
+decided_by = "jane@example.com"
+date       = "2026-11-07"
+```
+
+The **Review a report** page writes `[[decisions]]` blocks for you. Adding dispositions or decisions doesn't change the config fingerprint, so reports stay comparable.
+
+To let agent reviewers approve decision questions (the default is humans only):
+
+```toml
+[review]
+allow_agent_decisions = true
 ```
 
 ## Good habits

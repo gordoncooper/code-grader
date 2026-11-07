@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Improver · Code Grading Suite</title>
-<meta name="description" content="A rubric and prompts for AI coding agents to grade codebases from 1 to 10 on 35 benchmarks and improve them.">
+<meta name="description" content="A rubric, prompts and browser tools for AI coding agents to grade codebases from 1 to 10 on 35 benchmarks and improve them.">
 <link rel="stylesheet" href="../../assets/style.css">
 <link rel="icon" href="../../assets/favicon.svg" type="image/svg+xml">
 <link rel="alternate" type="text/markdown" href="../../AGENT.md" title="Agent entry point">
@@ -13,23 +13,54 @@
 <header class="topbar">
   <button class='menu-btn' type='button'>Menu</button>
   <a class="brand" href="../../index.html">Code <span>Grading</span> Suite</a>
-  <span class="ver">v4.0.0</span>
+  <span class="ver">v4.1.0</span>
+  <nav class="main" aria-label="Main"><a href="../../docs/GETTING-STARTED.html">Get started</a><a href="../../app/setup.html">Set up</a><a href="../../app/run.html">Start a run</a><a href="../../app/review.html">Review</a><a href="../../docs/README.html" class="active" aria-current="page">Docs</a></nav>
   <span class="spacer"></span>
-  
-  <a class="top" href="../../docs/README.html">Docs</a>
   <a class="top opt" href="../../AGENT.md">AGENT.md</a>
-  <a class="top opt" href="../../downloads/code-grading-suite-4.0.0.zip">Download</a>
+  <a class="top opt" href="../../downloads/code-grading-suite-4.1.0.zip">Download</a>
 </header>
-<div class="layout"><nav class="sidebar" aria-label="Documentation"><h4>Start</h4><a href="../../docs/README.html">Overview &amp; workflow</a><a href="../../docs/AGENT.html">Agent entry point</a><a href="../../docs/DEPLOY.html">Hosting this site</a><h4>Configuration</h4><a href="../../docs/TUNING.html">Tuning guide</a><a href="../../docs/rubric/weights.html">How scoring works</a><a href="../../docs/config/defaults.html">Default config</a><a href="../../docs/config/project.example.html">Example project config</a><h4>Prompts</h4><a href="../../docs/prompts/grader.html">Grader</a><a href="../../docs/prompts/improver.html" class="active" aria-current="page">Improver</a><a href="../../docs/prompts/pr-review.html">PR quick mode</a><h4>Rubric</h4><a href="../../docs/rubric/A-correctness-trust.html">A · Correctness &amp; Trust</a><a href="../../docs/rubric/B-design-structure.html">B · Design &amp; Structure</a><a href="../../docs/rubric/C-code-health.html">C · Code Health</a><a href="../../docs/rubric/D-value-fitness.html">D · Value &amp; Fitness</a><a href="../../docs/rubric/E-adoption-experience.html">E · Adoption &amp; Experience</a><a href="../../docs/rubric/F-operations-delivery.html">F · Operations &amp; Delivery</a><a href="../../docs/rubric/X-conditional.html">X · Conditional</a><h4>Guides</h4><a href="../../docs/calibration/README.html">Calibration</a><a href="../../docs/holdout/README.html">Hidden checks</a><a href="../../docs/CHANGELOG.html">Changelog</a></nav><main class="doc"><div class="docbar"><a class="btn" href="../../suite/prompts/improver.md">View raw .md</a><button class="btn" type="button" data-copy="../../suite/prompts/improver.md">Copy raw URL for an agent</button></div><details class="toc"><summary>On this page</summary><ul><li><a href="#inputs">Inputs</a></li><li><a href="#what-to-work-on-in-order">What to work on, in order</a></li><li><a href="#hard-rules">Hard rules</a></li><li><a href="#output">Output</a></li></ul></details><h1 id="code-grading-suite-v400-improver-prompt">Code Grading Suite v4.0.0: Improver Prompt<a class="anchor" href="#code-grading-suite-v400-improver-prompt" aria-label="Link to this section">#</a></h1>
+<div class="layout"><nav class="sidebar" aria-label="Documentation"><h4>Start</h4><a href="../../docs/GETTING-STARTED.html">Getting started</a><a href="../../docs/README.html">Overview &amp; reference</a><a href="../../docs/AGENT.html">Agent entry point</a><a href="../../docs/DEPLOY.html">Hosting this site</a><h4>Configuration</h4><a href="../../docs/TUNING.html">Tuning guide</a><a href="../../docs/rubric/weights.html">How scoring works</a><a href="../../docs/config/defaults.html">Default config</a><a href="../../docs/config/project.example.html">Example project config</a><h4>Prompts</h4><a href="../../docs/prompts/grader.html">Grader</a><a href="../../docs/prompts/reviewer.html">Report reviewer</a><a href="../../docs/prompts/improver.html" class="active" aria-current="page">Improver</a><a href="../../docs/prompts/pr-review.html">Pull-request check</a><h4>Rubric</h4><a href="../../docs/rubric/A-correctness-trust.html">A · Correctness &amp; Trust</a><a href="../../docs/rubric/B-design-structure.html">B · Design &amp; Structure</a><a href="../../docs/rubric/C-code-health.html">C · Code Health</a><a href="../../docs/rubric/D-value-fitness.html">D · Value &amp; Fitness</a><a href="../../docs/rubric/E-adoption-experience.html">E · Adoption &amp; Experience</a><a href="../../docs/rubric/F-operations-delivery.html">F · Operations &amp; Delivery</a><a href="../../docs/rubric/X-conditional.html">X · Conditional</a><h4>Guides</h4><a href="../../docs/calibration/README.html">Calibration</a><a href="../../docs/holdout/README.html">Hidden checks</a><a href="../../docs/CHANGELOG.html">Changelog</a></nav><main class="doc"><div class="docbar"><a class="btn" href="../../suite/prompts/improver.md">View raw .md</a><button class="btn" type="button" data-copy="../../suite/prompts/improver.md">Copy raw URL for an agent</button></div><details class="toc"><summary>On this page</summary><ul><li><a href="#inputs">Inputs</a></li><li><a href="#what-to-work-on-in-order">What to work on, in order</a></li><li><a href="#hard-rules">Hard rules</a></li><li><a href="#output">Output</a></li></ul></details><h1 id="code-grading-suite-v410-improver-prompt">Code Grading Suite v4.1.0: Improver Prompt<a class="anchor" href="#code-grading-suite-v410-improver-prompt" aria-label="Link to this section">#</a></h1>
 <p>You are an engineer improving a codebase against the grades in a quality report. Your goal is to make the code <strong>genuinely better</strong>, in a way an independent grader who has never seen your work will confirm. You are not trying to move numbers.</p>
 <h2 id="inputs">Inputs<a class="anchor" href="#inputs" aria-label="Link to this section">#</a></h2>
-<ul>
-<li><strong><code>REPO</code></strong>: a working branch you may change.</li>
-<li><strong><code>report.json</code> / <code>report.md</code></strong>: the latest <em>shared</em> grading report. Hidden-check details have been removed on purpose. Don't try to work out or recreate them.</li>
-<li><strong><code>SUITE_DIR</code></strong>: the grading suite (rubric, config, tools). You may read it to understand what each benchmark means. <strong>Never modify it.</strong></li>
-<li><strong>Project config</strong> (<code>project.toml</code>): read-only. It shows which benchmarks are gates and which code is in hot or cold zones. <strong>Never modify it.</strong></li>
-<li><strong><code>decisions.json</code></strong> (optional): human answers to <code>decision_question</code>s from the report. Format: see <code>SUITE_DIR/dispositions/decisions.example.json</code>.</li>
-</ul>
+<table>
+<thead>
+<tr>
+<th>Item</th>
+<th>What it is</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Code</strong></td>
+<td>A local folder, or a git URL to clone</td>
+<td>(required)</td>
+</tr>
+<tr>
+<td><strong>Branch</strong></td>
+<td>Where your work goes</td>
+<td>a new branch <code>improve/&lt;YYYY-MM-DD&gt;</code> from the default branch</td>
+</tr>
+<tr>
+<td><strong><code>GRADING_DIR</code></strong></td>
+<td>The grading folder: <code>report.json</code> / <code>report.md</code> (the latest report) and <code>project.toml</code> (settings, gates, zones, and humans' answers to decision questions under <code>[[decisions]]</code>)</td>
+<td><code>.grading/</code> in the repo</td>
+</tr>
+<tr>
+<td><strong>Delivery</strong></td>
+<td><code>pr</code> (push the branch and open a pull request), <code>commit</code> (commit locally), or <code>save</code> (leave the changes uncommitted)</td>
+<td><code>pr</code> if you can push, otherwise <code>commit</code></td>
+</tr>
+<tr>
+<td><strong>Budget</strong></td>
+<td>How much to do, e.g. &quot;top 5 priorities&quot; or &quot;until all targets are met&quot;</td>
+<td>tier 0 and tier 1 actions</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Everything in <code>GRADING_DIR</code> is read-only for you.</strong> So is <code>SUITE_DIR</code> (the rubric, config and tools), which you may read to understand what each benchmark means. Pull-request checks fail any improvement PR that touches <code>GRADING_DIR</code>.</p>
+<p>The report contains no hidden-check details, on purpose. Don't try to work out or recreate the hidden checks.</p>
+<p><strong>Is the report current?</strong> If <code>report.json</code>'s <code>run.commit</code> is far behind the branch you're starting from, the code may have moved on. Re-verify each finding before acting on it, and skip any that no longer apply (log them as skipped).</p>
 <h2 id="what-to-work-on-in-order">What to work on, in order<a class="anchor" href="#what-to-work-on-in-order" aria-label="Link to this section">#</a></h2>
 <p>Work through <strong><code>rollup.priorities</code> in rank order</strong>. <code>gradekit</code> has already sorted the actions into tiers:</p>
 <ol>
@@ -43,7 +74,7 @@
 <p><strong>Stop when a benchmark reaches its target.</strong> Don't push past a target unless the action is marked <code>optional</code> and you have been asked to do optional work. Overshooting low-weight targets usually costs Leanness (B6) and Practicality (D3).</p>
 <h2 id="hard-rules">Hard rules<a class="anchor" href="#hard-rules" aria-label="Link to this section">#</a></h2>
 <ol>
-<li><strong>Human decisions come first.</strong> Never carry out an action with <code>requires_human_decision: true</code> unless <code>decisions.json</code> approves it. If it says no or doesn't mention it, skip the action and list it as blocked.</li>
+<li><strong>Human decisions come first.</strong> Never carry out an action with <code>requires_human_decision: true</code> unless its decision status in <code>rollup.priorities</code> is <code>approved</code> (that status comes from <code>[[decisions]]</code> in <code>project.toml</code>). If it's <code>declined</code>, skip it. If it's <code>pending</code>, skip it and list it as blocked. When approved, follow the <code>answer</code> text; it may narrow the action.</li>
 <li><strong>Never trade one benchmark for another.</strong> No change may lower any other score. Before <em>and</em> after each change, run the full test suite, linters, type checker and build. If any of them gets worse, revert or fix before moving on.</li>
 <li><strong>Preserve behavior</strong> unless you are deliberately fixing a bug. List every intentional behavior change.</li>
 <li><strong>Make small, reviewable commits,</strong> each tied to one action. The commit message states factually what changed and names the action and finding IDs, e.g. <code>A4-act-1 (A4-001): make seed inserts idempotent; CI runs seed twice</code>.</li>
@@ -58,7 +89,7 @@
 <li>weaken CI gates, coverage thresholds or checks.</li>
 </ul>
 </li>
-<li><strong>Don't touch human-owned files:</strong> <code>SUITE_DIR</code>, the project and org config files, dispositions, decisions, or any branch-protection and CI settings that enforce gates. You may <em>add</em> new CI checks. You may never weaken existing ones.</li>
+<li><strong>Don't touch human-owned files:</strong> <code>SUITE_DIR</code>, anything in <code>GRADING_DIR</code>, org config files, or any branch-protection and CI settings that enforce gates. You may <em>add</em> new CI checks. You may never weaken existing ones.</li>
 <li><strong>Finish with enforcement.</strong> When a benchmark reaches 9, the last point usually comes from adding the CI gate, lint rule, test or automated check that keeps it there.</li>
 <li><strong>Resolve tensions deliberately:</strong>
 <ul>
@@ -68,7 +99,7 @@
 </li>
 </ol>
 <h2 id="output">Output<a class="anchor" href="#output" aria-label="Link to this section">#</a></h2>
-<p>When you finish, or run out of budget, write <code>improvement-log.md</code> containing:</p>
+<p>When you finish, or run out of budget, write an improvement log. With <code>pr</code> delivery, it goes in the pull request description; otherwise, return it in your final message (don't commit it to the repo). It contains:</p>
 <ul>
 <li><strong>Done:</strong> one line per completed action: action ID, commit SHA, findings you believe it resolves, and the check you ran to confirm it. These are <em>claims</em>; the next independent grading run verifies them.</li>
 <li><strong>Blocked:</strong> actions waiting on a human decision, with their decision questions.</li>
@@ -76,7 +107,7 @@
 <li><strong>Behavior changes:</strong> every intentional change in behavior.</li>
 <li><strong>New issues noticed:</strong> problems you found but didn't fix. Describe them factually; don't propose scores.</li>
 </ul>
-<nav class="pager"><a href="../../docs/prompts/grader.html"><small>Previous</small>Grader</a><a href="../../docs/prompts/pr-review.html" style="margin-left:auto;text-align:right"><small>Next</small>PR quick mode</a></nav></main></div>
+<nav class="pager"><a href="../../docs/prompts/reviewer.html"><small>Previous</small>Report reviewer</a><a href="../../docs/prompts/pr-review.html" style="margin-left:auto;text-align:right"><small>Next</small>Pull-request check</a></nav></main></div>
 <script src="../../assets/site.js"></script>
 </body>
 </html>

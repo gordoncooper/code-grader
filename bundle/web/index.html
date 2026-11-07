@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Home · Code Grading Suite</title>
-<meta name="description" content="A rubric and prompts for AI coding agents to grade codebases from 1 to 10 on 35 benchmarks and improve them.">
+<meta name="description" content="A rubric, prompts and browser tools for AI coding agents to grade codebases from 1 to 10 on 35 benchmarks and improve them.">
 <link rel="stylesheet" href="assets/style.css">
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
 <link rel="alternate" type="text/markdown" href="AGENT.md" title="Agent entry point">
@@ -13,24 +13,23 @@
 <header class="topbar">
   
   <a class="brand" href="index.html">Code <span>Grading</span> Suite</a>
-  <span class="ver">v4.0.0</span>
+  <span class="ver">v4.1.0</span>
+  <nav class="main" aria-label="Main"><a href="docs/GETTING-STARTED.html">Get started</a><a href="app/setup.html">Set up</a><a href="app/run.html">Start a run</a><a href="app/review.html">Review</a><a href="docs/README.html">Docs</a></nav>
   <span class="spacer"></span>
-  
-  <a class="top" href="docs/README.html">Docs</a>
   <a class="top opt" href="AGENT.md">AGENT.md</a>
-  <a class="top opt" href="downloads/code-grading-suite-4.0.0.zip">Download</a>
+  <a class="top opt" href="downloads/code-grading-suite-4.1.0.zip">Download</a>
 </header>
 
 <div class="home">
   <section class="hero">
     <div>
-      <div class="eyebrow">For AI coding agents</div>
+      <div class="eyebrow">For people who run coding agents</div>
       <h1>Grade code like a staff engineer. Improve it without gaming the grade.</h1>
-      <p class="lede">A rubric and prompt kit that has agents score a codebase from 1 to 10 on 35 benchmarks, back every score with checkable evidence, and improve the code toward clear targets.</p>
+      <p class="lede">Agents score a codebase from 1 to 10 on 35 benchmarks, back every score with checkable evidence, and improve the code toward clear targets. You steer it all from this website, with nothing to install.</p>
       <div class="actions">
-        <a class="btn primary" href="#point">Point an agent here</a>
-        <a class="btn" href="docs/README.html">Read the docs</a>
-        <a class="btn" href="downloads/code-grading-suite-4.0.0.zip">Download v4.0.0</a>
+        <a class="btn primary" href="docs/GETTING-STARTED.html">Get started</a>
+        <a class="btn" href="app/setup.html">Set up a project</a>
+        <a class="btn" href="app/review.html">Review a report</a>
       </div>
     </div>
     <div class="stat-card">
@@ -43,61 +42,38 @@
     </div>
   </section>
 
-  <section class="block" id="point">
-    <h2>Point an agent here</h2>
-    <p class="sub">Give your coding agent one of these prompts. Each one tells the agent to start at <code>AGENT.md</code>, which explains how to download and verify the suite, then hands it the right role prompt. Fill in the parts in angle brackets.</p>
-    <div class="entry"><span class="label">Agent entry point</span><code id="agent-url" data-base>{BASE}AGENT.md</code><button class="btn" type="button" data-copy="#agent-url">Copy URL</button></div>
-    <p class="note file-note" hidden>You're viewing this page from a file on disk, so the URLs show a placeholder. Once the site is on a web server, they fill in automatically.</p>
-    <div class="roles"><div class="role"><h3>Grader</h3><p>Runs a full, read-only audit and writes report.json and report.md.</p><pre id="p-grade" data-base>Grade the code in this repository using the Code Grading Suite at {BASE}AGENT.md.
-Act as the grader. Follow AGENT.md to set up the suite, then follow the grader prompt exactly.
+  <section class="block">
+    <h2>Three tools, nothing to install</h2>
+    <p class="sub">They run the suite's own code in your browser. Your files and reports stay on your computer and aren't uploaded anywhere.</p>
+    <div class="tool-cards">
+      <a class="tool-card" href="app/setup.html"><div class="eyebrow">1 · Once per project</div><h3>Set up a project</h3><p>Pick a preset, answer eight questions, and mark critical code. Weights and gates update live, and you download <code>project.toml</code>.</p></a>
+      <a class="tool-card" href="app/run.html"><div class="eyebrow">2 · Every run</div><h3>Start a run</h3><p>Choose the job, where things live and how results come back. You get the exact prompt to paste into your agent.</p></a>
+      <a class="tool-card" href="app/review.html"><div class="eyebrow">3 · Every report</div><h3>Review a report</h3><p>See where the code stands, answer decision questions, compare with last time, and check the grader's citations.</p></a>
+    </div>
+  </section>
 
-Project config: &lt;path to project.toml outside the repo, or none&gt;
-Commit to grade: &lt;SHA, or current HEAD&gt;
-Previous shared report: &lt;path, or none&gt;
-Dispositions: &lt;path, or none&gt;
-Hidden checks: &lt;path, or none&gt;
-Write report.json and report.md to: &lt;output directory outside the repo&gt;</pre><div class="row"><button class="btn primary" type="button" data-copy="#p-grade">Copy prompt</button></div></div><div class="role"><h3>Improver</h3><p>Works through a shared report and stops at each benchmark's target.</p><pre id="p-improve" data-base>Improve this repository using the Code Grading Suite at {BASE}AGENT.md.
-Act as the improver. Follow AGENT.md to set up the suite, then follow the improver prompt exactly.
-
-Latest shared report: &lt;path to report.shared.json and report.md&gt;
-Project config (read-only): &lt;path to project.toml&gt;
-Human decisions: &lt;path to decisions.json, or none&gt;
-Work on branch: &lt;branch name&gt;
-Budget: &lt;e.g. top 5 priorities, or until all targets are met&gt;</pre><div class="row"><button class="btn primary" type="button" data-copy="#p-improve">Copy prompt</button></div></div><div class="role"><h3>PR reviewer</h3><p>Re-grades only what a change touches; returns PASS or FAIL.</p><pre id="p-review" data-base>Review the changes between &lt;BASE_COMMIT&gt; and &lt;HEAD_COMMIT&gt; using the Code Grading Suite at {BASE}AGENT.md.
-Act as the PR reviewer. Follow AGENT.md to set up the suite, then follow the PR quick-mode prompt exactly.
-
-Last full report (shared): &lt;path&gt;
-Project config: &lt;path to project.toml&gt;
-Hidden checks: &lt;path, or none&gt;
-Write report.json and pr-comment.md to: &lt;output directory&gt;</pre><div class="row"><button class="btn primary" type="button" data-copy="#p-review">Copy prompt</button></div></div></div>
+  <section class="block">
+    <h2>How a cycle works</h2>
+    <p class="sub">One folder in your repo, <code>.grading/</code>, holds the settings and the latest report. Older reports live in git history, so very little moves around. <a href="docs/GETTING-STARTED.html">Full walkthrough →</a></p>
+    <ol class="steps"><li><b>Set up, once</b>Describe the project with <a href="app/setup.html">Set up a project</a>. It writes <code>.grading/project.toml</code>.</li><li><b>Grade</b>Get a grader prompt from <a href="app/run.html">Start a run</a> and paste it into any agent, cloud or local. The report arrives as a pull request or as files.</li><li><b>Review and decide</b>Open it in <a href="app/review.html">Review a report</a>, answer the decision questions, and merge.</li><li><b>Improve</b>An improver agent works down the ranked priorities and opens a pull request.</li><li><b>Guard</b>A pull-request check on each change fails anything that makes the code worse.</li></ol>
   </section>
 
   <section class="block" id="weighting">
     <h2>Weighted to your project</h2>
-    <p class="sub">Not every benchmark matters equally, and what matters depends on the code. Three mechanisms handle that, all set in a small <code>project.toml</code> that humans own.</p>
+    <p class="sub">Not every benchmark matters equally, and what matters depends on the code. Three mechanisms handle that, all set in <code>project.toml</code>, which humans own.</p>
     <div class="trio">
-      <div class="pillar"><h3><span class="pid">1</span>Weights from questions</h3><p>Answer eight questions (data sensitivity, audience, lifespan, failure impact, team, change rate, delivery, scale) or start from a preset (<code>default</code>, <code>service</code>, <code>web_app</code>, <code>library</code>, <code>oss_library</code>, <code>cli</code>, <code>internal_tool</code>, <code>prototype</code>). Each answer moves specific weights; <code>--explain</code> shows why.</p></div>
+      <div class="pillar"><h3><span class="pid">1</span>Weights from questions</h3><p>Answer eight questions (data sensitivity, audience, lifespan, failure impact, team, change rate, delivery, scale) or start from a preset (<code>default</code>, <code>service</code>, <code>web_app</code>, <code>library</code>, <code>oss_library</code>, <code>cli</code>, <code>internal_tool</code>, <code>prototype</code>). Each answer moves specific weights.</p></div>
       <div class="pillar"><h3><span class="pid">2</span>Gates</h3><p>Correctness and Security always, plus whatever your answers add. A failed gate caps the overall score: a weighted average can't make up for a security hole.</p></div>
       <div class="pillar"><h3><span class="pid">3</span>Criticality zones</h3><p>Mark hot code (money, auth, data writes) and cold code (scripts, examples). Problems count one severity higher in hot zones, and hot-zone fixes are ranked first.</p></div>
     </div>
-    <pre id="qs"># 1. Describe the project (keep this file outside the repo)
-python3 SUITE_DIR/tools/gradekit.py init --preset service --name orders-api \
-    --answer data_sensitivity=financial --out project.toml
-
-# 2. Edit project.toml: answers, hot/cold zones, targets. Then check the result:
-python3 SUITE_DIR/tools/gradekit.py resolve --config project.toml
-
-# 3. Ask about any weight
-python3 SUITE_DIR/tools/gradekit.py resolve --config project.toml --explain A4</pre>
-    <div class="row-btns"><button class="btn" type="button" data-copy="#qs">Copy commands</button>
-      <a class="btn" href="docs/TUNING.html">Tuning guide</a><a class="btn" href="docs/config/project.example.html">Example project.toml</a>
-      <a class="btn" href="docs/rubric/weights.html">How scoring works</a></div>
+    <div class="row-btns"><a class="btn primary" href="app/setup.html">Try it in Set up a project</a><a class="btn" href="docs/rubric/weights.html">How scoring works</a><a class="btn" href="docs/TUNING.html">Tuning guide</a></div>
   </section>
 
-  <section class="block">
-    <h2>The loop</h2>
-    <p class="sub">The setup that makes rising scores mean better code. <a href="docs/README.html#the-loop">Full details →</a></p>
-    <ol class="steps"><li><b>Configure</b>Describe the project once in <code>project.toml</code>: preset, answers, hot and cold zones.</li><li><b>Grade</b>Three independent graders audit the same commit, each in a fresh sandbox.</li><li><b>Check</b><code>gradekit validate</code> and <code>verify-evidence</code> reject bad reports.</li><li><b>Consensus</b><code>gradekit stability</code> takes the median and flags unstable benchmarks.</li><li><b>Redact</b><code>gradekit redact</code> strips hidden-check results before sharing.</li><li><b>Decide</b>Humans answer decision questions and record accepted findings.</li><li><b>Improve</b>Improvers follow gradekit's ranked priorities: failed gates and hot-zone problems first, and stop at each target.</li><li><b>Guard</b>PR quick mode plus <code>gradekit diff --fail-on-regression</code> on every change.</li></ol>
+  <section class="block" id="point">
+    <h2>For agents</h2>
+    <p class="sub">Any agent can start from <code>AGENT.md</code>: it explains the roles and how to download and verify the suite. <a href="app/run.html">Start a run</a> writes complete prompts that point here.</p>
+    <div class="entry"><span class="label">Agent entry point</span><code id="agent-url" data-base>{BASE}AGENT.md</code><button class="btn" type="button" data-copy="#agent-url">Copy URL</button></div>
+    <p class="note file-note" hidden>You're viewing this page from a file on disk, so the URL shows a placeholder. Once the site is on a web server, it fills in automatically.</p>
   </section>
 
   <section class="block">
@@ -113,14 +89,14 @@ python3 SUITE_DIR/tools/gradekit.py resolve --config project.toml --explain A4</
       <tr><th>File</th><th>What it is</th></tr>
       <tr><td><a href="AGENT.md"><code>AGENT.md</code></a></td><td>Entry point for agents</td></tr>
       <tr><td><a href="llms.txt"><code>llms.txt</code></a></td><td>Short machine-readable index</td></tr>
-      <tr><td><a href="downloads/code-grading-suite-4.0.0.zip"><code>code-grading-suite-4.0.0.zip</code></a></td><td>The whole kit (106 KB)<div class="hash">sha256 756c181dce047758484e22b5bcc74674eefd0fbad11685b787fbcd6098547f0c</div></td></tr>
-      <tr><td><a href="suite/prompts/grader.md"><code>suite/…</code></a></td><td>Raw kit files: prompts, rubric, schema, tools, examples</td></tr>
+      <tr><td><a href="downloads/code-grading-suite-4.1.0.zip"><code>code-grading-suite-4.1.0.zip</code></a></td><td>The whole kit (161 KB), including the <code>gradekit</code> command-line tool<div class="hash">sha256 144f0b8f47f31cfd365712fe32175f8362662ebd45f04e269eca6ea795ef6eee</div></td></tr>
+      <tr><td><a href="suite/prompts/grader.md"><code>suite/…</code></a></td><td>Raw kit files: prompts, rubric, config, schema, tools, examples</td></tr>
       <tr><td><a href="docs/README.html"><code>docs/…</code></a></td><td>The same documents, rendered for reading</td></tr>
     </table>
-    <p class="note">Host this only on a server you control, over HTTPS: agents treat it as their instructions. Never put hidden checks, dispositions or reports here. <a href="docs/DEPLOY.html">Hosting guide →</a></p>
+    <p class="note">Host this only on a server you control, over HTTPS: agents treat it as their instructions. Never put hidden checks or private reports here. <a href="docs/DEPLOY.html">Hosting guide →</a></p>
   </section>
 </div>
-<footer class="site">Code Grading Suite v4.0.0 · built 2026-11-07</footer>
+<footer class="site">Code Grading Suite v4.1.0 · built 2026-11-07</footer>
 
 <script src="assets/site.js"></script>
 </body>

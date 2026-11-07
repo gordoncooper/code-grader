@@ -1,6 +1,6 @@
 # Code Grading Suite
 
-> Rubric and prompts for AI coding agents to grade a codebase from 1 to 10 on 35 benchmarks and improve it against those grades. Version 4.0.0. Agents: start with AGENT.md.
+> Rubric and prompts for AI coding agents to grade a codebase from 1 to 10 on 35 benchmarks and improve it against those grades. Version 4.1.0. Agents: start with AGENT.md.
 
 ## Start
 - [AGENT.md](AGENT.md): entry point for agents (roles, how to download and verify the suite)
@@ -13,8 +13,9 @@
 
 ## Rubric
 - [Grader](suite/prompts/grader.md)
+- [Report reviewer](suite/prompts/reviewer.md)
 - [Improver](suite/prompts/improver.md)
-- [PR quick mode](suite/prompts/pr-review.md)
+- [Pull-request check](suite/prompts/pr-review.md)
 - [How scoring works](suite/rubric/weights.md): weights, gates, zones, targets, maturity
 
 ## Configuration
@@ -25,5 +26,5 @@
 ## Tools
 - [gradekit.py](suite/tools/gradekit.py): validate, verify-evidence, rollup, stability, diff, calibrate, redact, rollup-repo
 - [report.schema.json](suite/schema/report.schema.json)
-- [Download the kit](downloads/code-grading-suite-4.0.0.zip)
+- [Download the kit](downloads/code-grading-suite-4.1.0.zip)
 - [manifest.json](manifest.json): checksums
