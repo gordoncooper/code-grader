@@ -7,6 +7,7 @@
                 org: "org.toml", zip: "Code archive (.zip, for citations)", ignore: "Ignore" };
   var TIERS = ["Fix first", "Unblocks the next level", "Below target", "Optional"];
   var files = [];     // {id, name, role, text, bytes, json, fromSource}
+  var pendingPicker = null;  // "pick a project" banner, kept across renderFiles() until a project is chosen
   var source = null;  // a project loaded as a whole: {label, project, meta, history: [{folder, get(), runs()}]}
   var sel = { report: -1, compare: -1 };
   var info = null;    // catalog etc.
@@ -52,6 +53,7 @@
 
   function renderFiles() {
     var box = UI.clear($("#filelist"));
+    if (pendingPicker) box.appendChild(pendingPicker);
     if (source) box.appendChild(h("div", { class: "filerow" }, h("div", { class: "name" }, h("b", null, source.project), h("small", null, source.history.length + " report(s) · " + source.label)), h("span", { class: "kbd-note" }, "Whole project"), h("span")));
     files.forEach(function (f) {
       if (f.fromSource && f.role !== "zip") return;
@@ -82,11 +84,23 @@
       else if (rest.length === 2 && rest[1] === "report.json") (p.reports[rest[0]] = p.reports[rest[0]] || { runs: [] }).report = e;
       else if (rest.length === 3 && rest[1] === "runs" && /\.json$/.test(rest[2])) (p.reports[rest[0]] = p.reports[rest[0]] || { runs: [] }).runs.push(e);
     });
-    return Object.keys(projects).map(function (k) { var p = projects[k]; p.org = org; return p; })
+    var found = Object.keys(projects).map(function (k) { var p = projects[k]; p.org = org; return p; })
       .filter(function (p) { return p.side["project.toml"] || Object.keys(p.reports).some(function (f) { return p.reports[f].report; }); });
+    // Copies of the suite (any folder with tools/gradekit.py, such as bundle/bare/ or a website's suite/)
+    // ship an example project. Skip projects inside them, unless they're all there is.
+    var kits = entries.map(function (e) { return e.path.replace(/^\/+/, ""); })
+      .filter(function (p) { return p === "tools/gradekit.py" || /\/tools\/gradekit\.py$/.test(p); })
+      .map(function (p) { return p.slice(0, p.length - "tools/gradekit.py".length); });
+    var outside = found.filter(function (p) { return !kits.some(function (k) { return (p.key + "/").indexOf(k) === 0; }); });
+    if (outside.length) return outside;
+    // Only copies of the example: show each project once (the shortest path).
+    var seen = {};
+    return found.slice().sort(function (a, b) { return a.key.length - b.key.length; })
+      .filter(function (p) { if (seen[p.name]) return false; seen[p.name] = true; return true; });
   }
 
   async function useProject(p, label, meta) {
+    pendingPicker = null;
     files = files.filter(function (f) { return !f.fromSource && ["project", "decisions", "dispositions", "org", "report", "previous", "run"].indexOf(f.role) < 0; });
     for (var fname in p.side) addFile(fname, await p.side[fname].text(), false, SIDE[fname], true);
     if (p.org) addFile("org.toml", await p.org.text(), false, "org", true);
@@ -105,11 +119,11 @@
   async function chooseProject(projects, label, meta) {
     if (!projects.length) { UI.toast("No project found there: expected project.toml or reports/<date>/report.json"); return; }
     if (projects.length === 1) return useProject(projects[0], label, meta);
-    var box = UI.clear($("#filelist"));
     var pick = h("select", { "aria-label": "Project" }, projects.map(function (p, i) { return h("option", { value: i }, p.name + " (" + Object.keys(p.reports).length + " reports)"); }));
     var go = h("button", { type: "button", class: "btn primary" }, "Load project");
     go.addEventListener("click", function () { useProject(projects[parseInt(pick.value, 10)], label, meta); });
-    box.appendChild(h("div", { class: "banner info" }, "This contains several projects. Pick one: ", pick, " ", go));
+    pendingPicker = h("div", { class: "banner info" }, "This contains several projects. Pick one: ", pick, " ", go);
+    renderFiles();
   }
 
   async function onFiles(list) {
@@ -151,7 +165,7 @@
   async function onFolder(list) {
     var entries = Array.prototype.map.call(list, function (f) {
       return { path: f.webkitRelativePath || f.name, text: function () { return UI.readFile(f); } };
-    }).filter(function (e) { return /\.(json|toml)$/.test(e.path); });
+    }).filter(function (e) { return /\.(json|toml)$/.test(e.path) || /(^|\/)tools\/gradekit\.py$/.test(e.path); });
     var top = (entries[0] && entries[0].path.split("/")[0]) || "folder";
     await chooseProject(scanEntries(entries), "folder " + top);
   }
@@ -655,7 +669,7 @@
       analyze();
     });
     $("#pick-compare").addEventListener("change", function () { sel.compare = parseInt(this.value, 10); analyze(); });
-    $("#clear-files").addEventListener("click", function () { files = []; source = null; R = null; renderFiles(); $("#results").hidden = true; UI.clear($("#gh-status")); });
+    $("#clear-files").addEventListener("click", function () { files = []; source = null; R = null; pendingPicker = null; renderFiles(); $("#results").hidden = true; UI.clear($("#gh-status")); });
     $("#sample").addEventListener("click", function () { loadTabs.select("files"); loadSample(); });
     var gh = UI.store.get("gh", {});
     var q = new URLSearchParams(location.search);

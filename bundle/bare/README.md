@@ -1,4 +1,4 @@
-# Code Grading Suite v4.2.0
+# Code Grading Suite v4.2.1
 
 A kit for having AI agents grade a codebase from 1 to 10 on **35 benchmarks** (29 core in 6 pillars, plus 6 that apply only to some projects), and then improve it against those grades. It is built so that **rising scores mean better code**, not just code tuned to the rubric.
 

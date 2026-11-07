@@ -1490,7 +1490,7 @@ def render_project_toml(data: dict, defaults: dict | None = None, path: str = "p
     """Write a project config in the suite's standard layout, with helpful comments."""
     defaults = defaults or load_toml(DEFAULTS_PATH)
     d = copy.deepcopy(data or {})
-    out = [PROJECT_HEADER.format(version=defaults.get("suite_version"), path=path)]
+    out = [PROJECT_HEADER.format(version=load_catalog()["suite_version"], path=path)]
 
     proj = d.pop("project", {}) or {}
     hints = {"preset": " | ".join(defaults.get("presets", {})),
@@ -1724,7 +1724,7 @@ def _api_info(p):
     merged = load_toml(DEFAULTS_PATH)
     for _, layer in _web_layers({"org_toml": p.get("org_toml")}):
         merged = deep_merge(merged, layer)
-    return {"suite_version": merged.get("suite_version"), "catalog": load_catalog(),
+    return {"suite_version": load_catalog()["suite_version"], "scoring_version": merged.get("suite_version"), "catalog": load_catalog(),
             "questions": merged.get("questions", {}), "presets": merged.get("presets", {}),
             "base_weights": merged.get("weights", {}).get("base", {}), "gates": merged.get("gates", {}),
             "zone_settings": merged.get("zone_settings", {}), "targets": merged.get("targets", {}),
@@ -1835,10 +1835,16 @@ def scan_paths(files: dict) -> dict:
             proj["reports"].setdefault(rest[0], {})["report"] = files[path]()
         elif len(rest) == 3 and rest[1] == "runs" and rest[2].endswith(".json"):
             proj["reports"].setdefault(rest[0], {}).setdefault("runs", []).append(files[path]())
+    found = [(key, proj) for key, proj in projects.items() if proj.get(PROJECT_FILE) or proj["reports"]]
+    # Copies of the suite (any folder with tools/gradekit.py, such as bundle/bare/ or a website's suite/)
+    # ship an example project. Skip projects inside them, unless they're all there is.
+    kits = [p[: -len("tools/gradekit.py")] for p in files if p == "tools/gradekit.py" or p.endswith("/tools/gradekit.py")]
+    outside = [(key, proj) for key, proj in found if not any((key + "/").startswith(k) for k in kits)]
+    if not outside:  # only copies of the example: show each project once (the shortest path)
+        seen: set = set()
+        outside = [(k, pr) for k, pr in sorted(found, key=lambda kv: len(kv[0])) if not (pr["name"] in seen or seen.add(pr["name"]))]
     out = {}
-    for key, proj in projects.items():
-        if not (proj.get(PROJECT_FILE) or proj["reports"]):
-            continue
+    for key, proj in outside:
         reports = [{"folder": f, **v} for f, v in sorted(proj["reports"].items()) if v.get("report")]
         out[proj["name"] if proj["name"] not in out else key] = {
             "root": key, "project_toml": proj.get(PROJECT_FILE), "decisions_json": proj.get(DECISIONS_FILE),
