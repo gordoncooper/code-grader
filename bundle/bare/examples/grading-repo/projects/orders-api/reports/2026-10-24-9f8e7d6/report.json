@@ -1,19 +1,20 @@
 {
-  "suite_version": "4.1.0",
+  "suite_version": "4.2.0",
   "mode": "full",
   "run": {
-    "commit": "a1b2c3d",
+    "commit": "9f8e7d6",
     "base_commit": null,
-    "date": "2026-11-07",
+    "date": "2026-10-24",
     "grader": "example",
     "run_index": 1,
     "run_count": 1,
-    "suite_source": "local"
+    "suite_source": "local",
+    "project": "orders-api"
   },
   "component": null,
   "project_context_inferred": "Small internal orders API (Python), example only",
   "config": {
-    "hash": "128b47b4b9d54ad8",
+    "hash": "c068a92b5feead6f",
     "preset": "service",
     "source": ".grading/project.toml",
     "component": null
@@ -98,17 +99,6 @@
   ],
   "gap_register": [
     {
-      "id": "GAP-001",
-      "gap": "No cancel or refund flow",
-      "severity": "major",
-      "necessity": "must-have",
-      "status": "new",
-      "rationale": "Every order system needs a way to reverse a charge",
-      "benchmark_ids": [
-        "D2"
-      ]
-    },
-    {
       "id": "GAP-002",
       "gap": "No health check endpoint",
       "severity": "minor",
@@ -128,7 +118,7 @@
       "title": "Discount ignored for single-item orders",
       "severity": "major",
       "status": "new",
-      "first_seen_commit": "a1b2c3d",
+      "first_seen_commit": "9f8e7d6",
       "evidence": [
         {
           "type": "code",
@@ -147,7 +137,7 @@
       "title": "No input validation on charge amount",
       "severity": "major",
       "status": "new",
-      "first_seen_commit": "a1b2c3d",
+      "first_seen_commit": "9f8e7d6",
       "evidence": [
         {
           "type": "code",
@@ -166,7 +156,7 @@
       "title": "Stock reservation errors swallowed",
       "severity": "critical",
       "status": "new",
-      "first_seen_commit": "a1b2c3d",
+      "first_seen_commit": "9f8e7d6",
       "evidence": [
         {
           "type": "code",
@@ -185,7 +175,7 @@
       "title": "Seed script not re-runnable",
       "severity": "major",
       "status": "new",
-      "first_seen_commit": "a1b2c3d",
+      "first_seen_commit": "9f8e7d6",
       "evidence": [
         {
           "type": "code",
@@ -204,7 +194,7 @@
       "title": "Wall-clock time read inside domain logic",
       "severity": "minor",
       "status": "new",
-      "first_seen_commit": "a1b2c3d",
+      "first_seen_commit": "9f8e7d6",
       "evidence": [
         {
           "type": "code",
@@ -223,7 +213,7 @@
       "title": "Order insert and stock reservation not in one transaction",
       "severity": "major",
       "status": "new",
-      "first_seen_commit": "a1b2c3d",
+      "first_seen_commit": "9f8e7d6",
       "evidence": [
         {
           "type": "code",
@@ -242,7 +232,7 @@
       "title": "Domain logic depends directly on the DB handle",
       "severity": "minor",
       "status": "new",
-      "first_seen_commit": "a1b2c3d",
+      "first_seen_commit": "9f8e7d6",
       "evidence": [
         {
           "type": "code",
@@ -261,7 +251,7 @@
       "title": "Orders and payments share no interface; payments reads the raw request",
       "severity": "minor",
       "status": "new",
-      "first_seen_commit": "a1b2c3d",
+      "first_seen_commit": "9f8e7d6",
       "evidence": [
         {
           "type": "code",
@@ -280,7 +270,7 @@
       "title": "Items are untyped dicts",
       "severity": "major",
       "status": "new",
-      "first_seen_commit": "a1b2c3d",
+      "first_seen_commit": "9f8e7d6",
       "evidence": [
         {
           "type": "code",
@@ -298,8 +288,8 @@
       "benchmark_id": "B5",
       "title": "Single payment gateway assumed",
       "severity": "minor",
-      "status": "accepted",
-      "first_seen_commit": "a1b2c3d",
+      "status": "new",
+      "first_seen_commit": "9f8e7d6",
       "evidence": [
         {
           "type": "code",
@@ -309,7 +299,7 @@
           "note": "no currency or provider abstraction"
         }
       ],
-      "disposition": "won't fix: one payment provider is a deliberate business constraint through 2027",
+      "disposition": null,
       "disposition_concern": null
     },
     {
@@ -318,7 +308,7 @@
       "title": "Rounding and discount logic mixed in one function",
       "severity": "minor",
       "status": "new",
-      "first_seen_commit": "a1b2c3d",
+      "first_seen_commit": "9f8e7d6",
       "evidence": [
         {
           "type": "code",
@@ -337,7 +327,7 @@
       "title": "One test covers one happy path",
       "severity": "critical",
       "status": "new",
-      "first_seen_commit": "a1b2c3d",
+      "first_seen_commit": "9f8e7d6",
       "evidence": [
         {
           "type": "command",
@@ -358,7 +348,7 @@
       "title": "XLSX export advertised but not implemented",
       "severity": "major",
       "status": "new",
-      "first_seen_commit": "a1b2c3d",
+      "first_seen_commit": "9f8e7d6",
       "evidence": [
         {
           "type": "code",
@@ -378,33 +368,12 @@
       "disposition_concern": null
     },
     {
-      "id": "D2-001",
-      "benchmark_id": "D2",
-      "title": "No way to cancel or refund an order",
-      "severity": "major",
-      "status": "new",
-      "first_seen_commit": "a1b2c3d",
-      "evidence": [
-        {
-          "type": "absence",
-          "searched": "cancel or refund operations",
-          "method": "read all of src/; grep -rni 'refund\\|cancel'",
-          "note": ""
-        }
-      ],
-      "disposition": null,
-      "disposition_concern": null,
-      "paths": [
-        "src/orders/**"
-      ]
-    },
-    {
       "id": "D3-001",
       "benchmark_id": "D3",
       "title": "Money handled as floats",
       "severity": "minor",
       "status": "new",
-      "first_seen_commit": "a1b2c3d",
+      "first_seen_commit": "9f8e7d6",
       "evidence": [
         {
           "type": "code",
@@ -423,7 +392,7 @@
       "title": "discount parameter silently ignored in a common case",
       "severity": "minor",
       "status": "new",
-      "first_seen_commit": "a1b2c3d",
+      "first_seen_commit": "9f8e7d6",
       "evidence": [
         {
           "type": "code",
@@ -442,7 +411,7 @@
       "title": "Quickstart command does not exist",
       "severity": "critical",
       "status": "new",
-      "first_seen_commit": "a1b2c3d",
+      "first_seen_commit": "9f8e7d6",
       "evidence": [
         {
           "type": "code",
@@ -467,7 +436,7 @@
       "title": "README is one line and partly wrong",
       "severity": "major",
       "status": "new",
-      "first_seen_commit": "a1b2c3d",
+      "first_seen_commit": "9f8e7d6",
       "evidence": [
         {
           "type": "code",
@@ -486,7 +455,7 @@
       "title": "No dependency manifest or dev setup",
       "severity": "major",
       "status": "new",
-      "first_seen_commit": "a1b2c3d",
+      "first_seen_commit": "9f8e7d6",
       "evidence": [
         {
           "type": "absence",
@@ -504,7 +473,7 @@
       "title": "No standard Python project metadata",
       "severity": "minor",
       "status": "new",
-      "first_seen_commit": "a1b2c3d",
+      "first_seen_commit": "9f8e7d6",
       "evidence": [
         {
           "type": "absence",
@@ -522,7 +491,7 @@
       "title": "No deploy artifact or instructions",
       "severity": "critical",
       "status": "new",
-      "first_seen_commit": "a1b2c3d",
+      "first_seen_commit": "9f8e7d6",
       "evidence": [
         {
           "type": "absence",
@@ -540,7 +509,7 @@
       "title": "No CI",
       "severity": "critical",
       "status": "new",
-      "first_seen_commit": "a1b2c3d",
+      "first_seen_commit": "9f8e7d6",
       "evidence": [
         {
           "type": "absence",
@@ -561,7 +530,7 @@
       "title": "No logging anywhere",
       "severity": "major",
       "status": "new",
-      "first_seen_commit": "a1b2c3d",
+      "first_seen_commit": "9f8e7d6",
       "evidence": [
         {
           "type": "absence",
@@ -579,7 +548,7 @@
       "title": "Total recomputed per insert with no batching",
       "severity": "minor",
       "status": "new",
-      "first_seen_commit": "a1b2c3d",
+      "first_seen_commit": "9f8e7d6",
       "evidence": [
         {
           "type": "code",
@@ -598,7 +567,7 @@
       "title": "Dependencies not declared or pinned",
       "severity": "major",
       "status": "new",
-      "first_seen_commit": "a1b2c3d",
+      "first_seen_commit": "9f8e7d6",
       "evidence": [
         {
           "type": "absence",
@@ -616,7 +585,7 @@
       "title": "No versioning of the HTTP API",
       "severity": "minor",
       "status": "new",
-      "first_seen_commit": "a1b2c3d",
+      "first_seen_commit": "9f8e7d6",
       "evidence": [
         {
           "type": "absence",
@@ -634,7 +603,7 @@
       "title": "Check-then-act race on idempotency key",
       "severity": "major",
       "status": "new",
-      "first_seen_commit": "a1b2c3d",
+      "first_seen_commit": "9f8e7d6",
       "evidence": [
         {
           "type": "code",
@@ -653,13 +622,31 @@
       "title": "No agent instructions or runnable verification commands",
       "severity": "major",
       "status": "new",
-      "first_seen_commit": "a1b2c3d",
+      "first_seen_commit": "9f8e7d6",
       "evidence": [
         {
           "type": "absence",
           "searched": "AGENTS.md / CLAUDE.md / test command docs",
           "method": "ls -a at repo root",
           "note": ""
+        }
+      ],
+      "disposition": null,
+      "disposition_concern": null
+    },
+    {
+      "id": "A2-002",
+      "benchmark_id": "A2",
+      "title": "Payment API key committed in config",
+      "severity": "critical",
+      "status": "new",
+      "first_seen_commit": "9f8e7d6",
+      "evidence": [
+        {
+          "type": "absence",
+          "searched": "secret scanning",
+          "method": "grep for API keys in src/",
+          "note": "(example) key was committed in an earlier version"
         }
       ],
       "disposition": null,
@@ -700,12 +687,13 @@
       "config_weight": 3,
       "weight": 3,
       "weight_note": null,
-      "score": 5,
+      "score": 3,
       "confidence": "medium",
       "carried_forward": false,
       "caps_applied": [],
       "finding_ids": [
-        "A2-001"
+        "A2-001",
+        "A2-002"
       ],
       "strengths": [],
       "enforcement": [],
@@ -972,7 +960,7 @@
       "config_weight": 2,
       "weight": 2,
       "weight_note": null,
-      "score": 7,
+      "score": 6,
       "confidence": "medium",
       "carried_forward": false,
       "caps_applied": [],
@@ -1099,7 +1087,7 @@
       "config_weight": 2,
       "weight": 2,
       "weight_note": null,
-      "score": 3,
+      "score": 2,
       "confidence": "high",
       "carried_forward": false,
       "caps_applied": [
@@ -1262,7 +1250,7 @@
       "config_weight": 2,
       "weight": 2,
       "weight_note": null,
-      "score": 4,
+      "score": 3,
       "confidence": "medium",
       "carried_forward": false,
       "caps_applied": [
@@ -1640,23 +1628,23 @@
     "run": true,
     "checks_run": 4,
     "pass_rate": 0.5,
-    "private_details": "[kept with the hidden checks, not in the repo]"
+    "private_details": "[not used in this example]"
   },
   "rollup": {
     "computed_by": "gradekit.py",
-    "config_hash": "128b47b4b9d54ad8",
+    "config_hash": "c068a92b5feead6f",
     "pillar_scores": {
-      "A": 4.6,
-      "B": 6.1,
-      "C": 5.6,
+      "A": 4.2,
+      "B": 5.9,
+      "C": 5.3,
       "D": 5.5,
-      "E": 4.0,
+      "E": 3.7,
       "F": 3.8,
       "X": 4.2
     },
-    "overall_score_uncapped": 4.9,
-    "overall_score": 4.9,
-    "overall_cap_applied": false,
+    "overall_score_uncapped": 4.7,
+    "overall_score": 4.0,
+    "overall_cap_applied": true,
     "gates": [
       {
         "benchmark_id": "A1",
@@ -1671,8 +1659,8 @@
         "why": [
           "always"
         ],
-        "score": 5,
-        "status": "passed"
+        "score": 3,
+        "status": "failed"
       },
       {
         "benchmark_id": "A3",
@@ -1705,20 +1693,31 @@
       "next_level": "L1",
       "blockers": [
         {
+          "requirement": "gate above 3",
+          "benchmark_id": "A2",
+          "current": 3
+        },
+        {
           "requirement": "overall ≥ 5.0",
-          "current": 4.9
+          "current": 4.0
+        },
+        {
+          "requirement": "gate ≥ 4",
+          "benchmark_id": "A2",
+          "current": 3,
+          "required": 4
         }
       ]
     },
     "open_gaps": {
       "critical": 0,
-      "major_must_have": 1
+      "major_must_have": 0
     },
     "open_findings_by_zone": {
       "hot": {
         "minor": 0,
-        "major": 7,
-        "critical": 7
+        "major": 8,
+        "critical": 6
       },
       "cold": {
         "minor": 1,
@@ -1728,7 +1727,7 @@
       "normal": {
         "minor": 2,
         "major": 6,
-        "critical": 3
+        "critical": 4
       }
     },
     "finding_zones": {
@@ -1809,7 +1808,7 @@
         "criticality": "hot",
         "severity": "minor",
         "effective_severity": "major",
-        "status": "accepted",
+        "status": "new",
         "benchmark_id": "B5"
       },
       "C2-001": {
@@ -1835,14 +1834,6 @@
         "effective_severity": "major",
         "status": "new",
         "benchmark_id": "D1"
-      },
-      "D2-001": {
-        "zone": "orders",
-        "criticality": "hot",
-        "severity": "major",
-        "effective_severity": "critical",
-        "status": "new",
-        "benchmark_id": "D2"
       },
       "D3-001": {
         "zone": "orders",
@@ -1955,6 +1946,14 @@
         "effective_severity": "major",
         "status": "new",
         "benchmark_id": "X6"
+      },
+      "A2-002": {
+        "zone": null,
+        "criticality": "normal",
+        "severity": "critical",
+        "effective_severity": "critical",
+        "status": "new",
+        "benchmark_id": "A2"
       }
     },
     "targets": {
@@ -1996,6 +1995,14 @@
     },
     "below_target": [
       {
+        "benchmark_id": "A2",
+        "score": 3,
+        "target": 10,
+        "gap": 7,
+        "weight": 3,
+        "weighted_gap": 21
+      },
+      {
         "benchmark_id": "F1",
         "score": 3,
         "target": 10,
@@ -2036,14 +2043,6 @@
         "weighted_gap": 15
       },
       {
-        "benchmark_id": "A2",
-        "score": 5,
-        "target": 10,
-        "gap": 5,
-        "weight": 3,
-        "weighted_gap": 15
-      },
-      {
         "benchmark_id": "A4",
         "score": 5,
         "target": 10,
@@ -2053,11 +2052,11 @@
       },
       {
         "benchmark_id": "C4",
-        "score": 3,
+        "score": 2,
         "target": 9,
-        "gap": 6,
+        "gap": 7,
         "weight": 2,
-        "weighted_gap": 12
+        "weighted_gap": 14
       },
       {
         "benchmark_id": "E1",
@@ -2069,11 +2068,11 @@
       },
       {
         "benchmark_id": "E2",
-        "score": 4,
+        "score": 3,
         "target": 9,
-        "gap": 5,
+        "gap": 6,
         "weight": 2,
-        "weighted_gap": 10
+        "weighted_gap": 12
       },
       {
         "benchmark_id": "B4",
@@ -2124,6 +2123,14 @@
         "weighted_gap": 6
       },
       {
+        "benchmark_id": "B6",
+        "score": 6,
+        "target": 9,
+        "gap": 3,
+        "weight": 2,
+        "weighted_gap": 6
+      },
+      {
         "benchmark_id": "C2",
         "score": 6,
         "target": 9,
@@ -2162,14 +2169,6 @@
         "gap": 6,
         "weight": 1,
         "weighted_gap": 6
-      },
-      {
-        "benchmark_id": "B6",
-        "score": 7,
-        "target": 9,
-        "gap": 2,
-        "weight": 2,
-        "weighted_gap": 4
       },
       {
         "benchmark_id": "C1",

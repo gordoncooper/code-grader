@@ -13,11 +13,11 @@
 <header class="topbar">
   <button class='menu-btn' type='button'>Menu</button>
   <a class="brand" href="../index.html">Code <span>Grading</span> Suite</a>
-  <span class="ver">v4.1.0</span>
+  <span class="ver">v4.2.0</span>
   <nav class="main" aria-label="Main"><a href="../docs/GETTING-STARTED.html">Get started</a><a href="../app/setup.html">Set up</a><a href="../app/run.html">Start a run</a><a href="../app/review.html">Review</a><a href="../docs/README.html" class="active" aria-current="page">Docs</a></nav>
   <span class="spacer"></span>
   <a class="top opt" href="../AGENT.md">AGENT.md</a>
-  <a class="top opt" href="../downloads/code-grading-suite-4.1.0.zip">Download</a>
+  <a class="top opt" href="../downloads/code-grading-suite-4.2.0.zip">Download</a>
 </header>
 <div class="layout"><nav class="sidebar" aria-label="Documentation"><h4>Start</h4><a href="../docs/GETTING-STARTED.html">Getting started</a><a href="../docs/README.html">Overview &amp; reference</a><a href="../docs/AGENT.html">Agent entry point</a><a href="../docs/DEPLOY.html">Hosting this site</a><h4>Configuration</h4><a href="../docs/TUNING.html" class="active" aria-current="page">Tuning guide</a><a href="../docs/rubric/weights.html">How scoring works</a><a href="../docs/config/defaults.html">Default config</a><a href="../docs/config/project.example.html">Example project config</a><h4>Prompts</h4><a href="../docs/prompts/grader.html">Grader</a><a href="../docs/prompts/reviewer.html">Report reviewer</a><a href="../docs/prompts/improver.html">Improver</a><a href="../docs/prompts/pr-review.html">Pull-request check</a><h4>Rubric</h4><a href="../docs/rubric/A-correctness-trust.html">A · Correctness &amp; Trust</a><a href="../docs/rubric/B-design-structure.html">B · Design &amp; Structure</a><a href="../docs/rubric/C-code-health.html">C · Code Health</a><a href="../docs/rubric/D-value-fitness.html">D · Value &amp; Fitness</a><a href="../docs/rubric/E-adoption-experience.html">E · Adoption &amp; Experience</a><a href="../docs/rubric/F-operations-delivery.html">F · Operations &amp; Delivery</a><a href="../docs/rubric/X-conditional.html">X · Conditional</a><h4>Guides</h4><a href="../docs/calibration/README.html">Calibration</a><a href="../docs/holdout/README.html">Hidden checks</a><a href="../docs/CHANGELOG.html">Changelog</a></nav><main class="doc"><div class="docbar"><a class="btn" href="../suite/TUNING.md">View raw .md</a><button class="btn" type="button" data-copy="../suite/TUNING.md">Copy raw URL for an agent</button></div><details class="toc"><summary>On this page</summary><ul><li><a href="#how-configs-stack">How configs stack</a></li><li><a href="#start-a-project-in-one-minute">Start a project in one minute</a></li><li><a href="#what-you-can-tune-from-lightest-touch-to-heaviest">What you can tune, from lightest touch to heaviest</a></li><li><a href="#good-habits">Good habits</a></li></ul></details><h1 id="tuning-the-suite">Tuning the suite<a class="anchor" href="#tuning-the-suite" aria-label="Link to this section">#</a></h1>
 <p>Every adjustable part of scoring is plain, commented TOML. You never need to touch the prompts or the code to change weights, gates, zones, targets or maturity rules.</p>
@@ -31,12 +31,12 @@ project.toml           per project: context, answers, zones, overrides
 gradekit resolve --config org.toml --config project.toml --explain F3 # why F3 has the weight it has
 gradekit presets --config org.toml                                    # all presets side by side, with your org rules
 </code></pre>
-<p><strong>Org and project configs are owned by people.</strong> <code>project.toml</code> normally lives in the repo's <code>.grading/</code> folder, protected by CODEOWNERS; the pull-request check fails any improvement PR that changes it. For the strictest setup, keep it in a separate private repo instead.</p>
+<p><strong>Org and project configs are owned by people.</strong> They live in your grading repo: <code>org.toml</code> at the root, and <code>project.toml</code> in each project's folder (<code>projects/&lt;name&gt;/</code>). Agents read them but never change them. Change them between grading runs rather than during one.</p>
 <h2 id="start-a-project-in-one-minute">Start a project in one minute<a class="anchor" href="#start-a-project-in-one-minute" aria-label="Link to this section">#</a></h2>
 <p>The easiest way is the website's <strong>Set up a project</strong> page: pick a preset, answer the questions, mark zones, and download the file. From the command line:</p>
 <pre><code class="language-bash">python3 SUITE_DIR/tools/gradekit.py init --preset service --name orders-api \
-    --answer data_sensitivity=financial --grading-dir .grading
-python3 SUITE_DIR/tools/gradekit.py resolve
+    --answer data_sensitivity=financial --project orders-api   # run from the grading repo root
+python3 SUITE_DIR/tools/gradekit.py resolve --project orders-api
 </code></pre>
 <p><code>init</code> writes a commented <code>project.toml</code> with every question answered, from the preset plus any <code>--answer</code> flags. Edit the file, re-run <code>resolve</code>, and check that the weights and gates look right before grading. <code>config/project.example.toml</code> is a fully filled-in example.</p>
 <h2 id="what-you-can-tune-from-lightest-touch-to-heaviest">What you can tune, from lightest touch to heaviest<a class="anchor" href="#what-you-can-tune-from-lightest-touch-to-heaviest" aria-label="Link to this section">#</a></h2>
@@ -107,26 +107,37 @@ description = &quot;A service that moves money&quot;
 answers = { delivery = &quot;service&quot;, failure_impact = &quot;revenue_loss&quot;, data_sensitivity = &quot;financial&quot;, realtime = &quot;yes&quot; }
 </code></pre>
 <h3 id="8-accepted-findings-and-decisions-per-project">8. Accepted findings and decisions (per project)<a class="anchor" href="#8-accepted-findings-and-decisions-per-project" aria-label="Link to this section">#</a></h3>
-<p>These also live in <code>project.toml</code>, so one file holds everything people decide. Both are <strong>append-only</strong>: add new entries at the end and never edit old ones. For decisions, the newest answer to a question wins.</p>
-<pre><code class="language-toml">[[dispositions]]                 # a finding you accept as-is; it stops lowering the score
-finding_id = &quot;B5-001&quot;
-decision   = &quot;won't fix&quot;
-reason     = &quot;One payment provider is a deliberate constraint through 2027&quot;
-decided_by = &quot;jane@example.com&quot;
-date       = &quot;2026-11-07&quot;
-
-[[decisions]]                    # an answer to a report's decision question
-action_id  = &quot;D1-act-1&quot;
-question   = &quot;Implement CSV and XLSX export, or drop the export claim from the README?&quot;
-approved   = true
-answer     = &quot;Implement CSV only; remove XLSX from the README.&quot;
-decided_by = &quot;jane@example.com&quot;
-date       = &quot;2026-11-07&quot;
+<p>These live in two files next to <code>project.toml</code>. Both are <strong>append-only</strong>: add new entries at the end and never edit old ones. For decisions, the newest answer to a question wins.</p>
+<p><code>dispositions.json</code>: findings you accept as-is. They stop lowering the score.</p>
+<pre><code class="language-json">{
+  &quot;dispositions&quot;: [
+    {&quot;finding_id&quot;: &quot;B5-001&quot;, &quot;decision&quot;: &quot;won't fix&quot;,
+     &quot;reason&quot;: &quot;One payment provider is a deliberate constraint through 2027&quot;,
+     &quot;decided_by&quot;: &quot;jane@example.com&quot;, &quot;date&quot;: &quot;2026-11-07&quot;}
+  ]
+}
 </code></pre>
-<p>The <strong>Review a report</strong> page writes <code>[[decisions]]</code> blocks for you. Adding dispositions or decisions doesn't change the config fingerprint, so reports stay comparable.</p>
-<p>To let agent reviewers approve decision questions (the default is humans only):</p>
+<p><code>decisions.json</code>: answers to a report's decision questions.</p>
+<pre><code class="language-json">{
+  &quot;decisions&quot;: [
+    {&quot;action_id&quot;: &quot;D1-act-1&quot;,
+     &quot;question&quot;: &quot;Implement CSV and XLSX export, or drop the export claim from the README?&quot;,
+     &quot;approved&quot;: true, &quot;answer&quot;: &quot;Implement CSV only; remove XLSX from the README.&quot;,
+     &quot;decided_by&quot;: &quot;jane@example.com&quot;, &quot;date&quot;: &quot;2026-11-07&quot;}
+  ]
+}
+</code></pre>
+<p>The <strong>Review a report</strong> page writes the updated <code>decisions.json</code> for you. Neither file affects the config fingerprint, so reports stay comparable.</p>
+<p>To let agent reviewers approve decision questions (the default is people only), set this in <code>project.toml</code>:</p>
 <pre><code class="language-toml">[review]
 allow_agent_decisions = true
+</code></pre>
+<h3 id="9-monorepos">9. Monorepos<a class="anchor" href="#9-monorepos" aria-label="Link to this section">#</a></h3>
+<p>Give each part its own project, with a <code>path</code> naming its subfolder:</p>
+<pre><code class="language-toml">[project]
+name      = &quot;shop-web&quot;
+code_repo = &quot;https://github.com/acme/shop&quot;
+path      = &quot;apps/web&quot;
 </code></pre>
 <h2 id="good-habits">Good habits<a class="anchor" href="#good-habits" aria-label="Link to this section">#</a></h2>
 <ul>

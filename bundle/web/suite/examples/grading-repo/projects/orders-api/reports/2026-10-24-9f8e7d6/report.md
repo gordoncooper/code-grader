@@ -1,29 +1,29 @@
-# Grading report: orders-api @ a1b2c3d
+# Grading report: orders-api @ 9f8e7d6 (2026-10-24)
 
 *Example report for the suite's bundled sample repo. Scores are illustrative.*
 
 ## Summary
 
-Overall **4.9**, maturity **L0** (next: L1). The code is small and readable, and the payment endpoint already honours idempotency keys. The biggest risks are a silently swallowed stock-reservation error in a hot zone, no CI, and an order insert that isn't transactional. A quickstart that fails at step 1 makes the project hard to adopt.
+Overall **4.0**, maturity **L0** (next: L1). An early baseline: a committed API key, almost no tests and a thin README.
 
 ## Gates and maturity
 
 | Gate | Score | Status |
 |---|:-:|---|
 | A1 Correctness & Functional Behavior | 5 | passed (always) |
-| A2 Security & Privacy | 5 | passed (always) |
+| A2 Security & Privacy | 3 | failed (always) |
 | A3 Robustness & Error Handling | 4 | passed (failure_impact=revenue_loss) |
 | A4 Idempotence & Determinism | 5 | passed (data_sensitivity=financial) |
 | A5 Durability & Recoverability | 4 | passed (data_sensitivity=financial) |
 
-Blocking the next level: overall ≥ 5.0 (now 4.9)
+Blocking the next level: gate above 3 (now 3); overall ≥ 5.0 (now 4.0); gate ≥ 4 (now 3)
 
 ## Scorecard
 
 | ID | Benchmark | Score | Target | Weight | Applicability |
 |---|---|:-:|:-:|:-:|---|
 | A1 | Correctness & Functional Behavior | 5 | 10 | 3 | full |
-| A2 | Security & Privacy | 5 | 10 | 3 | full |
+| A2 | Security & Privacy | 3 | 10 | 3 | full |
 | A3 | Robustness & Error Handling | 4 | 10 | 3 | full |
 | A4 | Idempotence & Determinism | 5 | 10 | 3 | full |
 | A5 | Durability & Recoverability | 4 | 10 | 3 | full |
@@ -32,17 +32,17 @@ Blocking the next level: overall ≥ 5.0 (now 4.9)
 | B3 | Structure & Organization | 7 | 8 | 1 | full |
 | B4 | Interface Design & Contracts | 5 | 9 | 2 | full |
 | B5 | Flexibility & Extensibility | 6 | 8 | 1 | full |
-| B6 | Leanness | 7 | 9 | 2 | full |
+| B6 | Leanness | 6 | 9 | 2 | full |
 | C1 | Readability & Clarity | 7 | 9 | 2 | full |
 | C2 | Maintainability & Complexity | 6 | 9 | 2 | full |
 | C3 | Consistency & Idiomatic Code | 7 | 8 | 1 | full |
-| C4 | Test Suite Quality | 3 | 9 | 2 | full |
+| C4 | Test Suite Quality | 2 | 9 | 2 | full |
 | D1 | Feature Completeness | 5 | 9 | 2 | full |
 | D2 | Gap Coverage | 5 | 9 | 2 | full |
 | D3 | Practicality | 6 | 9 | 2 | full |
 | D4 | Intuitiveness | 6 | 9 | 2 | full |
 | E1 | Adopter Friendliness | 3 | 9 | 2 | full |
-| E2 | Documentation | 4 | 9 | 2 | full |
+| E2 | Documentation | 3 | 9 | 2 | full |
 | E3 | Developer Experience & Inner Loop | 4 | 8 | 1 | full |
 | E4 | Native Tooling & Ecosystem Fit | 6 | 8 | 1 | full |
 | F1 | Ease of Deployability | 3 | 10 | 3 | full |
@@ -58,8 +58,6 @@ Blocking the next level: overall ≥ 5.0 (now 4.9)
 | X5 | Compliance & Licensing | – | – | 0 | not_applicable |
 | X6 | Agent-Readiness | 2 | 8 | 1 | full |
 
-Pillars: A 4.6 · B 6.1 · C 5.6 · D 5.5 · E 4.0 · F 3.8 · X 4.2
-
 ## Top priorities
 
 1. **A3-act-1** (tier 0, hot zone, +3, effort S): In src/orders/service.py create_order, remove the bare except; let reserve_stock failures propagate as an OutOfStock error and return 409 from the API layer
@@ -71,7 +69,7 @@ Pillars: A 4.6 · B 6.1 · C 5.6 · D 5.5 · E 4.0 · F 3.8 · X 4.2
 
 - [ ] **D1-act-1:** Implement CSV and XLSX export, or drop the export claim from the README?
 
-Answer in `.grading/project.toml` as `[[decisions]]`, or use the suite website's *Review a report* page.
+Answer in `decisions.json` (the suite website's *Review a report* page writes it for you).
 
 ## Findings
 
@@ -86,11 +84,10 @@ Answer in `.grading/project.toml` as `[[decisions]]`, or use the suite website's
 | B1-001 | minor → major | hot | new | Domain logic depends directly on the DB handle |
 | B2-001 | minor → major | hot | new | Orders and payments share no interface; payments reads the raw request |
 | B4-001 | major → critical | hot | new | Items are untyped dicts |
-| B5-001 | minor → major | hot | accepted | Single payment gateway assumed |
+| B5-001 | minor → major | hot | new | Single payment gateway assumed |
 | C2-001 | minor → major | hot | new | Rounding and discount logic mixed in one function |
 | C4-001 | critical → major | cold | new | One test covers one happy path |
 | D1-001 | major → major | normal | new | XLSX export advertised but not implemented |
-| D2-001 | major → critical | hot | new | No way to cancel or refund an order |
 | D3-001 | minor → major | hot | new | Money handled as floats |
 | D4-001 | minor → major | hot | new | discount parameter silently ignored in a common case |
 | E1-001 | critical → critical | normal | new | Quickstart command does not exist |
@@ -105,6 +102,7 @@ Answer in `.grading/project.toml` as `[[decisions]]`, or use the suite website's
 | X2-001 | minor → minor | normal | new | No versioning of the HTTP API |
 | X3-001 | major → critical | hot | new | Check-then-act race on idempotency key |
 | X6-001 | major → major | normal | new | No agent instructions or runnable verification commands |
+| A2-002 | critical → critical | normal | new | Payment API key committed in config |
 
 ## Limitations
 

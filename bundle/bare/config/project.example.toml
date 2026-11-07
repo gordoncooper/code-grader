@@ -1,12 +1,14 @@
-# EXAMPLE project configuration for the Code Grading Suite (v4.1.0)
-# In a real repo this file lives at .grading/project.toml.
-# Humans own this file. Agents may read it but must never change it.
-# Check it with:  python3 SUITE_DIR/tools/gradekit.py resolve --config .grading/project.toml
+# EXAMPLE project configuration for the Code Grading Suite (v4.2.0)
+# In a grading repo this file lives at projects/<name>/project.toml.
+# People own this file. Agents read it but don't change it.
+# Answers to decision questions go in decisions.json, accepted findings in dispositions.json.
+# Check it with:  python3 SUITE_DIR/tools/gradekit.py resolve --config projects/orders-api/project.toml
 # Or use the "Set up a project" page on the suite's website.
 
 [project]
 name            = "orders-api"
 description     = "REST API that takes orders and payments for the web shop"
+code_repo       = "https://github.com/acme/orders-api"   # where the code lives (informational)
 preset          = "service"   # default | service | web_app | library | oss_library | cli | internal_tool | prototype
 languages       = "Python 3.12, FastAPI, Postgres"
 users           = "The web shop front end and the internal sales dashboard"
@@ -64,27 +66,8 @@ F4 = { weight = 3, reason = "Checkout calls this synchronously; p99 latency budg
 # [review]
 # allow_agent_decisions = true
 
-# Accepted findings: the grader marks these 'accepted' and they stop lowering scores.
-
-[[dispositions]]
-finding_id = "B5-001"
-decision   = "won't fix"
-reason     = "One payment provider is a deliberate business constraint through 2027"
-decided_by = "jane@example.com"
-date       = "2026-11-07"
-
-# Answers to decision questions from grading reports (append new ones at the end).
-
-[[decisions]]
-action_id  = "D1-act-1"
-question   = "Implement CSV and XLSX export, or drop the export claim from the README?"
-approved   = true
-answer     = "Implement CSV only; remove XLSX from the README."
-decided_by = "jane@example.com"
-date       = "2026-11-07"
-
-# Monorepos: one block per component. Each can set its own preset, answers, zones and gates.
-# Grade each with:  gradekit resolve --config .grading/project.toml --component NAME
+# Monorepos (advanced): one combined score via components. Usually simpler: one project per part,
+# each with its own `path`.
 # [[components]]
 # name    = "web"
 # path    = "apps/web"

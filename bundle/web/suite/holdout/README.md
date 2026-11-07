@@ -3,8 +3,9 @@
 When agents optimize against a visible rubric, scores can rise without the code actually improving. Hidden checks are a small set of tests and probes that **improving agents never see**. If visible scores rise while the hidden-check pass rate stays flat or falls, the code is being tuned to the rubric. `gradekit diff` flags this as **divergence**.
 
 ## Where they live
-- In a directory **outside the graded repo** and outside anything improvers can read. Don't put it inside `SUITE_DIR` if improvers can read that; use a separate private location the orchestrator mounts only for grading runs.
-- Graders write per-check results **next to the checks** (`<hidden-checks>/results/<commit>.json`), never into the repo. Reports carry only `checks_run` and `pass_rate`. If a report ever does contain per-check details, `gradekit redact` strips them, and `gradekit validate` fails a report if a check's name appears anywhere outside `holdout.private_details`.
+- In the grading repo, in `projects/<name>/hidden-checks/`. They're hidden by **instruction, not by access**: graders are told to run them, and improvers are only pointed at the report and decisions, never at this folder. If you want stronger separation, keep them in a separate private repo and give that only to graders.
+- If the grading repo is public, anyone can read them. That's fine for keeping agents honest, but don't put anything sensitive in them.
+- Graders write per-check results to `hidden-checks.json` in the report's folder. The report itself carries only `checks_run` and `pass_rate`.
 
 ## What makes a good hidden check
 Aim for 10–30 checks that test **real quality** in ways the rubric describes but doesn't spell out:
@@ -32,7 +33,7 @@ Guidelines:
   "run": true,
   "checks_run": 12,
   "pass_rate": 0.83,
-  "private_details": "[kept with the hidden checks]"
+  "private_details": "[see hidden-checks.json]"
 }
 ```
 

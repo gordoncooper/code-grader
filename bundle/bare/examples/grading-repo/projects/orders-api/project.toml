@@ -1,7 +1,8 @@
-# Project config for the bundled sample repo. It lives in .grading/ (in-repo mode).
+# Project config for the bundled sample: examples/sample-repo, graded from this example grading repo.
 
 [project]
 name            = "orders-api"
+code_repo       = "examples/sample-repo"
 description     = "Small internal orders API (example only)"
 preset          = "service"
 languages       = "Python"
@@ -33,10 +34,3 @@ why         = "Developer convenience; never runs in production"
 
 [targets]
 mode = "proportional"
-
-[[dispositions]]
-finding_id = "B5-001"
-decision   = "won't fix"
-reason     = "One payment provider is a deliberate business constraint through 2027"
-decided_by = "jane@example.com"
-date       = "2026-11-07"

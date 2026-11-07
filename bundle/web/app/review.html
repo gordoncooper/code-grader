@@ -13,18 +13,18 @@
 <header class="topbar">
   
   <a class="brand" href="../index.html">Code <span>Grading</span> Suite</a>
-  <span class="ver">v4.1.0</span>
+  <span class="ver">v4.2.0</span>
   <nav class="main" aria-label="Main"><a href="../docs/GETTING-STARTED.html">Get started</a><a href="../app/setup.html">Set up</a><a href="../app/run.html">Start a run</a><a href="../app/review.html" class="active" aria-current="page">Review</a><a href="../docs/README.html">Docs</a></nav>
   <span class="spacer"></span>
   <a class="top opt" href="../AGENT.md">AGENT.md</a>
-  <a class="top opt" href="../downloads/code-grading-suite-4.1.0.zip">Download</a>
+  <a class="top opt" href="../downloads/code-grading-suite-4.2.0.zip">Download</a>
 </header>
 <div class="app">
   <header class="app-head">
     <div>
       <div class="eyebrow">Tool 3 of 3</div>
       <h1>Review a report</h1>
-      <p class="lede">See where the code stands, answer the decision questions, and check the grader's work. Everything runs in your browser; your files aren't uploaded anywhere.</p>
+      <p class="lede">See where the code stands, compare with last time, answer the decision questions, and check the grader's work. Everything runs in your browser; your files aren't uploaded anywhere.</p>
     </div>
     <span class="engine-pill" id="engine-pill">Starting…</span>
   </header>
@@ -32,37 +32,46 @@
 
   <section class="card" id="load-card">
     <nav class="tabs" id="load-tabs" style="margin-top:0">
+      <button type="button" data-tab="repo">From the grading repo</button>
       <button type="button" data-tab="files">Open files</button>
-      <button type="button" data-tab="github">From a public GitHub repo</button>
     </nav>
-    <div class="panel" id="panel-files">
+    <div class="panel" id="panel-repo">
+      <div class="grid2">
+        <div class="field"><label for="gh-repo">Grading repo</label><input type="text" id="gh-repo" placeholder="owner/grading, or its github.com URL (a report PR's URL works too)"></div>
+        <div class="field"><label for="gh-project">Project</label><input type="text" id="gh-project" list="gh-projects" placeholder="orders-api (leave empty to list them)"><datalist id="gh-projects"></datalist></div>
+      </div>
+      <div class="grid2">
+        <div class="field"><label for="gh-ref">Branch (optional)</label><input type="text" id="gh-ref" placeholder="Default branch, or a report branch like report/orders-api/2026-11-07-a1b2c3d"></div>
+        <div class="field" style="align-self:end"><button class="btn primary" type="button" id="gh-load">Load</button></div>
+      </div>
+      <p class="kbd-note">Loads the project's settings, decisions, accepted findings and its reports. The newest report is reviewed and compared with the one before; you can pick others below. Works with public GitHub repos.</p>
+      <div id="gh-status"></div>
+    </div>
+    <div class="panel" id="panel-files" hidden>
       <div class="drop" id="drop" tabindex="0" role="button" aria-label="Choose files">
-        <b>Drop files here</b> or click to choose them<br>
-        <small>At minimum <code>report.json</code>. Optional: <code>project.toml</code> (to check the config and save decisions), an older <code>report.json</code> (to compare), extra run files (for a consensus), and the repo's <code>.zip</code> (to check citations).</small>
+        <b>Drop files, a project folder, or a .zip here</b> or click to choose files<br>
+        <small>A project folder (or a zip of the grading repo) brings everything at once. Loose files work too: a <code>report.json</code> plus, optionally, <code>project.toml</code>, <code>decisions.json</code>, <code>dispositions.json</code>, an older report to compare, extra run files, and a zip of the code (to check citations).</small>
       </div>
       <input type="file" id="file-input" multiple hidden accept=".json,.toml,.zip,application/json,application/zip,text/plain">
+      <input type="file" id="folder-input" webkitdirectory multiple hidden>
+      <div class="row-btns" style="margin-top:10px"><button class="btn" type="button" id="pick-folder">Choose a folder…</button></div>
       <div class="filelist" id="filelist"></div>
-    </div>
-    <div class="panel" id="panel-github" hidden>
-      <div class="grid2">
-        <div class="field"><label for="gh-repo">Repository</label><input type="text" id="gh-repo" placeholder="owner/repo, or a github.com URL (a pull request URL works too)"></div>
-        <div class="field"><label for="gh-ref">Branch (optional)</label><input type="text" id="gh-ref" placeholder="Default branch, or e.g. grading/2026-11-07-a1b2c3d"></div>
-      </div>
-      <div class="grid2">
-        <div class="field"><label for="gh-dir">Grading folder</label><input type="text" id="gh-dir" value=".grading"></div>
-        <div class="field" style="align-self:end"><button class="btn primary" type="button" id="gh-load">Load from GitHub</button></div>
-      </div>
-      <p class="kbd-note">Loads <code>project.toml</code> and <code>report.json</code>, plus the previous report from git history and any run files. Public repos only: private repos need drag-and-drop, so you never have to paste an access token into a web page.</p>
-      <div id="gh-status"></div>
     </div>
     <div class="row-btns" style="margin-top:14px">
       <button class="btn primary" type="button" id="analyze" disabled>Review</button>
-      <button class="btn" type="button" id="sample">Try the sample report</button>
+      <button class="btn" type="button" id="sample">Try the sample project</button>
       <button class="btn" type="button" id="clear-files">Clear</button>
     </div>
   </section>
 
   <div id="results" hidden>
+    <div class="card" id="history-bar" style="margin-top:18px;padding:12px 18px" hidden>
+      <div class="row-btns">
+        <span class="label" id="history-project"></span>
+        <label class="kbd-note">Report <select id="pick-report" style="width:auto;margin-left:6px"></select></label>
+        <label class="kbd-note">Compare with <select id="pick-compare" style="width:auto;margin-left:6px"></select></label>
+      </div>
+    </div>
     <div id="result-banners" style="margin-top:18px"></div>
     <nav class="tabs" id="result-tabs" aria-label="Report sections">
       <button type="button" data-tab="overview">Overview</button>

@@ -1,4 +1,4 @@
-# Code Grading Suite v4.1.0
+# Code Grading Suite v4.2.0
 
 A kit for having AI agents grade a codebase from 1 to 10 on **35 benchmarks** (29 core in 6 pillars, plus 6 that apply only to some projects), and then improve it against those grades. It is built so that **rising scores mean better code**, not just code tuned to the rubric.
 
@@ -9,36 +9,45 @@ A kit for having AI agents grade a codebase from 1 to 10 on **35 benchmarks** (2
 | Piece | What it does |
 |---|---|
 | **The website** | Built from this kit with `tools/build_web.py` and hosted anywhere. Three browser tools: **Set up a project**, **Start a run** and **Review a report**. They run `gradekit.py` in the browser via Pyodide, so nothing is installed or uploaded. Also includes `AGENT.md`, the entry point for agents. |
-| **The prompts** | One per job: `grader.md`, `reviewer.md`, `improver.md`, `pr-review.md`. Each starts with a table of inputs (code, grading folder, delivery) with sensible defaults. |
+| **The prompts** | One per job: `grader.md`, `reviewer.md`, `improver.md`, `pr-review.md`. Each starts with a table of inputs (code, grading repo and project, delivery, permissions) with sensible defaults. |
 | **The rubric** | One file per pillar, with anchors, caps and "Not this" boundaries for each benchmark. |
 | **The config** | `config/defaults.toml` holds every tunable setting. Each project has its own `project.toml` on top. |
 | **`gradekit.py`** | Does all the arithmetic and checking: weights, gates, zones, validation, evidence checks, roll-ups, ranked priorities, consensus, comparisons. Use it from the command line (Python 3.11+, standard library only), or let the website run it. |
 
 ## Where things live
 
+Code repos stay untouched. Grading lives in **one central grading repo** (or local folders with the same layout):
+
 ```
-your-repo/
-└── .grading/                  the grading folder
-    ├── README.md              explains the folder to contributors
-    ├── project.toml           settings + accepted findings + decision answers   ← people only
-    ├── report.json            latest report (older ones: git history)           ← graders
-    ├── report.md              the same, readable
-    └── runs/                  only when several graders grade one commit
+grading/
+├── README.md
+├── org.toml                         optional house rules for every project
+└── projects/
+    └── <project>/                   one folder per graded codebase (name defaults to the code repo's)
+        ├── project.toml             settings: preset, answers, zones, targets, code_repo, path   ← people
+        ├── decisions.json           answers to decision questions (append-only)                    ← people
+        ├── dispositions.json        findings accepted as-is (append-only)                          ← people
+        ├── hidden-checks/           optional; graders run them, improvers aren't pointed at them
+        └── reports/
+            └── <date>-<commit>/     one folder per report, never overwritten                        ← graders, via PR
+                ├── report.json
+                ├── report.md
+                └── runs/            only for three-grader audits
 ```
 
-- **Hidden checks** (optional) live *outside* the repo, somewhere only graders can reach. Their per-check results stay next to them; reports only carry the pass rate.
-- **Stricter setup:** keep the same folder layout in a separate private repo or folder instead, so improvers can't even read it. Every prompt takes the grading folder's location as an input.
-- **Protecting the folder:** add a CODEOWNERS line (`/.grading/ @your-team`). The pull-request check also fails any improvement PR that touches `.grading/`.
+- **Latest and previous:** the newest report folder is the latest report, and the one before it is what it's compared with.
+- **Branch names:** report PRs use `report/<project>/<date>-<commit>`; follow-up decision PRs use `decisions/<project>/<date>`.
+- **Monorepos:** one project per part, each with a `path` (subfolder) in its `project.toml`.
 
 ## The cycle
 
-| Step | Who | How |
-|---|---|---|
-| 0. Set up (once) | You | **Set up a project** page → `.grading/project.toml` |
-| 1. Grade | A fresh agent session | **Start a run** → *Grade the code*. Delivers `report.json` / `report.md` as a PR, a commit, saved files, or back in the chat. |
-| 2. Review and decide | You (an agent can help) | **Review a report** → check it, answer decision questions → paste `[[decisions]]` into `project.toml` on the grader's PR → merge |
-| 3. Improve | Another fresh agent session | **Start a run** → *Improve the code*. Reads `.grading/`, follows the ranked priorities, opens a PR. |
-| 4. Guard | An agent, or CI | **Start a run** → *Check a pull request*: PASS or FAIL against the base report |
+| Step | Who | How | Permissions |
+|---|---|---|---|
+| 0. Set up (once) | You | **Set up a project** → `projects/<name>/project.toml` (+ starter `decisions.json`, `dispositions.json`) | write to grading repo |
+| 1. Grade | A fresh agent session | **Start a run** → *Grade the code*. Default: a PR adding one report folder. Or save locally, or return in chat. | read code; push branches + open PRs on grading repo |
+| 2. Review and decide | You (an agent can help) | **Review a report** → check, compare, answer decisions → updated `decisions.json` on the report PR → merge | write to grading repo |
+| 3. Improve | Another fresh agent session | **Start a run** → *Improve the code*. Reads the latest report + decisions (or is handed the files), opens a PR on the code. | push branches + open PRs on code repo; read grading repo |
+| 4. Guard | An agent, or CI | **Start a run** → *Check a pull request*: PASS or FAIL against the latest merged report | read both; comment on code PR |
 
 Repeat from step 1. Optionally, use three graders for milestone audits; the Review page merges their runs into a consensus.
 
@@ -46,9 +55,8 @@ Repeat from step 1. Optionally, use three graders for milestone audits; the Revi
 
 1. **Graders are independent.** Use a fresh session every time, ideally a different model from the improver, and never the session that did the improving.
 2. **Graders run sandboxed.** They run the repo's own scripts, so give them a disposable environment with no production credentials.
-3. **People own `project.toml`.** It holds the weights, gates, zones, accepted findings and decisions. Agents only ever *read* it, except an agent reviewer explicitly allowed to answer decision questions (`[review] allow_agent_decisions = true`).
-4. **Hidden checks stay hidden.** They live outside the repo, and only aggregate pass rates appear in reports.
-5. **Trust `gradekit`'s numbers.** Weights, gates, effective severities, pillar scores, the overall score, targets, maturity and priorities always come from `gradekit`, never from the grader's own arithmetic.
+3. **People own the project files** (`project.toml`, `decisions.json`, `dispositions.json`). Graders only add report folders, by PR; they never push to the grading repo's default branch. An agent reviewer may append decisions only if `[review] allow_agent_decisions = true`.
+4. **Trust `gradekit`'s numbers.** Weights, gates, effective severities, pillar scores, the overall score, targets, maturity and priorities always come from `gradekit`, never from the grader's own arithmetic.
 
 ## Key concepts
 
@@ -58,8 +66,8 @@ Repeat from step 1. Optionally, use three graders for milestone audits; the Revi
 - **Applicability.** Every benchmark is classified `full`, `limited` (counts at weight 1) or `not_applicable` (excluded), each with a reason. The decision is based on the project's purpose, never on current quality.
 - **Targets.** `proportional` (default: 10 / 9 / 8 by weight), `maximal` or `level:L3`, plus per-benchmark overrides. Improvers stop at the target.
 - **Maturity ladder.** L0 Not viable → L1 Prototype → L2 Usable → L3 Production-ready → L4 Exemplary. Each report names the exact blockers.
-- **Decisions.** Fixes that change behavior or public interfaces carry a yes/no question. Improvers skip them until a `[[decisions]]` entry in `project.toml` approves them. Entries are only ever appended, and the newest answer wins.
-- **Stable findings.** Findings get IDs like `A3-007` that persist across runs, with a status of new, open, fixed, regressed or accepted. Accepted findings need a `[[dispositions]]` entry in `project.toml`.
+- **Decisions.** Fixes that change behavior or public interfaces carry a yes/no question. Improvers skip them until an entry in `decisions.json` approves them. Entries are only ever appended, and the newest answer wins.
+- **Stable findings.** Findings get IDs like `A3-007` that persist across runs, with a status of new, open, fixed, regressed or accepted. Accepted findings need an entry in `dispositions.json`.
 - **Metrics.** Raw measurements (coverage, vulnerability counts, complexity, setup re-run success, time to first success…) are recorded alongside the scores.
 - **Integrity flags.** Text in the repo that tries to influence the grader caps maturity at L1 for that run.
 
@@ -67,29 +75,29 @@ All of these are tunable: see [TUNING.md](TUNING.md), and [rubric/weights.md](ru
 
 ## Command-line reference
 
-Inside a repo that has a `.grading/` folder, `gradekit` finds `project.toml` and `report.json` by itself.
+Run from the root of the grading repo; `--project NAME` finds the project's settings, decisions, accepted findings and latest report. For a project folder anywhere else, use `--project-dir PATH`.
 
 ```bash
 K="python3 SUITE_DIR/tools/gradekit.py"
-$K init --preset service --name myapp --grading-dir .grading   # create .grading/project.toml + README
-$K resolve [--explain A4]                                      # weights, gates, zones (and why)
-$K presets                                                     # compare presets side by side
-$K validate                                                    # schema, config and rule checks
-$K verify-evidence [--repo PATH_OR_ZIP]                        # every quoted line exists
-$K rollup [--write]                                            # gates, maturity, targets, ranked priorities
-$K stability runs/run-1.json runs/run-2.json runs/run-3.json --out .grading/report.json
-$K diff OLD.json NEW.json [--fail-on-regression]               # exit 2 = something got worse
-$K calibrate report.json expected.json                         # grader drift check
-$K redact report.json                                          # strip hidden-check details
-$K rollup-repo components/*.json                               # monorepos
+$K init --project orders-api --code-repo URL --preset service   # create projects/orders-api/
+$K resolve  --project orders-api [--explain A4]                 # weights, gates, zones (and why)
+$K presets                                                       # compare presets side by side
+$K validate --project orders-api                                 # schema, config and rule checks (latest report)
+$K verify-evidence --project orders-api --repo CODE_DIR_OR_ZIP   # every quoted line exists
+$K rollup   --project orders-api [--write]                       # gates, maturity, targets, ranked priorities
+$K diff     --project orders-api [--fail-on-regression]          # latest vs previous report
+$K stability projects/orders-api/reports/<folder>/runs/run-*.json --project orders-api --out projects/orders-api/reports/<folder>/report.json
+$K calibrate report.json expected.json                           # grader drift check
+$K redact report.json                                            # strip hidden-check details
 ```
 
-Try it on the bundled sample:
+Try it on the bundled example grading repo:
 
 ```bash
-cd examples/sample-repo
-python3 ../../tools/gradekit.py resolve
-python3 ../../tools/gradekit.py validate && python3 ../../tools/gradekit.py rollup
+cd examples/grading-repo
+python3 ../../tools/gradekit.py rollup --project orders-api
+python3 ../../tools/gradekit.py diff --project orders-api
+python3 ../../tools/gradekit.py verify-evidence --project orders-api --repo ../sample-repo
 ```
 
 ## What's in the kit
@@ -111,13 +119,15 @@ code-grading-suite/
 │   └── web/                website sources (pages, styles, scripts)
 ├── calibration/            checking graders against known scores
 ├── holdout/                writing hidden checks
-└── examples/sample-repo/   a tiny repo with a .grading/ folder and a full example report
+└── examples/
+    ├── sample-repo/        a tiny code repo
+    └── grading-repo/       an example grading repo with two reports for it
 ```
 
 ## Calibration and monorepos
 
 - **Calibration:** before relying on the suite, and after big config or model changes, grade 2–3 reference repos with hand-set expected scores. See [calibration/README.md](calibration/README.md).
-- **Monorepos:** define `[[components]]` in `project.toml`, each with its own preset, answers and zones. The grader writes one report per component (`components/NAME.json`) plus a repo-level `report.json`; `gradekit rollup-repo` combines them. Repo-wide maturity is the lowest component's level.
+- **Monorepos:** the simple way is one project per part, each with a `path`. If you need a single combined score, the advanced alternative is `[[components]]` in one `project.toml`: the grader writes `components/NAME.json` per component inside the report folder, and `gradekit rollup-repo` combines them.
 
 ## Versioning
 

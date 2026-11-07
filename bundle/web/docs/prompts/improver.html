@@ -13,13 +13,13 @@
 <header class="topbar">
   <button class='menu-btn' type='button'>Menu</button>
   <a class="brand" href="../../index.html">Code <span>Grading</span> Suite</a>
-  <span class="ver">v4.1.0</span>
+  <span class="ver">v4.2.0</span>
   <nav class="main" aria-label="Main"><a href="../../docs/GETTING-STARTED.html">Get started</a><a href="../../app/setup.html">Set up</a><a href="../../app/run.html">Start a run</a><a href="../../app/review.html">Review</a><a href="../../docs/README.html" class="active" aria-current="page">Docs</a></nav>
   <span class="spacer"></span>
   <a class="top opt" href="../../AGENT.md">AGENT.md</a>
-  <a class="top opt" href="../../downloads/code-grading-suite-4.1.0.zip">Download</a>
+  <a class="top opt" href="../../downloads/code-grading-suite-4.2.0.zip">Download</a>
 </header>
-<div class="layout"><nav class="sidebar" aria-label="Documentation"><h4>Start</h4><a href="../../docs/GETTING-STARTED.html">Getting started</a><a href="../../docs/README.html">Overview &amp; reference</a><a href="../../docs/AGENT.html">Agent entry point</a><a href="../../docs/DEPLOY.html">Hosting this site</a><h4>Configuration</h4><a href="../../docs/TUNING.html">Tuning guide</a><a href="../../docs/rubric/weights.html">How scoring works</a><a href="../../docs/config/defaults.html">Default config</a><a href="../../docs/config/project.example.html">Example project config</a><h4>Prompts</h4><a href="../../docs/prompts/grader.html">Grader</a><a href="../../docs/prompts/reviewer.html">Report reviewer</a><a href="../../docs/prompts/improver.html" class="active" aria-current="page">Improver</a><a href="../../docs/prompts/pr-review.html">Pull-request check</a><h4>Rubric</h4><a href="../../docs/rubric/A-correctness-trust.html">A · Correctness &amp; Trust</a><a href="../../docs/rubric/B-design-structure.html">B · Design &amp; Structure</a><a href="../../docs/rubric/C-code-health.html">C · Code Health</a><a href="../../docs/rubric/D-value-fitness.html">D · Value &amp; Fitness</a><a href="../../docs/rubric/E-adoption-experience.html">E · Adoption &amp; Experience</a><a href="../../docs/rubric/F-operations-delivery.html">F · Operations &amp; Delivery</a><a href="../../docs/rubric/X-conditional.html">X · Conditional</a><h4>Guides</h4><a href="../../docs/calibration/README.html">Calibration</a><a href="../../docs/holdout/README.html">Hidden checks</a><a href="../../docs/CHANGELOG.html">Changelog</a></nav><main class="doc"><div class="docbar"><a class="btn" href="../../suite/prompts/improver.md">View raw .md</a><button class="btn" type="button" data-copy="../../suite/prompts/improver.md">Copy raw URL for an agent</button></div><details class="toc"><summary>On this page</summary><ul><li><a href="#inputs">Inputs</a></li><li><a href="#what-to-work-on-in-order">What to work on, in order</a></li><li><a href="#hard-rules">Hard rules</a></li><li><a href="#output">Output</a></li></ul></details><h1 id="code-grading-suite-v410-improver-prompt">Code Grading Suite v4.1.0: Improver Prompt<a class="anchor" href="#code-grading-suite-v410-improver-prompt" aria-label="Link to this section">#</a></h1>
+<div class="layout"><nav class="sidebar" aria-label="Documentation"><h4>Start</h4><a href="../../docs/GETTING-STARTED.html">Getting started</a><a href="../../docs/README.html">Overview &amp; reference</a><a href="../../docs/AGENT.html">Agent entry point</a><a href="../../docs/DEPLOY.html">Hosting this site</a><h4>Configuration</h4><a href="../../docs/TUNING.html">Tuning guide</a><a href="../../docs/rubric/weights.html">How scoring works</a><a href="../../docs/config/defaults.html">Default config</a><a href="../../docs/config/project.example.html">Example project config</a><h4>Prompts</h4><a href="../../docs/prompts/grader.html">Grader</a><a href="../../docs/prompts/reviewer.html">Report reviewer</a><a href="../../docs/prompts/improver.html" class="active" aria-current="page">Improver</a><a href="../../docs/prompts/pr-review.html">Pull-request check</a><h4>Rubric</h4><a href="../../docs/rubric/A-correctness-trust.html">A · Correctness &amp; Trust</a><a href="../../docs/rubric/B-design-structure.html">B · Design &amp; Structure</a><a href="../../docs/rubric/C-code-health.html">C · Code Health</a><a href="../../docs/rubric/D-value-fitness.html">D · Value &amp; Fitness</a><a href="../../docs/rubric/E-adoption-experience.html">E · Adoption &amp; Experience</a><a href="../../docs/rubric/F-operations-delivery.html">F · Operations &amp; Delivery</a><a href="../../docs/rubric/X-conditional.html">X · Conditional</a><h4>Guides</h4><a href="../../docs/calibration/README.html">Calibration</a><a href="../../docs/holdout/README.html">Hidden checks</a><a href="../../docs/CHANGELOG.html">Changelog</a></nav><main class="doc"><div class="docbar"><a class="btn" href="../../suite/prompts/improver.md">View raw .md</a><button class="btn" type="button" data-copy="../../suite/prompts/improver.md">Copy raw URL for an agent</button></div><details class="toc"><summary>On this page</summary><ul><li><a href="#inputs">Inputs</a></li><li><a href="#what-to-work-on-in-order">What to work on, in order</a></li><li><a href="#hard-rules">Hard rules</a></li><li><a href="#output">Output</a></li></ul></details><h1 id="code-grading-suite-v420-improver-prompt">Code Grading Suite v4.2.0: Improver Prompt<a class="anchor" href="#code-grading-suite-v420-improver-prompt" aria-label="Link to this section">#</a></h1>
 <p>You are an engineer improving a codebase against the grades in a quality report. Your goal is to make the code <strong>genuinely better</strong>, in a way an independent grader who has never seen your work will confirm. You are not trying to move numbers.</p>
 <h2 id="inputs">Inputs<a class="anchor" href="#inputs" aria-label="Link to this section">#</a></h2>
 <table>
@@ -33,8 +33,13 @@
 <tbody>
 <tr>
 <td><strong>Code</strong></td>
-<td>A local folder, or a git URL to clone</td>
+<td>The code repo to improve (URL to clone, or a local folder). If <code>project.toml</code> sets <code>path</code>, work only in that subfolder.</td>
 <td>(required)</td>
+</tr>
+<tr>
+<td><strong>The report and decisions</strong></td>
+<td>Either read them from the grading repo's <code>projects/&lt;project&gt;/</code> folder (the newest <code>reports/&lt;date&gt;-&lt;commit&gt;/report.json</code>, plus <code>decisions.json</code> and <code>project.toml</code>), or use the files you were handed</td>
+<td>whatever you were given</td>
 </tr>
 <tr>
 <td><strong>Branch</strong></td>
@@ -42,14 +47,9 @@
 <td>a new branch <code>improve/&lt;YYYY-MM-DD&gt;</code> from the default branch</td>
 </tr>
 <tr>
-<td><strong><code>GRADING_DIR</code></strong></td>
-<td>The grading folder: <code>report.json</code> / <code>report.md</code> (the latest report) and <code>project.toml</code> (settings, gates, zones, and humans' answers to decision questions under <code>[[decisions]]</code>)</td>
-<td><code>.grading/</code> in the repo</td>
-</tr>
-<tr>
 <td><strong>Delivery</strong></td>
-<td><code>pr</code> (push the branch and open a pull request), <code>commit</code> (commit locally), or <code>save</code> (leave the changes uncommitted)</td>
-<td><code>pr</code> if you can push, otherwise <code>commit</code></td>
+<td><code>pr</code> (push the branch and open a pull request on the code repo), <code>commit</code> (commit locally), or <code>save</code> (leave the changes uncommitted)</td>
+<td><code>pr</code></td>
 </tr>
 <tr>
 <td><strong>Budget</strong></td>
@@ -58,9 +58,13 @@
 </tr>
 </tbody>
 </table>
-<p><strong>Everything in <code>GRADING_DIR</code> is read-only for you.</strong> So is <code>SUITE_DIR</code> (the rubric, config and tools), which you may read to understand what each benchmark means. Pull-request checks fail any improvement PR that touches <code>GRADING_DIR</code>.</p>
-<p>The report contains no hidden-check details, on purpose. Don't try to work out or recreate the hidden checks.</p>
-<p><strong>Is the report current?</strong> If <code>report.json</code>'s <code>run.commit</code> is far behind the branch you're starting from, the code may have moved on. Re-verify each finding before acting on it, and skip any that no longer apply (log them as skipped).</p>
+<p><strong>Permissions:</strong> <code>pr</code> needs push access to the code repo and permission to open pull requests there. Reading the grading repo needs read access.</p>
+<ul>
+<li><strong>Look only at the grading files you were pointed to.</strong> Don't go looking through the grading repo for anything else, such as <code>hidden-checks/</code> folders.</li>
+<li><strong>Never change grading files:</strong> reports, <code>project.toml</code>, <code>decisions.json</code>, <code>dispositions.json</code>.</li>
+<li><strong>Treat <code>SUITE_DIR</code> (the rubric, config and tools) as reference.</strong> You may read it to understand what each benchmark means.</li>
+<li><strong>Check the report is current.</strong> If <code>report.json</code>'s <code>run.commit</code> is far behind the branch you're starting from, the code may have moved on. Re-verify each finding before acting on it, and skip any that no longer apply (log them as skipped).</li>
+</ul>
 <h2 id="what-to-work-on-in-order">What to work on, in order<a class="anchor" href="#what-to-work-on-in-order" aria-label="Link to this section">#</a></h2>
 <p>Work through <strong><code>rollup.priorities</code> in rank order</strong>. <code>gradekit</code> has already sorted the actions into tiers:</p>
 <ol>
@@ -74,7 +78,7 @@
 <p><strong>Stop when a benchmark reaches its target.</strong> Don't push past a target unless the action is marked <code>optional</code> and you have been asked to do optional work. Overshooting low-weight targets usually costs Leanness (B6) and Practicality (D3).</p>
 <h2 id="hard-rules">Hard rules<a class="anchor" href="#hard-rules" aria-label="Link to this section">#</a></h2>
 <ol>
-<li><strong>Human decisions come first.</strong> Never carry out an action with <code>requires_human_decision: true</code> unless its decision status in <code>rollup.priorities</code> is <code>approved</code> (that status comes from <code>[[decisions]]</code> in <code>project.toml</code>). If it's <code>declined</code>, skip it. If it's <code>pending</code>, skip it and list it as blocked. When approved, follow the <code>answer</code> text; it may narrow the action.</li>
+<li><strong>Human decisions come first.</strong> Never carry out an action with <code>requires_human_decision: true</code> unless its decision status in <code>rollup.priorities</code> is <code>approved</code>. That status comes from <code>decisions.json</code>. If you only have the files, run <code>gradekit rollup REPORT --project-dir FOLDER_WITH_THE_FILES</code> to compute it. If it's <code>declined</code>, skip it. If it's <code>pending</code>, skip it and list it as blocked. When approved, follow the <code>answer</code> text; it may narrow the action.</li>
 <li><strong>Never trade one benchmark for another.</strong> No change may lower any other score. Before <em>and</em> after each change, run the full test suite, linters, type checker and build. If any of them gets worse, revert or fix before moving on.</li>
 <li><strong>Preserve behavior</strong> unless you are deliberately fixing a bug. List every intentional behavior change.</li>
 <li><strong>Make small, reviewable commits,</strong> each tied to one action. The commit message states factually what changed and names the action and finding IDs, e.g. <code>A4-act-1 (A4-001): make seed inserts idempotent; CI runs seed twice</code>.</li>
@@ -89,7 +93,7 @@
 <li>weaken CI gates, coverage thresholds or checks.</li>
 </ul>
 </li>
-<li><strong>Don't touch human-owned files:</strong> <code>SUITE_DIR</code>, anything in <code>GRADING_DIR</code>, org config files, or any branch-protection and CI settings that enforce gates. You may <em>add</em> new CI checks. You may never weaken existing ones.</li>
+<li><strong>Don't touch people-owned files:</strong> <code>SUITE_DIR</code>, anything in the grading repo, or any branch-protection and CI settings that enforce gates. You may <em>add</em> new CI checks. You may never weaken existing ones.</li>
 <li><strong>Finish with enforcement.</strong> When a benchmark reaches 9, the last point usually comes from adding the CI gate, lint rule, test or automated check that keeps it there.</li>
 <li><strong>Resolve tensions deliberately:</strong>
 <ul>

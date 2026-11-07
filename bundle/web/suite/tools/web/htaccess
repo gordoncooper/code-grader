@@ -6,6 +6,8 @@ AddType "application/json; charset=utf-8" .json
 AddType "text/css; charset=utf-8" .css
 AddType "application/javascript; charset=utf-8" .js
 AddType application/zip .zip
+AddType application/wasm .wasm
+AddType "application/javascript; charset=utf-8" .mjs
 AddType "image/svg+xml" .svg
 <IfModule mod_headers.c>
   Header set X-Content-Type-Options "nosniff"

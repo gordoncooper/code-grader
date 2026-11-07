@@ -18,7 +18,7 @@ gradekit resolve --config org.toml --config project.toml --explain F3 # why F3 h
 gradekit presets --config org.toml                                    # all presets side by side, with your org rules
 ```
 
-**Org and project configs are owned by people.** `project.toml` normally lives in the repo's `.grading/` folder, protected by CODEOWNERS; the pull-request check fails any improvement PR that changes it. For the strictest setup, keep it in a separate private repo instead.
+**Org and project configs are owned by people.** They live in your grading repo: `org.toml` at the root, and `project.toml` in each project's folder (`projects/<name>/`). Agents read them but never change them. Change them between grading runs rather than during one.
 
 ## Start a project in one minute
 
@@ -26,8 +26,8 @@ The easiest way is the website's **Set up a project** page: pick a preset, answe
 
 ```bash
 python3 SUITE_DIR/tools/gradekit.py init --preset service --name orders-api \
-    --answer data_sensitivity=financial --grading-dir .grading
-python3 SUITE_DIR/tools/gradekit.py resolve
+    --answer data_sensitivity=financial --project orders-api   # run from the grading repo root
+python3 SUITE_DIR/tools/gradekit.py resolve --project orders-api
 ```
 
 `init` writes a commented `project.toml` with every question answered, from the preset plus any `--answer` flags. Edit the file, re-run `resolve`, and check that the weights and gates look right before grading. `config/project.example.toml` is a fully filled-in example.
@@ -121,32 +121,50 @@ answers = { delivery = "service", failure_impact = "revenue_loss", data_sensitiv
 ```
 
 ### 8. Accepted findings and decisions (per project)
-These also live in `project.toml`, so one file holds everything people decide. Both are **append-only**: add new entries at the end and never edit old ones. For decisions, the newest answer to a question wins.
+These live in two files next to `project.toml`. Both are **append-only**: add new entries at the end and never edit old ones. For decisions, the newest answer to a question wins.
 
-```toml
-[[dispositions]]                 # a finding you accept as-is; it stops lowering the score
-finding_id = "B5-001"
-decision   = "won't fix"
-reason     = "One payment provider is a deliberate constraint through 2027"
-decided_by = "jane@example.com"
-date       = "2026-11-07"
+`dispositions.json`: findings you accept as-is. They stop lowering the score.
 
-[[decisions]]                    # an answer to a report's decision question
-action_id  = "D1-act-1"
-question   = "Implement CSV and XLSX export, or drop the export claim from the README?"
-approved   = true
-answer     = "Implement CSV only; remove XLSX from the README."
-decided_by = "jane@example.com"
-date       = "2026-11-07"
+```json
+{
+  "dispositions": [
+    {"finding_id": "B5-001", "decision": "won't fix",
+     "reason": "One payment provider is a deliberate constraint through 2027",
+     "decided_by": "jane@example.com", "date": "2026-11-07"}
+  ]
+}
 ```
 
-The **Review a report** page writes `[[decisions]]` blocks for you. Adding dispositions or decisions doesn't change the config fingerprint, so reports stay comparable.
+`decisions.json`: answers to a report's decision questions.
 
-To let agent reviewers approve decision questions (the default is humans only):
+```json
+{
+  "decisions": [
+    {"action_id": "D1-act-1",
+     "question": "Implement CSV and XLSX export, or drop the export claim from the README?",
+     "approved": true, "answer": "Implement CSV only; remove XLSX from the README.",
+     "decided_by": "jane@example.com", "date": "2026-11-07"}
+  ]
+}
+```
+
+The **Review a report** page writes the updated `decisions.json` for you. Neither file affects the config fingerprint, so reports stay comparable.
+
+To let agent reviewers approve decision questions (the default is people only), set this in `project.toml`:
 
 ```toml
 [review]
 allow_agent_decisions = true
+```
+
+### 9. Monorepos
+Give each part its own project, with a `path` naming its subfolder:
+
+```toml
+[project]
+name      = "shop-web"
+code_repo = "https://github.com/acme/shop"
+path      = "apps/web"
 ```
 
 ## Good habits

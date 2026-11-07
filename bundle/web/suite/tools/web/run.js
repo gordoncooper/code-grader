@@ -5,46 +5,50 @@
   var SITE = new URL("../", document.currentScript.src).href;
 
   var ROLES = {
-    grade:   { title: "Grade the code", who: "GRADER", desc: "A full, read-only audit that produces report.json and report.md.", file: "prompts/grader.md" },
+    grade:   { title: "Grade the code", who: "GRADER", desc: "A full, read-only audit. Adds one dated report folder for the project.", file: "prompts/grader.md" },
     review:  { title: "Review a report", who: "REPORT REVIEWER", desc: "An agent checks a grader's report and prepares the decision questions. People can use the Review page instead.", file: "prompts/reviewer.md" },
     improve: { title: "Improve the code", who: "IMPROVER", desc: "Works down the report's ranked priorities and stops at each benchmark's target.", file: "prompts/improver.md" },
-    prcheck: { title: "Check a pull request", who: "PULL-REQUEST REVIEWER", desc: "Re-grades only what a change touches and returns PASS or FAIL.", file: "prompts/pr-review.md" }
+    prcheck: { title: "Check a pull request", who: "PULL-REQUEST REVIEWER", desc: "Re-grades only what a code change touches and returns PASS or FAIL.", file: "prompts/pr-review.md" }
   };
+  // [title, description, permissions]
   var DELIVERY = {
     grade: {
-      pr: ["Open a pull request", "Adds only the two report files on a new branch. You answer decision questions on that PR, and merging it closes the cycle."],
-      commit: ["Commit to the current branch", "Good for a local agent on your own branch."],
-      save: ["Just save the files", "Writes report.json and report.md into the grading folder. No git."],
-      "return": ["Give them back in the chat", "For repos the agent can't write to, such as someone else's public repo."]
+      pr: ["Open a pull request", "Adds only the new report folder to the grading repo, on its own branch. You answer decisions on that PR and merge it.", "push branches and open PRs on the grading repo"],
+      save: ["Save the files locally", "Writes the report folder into the project folder. No git.", "write access to that folder"],
+      "return": ["Give them back in the chat", "For when the agent can't write anywhere; you save the files.", "none beyond reading the code"]
     },
     review: {
-      pr: ["Work on the grader's pull request", "Posts its check as a PR comment, and commits decisions there only if agents are allowed to decide."],
-      commit: ["Commit locally", "Any decisions it's allowed to make go into project.toml on your branch."],
-      save: ["Edit files without git", ""],
-      "return": ["Give everything back in the chat", "You paste anything you want to keep."]
+      pr: ["Work on the report's pull request", "Comments with its check; commits decisions to the PR only if agents may decide.", "comment on and push to the report PR"],
+      followup: ["Open a follow-up decisions PR", "For a report that's already merged.", "push branches and open PRs on the grading repo"],
+      save: ["Edit local files", "", "write access to the project folder"],
+      "return": ["Give everything back in the chat", "You paste anything you want to keep.", "none"]
     },
     improve: {
-      pr: ["Open a pull request", "Pushes a branch and opens a PR with an improvement log in the description."],
-      commit: ["Commit locally", "Commits on a local branch, without pushing."],
-      save: ["Leave the changes uncommitted", "You review the working tree yourself."]
+      pr: ["Open a pull request", "Pushes a branch and opens a PR on the code repo, with an improvement log.", "push branches and open PRs on the code repo"],
+      commit: ["Commit locally", "Commits on a local branch, without pushing.", "a local clone"],
+      save: ["Leave the changes uncommitted", "You review the working tree yourself.", "a local clone"]
     },
     prcheck: {
-      comment: ["Comment on the pull request", "Posts PASS or FAIL with a short summary."],
-      save: ["Save the results", "Writes pr-report.json and pr-comment.md outside the repo."],
-      "return": ["Give results back in the chat", ""]
+      comment: ["Comment on the pull request", "Posts PASS or FAIL with a short summary.", "comment on the code repo's PRs"],
+      save: ["Save the results", "Writes pr-report.json and pr-comment.md to a folder.", "write access to that folder"],
+      "return": ["Give results back in the chat", "", "none"]
     }
   };
 
-  var s = Object.assign({ role: "grade", where: "cloud", code: "url", codeLoc: "", gdir: "repo", gdirLoc: ".grading/", suite: "site", suiteLoc: "",
-                          delivery: null, commit: "", runs: "1", hidden: "", org: "", reportLoc: "", guidance: "", budget: "tier01", branch: "", pr: "" },
-                        UI.store.get("run", {}));
+  var s = Object.assign({ role: "grade", where: "cloud", code: "url", codeLoc: "", gdir: "repo", gdirRepo: "", gdirLocal: "", project: "", projectAuto: true,
+                          suite: "site", suiteLoc: "", delivery: null, commit: "", runs: "1", reportLoc: "", guidance: "",
+                          budget: "tier01", branch: "", pr: "", improveSource: "repo" },
+                        UI.store.get("run2", {}));
   var promptTab = 1;
 
   function today() { return new Date().toISOString().slice(0, 10); }
+  function slugName(v) { return String(v || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, ""); }
+  function repoName(url) { var m = String(url || "").trim().replace(/\.git$/, "").replace(/\/+$/, "").match(/([^\/:\\]+)$/); return m ? slugName(m[1]) : ""; }
+  function project() { return slugName(s.project) || "<project>"; }
   function recommended(role) {
-    var git = s.code === "url";
-    return { grade: git ? "pr" : (s.where === "local" ? "save" : "return"), review: git ? "pr" : "return",
-             improve: git ? "pr" : "commit", prcheck: git ? "comment" : "return" }[role];
+    var repo = s.gdir === "repo";
+    return { grade: repo ? "pr" : "save", review: repo ? "pr" : "return", improve: s.code === "url" ? "pr" : "commit",
+             prcheck: s.code === "url" ? "comment" : "return" }[role];
   }
 
   function renderRoles() {
@@ -58,18 +62,25 @@
 
   function renderDelivery() {
     var box = UI.clear($("#delivery"));
-    var opts = DELIVERY[s.role];
-    var rec = recommended(s.role);
+    var opts = DELIVERY[s.role], rec = recommended(s.role);
     if (!s.delivery || !opts[s.delivery]) s.delivery = rec;
     Object.keys(opts).forEach(function (k) {
       var r = h("input", { type: "radio", name: "delivery", value: k }); r.checked = s.delivery === k;
       r.addEventListener("change", function () { s.delivery = k; update(); });
-      box.appendChild(h("label", { class: "choice" }, r, k === rec ? h("span", { class: "tag" }, "Suggested") : null, h("b", null, opts[k][0]), h("span", null, opts[k][1])));
+      box.appendChild(h("label", { class: "choice" }, r, k === rec ? h("span", { class: "tag" }, "Suggested") : null,
+        h("b", null, opts[k][0]), opts[k][1] ? h("span", null, opts[k][1]) : null, h("span", { style: "margin-top:4px;font-size:.76rem" }, "Needs: " + opts[k][2])));
     });
   }
 
   function field(label, input, hint) { return h("div", { class: "field" }, h("label", null, label, input), hint ? h("small", null, hint) : null); }
   function bindInput(el, key) { el.value = s[key] || ""; el.addEventListener("input", function () { s[key] = el.value; update(); }); return el; }
+  function seg(name, key, opts) {
+    return h("div", { class: "seg", role: "radiogroup" }, opts.map(function (o) {
+      var r = h("input", { type: "radio", name: name, value: o[0] }); r.checked = s[key] === o[0];
+      r.addEventListener("change", function () { s[key] = o[0]; update(); });
+      return h("label", null, r, h("span", null, o[1]));
+    }));
+  }
 
   function renderExtras() {
     var box = UI.clear($("#extras"));
@@ -78,21 +89,20 @@
       var runs = h("select", null, h("option", { value: "1" }, "One grader (most cycles)"), h("option", { value: "3" }, "Three independent graders (milestones)"));
       runs.value = s.runs; runs.addEventListener("change", function () { s.runs = runs.value; promptTab = 1; update(); });
       box.appendChild(field("How many graders? ", runs, "Three graders take the median and flag benchmarks where they disagree. You'll get three prompts; run each in its own fresh session."));
-      box.appendChild(field("Hidden checks (optional) ", bindInput(h("input", { type: "text", placeholder: "Private folder or repo only graders can reach" }), "hidden"),
-        "Never inside the code repo. Results stay next to the checks; the report only shows the pass rate."));
-      box.appendChild(field("Organization rules (optional) ", bindInput(h("input", { type: "text", placeholder: "Path or URL of org.toml" }), "org")));
     } else if (s.role === "review") {
-      box.appendChild(field("Which report? ", bindInput(h("input", { type: "text", placeholder: "PR URL, branch name, or leave empty for the open grading PR" }), "reportLoc")));
+      box.appendChild(field("Which report? ", bindInput(h("input", { type: "text", placeholder: "The report PR's URL, or leave empty for the latest report" }), "reportLoc")));
       box.appendChild(field("Guidance for decisions (optional) ", bindInput(h("textarea", { rows: "3", placeholder: "e.g. Recommend yes for anything that doesn't change a public API." }), "guidance"),
         "The agent only approves decisions if project.toml allows agent decisions. Otherwise it writes recommendations for you."));
     } else if (s.role === "improve") {
+      box.appendChild(h("div", { class: "field" }, h("span", { class: "label" }, "How does it get the report?"),
+        seg("isrc", "improveSource", [["repo", "It reads it from the grading repo"], ["files", "I'll hand it the files"]]),
+        h("small", null, "Either way, it only looks at the files it's pointed to.")));
       var budget = h("select", null, h("option", { value: "tier01" }, "Fix-first and next-level items (tiers 0–1)"), h("option", { value: "top5" }, "The top 5 priorities"), h("option", { value: "all" }, "Everything below target"));
       budget.value = s.budget; budget.addEventListener("change", function () { s.budget = budget.value; update(); });
       box.appendChild(field("How much? ", budget, "Smaller batches are easier to review."));
       box.appendChild(field("Branch name (optional) ", bindInput(h("input", { type: "text", placeholder: "improve/" + today() }), "branch")));
     } else {
-      box.appendChild(field("Pull request ", bindInput(h("input", { type: "text", placeholder: "https://github.com/you/repo/pull/123, or two commits like main..my-branch" }), "pr")));
-      box.appendChild(field("Hidden checks (optional) ", bindInput(h("input", { type: "text", placeholder: "Private folder or repo only graders can reach" }), "hidden")));
+      box.appendChild(field("Pull request ", bindInput(h("input", { type: "text", placeholder: "https://github.com/acme/orders-api/pull/123, or main..my-branch" }), "pr")));
     }
   }
 
@@ -102,13 +112,15 @@
     return ["Suite: open " + SITE + "AGENT.md and follow it to download and verify the Code Grading Suite.",
             "Then read suite/" + ROLES[s.role].file + " completely and follow it exactly."];
   }
-
   function codeLine() {
-    var loc = s.codeLoc || (s.code === "url" ? "<repository URL>" : "<folder path>");
-    return s.code === "url" ? "Code: " + loc + " (clone it into a fresh working copy)" : "Code: the folder " + loc;
+    var loc = s.codeLoc || (s.code === "url" ? "<code repository URL>" : "<code folder>");
+    return "Code: " + loc + (s.code === "url" ? " (clone it into a fresh working copy)" : "");
   }
-  function gdirLine() {
-    return "Grading folder (GRADING_DIR): " + (s.gdirLoc || ".grading/") + (s.gdir === "repo" ? " (inside the repo)" : " (separate from the code)");
+  function gdirLoc() { return s.gdir === "repo" ? s.gdirRepo : s.gdirLocal; }
+  function gradingLines() {
+    var loc = gdirLoc() || (s.gdir === "repo" ? "<grading repository URL>" : "<project folder>");
+    if (s.gdir === "repo") return ["Grading repo: " + loc, "Project: " + project() + " (folder projects/" + project() + "/)"];
+    return ["Project folder: " + loc + " (project.toml, decisions.json, dispositions.json, reports/)", "Project: " + project()];
   }
 
   function buildPrompt(run) {
@@ -117,71 +129,74 @@
     suiteLines().forEach(function (x) { L.push(x); });
     L.push("", "Inputs:");
     L.push("- " + codeLine());
-    L.push("- " + gdirLine());
+    var improverFiles = s.role === "improve" && s.improveSource === "files";
+    if (!improverFiles) gradingLines().forEach(function (x) { L.push("- " + x); });
     if (s.role === "grade") {
       L.push("- Commit to grade: " + (s.commit || "the latest commit on the default branch"));
-      if (s.org) L.push("- Organization config: " + s.org);
-      if (s.hidden) L.push("- Hidden checks: " + s.hidden + " (private: per-check results go next to the checks, never into the repo)");
-      L.push("- Runs: " + (s.runs === "3" ? run + " of 3. Grade independently and write runs/run-" + run + ".json and runs/run-" + run + ".md instead of report.*" : "1 of 1"));
+      L.push("- Runs: " + (s.runs === "3" ? run + " of 3. Grade independently and write runs/run-" + run + ".json and .md in the report folder instead of report.*" : "1 of 1"));
+      if (s.suite === "site") L.push("- Suite website (for the review link in the PR description): " + SITE);
     } else if (s.role === "review") {
-      L.push("- Report: " + (s.reportLoc || "the open grading pull request (branch grading/…)"));
+      L.push("- Report: " + (s.reportLoc || "the newest report in the project's reports/ folder"));
       if (s.guidance) L.push("- Guidance for decisions: " + s.guidance.replace(/\s+/g, " ").trim());
     } else if (s.role === "improve") {
+      if (improverFiles) L.push("- Report and decisions: the files I'm handing you (report.json, decisions.json, project.toml)");
+      else L.push("- Report and decisions: read the newest reports/<date>-<commit>/report.json, decisions.json and project.toml from projects/" + project() + "/. Don't look at anything else in the grading repo.");
       L.push("- Work on branch: " + (s.branch || "improve/" + today()));
       L.push("- Budget: " + { tier01: "all tier 0 and tier 1 actions", top5: "the top 5 priorities", all: "everything below target" }[s.budget]);
     } else {
       L.push("- Pull request: " + (s.pr || "<PR URL or BASE..HEAD>"));
-      if (s.hidden) L.push("- Hidden checks: " + s.hidden + " (private)");
     }
     var d = DELIVERY[s.role][s.delivery];
-    L.push("", "Delivery: " + s.delivery + " (" + d[0].toLowerCase() + ")");
+    L.push("", "Delivery: " + s.delivery + " (" + d[0].charAt(0).toLowerCase() + d[0].slice(1) + ")");
+    L.push("Permissions you'll need: " + d[2] + ".");
     L.push("");
-    if (s.role === "grade") L.push("Work in a fresh, disposable environment with no production credentials. Don't change the code, project.toml or anything else; only deliver the report files.");
-    if (s.role === "review") L.push("Don't change the code. Only touch project.toml as the reviewer prompt allows.");
-    if (s.role === "improve") L.push("Treat everything in the grading folder as read-only. Only act on decision questions that are approved in project.toml.");
-    if (s.role === "prcheck") L.push("Don't change the pull request. Use the grading folder as it is on the PR's base commit as the baseline.");
+    if (s.role === "grade") L.push("Work in a fresh, disposable environment with no production credentials. Don't change the code or any existing grading files; only add the new report folder." + (s.delivery === "pr" ? " Never push to the grading repo's default branch." : ""));
+    if (s.role === "review") L.push("Don't change the code. Only touch decisions.json as the reviewer prompt allows.");
+    if (s.role === "improve") L.push("Never change grading files. Only act on decision questions that are approved in decisions.json.");
+    if (s.role === "prcheck") L.push("Don't change the pull request. Use the newest merged report on the grading repo's default branch as the baseline.");
     return L.join("\n");
   }
 
   function nextSteps() {
-    var review = h("a", { href: "review.html" }, "Review a report");
+    var review = h("a", { href: "review.html" + (s.gdir === "repo" && s.gdirRepo ? "?repo=" + encodeURIComponent(s.gdirRepo) + "&project=" + encodeURIComponent(project()) : "") }, "Review a report");
     var setup = h("a", { href: "setup.html" }, "Set up a project");
     var steps = {
       grade: [
+        ["No project.toml for " + project() + " yet? Make one first with ", setup, "."],
         [s.runs === "3" ? "Start three separate, fresh agent sessions and paste one prompt into each." : "Start a fresh agent session and paste the prompt."],
-        s.runs === "3" ? ["When all three are done, open ", review, ", drop in the three run files, and save the consensus as report.json."] :
+        s.runs === "3" ? ["When all three are done, open ", review, ", load the project and use the consensus as report.json."] :
           ["When it's done, open ", review, " to read it and answer any decision questions."],
-        [s.delivery === "pr" ? "Paste your answers into .grading/project.toml on the same PR, then merge it." : "Add your answers to project.toml, wherever your grading folder lives."]
+        [s.delivery === "pr" ? "Commit your updated decisions.json to the same PR (the Review page shows how), then merge it." : "Save your updated decisions.json in the project folder."]
       ],
       review: [["Paste the prompt into an agent session."], ["Read its verdict and recommendations."], ["Answer the decision questions it lists, here or in ", review, "."]],
       improve: [
-        ["Make sure the report and your decisions are merged first."],
-        [s.where === "cloud" ? "Give this session access to the code repo only, not to wherever hidden checks live." : "Run it in a working copy of the repo."],
-        ["Review its pull request like any other. A pull-request check (role 4) shows whether anything got worse."]
+        ["Make sure the report is merged and your decisions are in decisions.json."],
+        [s.improveSource === "files" ? "Hand the agent report.json, decisions.json and project.toml along with the prompt." : "Give the session read access to the grading repo as well as the code repo."],
+        ["Review its pull request like any other. A pull-request check shows whether anything got worse."]
       ],
       prcheck: [["Paste the prompt into an agent session, or run it from CI."], ["FAIL means something got worse: read the regressions it lists before merging."]]
     }[s.role];
-    if (s.gdir === "repo" && s.role === "grade") steps.unshift(["No project.toml yet? Make one first with ", setup, "."]);
     var ol = UI.clear($("#next-steps"));
     steps.forEach(function (parts) { ol.appendChild(h("li", null, parts)); });
   }
 
   function update() {
-    UI.store.set("run", s);
+    UI.store.set("run2", s);
     var tabsEl = $("#prompt-tabs");
     var multi = s.role === "grade" && s.runs === "3";
     tabsEl.hidden = !multi;
     UI.clear(tabsEl);
-    if (multi) {
-      [1, 2, 3].forEach(function (n) {
-        var b = h("button", { type: "button", "aria-selected": String(n === promptTab) }, "Run " + n);
-        b.addEventListener("click", function () { promptTab = n; update(); });
-        tabsEl.appendChild(b);
-      });
-    }
+    if (multi) [1, 2, 3].forEach(function (n) {
+      var b = h("button", { type: "button", "aria-selected": String(n === promptTab) }, "Run " + n);
+      b.addEventListener("click", function () { promptTab = n; update(); });
+      tabsEl.appendChild(b);
+    });
     $("#prompt-out").textContent = buildPrompt(multi ? promptTab : 1);
-    $("#code-loc").placeholder = s.code === "url" ? "https://github.com/you/your-repo" : (s.where === "local" ? "~/code/your-repo" : "/workspace/your-repo");
-    $("#gdir-loc").placeholder = s.gdir === "repo" ? ".grading/" : "https://github.com/you/grading-ops or ~/grading/your-repo";
+    $("#code-loc").placeholder = s.code === "url" ? "https://github.com/acme/orders-api" : (s.where === "local" ? "~/code/orders-api" : "/workspace/orders-api");
+    $("#gdir-loc").placeholder = s.gdir === "repo" ? "https://github.com/acme/grading" : "~/grading/projects/orders-api";
+    $("#gdir-hint").textContent = s.gdir === "repo" ? "The central repo with a projects/ folder for every graded codebase." : "A project folder with project.toml, decisions.json, dispositions.json and reports/.";
+    $("#project-path").textContent = "projects/" + project() + "/";
+    if ($("#project-name").value !== s.project) $("#project-name").value = s.project;
     $("#suite-loc").hidden = s.suite !== "path";
     $("#suite-loc").placeholder = "~/code-grading-suite";
     nextSteps();
@@ -198,10 +213,21 @@
     renderRoles();
     bindSeg("where", "where", function () { s.delivery = null; renderDelivery(); });
     bindSeg("code", "code", function () { s.delivery = null; renderDelivery(); });
-    bindSeg("gdir", "gdir", function () { if (s.gdir === "repo" && !s.gdirLoc) s.gdirLoc = ".grading/"; if (s.gdir === "other" && s.gdirLoc === ".grading/") s.gdirLoc = ""; $("#gdir-loc").value = s.gdirLoc; });
+    bindSeg("gdir", "gdir", function () { s.delivery = null; renderDelivery(); $("#gdir-loc").value = gdirLoc() || ""; });
     bindSeg("suite", "suite");
-    bindInput($("#code-loc"), "codeLoc");
-    bindInput($("#gdir-loc"), "gdirLoc");
+    var code = $("#code-loc");
+    code.value = s.codeLoc || "";
+    code.addEventListener("input", function () {
+      s.codeLoc = code.value;
+      if (s.projectAuto) s.project = repoName(code.value);
+      update();
+    });
+    var pn = $("#project-name");
+    pn.value = s.project || "";
+    pn.addEventListener("input", function () { s.project = pn.value; s.projectAuto = !pn.value; update(); });
+    pn.addEventListener("change", function () { s.project = slugName(pn.value); pn.value = s.project; update(); });
+    var gl = $("#gdir-loc"); gl.value = gdirLoc() || "";
+    gl.addEventListener("input", function () { if (s.gdir === "repo") s.gdirRepo = gl.value; else s.gdirLocal = gl.value; update(); });
     bindInput($("#suite-loc"), "suiteLoc");
     renderDelivery(); renderExtras(); update();
     $("#copy-prompt").addEventListener("click", function () { UI.copyText($("#prompt-out").textContent); });

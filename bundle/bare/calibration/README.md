@@ -11,7 +11,7 @@ The rubric anchors are written in words, so different graders, or the same grade
 
 ```json
 {
-  "suite_version": "4.1.0",
+  "suite_version": "4.2.0",
   "reference": "payments-service @ 4f2a9c1",
   "criteria": {"within_tolerance_pct": 90, "mae_max": 0.75},
   "expected": {
