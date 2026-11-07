@@ -1,4 +1,35 @@
 {
   "_about": "Answers to decision questions from grading reports. Append new entries; never edit old ones. The newest answer to a question wins.",
-  "decisions": []
+  "decisions": [
+    {
+      "action_id": "A3-act-1",
+      "question": "Approve rescheduling a job's next run even when it raises, so a failing job retries at its next interval instead of on every tick?",
+      "approved": true,
+      "answer": "Yes, and log the exception at WARNING before re-raising.",
+      "decided_by": "gordon (via test agent)",
+      "date": "2026-11-07"
+    },
+    {
+      "action_id": "F6-act-3",
+      "question": "Approve dropping Python 3.7 and 3.8 support in the next minor release?",
+      "approved": true,
+      "decided_by": "gordon (via test agent)",
+      "date": "2026-11-07"
+    },
+    {
+      "action_id": "B2-act-1",
+      "question": "Approve deprecating the public module-level `schedule.jobs` list in favour of `schedule.get_jobs()`?",
+      "approved": true,
+      "answer": "Deprecate now, remove in 2.0.",
+      "decided_by": "gordon (via test agent)",
+      "date": "2026-11-07"
+    },
+    {
+      "action_id": "X2-act-1",
+      "question": "Approve declaring __all__ (it changes what `from schedule import *` exports)?",
+      "approved": false,
+      "decided_by": "gordon (via test agent)",
+      "date": "2026-11-07"
+    }
+  ]
 }
