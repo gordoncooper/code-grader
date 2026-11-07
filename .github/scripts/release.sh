@@ -4,8 +4,9 @@
 #
 # Which commit:
 #   TARGET set          that commit (any ref or SHA)
-#   push to main        the pushed commit (GITHUB_SHA)
-#   otherwise           the newest commit on the current branch that changed bundle/
+#   otherwise           the newest commit on main's first-parent line, up to the pushed commit,
+#                       that changed bundle/web/manifest.json (where the version lives). For a
+#                       bundle PR that's its merge commit; for other edits it's the last version's.
 #
 # Needs: git with full history and tags, python3, zip, gh (GH_TOKEN with contents: write).
 # DRY_RUN=1 prints what it would do instead of creating the release.
@@ -14,13 +15,9 @@ set -euo pipefail
 repo="${GITHUB_REPOSITORY:?GITHUB_REPOSITORY is not set}"
 target="${TARGET:-}"
 if [ -z "$target" ]; then
-  if [ "${GITHUB_EVENT_NAME:-}" = "push" ]; then
-    target="${GITHUB_SHA:?}"
-  else
-    target="$(git log -1 --first-parent --format=%H -- bundle/)"
-  fi
+  target="$(git log -1 --first-parent --format=%H "${GITHUB_SHA:-HEAD}" -- bundle/web/manifest.json)"
 fi
-[ -n "$target" ] || { echo "::notice::No commit has changed bundle/ yet; nothing to release."; exit 0; }
+[ -n "$target" ] || { echo "::notice::No bundle on this branch yet; nothing to release."; exit 0; }
 target="$(git rev-parse --verify "$target^{commit}")"
 
 if ! git cat-file -e "$target:bundle/web/manifest.json" 2>/dev/null || ! git cat-file -e "$target:bundle/bare/CHANGELOG.md" 2>/dev/null; then

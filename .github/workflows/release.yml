@@ -1,5 +1,6 @@
 # Tags and releases each suite version when its bundle PR merges.
 # The version comes from bundle/web/manifest.json (and must match the top of bundle/bare/CHANGELOG.md).
+# The tag goes on the commit that brought the version in (the bundle PR's merge commit).
 # Versions that are already tagged are skipped, so other changes to bundle/ don't release anything.
 #
 # To release a version by hand (for example one merged before this workflow existed):
@@ -13,7 +14,7 @@ on:
   workflow_dispatch:
     inputs:
       ref:
-        description: "Commit to release. Leave empty for the newest bundle change on main."
+        description: "Commit to release. Leave empty for the newest version on main."
         required: false
         default: ""
 

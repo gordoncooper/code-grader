@@ -33,4 +33,4 @@ Releases happen on their own. When a bundle PR merges, the *Release suite* workf
 
 Versions that are already tagged are skipped, so other edits under `bundle/` don't release anything.
 
-To release a version by hand, go to **Actions → Release suite → Run workflow**. Leave the commit empty to release the newest bundle on `main`.
+To release a version by hand, go to **Actions → Release suite → Run workflow**. Leave the commit empty to release the newest version on `main`.
