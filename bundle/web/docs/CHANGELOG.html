@@ -31,6 +31,7 @@
 <p>Patch release with no scoring changes. Config fingerprints and existing reports stay valid.</p>
 <ul>
 <li><strong>Review a report</strong> with a zip or folder no longer lists the suite's own example project. When you load a whole grading repo that also contains a copy of the suite (for example in <code>bundle/</code>), projects inside that copy are skipped. You still see the example if it's the only project there. <code>gradekit</code>'s <code>scan_zip</code> behaves the same way.</li>
+<li><strong>Fixed:</strong> a zip with several projects now shows the &quot;Pick one&quot; project picker. In 4.2.0 it was cleared as soon as it appeared, so nothing loaded.</li>
 <li><code>config/defaults.toml</code> keeps <code>suite_version = &quot;4.2.0&quot;</code>, now documented as the version of the scoring rules. It changes only with major or minor versions, so patch releases don't change config fingerprints.</li>
 <li>Generated <code>project.toml</code> headers and the website's info call report the kit version (4.2.1); the info call also returns <code>scoring_version</code>.</li>
 </ul>

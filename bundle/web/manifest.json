@@ -5,7 +5,7 @@
   "entry_point": "AGENT.md",
   "download": {
     "path": "downloads/code-grading-suite-4.2.1.zip",
-    "sha256": "99dda82194100121c36c364b788e2a5517b71ebaec0695a0f18cb92c5e3c2f44"
+    "sha256": "b5264c03e7ffae5ab26be7f72fb93d7dcdc791e100ad8819739115286b7de2c4"
   },
   "renderer": "markdown-it-py",
   "files": [
@@ -17,7 +17,7 @@
     {
       "path": "AGENT.md",
       "bytes": 6119,
-      "sha256": "371376142a298ab52d0a6bd474cbf1ff34cc84e2977d8676935a38cc51bff443"
+      "sha256": "780c97a169ce5fa915b662e491ead1c719a2a99d6f67d7e75541a399aa895d62"
     },
     {
       "path": "app/review.html",
@@ -82,12 +82,12 @@
     {
       "path": "docs/AGENT.html",
       "bytes": 12529,
-      "sha256": "0a6ad10b603b28a37ab7f38cb57c94337e8244df5216584cd2c80ea58c0942b0"
+      "sha256": "a8bccc48bae0649bcc23dd76ef6e37e36ed5da16a0edca9c8df30de8f2947a35"
     },
     {
       "path": "docs/CHANGELOG.html",
-      "bytes": 14343,
-      "sha256": "8fd40b0917f428f48922ecf42ab7517d4efc380f093d0437e33bb7013357ddbc"
+      "bytes": 14522,
+      "sha256": "eb21c51596e385ef9b494935c4466d91f14b886e6361679bd4a42aeaf98add5b"
     },
     {
       "path": "docs/DEPLOY.html",
@@ -191,13 +191,13 @@
     },
     {
       "path": "downloads/code-grading-suite-4.2.1.zip",
-      "bytes": 185308,
-      "sha256": "99dda82194100121c36c364b788e2a5517b71ebaec0695a0f18cb92c5e3c2f44"
+      "bytes": 185372,
+      "sha256": "b5264c03e7ffae5ab26be7f72fb93d7dcdc791e100ad8819739115286b7de2c4"
     },
     {
       "path": "index.html",
       "bytes": 11259,
-      "sha256": "9c4fcec84e6b2b418a9a62d3be7c47d3603e6b317720ca291e070dbe2a660ad7"
+      "sha256": "ae92af1dc5f11cfc7aea1a38ad59591f4112ab47ec48674e910f30ad2d143c5c"
     },
     {
       "path": "llms.txt",
@@ -206,8 +206,8 @@
     },
     {
       "path": "suite/CHANGELOG.md",
-      "bytes": 8136,
-      "sha256": "1e8d325238a319789653583a8c1fed898c4ca5c2db227c4a6519b7b92488779c"
+      "bytes": 8285,
+      "sha256": "7904846f200fc7aaeef322f88ec8600a5bfb7e89908575e1a00b3228186cc4e3"
     },
     {
       "path": "suite/DEPLOY.md",

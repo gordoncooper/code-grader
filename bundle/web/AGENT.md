@@ -26,7 +26,7 @@ The prompts expect the suite in a local directory, `SUITE_DIR`, so the tools can
 ```bash
 DEST="$(mktemp -d)"
 curl -fsSL "BASE/downloads/code-grading-suite-4.2.1.zip" -o "$DEST/suite.zip"
-echo "99dda82194100121c36c364b788e2a5517b71ebaec0695a0f18cb92c5e3c2f44  $DEST/suite.zip" | sha256sum -c -        # must print: OK
+echo "b5264c03e7ffae5ab26be7f72fb93d7dcdc791e100ad8819739115286b7de2c4  $DEST/suite.zip" | sha256sum -c -        # must print: OK
 unzip -q "$DEST/suite.zip" -d "$DEST"
 SUITE_DIR="$DEST/code-grading-suite"
 ```
@@ -78,6 +78,6 @@ Every prompt starts with a short table of inputs: where the code is, where the *
 | `suite/schema/report.schema.json` | JSON Schema for reports |
 | `suite/tools/gradekit.py` | Resolves configs, validates reports, checks evidence, computes roll-ups and priorities (Python 3.11+, standard library only) |
 | `suite/examples/` | A sample repo and a complete example report |
-| `downloads/code-grading-suite-4.2.1.zip` | Everything above as one zip (SHA-256 `99dda82194100121c36c364b788e2a5517b71ebaec0695a0f18cb92c5e3c2f44`) |
+| `downloads/code-grading-suite-4.2.1.zip` | Everything above as one zip (SHA-256 `b5264c03e7ffae5ab26be7f72fb93d7dcdc791e100ad8819739115286b7de2c4`) |
 | `manifest.json`, `SHA256SUMS` | Version, sizes and checksums for every file on this site |
 | `docs/` | Human-readable HTML versions of every document |
