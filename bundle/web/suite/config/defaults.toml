@@ -1,5 +1,5 @@
 # =============================================================================
-# Code Grading Suite: default configuration (suite v4.1.0)
+# Code Grading Suite: default configuration (suite v4.2.0)
 # =============================================================================
 #
 # Every adjustable part of scoring lives in this file: weights, the questions
@@ -11,19 +11,19 @@
 #
 #     config/defaults.toml   ← this file (suite defaults)
 #     your-org.toml          ← optional: house rules shared across projects
-#     project.toml           ← per project (.grading/project.toml): answers, zones, overrides,
-#                               accepted findings and decisions
+#     project.toml           ← per project (projects/<name>/project.toml in your grading
+#                               repo): answers, zones, overrides
 #
 #     python3 tools/gradekit.py resolve --config your-org.toml --config project.toml
 #
 # Tables merge key by key; lists are replaced whole. Start from
 # config/project.example.toml. See TUNING.md for recipes.
 #
-# Org and project configs are owned by people. project.toml normally lives in the
-# repo's .grading/ folder (protect it with CODEOWNERS); improving agents only read it.
+# Org and project configs are owned by people and live in your grading repo.
+# Agents read them but never change them.
 # =============================================================================
 
-suite_version = "4.1.0"
+suite_version = "4.2.0"
 
 
 # -----------------------------------------------------------------------------
@@ -333,7 +333,7 @@ effort_cost = { S = 1, M = 2, L = 4 }
 # -----------------------------------------------------------------------------
 # REVIEW: who may answer decision questions
 # Decision questions (e.g. "drop the deprecated endpoint?") are answered in
-# project.toml as [[decisions]]. By default only humans may approve them: an
+# decisions.json next to project.toml. By default only people may approve them: an
 # answer whose decided_by starts with "agent" counts as still pending.
 # Set allow_agent_decisions = true to let agent reviewers approve them too.
 # -----------------------------------------------------------------------------

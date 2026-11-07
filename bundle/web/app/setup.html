@@ -13,11 +13,11 @@
 <header class="topbar">
   
   <a class="brand" href="../index.html">Code <span>Grading</span> Suite</a>
-  <span class="ver">v4.1.0</span>
+  <span class="ver">v4.2.0</span>
   <nav class="main" aria-label="Main"><a href="../docs/GETTING-STARTED.html">Get started</a><a href="../app/setup.html" class="active" aria-current="page">Set up</a><a href="../app/run.html">Start a run</a><a href="../app/review.html">Review</a><a href="../docs/README.html">Docs</a></nav>
   <span class="spacer"></span>
   <a class="top opt" href="../AGENT.md">AGENT.md</a>
-  <a class="top opt" href="../downloads/code-grading-suite-4.1.0.zip">Download</a>
+  <a class="top opt" href="../downloads/code-grading-suite-4.2.0.zip">Download</a>
 </header>
 <div class="app">
   <header class="app-head">
@@ -54,7 +54,11 @@
         <h2><span class="num">2</span>About the project</h2>
         <p class="hint">Graders read this to understand what "good" means for your code. Short is fine.</p>
         <div class="grid2">
-          <div class="field"><label for="f-name">Name</label><input type="text" id="f-name" data-proj="name" placeholder="orders-api"></div>
+          <div class="field"><label for="f-code">Code repository</label><input type="text" id="f-code" data-proj="code_repo" placeholder="https://github.com/acme/orders-api"></div>
+          <div class="field"><label for="f-name">Project name</label><input type="text" id="f-name" data-proj="name" placeholder="orders-api"><small>Its folder in the grading repo: <code id="proj-path">projects/…/</code></small></div>
+        </div>
+        <div class="grid2">
+          <div class="field"><label for="f-path">Subfolder (monorepos, optional)</label><input type="text" id="f-path" data-proj="path" placeholder="apps/web"><small>Grade only this part of the repo.</small></div>
           <div class="field"><label for="f-target">Maturity target</label>
             <select id="f-target" data-proj="maturity_target">
               <option value="">Not set</option><option>prototype</option><option>internal tool</option><option>production</option><option>public open source</option>
@@ -125,18 +129,19 @@
         </div>
         <h3 style="margin:22px 0 6px;font-size:1rem">Where to put it</h3>
         <nav class="tabs" id="where-tabs" style="margin-top:6px">
-          <button type="button" data-tab="inrepo">In the repo (simplest)</button>
-          <button type="button" data-tab="separate">In a separate place (strictest)</button>
+          <button type="button" data-tab="repo">In the grading repo</button>
+          <button type="button" data-tab="local">In a local folder</button>
         </nav>
-        <div class="panel" id="panel-inrepo">
+        <div class="panel" id="panel-repo">
           <ol class="steps-mini">
-            <li>Save it as <code>.grading/project.toml</code> in your repository. On GitHub: <b>Add file → Upload files</b>, or <b>Create new file</b> and type the path.</li>
-            <li>Add the folder's README too, so contributors know what it is: <button class="btn" type="button" id="dl-readme" style="padding:2px 9px">Download README.md</button></li>
-            <li>Recommended: protect the folder so only your team can change it. Add this line to <code>.github/CODEOWNERS</code>: <code id="codeowners"></code></li>
+            <li>In your grading repo, create the folder <code class="proj-path-full">projects/…/</code> and put <code>project.toml</code> in it. On GitHub: <b>Add file → Upload files</b>, then type the folder path in front of the file name.</li>
+            <li>New project? Add two starter files next to it: <button class="btn" type="button" id="dl-decisions" style="padding:2px 9px">decisions.json</button> <button class="btn" type="button" id="dl-dispositions" style="padding:2px 9px">dispositions.json</button></li>
+            <li>New grading repo? Add a README that explains the layout: <button class="btn" type="button" id="dl-readme" style="padding:2px 9px">README.md</button></li>
           </ol>
+          <p class="kbd-note">Permissions: you need write access to the grading repo. Changing settings later? Edit the file the same way; it's best done between grading runs.</p>
         </div>
-        <div class="panel" id="panel-separate" hidden>
-          <p class="hint" style="margin:6px 0">Keep the grading folder somewhere improving agents can't reach: a private repo, or a folder on a machine you control. Use the same layout (<code>project.toml</code> plus reports). When you start a run, point the agent at that location.</p>
+        <div class="panel" id="panel-local" hidden>
+          <p class="hint" style="margin:6px 0">Make a folder for the project (any name, e.g. <code class="proj-name">orders-api</code>) and save <code>project.toml</code> in it, along with the two starter files above. Graders can then save reports into its <code>reports/</code> folder, and the Review page can open the whole folder.</p>
         </div>
       </section>
     </div>

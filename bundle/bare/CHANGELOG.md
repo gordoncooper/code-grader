@@ -7,6 +7,18 @@ Versioning rules for the suite itself:
 
 After any major or minor change, re-run calibration (`calibration/README.md`) before trusting new scores.
 
+## 4.2.0
+Scoring rules are unchanged; scores remain comparable with 4.x.
+- **A central grading repo** replaces the `.grading/` folder inside code repos. Each project gets `projects/<name>/` with `project.toml`, `decisions.json`, `dispositions.json` and `reports/<date>-<commit>/` (one folder per report, never overwritten). Code repos stay untouched.
+- **Decisions and accepted findings are separate files again** (`decisions.json`, `dispositions.json`), append-only.
+- **Graders deliver by pull request by default** (branch `report/<project>/<date>-<commit>`; never to the default branch), or save locally, or return in chat. Decisions go on the report PR, or in a follow-up `decisions/<project>/<date>` PR.
+- **Every prompt states the permissions** each delivery option needs.
+- **Review a report** loads a whole project: from the grading repo (including a report PR, with deep links), a local folder, or a zip. It picks the latest and previous reports automatically, and lets you choose others.
+- **Set up a project** adds the code repo, project name (defaulting to the repo's name) and subfolder for monorepos.
+- **Start a run** asks for the grading repo and project name, and the improver can either read from the grading repo or be handed files.
+- `gradekit`: `--project NAME` / `--project-dir`; `init --project`; `diff` defaults to the latest two reports; `scan_zip` for the website.
+- Removed: `.grading/`, CODEOWNERS guidance, and the pull-request rule about grading files.
+
 ## 4.1.0
 Scoring rules are unchanged, so scores remain comparable with 4.0.0. Config fingerprints changed: re-run `resolve` before validating older reports.
 - **The website is now a set of tools:** **Set up a project**, **Start a run** and **Review a report** run `gradekit.py` in the browser via Pyodide. Nothing to install, and nothing uploaded. Plus a new **Getting started** tutorial with common setups.

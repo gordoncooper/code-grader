@@ -18,8 +18,9 @@ Reports:
   redact           Strip hidden-check details so a report can be shared with improvers.
   rollup-repo      Combine per-component reports for a monorepo.
 
-Defaults: commands look for .grading/project.toml and .grading/report.json in the current
-folder, so inside a repo set up with `init --grading-dir .grading` you can usually omit them.
+Projects: in a grading repo, pass --project NAME (folder projects/NAME/) and commands find the
+project's settings, decisions, accepted findings and latest report themselves; `diff` compares
+the latest two reports. --project-dir works for a project folder anywhere.
 --config (repeatable) takes TOML files layered over config/defaults.toml in order, or one
 effective-config JSON produced by `resolve --out`.
 
@@ -52,9 +53,7 @@ SUITE_DIR = Path(__file__).resolve().parent.parent
 CATALOG_PATH = SUITE_DIR / "rubric" / "catalog.json"
 DEFAULTS_PATH = SUITE_DIR / "config" / "defaults.toml"
 SCHEMA_PATH = SUITE_DIR / "schema" / "report.schema.json"
-GRADING_DIR = Path(".grading")
-DEFAULT_PROJECT = GRADING_DIR / "project.toml"
-DEFAULT_REPORT = GRADING_DIR / "report.json"
+PROJECT_FILE, DECISIONS_FILE, DISPOSITIONS_FILE = "project.toml", "decisions.json", "dispositions.json"
 PILLARS = ["A", "B", "C", "D", "E", "F", "X"]
 OPEN_STATUSES = {"new", "open", "regressed"}
 SEVERITIES = ["minor", "major", "critical"]
@@ -184,12 +183,13 @@ def config_hash(cfg: dict) -> str:
 
 
 def resolve_config(paths: list[str], component: str | None = None, preset_fallback: str | None = None,
-                   component_required: bool = True) -> dict:
-    return resolve_layers([(str(p), load_toml(p)) for p in paths], component, preset_fallback, component_required)
+                   component_required: bool = True, decisions: list | None = None, dispositions: list | None = None) -> dict:
+    return resolve_layers([(str(p), load_toml(p)) for p in paths], component, preset_fallback, component_required,
+                          decisions, dispositions)
 
 
 def resolve_layers(layers: list[tuple[str, dict]], component: str | None = None, preset_fallback: str | None = None,
-                   component_required: bool = True) -> dict:
+                   component_required: bool = True, decisions: list | None = None, dispositions: list | None = None) -> dict:
     catalog = load_catalog()
     ids = [b["id"] for b in catalog["benchmarks"]]
     names = {b["id"]: b["name"] for b in catalog["benchmarks"]}
@@ -324,13 +324,16 @@ def resolve_layers(layers: list[tuple[str, dict]], component: str | None = None,
     if not re.fullmatch(r"proportional|maximal|level:L[0-9]", str(mode)):
         errors.append(f"targets.mode '{mode}' must be proportional, maximal or level:L<n>")
 
-    dispositions = list(merged.get("dispositions", []) or [])
+    if merged.get("dispositions") or merged.get("decisions"):
+        warnings.append("project.toml contains [[dispositions]] or [[decisions]]; these now live in "
+                        "dispositions.json and decisions.json next to it, and are ignored here")
+    dispositions = list(dispositions or [])
     for i, d in enumerate(dispositions, 1):
         if not (d.get("finding_id") or d.get("match")):
             errors.append(f"dispositions #{i}: needs finding_id or match")
         if not str(d.get("reason", "")).strip():
             errors.append(f"dispositions #{i}: needs a reason")
-    decisions = list(merged.get("decisions", []) or [])
+    decisions = list(decisions or [])
     for i, d in enumerate(decisions, 1):
         if not d.get("action_id"):
             errors.append(f"decisions #{i}: needs action_id")
@@ -368,29 +371,87 @@ def resolve_layers(layers: list[tuple[str, dict]], component: str | None = None,
     return cfg
 
 
+def read_list_file(path: Path, key: str) -> list:
+    """decisions.json / dispositions.json: {"decisions": [...]} or a bare list. Missing file = empty."""
+    if not path.exists():
+        return []
+    data = load_json(path)
+    items = data.get(key, []) if isinstance(data, dict) else data
+    if not isinstance(items, list):
+        die(f"{path}: expected a list under '{key}'")
+    return items
+
+
+def parse_list_text(text: str | None, key: str, name: str) -> list:
+    if not text or not str(text).strip():
+        return []
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError as exc:
+        die(f"{name} is not valid JSON: {exc}")
+    items = data.get(key, []) if isinstance(data, dict) else data
+    if not isinstance(items, list):
+        die(f"{name}: expected a list under '{key}'")
+    return items
+
+
+def project_dir_from_args(args) -> Path | None:
+    """--project-dir PATH, or --project NAME (inside --grading-repo, default: current folder),
+    or the current folder if it contains a project.toml."""
+    if getattr(args, "project_dir", None):
+        return Path(args.project_dir)
+    if getattr(args, "project", None):
+        return Path(getattr(args, "grading_repo", None) or ".") / "projects" / args.project
+    if Path(PROJECT_FILE).exists():
+        return Path(".")
+    return None
+
+
+def org_for(pdir: Path) -> Path | None:
+    """org.toml at the root of the grading repo (two levels above projects/<name>/)."""
+    full = pdir.resolve()
+    if full.parent.name == "projects" and (full.parent.parent / "org.toml").exists():
+        return full.parent.parent / "org.toml"
+    return None
+
+
+def report_folders(pdir: Path) -> list[Path]:
+    root = pdir / "reports"
+    if not root.is_dir():
+        return []
+    return sorted((d for d in root.iterdir() if d.is_dir() and (d / "report.json").exists()), key=lambda d: d.name)
+
+
 def load_config(args, report: dict | None = None, quiet: bool = False) -> dict:
-    paths = getattr(args, "config", None) or []
+    paths = list(getattr(args, "config", None) or [])
     comp = getattr(args, "component", None)
     required = comp is not None
     if report and not comp:
         comp = (report.get("component") or {}).get("name")
         if comp == "repo":
             comp = None
+    pdir = project_dir_from_args(args)
+    decisions = read_list_file(pdir / DECISIONS_FILE, "decisions") if pdir else []
+    dispositions = read_list_file(pdir / DISPOSITIONS_FILE, "dispositions") if pdir else []
     if len(paths) == 1 and paths[0].endswith(".json"):
         cfg = load_json(paths[0])
         if cfg.get("hash") != config_hash(cfg):
             die(f"{paths[0]} has been edited after it was generated (hash mismatch); re-run resolve")
+        if pdir:
+            cfg["decisions"], cfg["dispositions"] = decisions, dispositions
         return cfg
     if any(p.endswith(".json") for p in paths):
         die("--config takes either TOML files or a single effective-config JSON, not both")
     fallback = ((report or {}).get("config") or {}).get("preset")
-    if not paths and DEFAULT_PROJECT.exists():
-        paths = [str(DEFAULT_PROJECT)]
+    if not paths and pdir and (pdir / PROJECT_FILE).exists():
+        org = org_for(pdir)
+        paths = ([str(org)] if org else []) + [str(pdir / PROJECT_FILE)]
         if not quiet:
-            print(f"note: using {DEFAULT_PROJECT} (pass --config to use another)")
+            print(f"note: using {' + '.join(paths)}")
     elif not paths and not quiet:
-        print(f"note: no --config given and no {DEFAULT_PROJECT}; using suite defaults with preset '{fallback or 'default'}'")
-    return resolve_config(paths, component=comp, preset_fallback=fallback, component_required=required)
+        print(f"note: no project found (use --project NAME or --config FILE); using suite defaults with preset '{fallback or 'default'}'")
+    return resolve_config(paths, component=comp, preset_fallback=fallback, component_required=required,
+                          decisions=decisions, dispositions=dispositions)
 
 
 # =========================================================================== zones & severity
@@ -511,7 +572,7 @@ def validate_report(report: dict, cfg: dict, catalog: dict) -> tuple[list[str], 
         if f.get("status") == "accepted":
             disp = cfg.get("dispositions", []) or []
             if not any(d.get("finding_id") == fid for d in disp) and not any(d.get("match") for d in disp):
-                warnings.append(f"finding {fid} is 'accepted' but no [[dispositions]] entry in the project config covers it")
+                warnings.append(f"finding {fid} is 'accepted' but no entry in dispositions.json covers it")
         if f.get("disposition") and f.get("status") != "accepted":
             warnings.append(f"finding {fid}: has a disposition but status is '{f.get('status')}'")
     fz = analyze_findings(report, cfg)
@@ -962,7 +1023,7 @@ def decision_for(action: dict, cfg: dict) -> dict | None:
         return {"status": "pending"}
     by = str(match.get("decided_by") or "")
     if by.lower().startswith("agent") and not allow_agents:
-        return {"status": "pending", "note": f"answered by {by}, but agent decisions are not allowed ([review] allow_agent_decisions)"}
+        return {"status": "pending", "note": f"answered by {by}, but agent decisions are not allowed (set [review] allow_agent_decisions = true in project.toml)"}
     return {"status": "approved" if match.get("approved") else "declined", "answer": match.get("answer"),
             "decided_by": by, "date": match.get("date")}
 
@@ -1418,7 +1479,8 @@ def _emit_table(name: str, table: dict, out: list[str], array: bool = False) -> 
 
 
 PROJECT_HEADER = """# Code Grading Suite (v{version}): project configuration
-# Humans own this file. Agents may read it but must never change it.
+# People own this file. Agents read it but don't change it.
+# Answers to decision questions go in decisions.json, accepted findings in dispositions.json.
 # Check it with:  python3 SUITE_DIR/tools/gradekit.py resolve --config {path}
 # Or use the "Set up a project" page on the suite's website.
 """
@@ -1432,9 +1494,11 @@ def render_project_toml(data: dict, defaults: dict | None = None, path: str = "p
 
     proj = d.pop("project", {}) or {}
     hints = {"preset": " | ".join(defaults.get("presets", {})),
+             "code_repo": "where the code lives (informational)",
+             "path": "monorepos: the subfolder this project covers",
              "maturity_target": "prototype | internal tool | production | public open source",
              "out_of_scope": "paths the grader skips, e.g. \"vendor/**\""}
-    order = ["name", "description", "preset", "languages", "users", "maturity_target", "scope", "out_of_scope"]
+    order = ["name", "description", "code_repo", "path", "preset", "languages", "users", "maturity_target", "scope", "out_of_scope"]
     out.append("[project]")
     keys = [k for k in order if k in proj] + [k for k in proj if k not in order]
     width = max([len(k) for k in keys] + [15])
@@ -1513,27 +1577,8 @@ def render_project_toml(data: dict, defaults: dict | None = None, path: str = "p
     for comp in d.pop("components", []) or []:
         _emit_table("components", comp, out, array=True)
 
-    disp = d.pop("dispositions", []) or []
-    out.append("# Accepted findings: the grader marks these 'accepted' and they stop lowering scores.")
-    if disp:
-        out.append("")
-        for x in disp:
-            _emit_table("dispositions", x, out, array=True)
-    else:
-        out += ["# [[dispositions]]", '# finding_id = "B5-001"', '# decision   = "won\'t fix"',
-                '# reason     = "Single payment provider is a deliberate constraint through 2027"',
-                '# decided_by = "jane@example.com"', '# date       = "2026-11-07"', ""]
-
-    dec = d.pop("decisions", []) or []
-    out.append("# Answers to decision questions from grading reports (append new ones at the end).")
-    if dec:
-        out.append("")
-        for x in dec:
-            _emit_table("decisions", x, out, array=True)
-    else:
-        out += ["# [[decisions]]", '# action_id  = "D1-act-1"', '# question   = "Implement CSV export, or drop the claim from the README?"',
-                "# approved   = true", '# answer     = "Implement CSV only"', '# decided_by = "jane@example.com"',
-                '# date       = "2026-11-07"', ""]
+    d.pop("dispositions", None)  # these live in dispositions.json / decisions.json, never in project.toml
+    d.pop("decisions", None)
 
     for k, v in d.items():  # anything else (org-style overrides) is written generically
         if isinstance(v, dict):
@@ -1548,29 +1593,54 @@ def render_project_toml(data: dict, defaults: dict | None = None, path: str = "p
     return text
 
 
-def render_decisions_toml(decisions: list[dict]) -> str:
-    out: list[str] = []
-    for d in decisions:
-        _emit_table("decisions", {k: d.get(k) for k in ("action_id", "question", "approved", "answer", "decided_by", "date")
-                                  if d.get(k) is not None}, out, array=True)
-    return "\n".join(out).rstrip() + "\n"
+def starter_json(key: str) -> str:
+    notes = {"decisions": "Answers to decision questions from grading reports. Append new entries; never edit old ones. "
+                          "The newest answer to a question wins.",
+             "dispositions": "Findings accepted as-is (e.g. won't fix). The grader marks them 'accepted' and they stop "
+                             "lowering scores. Append new entries; never edit old ones."}
+    return json.dumps({"_about": notes[key], key: []}, indent=2) + "\n"
 
 
-GRADING_README = """# .grading/
+def append_entries(text: str | None, key: str, entries: list[dict]) -> str:
+    """Append entries to decisions.json / dispositions.json text, keeping everything already there."""
+    if text and text.strip():
+        try:
+            data = json.loads(text)
+        except json.JSONDecodeError as exc:
+            die(f"the existing {key}.json is not valid JSON: {exc}")
+        if isinstance(data, list):
+            data = {key: data}
+    else:
+        data = json.loads(starter_json(key))
+    data.setdefault(key, [])
+    data[key].extend(entries)
+    return json.dumps(data, indent=2, ensure_ascii=False) + "\n"
 
-This folder holds the Code Grading Suite setup and the latest grading report for this repository.
-It is part of the grading process, not part of the code being graded.
 
-| File | Written by | What it is |
-|---|---|---|
-| `project.toml` | Humans | Grading settings, accepted findings and answers to decision questions |
-| `report.json`, `report.md` | Grader agents | The latest grading report (older ones are in git history) |
+GRADING_REPO_README = """# Grading
 
-Improving agents and contributors: read these files, but don't change them in your pull requests.
-Changes here belong in grading-report PRs (report files) or human decisions (`project.toml`).
+Grading reports for our codebases, produced with the Code Grading Suite.
+
+```
+projects/
+└── <project>/                 one folder per graded codebase
+    ├── project.toml           settings: preset, answers, zones, targets   (people)
+    ├── decisions.json         answers to decision questions               (people)
+    ├── dispositions.json      findings accepted as-is                     (people)
+    └── reports/
+        └── <date>-<commit>/   one folder per report                        (graders, via pull request)
+            ├── report.json
+            └── report.md
+```
+
+- Graders open a pull request per report, on a branch named `report/<project>/<date>-<commit>`.
+- Decision answers go on that same pull request, or in a follow-up `decisions/<project>/<date>` pull request.
+- `org.toml` at the root (optional) holds house rules shared by every project.
 """
 
-CODEOWNERS_HINT = "/.grading/  @your-team-or-username"
+
+def slug(name: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "-", str(name).lower()).strip("-") or "project"
 
 
 def cmd_init(args) -> int:
@@ -1587,30 +1657,40 @@ def cmd_init(args) -> int:
     for q in given:
         if q not in defaults["questions"]:
             die(f"unknown question '{q}'")
+    name = slug(args.project or args.name)
     answers = {q: given.get(q, preset_answers.get(q, qd.get("default"))) for q, qd in defaults["questions"].items()}
-    data = {"project": {"name": args.name, "description": "<what it is, in one sentence>", "preset": args.preset,
-                        "languages": "<e.g. Python 3.12, FastAPI, Postgres>", "users": "<who uses it>",
-                        "maturity_target": "<choose one>",
-                        "scope": "<stated scope or link to requirements>", "out_of_scope": []},
-            "answers": answers}
-    if args.grading_dir:
-        gdir = Path(args.grading_dir)
-        out = gdir / "project.toml"
+    proj = {"name": name, "description": "<what it is, in one sentence>"}
+    if args.code_repo:
+        proj["code_repo"] = args.code_repo
+    if args.path:
+        proj["path"] = args.path
+    proj.update({"preset": args.preset, "languages": "<e.g. Python 3.12, FastAPI, Postgres>", "users": "<who uses it>",
+                 "maturity_target": "<choose one>", "scope": "<stated scope or link to requirements>", "out_of_scope": []})
+    data = {"project": proj, "answers": answers}
+    if args.project:
+        root = Path(args.grading_repo or ".")
+        pdir = root / "projects" / name
+        out = pdir / PROJECT_FILE
     else:
-        gdir, out = None, Path(args.out)
+        root, pdir, out = None, None, Path(args.out)
     if out.exists() and not args.force:
         die(f"{out} exists (use --force to overwrite)")
-    text = render_project_toml(data, defaults, path=str(out))
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(text, encoding="utf-8")
+    out.write_text(render_project_toml(data, defaults, path=str(out)), encoding="utf-8")
     print(f"wrote {out}")
-    if gdir is not None:
-        readme = gdir / "README.md"
-        if not readme.exists():
-            readme.write_text(GRADING_README, encoding="utf-8")
-            print(f"wrote {readme}")
-        print(f"tip: protect the folder with a CODEOWNERS line:  {CODEOWNERS_HINT}")
-    print(f"next: edit {out}, then run: gradekit resolve --config {out}")
+    if pdir is not None:
+        for fname, key in ((DECISIONS_FILE, "decisions"), (DISPOSITIONS_FILE, "dispositions")):
+            if not (pdir / fname).exists():
+                (pdir / fname).write_text(starter_json(key), encoding="utf-8")
+                print(f"wrote {pdir / fname}")
+        (pdir / "reports").mkdir(exist_ok=True)
+        keep = pdir / "reports" / ".gitkeep"
+        if not keep.exists():
+            keep.write_text("", encoding="utf-8")
+        if not (root / "README.md").exists():
+            (root / "README.md").write_text(GRADING_REPO_README, encoding="utf-8")
+            print(f"wrote {root / 'README.md'}")
+    print(f"next: edit {out}, then run: gradekit resolve " + (f"--project {name}" if pdir else f"--config {out}"))
     return 0
 
 
@@ -1632,7 +1712,10 @@ def _web_cfg(p: dict, report: dict | None = None) -> tuple[dict, str]:
     comp = ((report or {}).get("component") or {}).get("name")
     comp = None if comp == "repo" else comp
     fallback = ((report or {}).get("config") or {}).get("preset")
-    cfg = resolve_layers(layers, component=comp, preset_fallback=fallback, component_required=False)
+    decisions = p.get("decisions") if isinstance(p.get("decisions"), list) else parse_list_text(p.get("decisions_json"), "decisions", "decisions.json")
+    dispositions = p.get("dispositions") if isinstance(p.get("dispositions"), list) else parse_list_text(p.get("dispositions_json"), "dispositions", "dispositions.json")
+    cfg = resolve_layers(layers, component=comp, preset_fallback=fallback, component_required=False,
+                         decisions=decisions, dispositions=dispositions)
     source = " + ".join(n for n, _ in layers) if layers else f"suite defaults (preset '{cfg['preset']}' from the report)"
     return cfg, source
 
@@ -1646,12 +1729,13 @@ def _api_info(p):
             "base_weights": merged.get("weights", {}).get("base", {}), "gates": merged.get("gates", {}),
             "zone_settings": merged.get("zone_settings", {}), "targets": merged.get("targets", {}),
             "maturity": merged.get("maturity", {}), "review": merged.get("review", {}),
-            "grading_readme": GRADING_README, "codeowners_hint": CODEOWNERS_HINT}
+            "starter_decisions": starter_json("decisions"), "starter_dispositions": starter_json("dispositions"),
+            "grading_repo_readme": GRADING_REPO_README}
 
 
 def _api_build(p):
     defaults = load_toml(DEFAULTS_PATH)
-    text = render_project_toml(p.get("project") or {}, defaults, path=p.get("path") or ".grading/project.toml")
+    text = render_project_toml(p.get("project") or {}, defaults, path=p.get("path") or "projects/<name>/project.toml")
     try:
         cfg, _ = _web_cfg({"org_toml": p.get("org_toml"), "project_toml": text})
         return {"toml": text, "config": cfg, "config_error": None}
@@ -1707,19 +1791,65 @@ def _api_redact(p):
     return {"report": shared}
 
 
-def _api_decisions_toml(p):
-    block = render_decisions_toml(p.get("decisions", []))
-    out = {"toml": block}
-    if p.get("project_toml"):
-        updated = p["project_toml"].rstrip() + "\n\n" + block
-        parse_toml(updated, "updated project.toml")
-        out["updated_project_toml"] = updated
+def _api_decisions_update(p):
+    entries = p.get("decisions", [])
+    for d in entries:
+        if not d.get("action_id") or not isinstance(d.get("approved"), bool):
+            die("each decision needs action_id and approved (true/false)")
+    return {"json": append_entries(p.get("decisions_json"), "decisions", entries), "added": len(entries)}
+
+
+def _api_scan_zip(p):
+    """Sort out a dropped .zip: a grading repo / project folder (returns its projects), or code (for citations)."""
+    import zipfile
+
+    zf = zipfile.ZipFile(p["zip_path"])
+    names = [n for n in zf.namelist() if not n.endswith("/") and "/__MACOSX/" not in "/" + n]
+    return {"kind": "grading" if any(n.endswith("/" + PROJECT_FILE) or n == PROJECT_FILE or re.search(r"(^|/)reports/[^/]+/report\.json$", n)
+                                     for n in names) else "code",
+            "projects": scan_paths({n: (lambda n=n: zf.read(n).decode("utf-8", errors="replace")) for n in names})}
+
+
+def scan_paths(files: dict) -> dict:
+    """Group files of a grading repo (or one project folder) by project. files: path -> callable returning text."""
+    projects: dict[str, dict] = {}
+    org = None
+    for path in files:
+        parts = path.split("/")
+        if parts[-1] == "org.toml":
+            org = files[path]()
+            continue
+        if "reports" in parts:
+            i = len(parts) - 1 - parts[::-1].index("reports")
+            root, rest = parts[:i], parts[i + 1:]
+        else:
+            root, rest = parts[:-1], parts[-1:]
+        if not rest:
+            continue
+        key = "/".join(root)
+        name = root[-1] if root else "project"
+        proj = projects.setdefault(key, {"name": name, "root": key, "reports": {}})
+        if len(rest) == 1 and rest[0] in (PROJECT_FILE, DECISIONS_FILE, DISPOSITIONS_FILE) and "reports" not in parts:
+            proj[rest[0]] = files[path]()
+        elif len(rest) == 2 and rest[1] == "report.json":
+            proj["reports"].setdefault(rest[0], {})["report"] = files[path]()
+        elif len(rest) == 3 and rest[1] == "runs" and rest[2].endswith(".json"):
+            proj["reports"].setdefault(rest[0], {}).setdefault("runs", []).append(files[path]())
+    out = {}
+    for key, proj in projects.items():
+        if not (proj.get(PROJECT_FILE) or proj["reports"]):
+            continue
+        reports = [{"folder": f, **v} for f, v in sorted(proj["reports"].items()) if v.get("report")]
+        out[proj["name"] if proj["name"] not in out else key] = {
+            "root": key, "project_toml": proj.get(PROJECT_FILE), "decisions_json": proj.get(DECISIONS_FILE),
+            "dispositions_json": proj.get(DISPOSITIONS_FILE), "reports": reports, "org_toml": org}
     return out
 
 
 WEB_API = {"info": _api_info, "build": _api_build, "parse": _api_parse, "zone_test": _api_zone_test,
            "check": _api_check, "consensus": _api_consensus, "compare": _api_compare,
-           "verify_zip": _api_verify_zip, "redact": _api_redact, "decisions_toml": _api_decisions_toml}
+           "verify_zip": _api_verify_zip, "redact": _api_redact, "decisions_update": _api_decisions_update,
+           "scan_zip": _api_scan_zip}
 
 
 def web_api(name: str, payload: dict) -> dict:
@@ -1746,16 +1876,23 @@ def main(argv=None) -> int:
     sub = ap.add_subparsers(dest="cmd", required=True)
 
     def with_config(p):
+        p.add_argument("--project", metavar="NAME", help="project folder projects/NAME in the grading repo")
+        p.add_argument("--grading-repo", metavar="DIR", help="grading repo root (default: current folder)")
+        p.add_argument("--project-dir", metavar="DIR", help="a project folder anywhere (project.toml, decisions.json, reports/…)")
         p.add_argument("--config", action="append", metavar="FILE",
-                       help="config TOML (repeatable, layered in order over defaults) or one effective-config JSON")
+                       help="config TOML (repeatable, layered in order over defaults) or one effective-config JSON; "
+                            "default: the project's project.toml (+ org.toml at the grading repo root)")
         p.add_argument("--component", help="monorepo component name from the project config")
 
-    p = sub.add_parser("init", help="write a starter project.toml")
+    p = sub.add_parser("init", help="create projects/NAME/ in a grading repo (or a single project.toml)")
+    p.add_argument("--project", metavar="NAME", help="create projects/NAME/ with project.toml, decisions.json, dispositions.json, reports/")
+    p.add_argument("--grading-repo", metavar="DIR", help="grading repo root (default: current folder)")
+    p.add_argument("--code-repo", metavar="URL", help="where the code lives")
+    p.add_argument("--path", metavar="SUBFOLDER", help="monorepos: the subfolder this project covers")
     p.add_argument("--preset", default="default")
-    p.add_argument("--name", default="my-project")
+    p.add_argument("--name", default="my-project", help="project name when writing a single file with --out")
     p.add_argument("--answer", action="append", metavar="Q=A", help="e.g. --answer data_sensitivity=financial")
     p.add_argument("--out", default="project.toml")
-    p.add_argument("--grading-dir", metavar="DIR", help="write DIR/project.toml and DIR/README.md instead (e.g. .grading)")
     p.add_argument("--force", action="store_true")
     p.set_defaults(fn=cmd_init)
 
@@ -1771,18 +1908,19 @@ def main(argv=None) -> int:
     p.set_defaults(fn=cmd_presets)
 
     p = sub.add_parser("validate", help="schema + config + semantic checks")
-    p.add_argument("report", nargs="?", help=f"report JSON (default: {DEFAULT_REPORT})")
+    p.add_argument("report", nargs="?", help="report JSON (default: the project's latest report)")
     with_config(p)
     p.set_defaults(fn=cmd_validate)
 
     p = sub.add_parser("verify-evidence", help="check code citations against the repo")
-    p.add_argument("report", nargs="?", help=f"report JSON (default: {DEFAULT_REPORT})")
+    p.add_argument("report", nargs="?", help="report JSON (default: the project's latest report)")
+    p.add_argument("--project", metavar="NAME"); p.add_argument("--grading-repo", metavar="DIR"); p.add_argument("--project-dir", metavar="DIR")
     p.add_argument("--repo", default=".", help="repo folder, or a .zip of it (default: current folder)")
     p.add_argument("--tolerance", type=int, default=2, help="line drift allowed around the cited range (default 2)")
     p.set_defaults(fn=cmd_verify_evidence)
 
     p = sub.add_parser("rollup", help="compute gates, zones, scores, targets, maturity and priorities")
-    p.add_argument("report", nargs="?", help=f"report JSON (default: {DEFAULT_REPORT})")
+    p.add_argument("report", nargs="?", help="report JSON (default: the project's latest report)")
     with_config(p)
     p.add_argument("--write", action="store_true", help="write rollup and targets back into the report")
     p.add_argument("--out", help="write the updated report here instead")
@@ -1795,9 +1933,9 @@ def main(argv=None) -> int:
     p.add_argument("--strict", action="store_true", help="exit 3 if any benchmark is unstable")
     p.set_defaults(fn=cmd_stability)
 
-    p = sub.add_parser("diff", help="compare two reports")
-    p.add_argument("old")
-    p.add_argument("new")
+    p = sub.add_parser("diff", help="compare two reports (default: the project's previous and latest)")
+    p.add_argument("old", nargs="?")
+    p.add_argument("new", nargs="?")
     with_config(p)
     p.add_argument("--old-config", action="append", metavar="FILE", help="config the old report was graded with, if different")
     p.add_argument("--fail-on-regression", action="store_true")
@@ -1809,7 +1947,8 @@ def main(argv=None) -> int:
     p.set_defaults(fn=cmd_calibrate)
 
     p = sub.add_parser("redact", help="strip hidden-check details for sharing")
-    p.add_argument("report", nargs="?", help=f"report JSON (default: {DEFAULT_REPORT})")
+    p.add_argument("report", nargs="?", help="report JSON (default: the project's latest report)")
+    p.add_argument("--project", metavar="NAME"); p.add_argument("--grading-repo", metavar="DIR"); p.add_argument("--project-dir", metavar="DIR")
     p.add_argument("--out")
     p.set_defaults(fn=cmd_redact)
 
@@ -1819,10 +1958,25 @@ def main(argv=None) -> int:
     p.set_defaults(fn=cmd_rollup_repo)
 
     args = ap.parse_args(argv)
-    if hasattr(args, "report") and args.report is None:
-        if not DEFAULT_REPORT.exists():
-            ap.error(f"give a report file (no {DEFAULT_REPORT} here)")
-        args.report = str(DEFAULT_REPORT)
+    if args.cmd in ("validate", "rollup", "verify-evidence", "redact") and args.report is None:
+        pdir = project_dir_from_args(args)
+        found = report_folders(pdir) if pdir else []
+        if not found:
+            ap.error("give a report file, or --project NAME with at least one report in projects/NAME/reports/")
+        args.report = str(found[-1] / "report.json")
+        print(f"note: using {args.report}")
+    if args.cmd == "diff" and (args.old is None or args.new is None):
+        pdir = project_dir_from_args(args)
+        found = report_folders(pdir) if pdir else []
+        if args.new is None and args.old is None:
+            if len(found) < 2:
+                ap.error("give two reports, or --project NAME with at least two reports")
+            args.old, args.new = str(found[-2] / "report.json"), str(found[-1] / "report.json")
+        elif args.new is None:
+            if not found:
+                ap.error("give the new report too, or --project NAME")
+            args.new = str(found[-1] / "report.json")
+        print(f"note: comparing {args.old} → {args.new}")
     try:
         return args.fn(args)
     except GradekitError as e:

@@ -13,18 +13,19 @@
 <header class="topbar">
   <button class='menu-btn' type='button'>Menu</button>
   <a class="brand" href="../../index.html">Code <span>Grading</span> Suite</a>
-  <span class="ver">v4.1.0</span>
+  <span class="ver">v4.2.0</span>
   <nav class="main" aria-label="Main"><a href="../../docs/GETTING-STARTED.html">Get started</a><a href="../../app/setup.html">Set up</a><a href="../../app/run.html">Start a run</a><a href="../../app/review.html">Review</a><a href="../../docs/README.html" class="active" aria-current="page">Docs</a></nav>
   <span class="spacer"></span>
   <a class="top opt" href="../../AGENT.md">AGENT.md</a>
-  <a class="top opt" href="../../downloads/code-grading-suite-4.1.0.zip">Download</a>
+  <a class="top opt" href="../../downloads/code-grading-suite-4.2.0.zip">Download</a>
 </header>
 <div class="layout"><nav class="sidebar" aria-label="Documentation"><h4>Start</h4><a href="../../docs/GETTING-STARTED.html">Getting started</a><a href="../../docs/README.html">Overview &amp; reference</a><a href="../../docs/AGENT.html">Agent entry point</a><a href="../../docs/DEPLOY.html">Hosting this site</a><h4>Configuration</h4><a href="../../docs/TUNING.html">Tuning guide</a><a href="../../docs/rubric/weights.html">How scoring works</a><a href="../../docs/config/defaults.html">Default config</a><a href="../../docs/config/project.example.html">Example project config</a><h4>Prompts</h4><a href="../../docs/prompts/grader.html">Grader</a><a href="../../docs/prompts/reviewer.html">Report reviewer</a><a href="../../docs/prompts/improver.html">Improver</a><a href="../../docs/prompts/pr-review.html">Pull-request check</a><h4>Rubric</h4><a href="../../docs/rubric/A-correctness-trust.html">A · Correctness &amp; Trust</a><a href="../../docs/rubric/B-design-structure.html">B · Design &amp; Structure</a><a href="../../docs/rubric/C-code-health.html">C · Code Health</a><a href="../../docs/rubric/D-value-fitness.html">D · Value &amp; Fitness</a><a href="../../docs/rubric/E-adoption-experience.html">E · Adoption &amp; Experience</a><a href="../../docs/rubric/F-operations-delivery.html">F · Operations &amp; Delivery</a><a href="../../docs/rubric/X-conditional.html">X · Conditional</a><h4>Guides</h4><a href="../../docs/calibration/README.html">Calibration</a><a href="../../docs/holdout/README.html" class="active" aria-current="page">Hidden checks</a><a href="../../docs/CHANGELOG.html">Changelog</a></nav><main class="doc"><div class="docbar"><a class="btn" href="../../suite/holdout/README.md">View raw .md</a><button class="btn" type="button" data-copy="../../suite/holdout/README.md">Copy raw URL for an agent</button></div><h1 id="hidden-checks-the-holdout-set">Hidden checks (the holdout set)<a class="anchor" href="#hidden-checks-the-holdout-set" aria-label="Link to this section">#</a></h1>
 <p>When agents optimize against a visible rubric, scores can rise without the code actually improving. Hidden checks are a small set of tests and probes that <strong>improving agents never see</strong>. If visible scores rise while the hidden-check pass rate stays flat or falls, the code is being tuned to the rubric. <code>gradekit diff</code> flags this as <strong>divergence</strong>.</p>
 <h2 id="where-they-live">Where they live<a class="anchor" href="#where-they-live" aria-label="Link to this section">#</a></h2>
 <ul>
-<li>In a directory <strong>outside the graded repo</strong> and outside anything improvers can read. Don't put it inside <code>SUITE_DIR</code> if improvers can read that; use a separate private location the orchestrator mounts only for grading runs.</li>
-<li>Graders write per-check results <strong>next to the checks</strong> (<code>&lt;hidden-checks&gt;/results/&lt;commit&gt;.json</code>), never into the repo. Reports carry only <code>checks_run</code> and <code>pass_rate</code>. If a report ever does contain per-check details, <code>gradekit redact</code> strips them, and <code>gradekit validate</code> fails a report if a check's name appears anywhere outside <code>holdout.private_details</code>.</li>
+<li>In the grading repo, in <code>projects/&lt;name&gt;/hidden-checks/</code>. They're hidden by <strong>instruction, not by access</strong>: graders are told to run them, and improvers are only pointed at the report and decisions, never at this folder. If you want stronger separation, keep them in a separate private repo and give that only to graders.</li>
+<li>If the grading repo is public, anyone can read them. That's fine for keeping agents honest, but don't put anything sensitive in them.</li>
+<li>Graders write per-check results to <code>hidden-checks.json</code> in the report's folder. The report itself carries only <code>checks_run</code> and <code>pass_rate</code>.</li>
 </ul>
 <h2 id="what-makes-a-good-hidden-check">What makes a good hidden check<a class="anchor" href="#what-makes-a-good-hidden-check" aria-label="Link to this section">#</a></h2>
 <p>Aim for 10–30 checks that test <strong>real quality</strong> in ways the rubric describes but doesn't spell out:</p>
@@ -78,7 +79,7 @@
   &quot;run&quot;: true,
   &quot;checks_run&quot;: 12,
   &quot;pass_rate&quot;: 0.83,
-  &quot;private_details&quot;: &quot;[kept with the hidden checks]&quot;
+  &quot;private_details&quot;: &quot;[see hidden-checks.json]&quot;
 }
 </code></pre>
 <p>Maturity levels L3 and L4 require hidden-check pass rates of at least 80% and 95%, when hidden checks are run.</p>

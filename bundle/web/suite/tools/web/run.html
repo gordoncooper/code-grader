@@ -27,13 +27,16 @@
             <label><input type="radio" name="code" value="path"><span>A folder the agent can open</span></label>
           </div>
           <input type="text" id="code-loc" placeholder="https://github.com/you/your-repo" aria-label="Code location" style="margin-top:8px"></div>
-        <div class="field"><span class="label">The grading folder is…</span>
-          <div class="seg" role="radiogroup" aria-label="Where the grading folder is">
-            <label><input type="radio" name="gdir" value="repo" checked><span>Inside the repo</span></label>
-            <label><input type="radio" name="gdir" value="other"><span>Somewhere else</span></label>
+        <div class="field"><span class="label">The grading files are…</span>
+          <div class="seg" role="radiogroup" aria-label="Where the grading files are">
+            <label><input type="radio" name="gdir" value="repo" checked><span>In a grading repo</span></label>
+            <label><input type="radio" name="gdir" value="local"><span>In a local folder</span></label>
           </div>
-          <input type="text" id="gdir-loc" value=".grading/" aria-label="Grading folder" style="margin-top:8px">
-          <small id="gdir-hint">The folder with <code>project.toml</code> and the latest report. <a href="../docs/GETTING-STARTED.html#where-things-live">What's this?</a></small></div>
+          <input type="text" id="gdir-loc" aria-label="Grading repo or folder" style="margin-top:8px">
+          <small id="gdir-hint"></small></div>
+        <div class="field"><label for="project-name">Project name</label>
+          <input type="text" id="project-name" placeholder="orders-api">
+          <small>Its folder is <code id="project-path">projects/…/</code> in the grading repo. Defaults to the code repo's name.</small></div>
         <div class="field"><span class="label">The suite is…</span>
           <div class="seg" role="radiogroup" aria-label="Where the suite is">
             <label><input type="radio" name="suite" value="site" checked><span>This website</span></label>

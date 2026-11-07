@@ -13,11 +13,11 @@
 <header class="topbar">
   <button class='menu-btn' type='button'>Menu</button>
   <a class="brand" href="../index.html">Code <span>Grading</span> Suite</a>
-  <span class="ver">v4.1.0</span>
+  <span class="ver">v4.2.0</span>
   <nav class="main" aria-label="Main"><a href="../docs/GETTING-STARTED.html" class="active" aria-current="page">Get started</a><a href="../app/setup.html">Set up</a><a href="../app/run.html">Start a run</a><a href="../app/review.html">Review</a><a href="../docs/README.html">Docs</a></nav>
   <span class="spacer"></span>
   <a class="top opt" href="../AGENT.md">AGENT.md</a>
-  <a class="top opt" href="../downloads/code-grading-suite-4.1.0.zip">Download</a>
+  <a class="top opt" href="../downloads/code-grading-suite-4.2.0.zip">Download</a>
 </header>
 <div class="layout"><nav class="sidebar" aria-label="Documentation"><h4>Start</h4><a href="../docs/GETTING-STARTED.html" class="active" aria-current="page">Getting started</a><a href="../docs/README.html">Overview &amp; reference</a><a href="../docs/AGENT.html">Agent entry point</a><a href="../docs/DEPLOY.html">Hosting this site</a><h4>Configuration</h4><a href="../docs/TUNING.html">Tuning guide</a><a href="../docs/rubric/weights.html">How scoring works</a><a href="../docs/config/defaults.html">Default config</a><a href="../docs/config/project.example.html">Example project config</a><h4>Prompts</h4><a href="../docs/prompts/grader.html">Grader</a><a href="../docs/prompts/reviewer.html">Report reviewer</a><a href="../docs/prompts/improver.html">Improver</a><a href="../docs/prompts/pr-review.html">Pull-request check</a><h4>Rubric</h4><a href="../docs/rubric/A-correctness-trust.html">A · Correctness &amp; Trust</a><a href="../docs/rubric/B-design-structure.html">B · Design &amp; Structure</a><a href="../docs/rubric/C-code-health.html">C · Code Health</a><a href="../docs/rubric/D-value-fitness.html">D · Value &amp; Fitness</a><a href="../docs/rubric/E-adoption-experience.html">E · Adoption &amp; Experience</a><a href="../docs/rubric/F-operations-delivery.html">F · Operations &amp; Delivery</a><a href="../docs/rubric/X-conditional.html">X · Conditional</a><h4>Guides</h4><a href="../docs/calibration/README.html">Calibration</a><a href="../docs/holdout/README.html">Hidden checks</a><a href="../docs/CHANGELOG.html">Changelog</a></nav><main class="doc"><div class="docbar"><a class="btn" href="../suite/GETTING-STARTED.md">View raw .md</a><button class="btn" type="button" data-copy="../suite/GETTING-STARTED.md">Copy raw URL for an agent</button></div><details class="toc"><summary>On this page</summary><ul><li><a href="#the-idea-in-one-minute">The idea in one minute</a></li><li><a href="#where-things-live">Where things live</a></li><li><a href="#your-first-cycle">Your first cycle</a></li><li><a href="#common-setups">Common setups</a></li><li><a href="#keeping-agents-honest">Keeping agents honest</a></li><li><a href="#when-something-looks-off">When something looks off</a></li><li><a href="#prefer-the-command-line">Prefer the command line?</a></li></ul></details><h1 id="getting-started">Getting started<a class="anchor" href="#getting-started" aria-label="Link to this section">#</a></h1>
 <p>This guide takes you through a first full cycle: set up a project, have an agent grade it, review the report, and let an agent improve the code. It takes about 20 minutes of your time, plus however long your agents take. <strong>Nothing to install.</strong> You use three pages on this website and whatever coding agent you already have, cloud or local.</p>
@@ -40,103 +40,102 @@
 <tr>
 <td><strong>Review</strong></td>
 <td>You (or an agent helping you)</td>
-<td>Checks the report, and answers the few questions that need a person's call.</td>
+<td>Checks the report, compares it with the previous one, and answers the few questions that need a person's call.</td>
 </tr>
 <tr>
 <td><strong>Improve</strong></td>
 <td>An agent</td>
-<td>Works down the report's ranked to-do list and opens a pull request.</td>
+<td>Works down the report's ranked to-do list and opens a pull request on your code.</td>
 </tr>
 <tr>
 <td><strong>Check</strong></td>
 <td>An agent</td>
-<td>On each pull request, re-grades only what changed, and fails anything that made the code worse.</td>
+<td>On each code pull request, re-grades only what changed, and fails anything that made the code worse.</td>
 </tr>
 </tbody>
 </table>
 <p>A fresh grader session each time keeps the grading honest: an agent never grades its own work.</p>
 <h2 id="where-things-live">Where things live<a class="anchor" href="#where-things-live" aria-label="Link to this section">#</a></h2>
-<table>
-<thead>
-<tr>
-<th>What</th>
-<th>Where</th>
-<th>Who changes it</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>The suite</strong> (rubric, prompts, tools)</td>
-<td>This website</td>
-<td>Nobody during a cycle</td>
-</tr>
-<tr>
-<td><strong><code>project.toml</code></strong>: your settings, plus accepted findings and answers to decision questions</td>
-<td><code>.grading/</code> in your repo</td>
-<td><strong>People only</strong></td>
-</tr>
-<tr>
-<td><strong><code>report.json</code> / <code>report.md</code></strong>: the latest report</td>
-<td><code>.grading/</code> in your repo</td>
-<td>Graders (older reports stay in git history)</td>
-</tr>
-<tr>
-<td><strong>Hidden checks</strong> (optional): private tests graders run and improvers never see</td>
-<td>Anywhere <em>outside</em> the repo</td>
-<td>You</td>
-</tr>
-</tbody>
-</table>
-<p>That's the default, and the simplest. If you'd rather improvers couldn't even read the grading folder, keep it in a separate private repo or folder instead. Everything works the same; you just point agents at that location.</p>
+<p>Your code repos stay untouched. Everything about grading lives in <strong>one central grading repo</strong> (or, if you prefer, plain local folders with the same layout):</p>
+<pre><code>grading/                          your grading repo
+├── README.md
+├── org.toml                      optional: house rules for every project
+└── projects/
+    └── orders-api/               one folder per graded codebase
+        ├── project.toml          settings: preset, answers, zones, targets
+        ├── decisions.json        your answers to decision questions
+        ├── dispositions.json     findings you've accepted as-is
+        └── reports/
+            ├── 2026-10-24-9f8e7d6/      one folder per report
+            │   ├── report.json
+            │   └── report.md
+            └── 2026-11-07-a1b2c3d/
+</code></pre>
+<ul>
+<li><strong>A report is never overwritten.</strong> Each grading adds a dated folder. The newest folder is the latest report, and the one before it is what it's compared with.</li>
+<li><strong>People own the three project files.</strong> Graders only add report folders, through pull requests. Improvers only read.</li>
+<li><strong>The suite itself</strong> (rubric, prompts, tools) lives on this website.</li>
+</ul>
 <h2 id="your-first-cycle">Your first cycle<a class="anchor" href="#your-first-cycle" aria-label="Link to this section">#</a></h2>
 <h3 id="1-set-up-the-project-about-5-minutes-once">1. Set up the project (about 5 minutes, once)<a class="anchor" href="#1-set-up-the-project-about-5-minutes-once" aria-label="Link to this section">#</a></h3>
 <p>Open <strong><a href="../app/setup.html">Set up a project</a></strong>.</p>
 <ol>
+<li><strong>Enter the code repository.</strong> The project name fills in from it (e.g. <code>orders-api</code>). For a monorepo, add a subfolder (<code>apps/web</code>) and give each part its own project.</li>
 <li><strong>Pick a preset</strong> that's closest to your project (e.g. <em>service</em>, <em>web app</em>, <em>library</em>).</li>
 <li><strong>Check the eight questions.</strong> The preset fills them in; change any that don't fit. The panel on the right shows how each answer moves the weights, and which benchmarks become <strong>gates</strong> (non-negotiable).</li>
 <li><strong>Mark critical code.</strong> Add a hot zone for anything that moves money, controls access or writes important data, and a cold zone for scripts and examples. Use <strong>Test a path</strong> to check your patterns.</li>
-<li><strong>Download <code>project.toml</code></strong> and save it as <code>.grading/project.toml</code> in your repo. On GitHub: <strong>Add file → Upload files</strong>. Download the folder's README from the same page and add that too.</li>
-<li><em>Recommended:</em> add <code>/.grading/ @your-team</code> to <code>.github/CODEOWNERS</code>, so changes to the folder need your team's approval.</li>
+<li><strong>Download <code>project.toml</code></strong> and add it to your grading repo as <code>projects/orders-api/project.toml</code>. The page also gives you starter <code>decisions.json</code> and <code>dispositions.json</code> files, and a README for a brand-new grading repo. On GitHub: <strong>Add file → Upload files</strong>. <em>Needs write access to the grading repo.</em></li>
 </ol>
 <h3 id="2-grade-2-minutes-of-your-time">2. Grade (2 minutes of your time)<a class="anchor" href="#2-grade-2-minutes-of-your-time" aria-label="Link to this section">#</a></h3>
 <p>Open <strong><a href="../app/run.html">Start a run</a></strong> and choose <strong>Grade the code</strong>.</p>
 <ul>
-<li><strong>Where are things?</strong> Pick cloud or local, give the repo URL or folder, and leave the grading folder as <code>.grading/</code>.</li>
-<li><strong>How should it hand back results?</strong> For a GitHub repo, <strong>Open a pull request</strong> is easiest: the report arrives as a PR that you review and merge. Local agents can just <strong>save the files</strong>. For someone else's public repo, choose <strong>Give them back in the chat</strong>.</li>
+<li><strong>Where are things?</strong> Pick cloud or local, give the code repo, the grading repo and the project name.</li>
+<li><strong>How should it hand back results?</strong> <strong>Open a pull request</strong> is the default: the grader adds only the new report folder, on a branch like <code>report/orders-api/2026-11-07-a1b2c3d</code>. It can also <strong>save the files locally</strong> or <strong>give them back in the chat</strong>.</li>
 </ul>
-<p>Copy the prompt and paste it into a <strong>fresh</strong> agent session. A full grading takes a while (often 30–90 minutes for a medium codebase), because the agent reads the code and runs its tests and tools.</p>
+<p>Copy the prompt and paste it into a <strong>fresh</strong> agent session. A full grading often takes 30–90 minutes for a medium codebase, because the agent reads the code and runs its tests and tools. <em>Needs read access to the code and, for a pull request, permission to push branches to the grading repo.</em></p>
 <h3 id="3-review-and-decide-about-10-minutes">3. Review and decide (about 10 minutes)<a class="anchor" href="#3-review-and-decide-about-10-minutes" aria-label="Link to this section">#</a></h3>
-<p>Open <strong><a href="../app/review.html">Review a report</a></strong>.</p>
+<p>Open <strong><a href="../app/review.html">Review a report</a></strong>. The grader's PR description links straight to it.</p>
 <ul>
-<li><strong>Public GitHub repo:</strong> enter the repo, or paste the grader's PR URL, and click <strong>Load from GitHub</strong>. The page fetches the report, your <code>project.toml</code> and the previous report.</li>
-<li><strong>Anything else:</strong> drop in <code>report.json</code> and <code>project.toml</code>. Add the repo's <code>.zip</code> (GitHub: <strong>Code → Download ZIP</strong>) if you want every quoted line of code checked.</li>
+<li><strong>From the grading repo:</strong> enter the repo and project name, or paste the report PR's URL. The page loads the settings, decisions and all reports, reviews the newest, and compares it with the one before. You can pick any other report from the bar at the top.</li>
+<li><strong>From files:</strong> choose the project folder, drop a zip of the grading repo, or drop individual files. Add a zip of the <em>code</em> (GitHub: <strong>Code → Download ZIP</strong>) if you want every quoted line of code checked.</li>
 </ul>
 <p>Then read the tabs in order:</p>
 <ol>
 <li><strong>Overview:</strong> the overall score, maturity level, gates, and what blocks the next level. The checks list tells you whether to trust the report.</li>
-<li><strong>Decisions:</strong> questions only a person should answer, such as &quot;drop this deprecated endpoint?&quot; Choose Approve, Decline or Not yet. The page produces a few lines to add to <code>project.toml</code>.</li>
+<li><strong>Decisions:</strong> questions only a person should answer, such as &quot;drop this deprecated endpoint?&quot; Choose Approve, Decline or Not yet. The page produces an updated <code>decisions.json</code>.</li>
 <li><strong>Priorities:</strong> the order improvers will work in.</li>
-<li><strong>Scorecard, Findings, Compare:</strong> the detail, when you want it.</li>
+<li><strong>Compare:</strong> what got better or worse since the previous report.</li>
+<li><strong>Scorecard, Findings, More:</strong> the detail, when you want it.</li>
 </ol>
-<p><strong>Save your answers</strong> by adding the lines to the end of <code>.grading/project.toml</code> <strong>on the grader's pull request branch</strong>. On GitHub: click the PR's branch name near the top of the PR, open <code>.grading/project.toml</code>, click the pencil (<strong>Edit</strong>), paste at the end, and <strong>commit directly to that branch</strong>. Then <strong>merge the PR</strong>. That closes the cycle: the report and your decisions are now on your main branch.</p>
+<p><strong>Save your answers.</strong> The page shows the steps; the short version:</p>
+<ul>
+<li><strong>Suggested:</strong> on the report's PR, edit <code>projects/orders-api/decisions.json</code>, paste the updated file, commit to the PR's branch, then <strong>merge the PR</strong>. Merging means &quot;accepted.&quot;</li>
+<li><strong>Already merged?</strong> Edit the file on the default branch and let GitHub create a small pull request on a branch named <code>decisions/orders-api/&lt;date&gt;</code>.</li>
+</ul>
+<p><em>Needs write access to the grading repo.</em></p>
 <h3 id="4-improve">4. Improve<a class="anchor" href="#4-improve" aria-label="Link to this section">#</a></h3>
-<p>Back on <strong><a href="../app/run.html">Start a run</a></strong>, choose <strong>Improve the code</strong>, set a budget (start small: tiers 0–1), and paste the prompt into a new agent session. It reads <code>.grading/</code> itself, works down the priorities, skips anything you haven't approved, and opens a pull request with a log of what it did. Review it like any other pull request.</p>
+<p>On <strong><a href="../app/run.html">Start a run</a></strong>, choose <strong>Improve the code</strong>, then choose how it gets the report:</p>
+<ul>
+<li><strong>It reads it from the grading repo:</strong> it opens only the project's latest report, <code>decisions.json</code> and <code>project.toml</code>.</li>
+<li><strong>You hand it the files.</strong></li>
+</ul>
+<p>Set a budget (start small: tiers 0–1) and paste the prompt into a new agent session. It works down the priorities, skips anything you haven't approved, and opens a pull request on your code with a log of what it did. <em>Needs push access to the code repo.</em></p>
 <h3 id="5-check-every-change">5. Check every change<a class="anchor" href="#5-check-every-change" aria-label="Link to this section">#</a></h3>
-<p>Choose <strong>Check a pull request</strong> on Start a run and paste the prompt into an agent with the PR's URL. It answers <strong>PASS</strong> or <strong>FAIL</strong>, with the reasons. It also fails any improvement PR that touches <code>.grading/</code>. Once you trust the loop, you can run this automatically in CI.</p>
-<p>Then repeat: grade again after a batch of improvements, and use <strong>Compare</strong> to see what changed.</p>
+<p>Choose <strong>Check a pull request</strong> on Start a run and give it the code PR. It compares against the latest merged report and answers <strong>PASS</strong> or <strong>FAIL</strong>, with the reasons. Once you trust the loop, you can run this automatically in CI. <em>Needs read access to both repos, and permission to comment on the code PR.</em></p>
+<p>Then repeat: grade again after a batch of improvements, and the new report is compared with this one.</p>
 <h2 id="common-setups">Common setups<a class="anchor" href="#common-setups" aria-label="Link to this section">#</a></h2>
-<p><strong>Solo developer, local agent.</strong> Keep <code>.grading/</code> in the repo. Grader delivery: <em>save files</em> (or <em>commit</em>). Review by dropping the files into the Review page. Paste decisions into <code>project.toml</code> and commit.</p>
-<p><strong>Team on GitHub, cloud agents.</strong> Keep <code>.grading/</code> in the repo, protected with CODEOWNERS. Grader delivery: <em>open a pull request</em>. Reviewers load the PR on the Review page, paste decisions on the PR and merge. Run pull-request checks on every improver PR.</p>
-<p><strong>Grading a public repo you don't own.</strong> Grader delivery: <em>give them back in the chat</em>. Save <code>report.json</code> from the chat and drop it into the Review page. There's no <code>project.toml</code> unless you write one: the report is checked against the suite defaults, which is fine for a one-off look.</p>
-<p><strong>Strict separation.</strong> Keep the grading folder in a private repo that improver sessions can't access, and give graders the hidden checks. On Start a run, choose <em>grading folder: somewhere else</em> and give its location.</p>
-<p><strong>Milestone audit.</strong> On Start a run, choose <em>three independent graders</em>. Run the three prompts in three fresh sessions. Drop all three run files into the Review page: it shows where the graders disagreed, and lets you download the consensus as <code>report.json</code>.</p>
+<p><strong>Team on GitHub (the default).</strong> One grading repo for all projects. Graders open report PRs, you answer decisions on them and merge, improvers open PRs on the code, and PR checks guard each change.</p>
+<p><strong>Solo, local agent.</strong> The same layout in a local folder. Graders <strong>save files</strong> into <code>projects/&lt;name&gt;/reports/</code>. Open the project folder in the Review page, save <code>decisions.json</code> next to <code>project.toml</code>, and hand the improver the files.</p>
+<p><strong>Someone else's public repo.</strong> No grading repo needed. Graders <strong>give the files back in the chat</strong>; save them into a folder and open it in the Review page. Without a <code>project.toml</code>, reports are checked against the suite defaults, which is fine for a one-off look.</p>
+<p><strong>Milestone audit.</strong> On Start a run, choose <em>three independent graders</em> and run the three prompts in three fresh sessions. They write <code>runs/run-1.json</code> and so on into the same report folder. The Review page shows where they disagreed, and lets you download the consensus as that folder's <code>report.json</code>.</p>
+<p><strong>Monorepo.</strong> One project per part, e.g. <code>shop-web</code> with <code>path = &quot;apps/web&quot;</code> and <code>shop-api</code> with <code>path = &quot;services/api&quot;</code>. Each gets its own reports and decisions.</p>
 <h2 id="keeping-agents-honest">Keeping agents honest<a class="anchor" href="#keeping-agents-honest" aria-label="Link to this section">#</a></h2>
 <ul>
-<li><strong>Improvers never change <code>.grading/</code>.</strong> The pull-request check fails any PR that does, and CODEOWNERS makes it need your approval anyway.</li>
 <li><strong>Every grading is a fresh session,</strong> never the agent that did the improving.</li>
 <li><strong>Decisions are yours.</strong> Agents may recommend answers, but only approve them if you turn that on in <code>project.toml</code>.</li>
-<li><strong>Hidden checks stay private.</strong> Graders report only the pass rate. If visible scores rise while hidden checks fall, the Compare tab warns you that the code may be being tuned to the rubric.</li>
-<li><strong>Every quote is checkable.</strong> Drop the repo's zip on the Review page to verify that each piece of evidence really exists.</li>
+<li><strong>Improvers read only what you point them to,</strong> and never change grading files.</li>
+<li><strong>Every quote is checkable.</strong> Drop the code's zip on the Review page to verify that each piece of evidence really exists.</li>
+<li><strong>Hidden checks</strong> (optional, for later): private tests in <code>projects/&lt;name&gt;/hidden-checks/</code> that graders run and you don't show improvers. If visible scores rise while hidden checks fall, the code is being tuned to the rubric. See <a href="holdout/README.html">Hidden checks</a>.</li>
 </ul>
 <h2 id="when-something-looks-off">When something looks off<a class="anchor" href="#when-something-looks-off" aria-label="Link to this section">#</a></h2>
 <table>
@@ -160,6 +159,10 @@
 <td>The quoted code isn't where the grader said. Treat that finding with suspicion, and re-grade if there are several.</td>
 </tr>
 <tr>
+<td>&quot;Couldn't load from GitHub&quot;</td>
+<td>Check that the grading repo is public and the project name matches its folder. Otherwise, download a zip of the repo and drop it in.</td>
+</tr>
+<tr>
 <td>The grader can't push or open a PR</td>
 <td>Choose <em>save files</em> or <em>give them back in the chat</em> on Start a run.</td>
 </tr>
@@ -174,10 +177,12 @@
 </tbody>
 </table>
 <h2 id="prefer-the-command-line">Prefer the command line?<a class="anchor" href="#prefer-the-command-line" aria-label="Link to this section">#</a></h2>
-<p>Everything the pages do is also available through <code>tools/gradekit.py</code> in the downloadable kit (Python 3.11+, no other installs). Inside a repo with a <code>.grading/</code> folder:</p>
-<pre><code class="language-bash">python3 SUITE_DIR/tools/gradekit.py init --preset service --grading-dir .grading   # set up
-python3 SUITE_DIR/tools/gradekit.py resolve                                       # see weights, gates, zones
-python3 SUITE_DIR/tools/gradekit.py validate &amp;&amp; python3 SUITE_DIR/tools/gradekit.py rollup
+<p>Everything the pages do is also available through <code>tools/gradekit.py</code> in the downloadable kit (Python 3.11+, no other installs). From the root of your grading repo:</p>
+<pre><code class="language-bash">K=&quot;python3 SUITE_DIR/tools/gradekit.py&quot;
+$K init --project orders-api --code-repo https://github.com/acme/orders-api --preset service
+$K resolve --project orders-api              # weights, gates and zones it produces
+$K rollup  --project orders-api              # the latest report: gates, maturity, priorities
+$K diff    --project orders-api              # the latest report vs the one before
 </code></pre>
 <p>See the <a href="README.html">overview</a> for every command, and the <a href="TUNING.html">tuning guide</a> for customizing scoring.</p>
 <nav class="pager"><a href="../docs/README.html" style="margin-left:auto;text-align:right"><small>Next</small>Overview &amp; reference</a></nav></main></div>

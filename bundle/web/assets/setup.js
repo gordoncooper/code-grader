@@ -154,6 +154,15 @@
     });
   }
 
+  function slugName(v) { return String(v || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, ""); }
+  function repoName(url) { var m = String(url || "").trim().replace(/\.git$/, "").replace(/\/+$/, "").match(/([^\/:]+)$/); return m ? slugName(m[1]) : ""; }
+  function showPath() {
+    var n = slugName(state.project.name) || "…";
+    $("#proj-path").textContent = "projects/" + n + "/";
+    $$(".proj-path-full").forEach(function (el) { el.textContent = "projects/" + n + "/"; });
+    $$(".proj-name").forEach(function (el) { el.textContent = n; });
+  }
+
   function syncFieldsFromState() {
     $$("[data-proj]").forEach(function (el) { el.value = state.project[el.dataset.proj] || ""; });
     $("#f-oos").value = (state.project.out_of_scope || []).join("\n");
@@ -162,6 +171,7 @@
     $("#t-level-wrap").hidden = mode.indexOf("level:") !== 0;
     if (mode.indexOf("level:") === 0) $("#t-level").value = mode.split(":")[1];
     $("#agent-decisions").checked = !!(state.review && state.review.allow_agent_decisions);
+    showPath();
   }
 
   function renderAll() {
@@ -172,6 +182,8 @@
   function projectData() {
     var d = JSON.parse(JSON.stringify(state));
     var proj = d.project;
+    delete proj._autoName;
+    if (proj.name) proj.name = slugName(proj.name);
     Object.keys(proj).forEach(function (k) { if (proj[k] === "" || (Array.isArray(proj[k]) && !proj[k].length && k !== "out_of_scope")) delete proj[k]; });
     if (!proj.name) proj.name = "my-project";
     d.zones = d.zones.filter(function (z) { return (z.paths || []).length; }).map(function (z) {
@@ -294,11 +306,24 @@
   // ------------------------------------------------------------------ wiring
   async function init() {
     UI.bindEnginePill($("#engine-pill"));
-    UI.tabs($("#where-tabs")).select("inrepo");
+    UI.tabs($("#where-tabs")).select("repo");
     $$("input[name=start]").forEach(function (r) { r.addEventListener("change", function () { $("#load-existing").hidden = r.value !== "edit" || !r.checked; }); });
     UI.dropZone($("#toml-drop"), $("#toml-file"), async function (files) { loadToml(await UI.readFile(files[0]), files[0].name); });
     $("#toml-load").addEventListener("click", function () { if ($("#toml-paste").value.trim()) loadToml($("#toml-paste").value); });
-    $$("[data-proj]").forEach(function (el) { el.addEventListener("input", function () { state.project[el.dataset.proj] = el.value; refresh(); }); });
+    $$("[data-proj]").forEach(function (el) { el.addEventListener("input", function () {
+      state.project[el.dataset.proj] = el.value;
+      if (el.dataset.proj === "code_repo" && (!state.project.name || state.project._autoName)) {
+        state.project.name = repoName(el.value) + (state.project.path ? "-" + slugName(state.project.path.split("/").pop()) : "");
+        state.project._autoName = true; $("#f-name").value = state.project.name;
+      }
+      if (el.dataset.proj === "name") { state.project._autoName = false; }
+      if (el.dataset.proj === "path" && state.project._autoName && state.project.code_repo) {
+        state.project.name = repoName(state.project.code_repo) + (el.value ? "-" + slugName(el.value.split("/").pop()) : "");
+        $("#f-name").value = state.project.name;
+      }
+      showPath(); refresh();
+    }); });
+    $("#f-name").addEventListener("change", function () { var v = slugName($("#f-name").value); if (v && v !== $("#f-name").value) { $("#f-name").value = v; state.project.name = v; showPath(); refresh(); } });
     $("#f-oos").addEventListener("input", function () { state.project.out_of_scope = $("#f-oos").value.split("\n").map(function (s) { return s.trim(); }).filter(Boolean); refresh(); });
     $("#add-hot").addEventListener("click", function () { state.zones.push({ name: "", paths: [], criticality: "hot" }); renderZones(); });
     $("#add-cold").addEventListener("click", function () { state.zones.push({ name: "", paths: [], criticality: "cold" }); renderZones(); });
@@ -340,8 +365,9 @@
     } else {
       applyPreset("default", false);
     }
-    $("#codeowners").textContent = info.codeowners_hint;
-    $("#dl-readme").addEventListener("click", function () { UI.download("README.md", info.grading_readme); });
+    $("#dl-readme").addEventListener("click", function () { UI.download("README.md", info.grading_repo_readme); });
+    $("#dl-decisions").addEventListener("click", function () { UI.download("decisions.json", info.starter_decisions, "application/json"); });
+    $("#dl-dispositions").addEventListener("click", function () { UI.download("dispositions.json", info.starter_dispositions, "application/json"); });
     renderAll(); refresh();
     var reset = h("button", { type: "button", class: "btn", style: "margin-left:auto" }, "Start over");
     reset.addEventListener("click", function () { if (confirmReset()) { state = blank(); extras = {}; $("#org-toml").value = ""; applyPreset("default", false); renderAll(); refresh(); } });

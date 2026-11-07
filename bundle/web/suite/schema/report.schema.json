@@ -38,6 +38,13 @@
         "commit"
       ],
       "properties": {
+        "project": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Project name: the folder projects/<project>/ in the grading repo"
+        },
         "commit": {
           "type": "string",
           "minLength": 1
