@@ -25,6 +25,7 @@ The site always serves the newest bundle in [`bundle/web/`](bundle/). It's publi
 ```
 code-grader/
 ├── README.md                     this file
+├── LICENSE                       MIT
 ├── org.toml                      optional house rules for every project (people)
 ├── projects/
 │   └── <project>/                one folder per graded codebase
@@ -81,3 +82,7 @@ Start with `bundle/bare/GETTING-STARTED.md` for the walkthrough, then `README.md
 ## Versions
 
 Each version of the suite is a tagged [release](https://github.com/gordoncooper/code-grader/releases), with the bare kit and the website attached as zips. `bundle/` always holds the newest version. To see an older one, browse its tag. The full list is in [`bundle/README.md`](bundle/README.md).
+
+## License
+
+[MIT](LICENSE). This covers everything in the repo, including the reports in `projects/`.
