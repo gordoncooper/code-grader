@@ -23,4 +23,14 @@ Both folders always hold the **newest** version. Each version arrived in its own
 cd bundle/web && sha256sum -c SHA256SUMS      # macOS: shasum -a 256 -c SHA256SUMS
 ```
 
-Each release also attaches the bare and web zips as downloads.
+## Releases
+
+Releases happen on their own. When a bundle PR merges, the *Release suite* workflow ([`.github/workflows/release.yml`](../.github/workflows/release.yml)) does three things:
+
+1. Reads the version from `web/manifest.json` and checks it against the top of `bare/CHANGELOG.md`.
+2. Tags the merge commit `vX.Y.Z`.
+3. Publishes a release with notes from the CHANGELOG and two zips attached: the bare kit and the website.
+
+Versions that are already tagged are skipped, so other edits under `bundle/` don't release anything.
+
+To release a version by hand, go to **Actions → Release suite → Run workflow**. Leave the commit empty to release the newest version on `main`.
