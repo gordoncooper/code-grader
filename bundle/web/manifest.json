@@ -1,0 +1,278 @@
+{
+  "name": "Code Grading Suite",
+  "version": "3.1.0",
+  "built": "2026-11-07",
+  "entry_point": "AGENT.md",
+  "download": {
+    "path": "downloads/code-grading-suite-3.1.0.zip",
+    "sha256": "3ed661be9c12a6786ae5066effad738140228dccbd3cd9b01221add659d79b8d"
+  },
+  "renderer": "markdown-it-py",
+  "files": [
+    {
+      "path": ".htaccess",
+      "bytes": 572,
+      "sha256": "e632edc6075e0a25105d67420b103a03ef4763d9eda956c55b3b03cf3763dd90"
+    },
+    {
+      "path": "AGENT.md",
+      "bytes": 5205,
+      "sha256": "338b53d89377920c6b85e3f40680cede7c1ce58458ccd8c26372f5a3523d4128"
+    },
+    {
+      "path": "assets/site.js",
+      "bytes": 1770,
+      "sha256": "f62d6cc273eec76cdb9152358e7accaf5951754d73aae3eb980231b0f54086bc"
+    },
+    {
+      "path": "assets/style.css",
+      "bytes": 9884,
+      "sha256": "1160ceba7bfa97e5cc57bded2d98a01869f6210394ce4f8e1067a47e72d78ac8"
+    },
+    {
+      "path": "docs/AGENT.html",
+      "bytes": 10673,
+      "sha256": "bf2ea38ad41f8eb68d18e4e9a76395f80a87a592aebab18f999ec315c24c5c45"
+    },
+    {
+      "path": "docs/CHANGELOG.html",
+      "bytes": 6241,
+      "sha256": "bc5dd8334f07887138f03aba3f46f394444795aafc2cbe51f2d668af60de1c4b"
+    },
+    {
+      "path": "docs/DEPLOY.html",
+      "bytes": 8660,
+      "sha256": "3e03e24853e0bcdfdc12db1276294ffefa48470accf6f92d5f18acaf33642684"
+    },
+    {
+      "path": "docs/README.html",
+      "bytes": 13991,
+      "sha256": "63f2ec57521a709dca423bbdd2780dce401b8a2e7d04a09e89b774d4beae046a"
+    },
+    {
+      "path": "docs/calibration/README.html",
+      "bytes": 6255,
+      "sha256": "7ebc17225713b930d1ad14d76ff7f2f58ea709b176ca75c1530b58957a481204"
+    },
+    {
+      "path": "docs/holdout/README.html",
+      "bytes": 6496,
+      "sha256": "d02d1dc458451892314e538c77ba3194455b9cac4da836dc8c45b5f09488d79c"
+    },
+    {
+      "path": "docs/prompts/grader.html",
+      "bytes": 39580,
+      "sha256": "034c6d75be5e88e96939364ebec06d590cd280d9be3e428d8d9ded5396ca8573"
+    },
+    {
+      "path": "docs/prompts/improver.html",
+      "bytes": 8492,
+      "sha256": "a74251d05b5b52f2eefc6851a525a72baa4c7e5e2715fcca89f7522e892d9a88"
+    },
+    {
+      "path": "docs/prompts/pr-review.html",
+      "bytes": 8876,
+      "sha256": "4d97d5f95cd69f5ea48ce9d5b6bdbc0288f4fb4e46132d2b42773bd3c4320cc8"
+    },
+    {
+      "path": "docs/rubric/A-correctness-trust.html",
+      "bytes": 11862,
+      "sha256": "94917789fa079295aacad7b08b68fe0b6015673db6d9ab14a0c05bdd9cac420b"
+    },
+    {
+      "path": "docs/rubric/B-design-structure.html",
+      "bytes": 11760,
+      "sha256": "71eb08d71c88ee3336c35b80ce5dcdfe1e589285187cb73cd9fbb9d903336a0e"
+    },
+    {
+      "path": "docs/rubric/C-code-health.html",
+      "bytes": 8058,
+      "sha256": "21999ef9dd3fab6094730e30420e100baf0f78ab2d5f26fd96a47a8d0a8fe8b8"
+    },
+    {
+      "path": "docs/rubric/D-value-fitness.html",
+      "bytes": 9023,
+      "sha256": "d94e5ae05cd84139083e00e070a4be267ffe88cadbd52f8bf864bc923214ec61"
+    },
+    {
+      "path": "docs/rubric/E-adoption-experience.html",
+      "bytes": 9316,
+      "sha256": "a99a699f9b6dd477eb14011bcdcdfd8cc2f59224188be58498c8c33c8e016888"
+    },
+    {
+      "path": "docs/rubric/F-operations-delivery.html",
+      "bytes": 10935,
+      "sha256": "f0de83f928e152267545e424c6b2e27528b3cf779832ec7bbc216254ef1818b6"
+    },
+    {
+      "path": "docs/rubric/X-conditional.html",
+      "bytes": 8369,
+      "sha256": "f9a0ea4d278df40d485d9fd9c27b37b78b1f7cb8631f19aa163935a2bf6fc028"
+    },
+    {
+      "path": "docs/rubric/weights.html",
+      "bytes": 17594,
+      "sha256": "37fb18e3d87279233b57930e5b3142bfe4614fabdbe754fd2c5cbeca08b8aa4d"
+    },
+    {
+      "path": "downloads/code-grading-suite-3.1.0.zip",
+      "bytes": 83554,
+      "sha256": "3ed661be9c12a6786ae5066effad738140228dccbd3cd9b01221add659d79b8d"
+    },
+    {
+      "path": "index.html",
+      "bytes": 11140,
+      "sha256": "d63fd7ffb3d978b57492aef96f4ee151220f6899e3af8221a713fc4e28bdbe5d"
+    },
+    {
+      "path": "llms.txt",
+      "bytes": 1462,
+      "sha256": "387f20d971e7cca7d6fec82f5db2ebad685d1f7004bdde653ad8a820051176d4"
+    },
+    {
+      "path": "suite/CHANGELOG.md",
+      "bytes": 2492,
+      "sha256": "edbce222aa549d8119ee5d890cc3ee9719e937e7dfd6f69602aa1a75be6d2154"
+    },
+    {
+      "path": "suite/DEPLOY.md",
+      "bytes": 3998,
+      "sha256": "08f372fcda806a0c17e40a8c56b184186f5f2d426fa4c91c919b1b6039db8ad9"
+    },
+    {
+      "path": "suite/README.md",
+      "bytes": 8734,
+      "sha256": "4437ac71823ae2b5c96eac941bddf451a19709612ed445e27e4792d0a7b54b3e"
+    },
+    {
+      "path": "suite/calibration/README.md",
+      "bytes": 2562,
+      "sha256": "7040ae3e73f3e5240ac02a2b4dedeb3abeb52eab5b6dce98dd8f9d07285fcb37"
+    },
+    {
+      "path": "suite/calibration/expected-scores.example.json",
+      "bytes": 515,
+      "sha256": "b4235058b870564fdc94c5625abd5989c7b135b74cb2813eef84955522912b71"
+    },
+    {
+      "path": "suite/dispositions/decisions.example.json",
+      "bytes": 847,
+      "sha256": "e9bd6e7cd28376b435a752764369d96a9dc43a23dd02045ffcbf788578b939be"
+    },
+    {
+      "path": "suite/dispositions/dispositions.example.json",
+      "bytes": 788,
+      "sha256": "998c91751d2322e1448b49f2fa075dac13af9e8d9977ba1928d29c321f0a5af6"
+    },
+    {
+      "path": "suite/examples/sample-repo/README.md",
+      "bytes": 71,
+      "sha256": "5ca181caf123d4771f12d929bf0e9fa6021a5e5db1e818071e5906e59ea5185b"
+    },
+    {
+      "path": "suite/examples/sample-repo/scripts/seed.sql",
+      "bytes": 120,
+      "sha256": "3cd7f225017ec2cbdc00c516c7f031fca8e3653f8738d1d93c87b1b5db0d009c"
+    },
+    {
+      "path": "suite/examples/sample-repo/src/orders/service.py",
+      "bytes": 428,
+      "sha256": "b894a7106afbb8de1167b498acf713c07334060e82330a4697a9a8d33cff405e"
+    },
+    {
+      "path": "suite/examples/sample-repo/src/payments/api.py",
+      "bytes": 237,
+      "sha256": "0d04447c1872c44a40789537383bd2656def9fbe6b6545837c0a84ca69f6b82b"
+    },
+    {
+      "path": "suite/examples/sample-repo/tests/test_service.py",
+      "bytes": 192,
+      "sha256": "b8504179f0a5cb4ef616b68319a6503e8fce090c0db147394d40f0daca75dd23"
+    },
+    {
+      "path": "suite/examples/sample-report.json",
+      "bytes": 49978,
+      "sha256": "ab90ae0b47aa17e30c9569cd9e0ff7977a5218530086d4ad7c8ec99dbc95df1a"
+    },
+    {
+      "path": "suite/holdout/README.md",
+      "bytes": 2693,
+      "sha256": "d81df6650b5cbafc964f646e605a129c1e1a329852fa3ed80a872d58471325f4"
+    },
+    {
+      "path": "suite/prompts/grader.md",
+      "bytes": 25334,
+      "sha256": "2b483d812a6cc02d40272739747f73a241511827ab92c792a4f6d762b56b06ea"
+    },
+    {
+      "path": "suite/prompts/improver.md",
+      "bytes": 4106,
+      "sha256": "7abb15e12f51a35f14bcdd298b1b9d2b41503991f9aebabf45b017ee7f3bc55b"
+    },
+    {
+      "path": "suite/prompts/pr-review.md",
+      "bytes": 3747,
+      "sha256": "230e09743a226da0c757dc4a4ba11a1a96fb525f8cb4658ab0ad34cf9bf05af4"
+    },
+    {
+      "path": "suite/rubric/A-correctness-trust.md",
+      "bytes": 6660,
+      "sha256": "38ad3e710b1b637170036fc5032d4a9313512e878e6b52dd4c88b3aae0351e20"
+    },
+    {
+      "path": "suite/rubric/B-design-structure.md",
+      "bytes": 6223,
+      "sha256": "801ebd611e46be0cf8e8afc7542fe1aab92cfcd463874993bcceb8029435fb6a"
+    },
+    {
+      "path": "suite/rubric/C-code-health.md",
+      "bytes": 3408,
+      "sha256": "c6a82f295758bf725f9b6533c90389e3b787b05765bf03dbf33a29a36109921f"
+    },
+    {
+      "path": "suite/rubric/D-value-fitness.md",
+      "bytes": 4314,
+      "sha256": "032b01888b0d2b030d2bb6087c9144cf13d6396b107398e39e175df8642fec18"
+    },
+    {
+      "path": "suite/rubric/E-adoption-experience.md",
+      "bytes": 4389,
+      "sha256": "48dbe278f54fa9c7997ef4b6e0ab2a867ffb7f9a3b8226ac14e1b40118840aad"
+    },
+    {
+      "path": "suite/rubric/F-operations-delivery.md",
+      "bytes": 5427,
+      "sha256": "787c52f5c822acd6365bb79da0c424020d9859d9f7d4bc5bda45d0974fff59d2"
+    },
+    {
+      "path": "suite/rubric/X-conditional.md",
+      "bytes": 2749,
+      "sha256": "8a0da8cc85ba34d7de51359b67137f875be12f58b279d5dca3e8dcd348045ce2"
+    },
+    {
+      "path": "suite/rubric/weights.json",
+      "bytes": 12425,
+      "sha256": "dd4850a32c56c88cc3dfac7714b9e8ca75e71d59c830376f2c0665c641866072"
+    },
+    {
+      "path": "suite/rubric/weights.md",
+      "bytes": 4966,
+      "sha256": "5eeb92d194e8c0cbff31b041f0b8b0fc86fab41a9698e616ecd936146576d02b"
+    },
+    {
+      "path": "suite/schema/report.schema.json",
+      "bytes": 9398,
+      "sha256": "094945dc9215930e9cf2e2246296874320c8cf2b57903a50c9e8bd3fb74ca680"
+    },
+    {
+      "path": "suite/tools/build_web.py",
+      "bytes": 39857,
+      "sha256": "52e8cc73bf0e87bf4d4fa83b0eafb99facbb9c3f9a3d75201f7980ed435fac0f"
+    },
+    {
+      "path": "suite/tools/gradekit.py",
+      "bytes": 39154,
+      "sha256": "35e2f35b382dbcebe1fa699e5e4b6415e8f7e7379014136d557a8f30cafb88c6"
+    }
+  ]
+}

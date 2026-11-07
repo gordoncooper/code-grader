@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>D · Value &amp; Fitness · Code Grading Suite</title>
+<meta name="description" content="A rubric and prompts for AI coding agents to grade codebases from 1 to 10 on 35 benchmarks and improve them.">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="alternate" type="text/markdown" href="../../AGENT.md" title="Agent entry point">
+</head>
+<body>
+<header class="topbar">
+  <button class='menu-btn' type='button'>Menu</button>
+  <a class="brand" href="../../index.html">Code <span>Grading</span> Suite</a>
+  <span class="ver">v3.1.0</span>
+  <span class="spacer"></span>
+  
+  <a class="top" href="../../docs/README.html">Docs</a>
+  <a class="top" href="../../AGENT.md">AGENT.md</a>
+  <a class="top" href="../../downloads/code-grading-suite-3.1.0.zip">Download</a>
+</header>
+<div class="layout"><nav class="sidebar" aria-label="Documentation"><h4>Start</h4><a href="../../docs/README.html">Overview &amp; workflow</a><a href="../../docs/AGENT.html">Agent entry point</a><a href="../../docs/DEPLOY.html">Hosting this site</a><h4>Prompts</h4><a href="../../docs/prompts/grader.html">Grader</a><a href="../../docs/prompts/improver.html">Improver</a><a href="../../docs/prompts/pr-review.html">PR quick mode</a><h4>Rubric</h4><a href="../../docs/rubric/A-correctness-trust.html">A · Correctness &amp; Trust</a><a href="../../docs/rubric/B-design-structure.html">B · Design &amp; Structure</a><a href="../../docs/rubric/C-code-health.html">C · Code Health</a><a href="../../docs/rubric/D-value-fitness.html" class="active" aria-current="page">D · Value &amp; Fitness</a><a href="../../docs/rubric/E-adoption-experience.html">E · Adoption &amp; Experience</a><a href="../../docs/rubric/F-operations-delivery.html">F · Operations &amp; Delivery</a><a href="../../docs/rubric/X-conditional.html">X · Conditional</a><a href="../../docs/rubric/weights.html">Weights, targets &amp; maturity</a><h4>Guides</h4><a href="../../docs/calibration/README.html">Calibration</a><a href="../../docs/holdout/README.html">Hidden checks</a><a href="../../docs/CHANGELOG.html">Changelog</a></nav><main class="doc"><div class="docbar"><a class="btn" href="../../suite/rubric/D-value-fitness.md">View raw .md</a><button class="btn" type="button" data-copy="../../suite/rubric/D-value-fitness.md">Copy raw URL for an agent</button></div><details class="toc"><summary>On this page</summary><ul><li><a href="#d1-feature-completeness">D1. Feature Completeness</a></li><li><a href="#d2-gap-coverage">D2. Gap Coverage</a></li><li><a href="#d3-practicality">D3. Practicality</a></li><li><a href="#d4-intuitiveness">D4. Intuitiveness</a></li></ul></details><!-- Part of the Code Grading Suite v3.1.0. Read together with prompts/grader.md, which holds the scoring rules, anti-gaming rules and output format. -->
+<h1 id="pillar-d-rubric-value-fitness-for-purpose">Pillar D rubric: Value &amp; Fitness for Purpose<a class="anchor" href="#pillar-d-rubric-value-fitness-for-purpose" aria-label="Link to this section">#</a></h1>
+<p><em>Does it do the right things, completely, in a way that makes sense in the real world?</em></p>
+<h2 id="d1-feature-completeness">D1. Feature Completeness<a class="anchor" href="#d1-feature-completeness" aria-label="Link to this section">#</a></h2>
+<ul>
+<li><strong>Measures:</strong> Every feature the project claims or exposes (README, docs, CLI help, routes, UI, config options) is fully implemented and works end to end, with parity across surfaces (e.g. the CLI and the API both support it). No stubs, placeholder UI, dead buttons, <code>NotImplementedError</code> or half-wired flags.</li>
+<li><strong>Not this:</strong> Features that are <em>missing</em> but expected (D2).</li>
+<li><strong>Assess:</strong> Build a <strong>feature inventory</strong> from your recon list and give each feature a status: <code>complete</code>, <code>partial</code>, <code>stub</code>, <code>broken</code> or <code>undocumented</code>. Exercise each one, or as many as practical.</li>
+<li><strong>Anchors:</strong>
+<ul>
+<li><strong>1–3:</strong> Most claimed features broken or stubbed.</li>
+<li><strong>4–6:</strong> Core features work; several partial.</li>
+<li><strong>7–8:</strong> Nearly everything complete; minor rough edges.</li>
+<li><strong>9–10:</strong> Everything claimed works end to end, matches the docs, and is covered by tests.</li>
+</ul>
+</li>
+<li><strong>Caps:</strong> Any advertised core feature that is missing or broken → max 5.</li>
+</ul>
+<h2 id="d2-gap-coverage">D2. Gap Coverage<a class="anchor" href="#d2-gap-coverage" aria-label="Link to this section">#</a></h2>
+<ul>
+<li><strong>Measures:</strong> Absence of gaps. A gap is something the project's purpose clearly needs, or that users of this kind of software would reasonably expect, but that is missing. Examples: an auth system without password reset, a CLI without <code>--help</code> or meaningful exit codes, an API without pagination or rate-limit handling, a data tool without export, a destructive action without confirm or undo, a service without health checks, a missing platform the project says it supports.</li>
+<li><strong>Not this:</strong> Unfinished <em>existing</em> features (D1). A wishlist; feature creep is not rewarded.</li>
+<li><strong>Assess:</strong> Compare against the stated requirements, the domain's norms and 1–3 peer tools. Build a <strong>gap register</strong>. Mark each gap with a severity (<code>critical</code>, <code>major</code>, <code>minor</code>) and a necessity (<code>must-have</code> or <code>nice-to-have</code>) relative to the project's purpose.</li>
+<li><strong>Anchors:</strong>
+<ul>
+<li><strong>1–3:</strong> Missing essentials that make it unfit for purpose.</li>
+<li><strong>4–6:</strong> Several major gaps.</li>
+<li><strong>7–8:</strong> Only minor or nice-to-have gaps.</li>
+<li><strong>9–10:</strong> Nothing a reasonable user would miss; scope boundaries are documented.</li>
+</ul>
+</li>
+<li><strong>Caps:</strong> Any critical gap → max 4.</li>
+</ul>
+<h2 id="d3-practicality">D3. Practicality<a class="anchor" href="#d3-practicality" aria-label="Link to this section">#</a></h2>
+<ul>
+<li><strong>Measures:</strong> Pragmatic fitness for purpose:
+<ul>
+<li>Technology choices suit the team, scale and budget (no Kubernetes cluster for a nightly cron job, no hand-written ORM where a standard one works).</li>
+<li>It works with realistic data volumes, real network conditions and real user workflows, not just demo data.</li>
+<li>Trade-offs are made consciously.</li>
+<li>Operating cost and effort are proportional to the value delivered.</li>
+<li>No gold-plating, and no purity that gets in the way of delivering value.</li>
+</ul>
+</li>
+<li><strong>Not this:</strong> Code-level leanness (B6). Architecture quality as such (B1).</li>
+<li><strong>Assess:</strong> Ask: &quot;Would an experienced team adopt and run this as-is? What would they rip out or bolt on in the first week?&quot; Test with realistic inputs where possible.</li>
+<li><strong>Anchors:</strong>
+<ul>
+<li><strong>1–3:</strong> Impractical: wrong tools, or only works in a demo.</li>
+<li><strong>4–6:</strong> Usable but awkward or over-built in places.</li>
+<li><strong>7–8:</strong> Sensible, grounded choices.</li>
+<li><strong>9–10:</strong> Every choice clearly serves the real use case, and the trade-offs are documented.</li>
+</ul>
+</li>
+</ul>
+<h2 id="d4-intuitiveness">D4. Intuitiveness<a class="anchor" href="#d4-intuitiveness" aria-label="Link to this section">#</a></h2>
+<ul>
+<li><strong>Measures:</strong> Least surprise, for end users <em>and</em> developers. Sensible defaults; names that match the domain's vocabulary; consistent behavior across similar operations; discoverability (help text, completions, clear flags, resources and menus); error messages that say what to do next; no hidden modes, ordering traps or surprising side effects; it behaves the way users of similar tools expect.</li>
+<li><strong>Not this:</strong> Onboarding and time-to-first-success (E1). Docs content (E2).</li>
+<li><strong>Assess:</strong> Do 3–5 common tasks as a first-time user without reading the source. Log every surprise, guess and dead end.</li>
+<li><strong>Anchors:</strong>
+<ul>
+<li><strong>1–3:</strong> Confusing; users must read the source.</li>
+<li><strong>4–6:</strong> Learnable, with friction and several gotchas.</li>
+<li><strong>7–8:</strong> Mostly obvious.</li>
+<li><strong>9–10:</strong> Users succeed on the first try and the behavior feels inevitable.</li>
+</ul>
+</li>
+</ul>
+<nav class="pager"><a href="../../docs/rubric/C-code-health.html"><small>Previous</small>C · Code Health</a><a href="../../docs/rubric/E-adoption-experience.html" style="margin-left:auto;text-align:right"><small>Next</small>E · Adoption &amp; Experience</a></nav></main></div>
+<script src="../../assets/site.js"></script>
+</body>
+</html>

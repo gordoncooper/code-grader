@@ -1,0 +1,602 @@
+{
+  "suite_version": "3.1.0",
+  "profiles": [
+    "Default",
+    "Library",
+    "Service/API",
+    "Web app",
+    "CLI",
+    "Prototype"
+  ],
+  "pillars": {
+    "A": {
+      "name": "Correctness & Trust",
+      "rubric": "rubric/A-correctness-trust.md"
+    },
+    "B": {
+      "name": "Design & Structure",
+      "rubric": "rubric/B-design-structure.md"
+    },
+    "C": {
+      "name": "Code Health",
+      "rubric": "rubric/C-code-health.md"
+    },
+    "D": {
+      "name": "Value & Fitness for Purpose",
+      "rubric": "rubric/D-value-fitness.md"
+    },
+    "E": {
+      "name": "Adoption & Experience",
+      "rubric": "rubric/E-adoption-experience.md"
+    },
+    "F": {
+      "name": "Operations & Delivery",
+      "rubric": "rubric/F-operations-delivery.md"
+    },
+    "X": {
+      "name": "Conditional",
+      "rubric": "rubric/X-conditional.md"
+    }
+  },
+  "benchmarks": [
+    {
+      "id": "A1",
+      "name": "Correctness & Functional Behavior",
+      "pillar": "A",
+      "conditional": false,
+      "weights": {
+        "Default": 3,
+        "Library": 3,
+        "Service/API": 3,
+        "Web app": 3,
+        "CLI": 3,
+        "Prototype": 2
+      }
+    },
+    {
+      "id": "A2",
+      "name": "Security & Privacy",
+      "pillar": "A",
+      "conditional": false,
+      "weights": {
+        "Default": 3,
+        "Library": 2,
+        "Service/API": 3,
+        "Web app": 3,
+        "CLI": 2,
+        "Prototype": 1
+      }
+    },
+    {
+      "id": "A3",
+      "name": "Robustness & Error Handling",
+      "pillar": "A",
+      "conditional": false,
+      "weights": {
+        "Default": 2,
+        "Library": 2,
+        "Service/API": 3,
+        "Web app": 2,
+        "CLI": 2,
+        "Prototype": 1
+      }
+    },
+    {
+      "id": "A4",
+      "name": "Idempotence & Determinism",
+      "pillar": "A",
+      "conditional": false,
+      "weights": {
+        "Default": 2,
+        "Library": 1,
+        "Service/API": 3,
+        "Web app": 2,
+        "CLI": 2,
+        "Prototype": 1
+      }
+    },
+    {
+      "id": "A5",
+      "name": "Durability & Recoverability",
+      "pillar": "A",
+      "conditional": false,
+      "weights": {
+        "Default": 2,
+        "Library": 1,
+        "Service/API": 3,
+        "Web app": 2,
+        "CLI": 1,
+        "Prototype": 1
+      }
+    },
+    {
+      "id": "B1",
+      "name": "Architecture & Design Fitness",
+      "pillar": "B",
+      "conditional": false,
+      "weights": {
+        "Default": 2,
+        "Library": 2,
+        "Service/API": 2,
+        "Web app": 2,
+        "CLI": 1,
+        "Prototype": 1
+      }
+    },
+    {
+      "id": "B2",
+      "name": "Modularity & Decoupling",
+      "pillar": "B",
+      "conditional": false,
+      "weights": {
+        "Default": 2,
+        "Library": 3,
+        "Service/API": 2,
+        "Web app": 2,
+        "CLI": 1,
+        "Prototype": 1
+      }
+    },
+    {
+      "id": "B3",
+      "name": "Structure & Organization",
+      "pillar": "B",
+      "conditional": false,
+      "weights": {
+        "Default": 1,
+        "Library": 1,
+        "Service/API": 1,
+        "Web app": 1,
+        "CLI": 1,
+        "Prototype": 1
+      }
+    },
+    {
+      "id": "B4",
+      "name": "Interface Design & Contracts",
+      "pillar": "B",
+      "conditional": false,
+      "weights": {
+        "Default": 2,
+        "Library": 3,
+        "Service/API": 2,
+        "Web app": 2,
+        "CLI": 2,
+        "Prototype": 1
+      }
+    },
+    {
+      "id": "B5",
+      "name": "Flexibility & Extensibility",
+      "pillar": "B",
+      "conditional": false,
+      "weights": {
+        "Default": 1,
+        "Library": 2,
+        "Service/API": 1,
+        "Web app": 1,
+        "CLI": 1,
+        "Prototype": 1
+      }
+    },
+    {
+      "id": "B6",
+      "name": "Leanness",
+      "pillar": "B",
+      "conditional": false,
+      "weights": {
+        "Default": 2,
+        "Library": 2,
+        "Service/API": 1,
+        "Web app": 2,
+        "CLI": 2,
+        "Prototype": 2
+      }
+    },
+    {
+      "id": "C1",
+      "name": "Readability & Clarity",
+      "pillar": "C",
+      "conditional": false,
+      "weights": {
+        "Default": 2,
+        "Library": 2,
+        "Service/API": 2,
+        "Web app": 2,
+        "CLI": 2,
+        "Prototype": 2
+      }
+    },
+    {
+      "id": "C2",
+      "name": "Maintainability & Complexity",
+      "pillar": "C",
+      "conditional": false,
+      "weights": {
+        "Default": 2,
+        "Library": 2,
+        "Service/API": 2,
+        "Web app": 2,
+        "CLI": 2,
+        "Prototype": 1
+      }
+    },
+    {
+      "id": "C3",
+      "name": "Consistency & Idiomatic Code",
+      "pillar": "C",
+      "conditional": false,
+      "weights": {
+        "Default": 1,
+        "Library": 1,
+        "Service/API": 1,
+        "Web app": 1,
+        "CLI": 1,
+        "Prototype": 1
+      }
+    },
+    {
+      "id": "C4",
+      "name": "Test Suite Quality",
+      "pillar": "C",
+      "conditional": false,
+      "weights": {
+        "Default": 2,
+        "Library": 3,
+        "Service/API": 2,
+        "Web app": 2,
+        "CLI": 2,
+        "Prototype": 1
+      }
+    },
+    {
+      "id": "D1",
+      "name": "Feature Completeness",
+      "pillar": "D",
+      "conditional": false,
+      "weights": {
+        "Default": 2,
+        "Library": 2,
+        "Service/API": 2,
+        "Web app": 2,
+        "CLI": 2,
+        "Prototype": 2
+      }
+    },
+    {
+      "id": "D2",
+      "name": "Gap Coverage",
+      "pillar": "D",
+      "conditional": false,
+      "weights": {
+        "Default": 2,
+        "Library": 2,
+        "Service/API": 2,
+        "Web app": 2,
+        "CLI": 2,
+        "Prototype": 2
+      }
+    },
+    {
+      "id": "D3",
+      "name": "Practicality",
+      "pillar": "D",
+      "conditional": false,
+      "weights": {
+        "Default": 2,
+        "Library": 2,
+        "Service/API": 2,
+        "Web app": 2,
+        "CLI": 2,
+        "Prototype": 3
+      }
+    },
+    {
+      "id": "D4",
+      "name": "Intuitiveness",
+      "pillar": "D",
+      "conditional": false,
+      "weights": {
+        "Default": 2,
+        "Library": 2,
+        "Service/API": 1,
+        "Web app": 3,
+        "CLI": 3,
+        "Prototype": 2
+      }
+    },
+    {
+      "id": "E1",
+      "name": "Adopter Friendliness",
+      "pillar": "E",
+      "conditional": false,
+      "weights": {
+        "Default": 2,
+        "Library": 3,
+        "Service/API": 1,
+        "Web app": 1,
+        "CLI": 2,
+        "Prototype": 1
+      }
+    },
+    {
+      "id": "E2",
+      "name": "Documentation",
+      "pillar": "E",
+      "conditional": false,
+      "weights": {
+        "Default": 2,
+        "Library": 3,
+        "Service/API": 2,
+        "Web app": 1,
+        "CLI": 2,
+        "Prototype": 1
+      }
+    },
+    {
+      "id": "E3",
+      "name": "Developer Experience & Inner Loop",
+      "pillar": "E",
+      "conditional": false,
+      "weights": {
+        "Default": 1,
+        "Library": 1,
+        "Service/API": 1,
+        "Web app": 1,
+        "CLI": 1,
+        "Prototype": 1
+      }
+    },
+    {
+      "id": "E4",
+      "name": "Native Tooling & Ecosystem Fit",
+      "pillar": "E",
+      "conditional": false,
+      "weights": {
+        "Default": 1,
+        "Library": 2,
+        "Service/API": 1,
+        "Web app": 1,
+        "CLI": 1,
+        "Prototype": 1
+      }
+    },
+    {
+      "id": "F1",
+      "name": "Ease of Deployability",
+      "pillar": "F",
+      "conditional": false,
+      "weights": {
+        "Default": 2,
+        "Library": 1,
+        "Service/API": 3,
+        "Web app": 2,
+        "CLI": 1,
+        "Prototype": 1
+      }
+    },
+    {
+      "id": "F2",
+      "name": "Build, CI/CD & Automation",
+      "pillar": "F",
+      "conditional": false,
+      "weights": {
+        "Default": 1,
+        "Library": 2,
+        "Service/API": 2,
+        "Web app": 1,
+        "CLI": 1,
+        "Prototype": 1
+      }
+    },
+    {
+      "id": "F3",
+      "name": "Observability & Debuggability",
+      "pillar": "F",
+      "conditional": false,
+      "weights": {
+        "Default": 1,
+        "Library": 1,
+        "Service/API": 3,
+        "Web app": 2,
+        "CLI": 1,
+        "Prototype": 1
+      }
+    },
+    {
+      "id": "F4",
+      "name": "Performance, Efficiency & Scalability",
+      "pillar": "F",
+      "conditional": false,
+      "weights": {
+        "Default": 1,
+        "Library": 2,
+        "Service/API": 2,
+        "Web app": 2,
+        "CLI": 1,
+        "Prototype": 1
+      }
+    },
+    {
+      "id": "F5",
+      "name": "Portability",
+      "pillar": "F",
+      "conditional": false,
+      "weights": {
+        "Default": 1,
+        "Library": 2,
+        "Service/API": 1,
+        "Web app": 1,
+        "CLI": 2,
+        "Prototype": 1
+      }
+    },
+    {
+      "id": "F6",
+      "name": "Dependency Health & Longevity",
+      "pillar": "F",
+      "conditional": false,
+      "weights": {
+        "Default": 1,
+        "Library": 2,
+        "Service/API": 1,
+        "Web app": 1,
+        "CLI": 1,
+        "Prototype": 1
+      }
+    },
+    {
+      "id": "X1",
+      "name": "Accessibility, UX & Internationalization",
+      "pillar": "X",
+      "conditional": true,
+      "weights": {
+        "Default": 2,
+        "Library": 2,
+        "Service/API": 2,
+        "Web app": 2,
+        "CLI": 2,
+        "Prototype": 1
+      }
+    },
+    {
+      "id": "X2",
+      "name": "Public API Stability & Upgradeability",
+      "pillar": "X",
+      "conditional": true,
+      "weights": {
+        "Default": 2,
+        "Library": 3,
+        "Service/API": 2,
+        "Web app": 2,
+        "CLI": 2,
+        "Prototype": 1
+      }
+    },
+    {
+      "id": "X3",
+      "name": "Concurrency Safety",
+      "pillar": "X",
+      "conditional": true,
+      "weights": {
+        "Default": 2,
+        "Library": 2,
+        "Service/API": 2,
+        "Web app": 2,
+        "CLI": 2,
+        "Prototype": 1
+      }
+    },
+    {
+      "id": "X4",
+      "name": "Cost Efficiency",
+      "pillar": "X",
+      "conditional": true,
+      "weights": {
+        "Default": 2,
+        "Library": 1,
+        "Service/API": 2,
+        "Web app": 2,
+        "CLI": 1,
+        "Prototype": 1
+      }
+    },
+    {
+      "id": "X5",
+      "name": "Compliance & Licensing",
+      "pillar": "X",
+      "conditional": true,
+      "weights": {
+        "Default": 2,
+        "Library": 2,
+        "Service/API": 2,
+        "Web app": 2,
+        "CLI": 2,
+        "Prototype": 1
+      }
+    },
+    {
+      "id": "X6",
+      "name": "Agent-Readiness",
+      "pillar": "X",
+      "conditional": true,
+      "weights": {
+        "Default": 1,
+        "Library": 1,
+        "Service/API": 1,
+        "Web app": 1,
+        "CLI": 1,
+        "Prototype": 1
+      }
+    }
+  ],
+  "applicability_rules": {
+    "full": "profile weight",
+    "limited": "min(profile weight, 1)",
+    "not_applicable": "excluded"
+  },
+  "targets": {
+    "modes": {
+      "proportional": "default; target by weight used: 3->10, 2->9, 1->8",
+      "maximal": "10 for every applicable benchmark",
+      "level": "the minimum score each benchmark needs to reach the chosen maturity level (e.g. level:L3)"
+    },
+    "proportional_by_weight": {
+      "3": 10,
+      "2": 9,
+      "1": 8
+    },
+    "limited_cap": 8,
+    "overrides_note": "Per-benchmark overrides may be set in the project context, e.g. {\"F4\": 10}."
+  },
+  "overall_cap": {
+    "if_any_of": [
+      "A1",
+      "A2"
+    ],
+    "score_at_or_below": 3,
+    "overall_max": 4.0
+  },
+  "maturity_levels": [
+    {
+      "level": "L0",
+      "name": "Not viable"
+    },
+    {
+      "level": "L1",
+      "name": "Prototype",
+      "overall_min": 5.0,
+      "pillar_A_min": 4
+    },
+    {
+      "level": "L2",
+      "name": "Usable / Beta",
+      "overall_min": 6.5,
+      "any_min": 4,
+      "pillar_A_min": 6,
+      "max_critical_gaps": 0
+    },
+    {
+      "level": "L3",
+      "name": "Production-ready",
+      "overall_min": 8.0,
+      "any_min": 6,
+      "pillar_A_min": 8,
+      "max_critical_gaps": 0,
+      "max_major_must_have_gaps": 0,
+      "holdout_pass_rate_min": 0.8
+    },
+    {
+      "level": "L4",
+      "name": "Exemplary",
+      "overall_min": 9.3,
+      "any_min": 8,
+      "pillar_A_min": 9,
+      "max_critical_gaps": 0,
+      "max_major_must_have_gaps": 0,
+      "tens_require_enforcement": true,
+      "holdout_pass_rate_min": 0.95
+    }
+  ],
+  "integrity_rule": "Any integrity flag caps maturity at L1 for that run."
+}

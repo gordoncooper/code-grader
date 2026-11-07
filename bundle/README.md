@@ -13,6 +13,7 @@ Both folders always hold the **newest** version. Each version arrived in its own
 
 | Version | Release | Notes |
 |---|---|---|
+| 3.1.0 | [v3.1.0](https://github.com/gordoncooper/code-grader/releases/tag/v3.1.0) | First web version: a static site with an `AGENT.md` entry point, rendered docs, a download, and checksums. No scoring changes from 3.0.0. |
 
 *(Versions are added one pull request at a time.)*
 
