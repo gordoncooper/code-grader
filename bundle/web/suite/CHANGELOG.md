@@ -7,6 +7,13 @@ Versioning rules for the suite itself:
 
 After any major or minor change, re-run calibration (`calibration/README.md`) before trusting new scores.
 
+## 4.2.1
+Patch release with no scoring changes. Config fingerprints and existing reports stay valid.
+- **Review a report** with a zip or folder no longer lists the suite's own example project. When you load a whole grading repo that also contains a copy of the suite (for example in `bundle/`), projects inside that copy are skipped. You still see the example if it's the only project there. `gradekit`'s `scan_zip` behaves the same way.
+- **Fixed:** a zip with several projects now shows the "Pick one" project picker. In 4.2.0 it was cleared as soon as it appeared, so nothing loaded.
+- `config/defaults.toml` keeps `suite_version = "4.2.0"`, now documented as the version of the scoring rules. It changes only with major or minor versions, so patch releases don't change config fingerprints.
+- Generated `project.toml` headers and the website's info call report the kit version (4.2.1); the info call also returns `scoring_version`.
+
 ## 4.2.0
 Scoring rules are unchanged; scores remain comparable with 4.x.
 - **A central grading repo** replaces the `.grading/` folder inside code repos. Each project gets `projects/<name>/` with `project.toml`, `decisions.json`, `dispositions.json` and `reports/<date>-<commit>/` (one folder per report, never overwritten). Code repos stay untouched.

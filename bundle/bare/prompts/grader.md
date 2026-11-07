@@ -1,4 +1,4 @@
-# Code Grading Suite v4.2.0: Grader Prompt
+# Code Grading Suite v4.2.1: Grader Prompt
 
 You are a senior staff engineer doing a rigorous, evidence-based quality audit of a codebase. Grade it from **1 to 10** on every benchmark in this suite. Your scores will be used as **improvement targets**: other agents will change the code to raise them. Your grading must therefore be accurate, consistent from run to run, and hard to game.
 
@@ -321,9 +321,9 @@ Write `report.json` matching `schema/report.schema.json`. Abbreviated example:
 
 ```json
 {
-  "suite_version": "4.2.0",
+  "suite_version": "4.2.1",
   "mode": "full",
-  "run": {"project": "orders-api", "commit": "a1b2c3d", "base_commit": null, "date": "2026-11-07", "grader": "model or agent name", "run_index": 1, "run_count": 3, "suite_source": "https://example.com/grading/AGENT.md (4.2.0)"},
+  "run": {"project": "orders-api", "commit": "a1b2c3d", "base_commit": null, "date": "2026-11-07", "grader": "model or agent name", "run_index": 1, "run_count": 3, "suite_source": "https://example.com/grading/AGENT.md (4.2.1)"},
   "component": null,
   "project_context_inferred": "Internal order-processing REST API (Python/FastAPI, Postgres)",
   "config": {"hash": "06cfd807d4b75ede", "preset": "service", "source": "project.toml", "component": null},

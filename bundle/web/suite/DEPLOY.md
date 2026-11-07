@@ -18,7 +18,7 @@ This regenerates everything from the kit, including checksums. The builder needs
 
 Copy the *contents* of the built folder to a directory on your server, for example `/var/www/grading/` so it is served at `https://your-server/grading/`. Any path works because every link in the site is relative.
 
-**Recommended: one directory per version.** Deploy to `/grading/v4.2.0/` and point agents at that exact URL. An improvement loop that runs for weeks then can't have its rubric change underneath it. To also offer a "latest" URL, copy (or symlink) the newest version to `/grading/latest/`.
+**Recommended: one directory per version.** Deploy to `/grading/v4.2.1/` and point agents at that exact URL. An improvement loop that runs for weeks then can't have its rubric change underneath it. To also offer a "latest" URL, copy (or symlink) the newest version to `/grading/latest/`.
 
 ## 3. Make sure file types are served correctly
 
@@ -60,10 +60,10 @@ cd web && python3 -m http.server 8000
 ## 4. Check it
 
 ```bash
-BASE=https://your-server/grading/v4.2.0
+BASE=https://your-server/grading/v4.2.1
 curl -sI "$BASE/AGENT.md" | grep -i content-type     # expect text/markdown; charset=utf-8
 curl -s  "$BASE/SHA256SUMS" -o SHA256SUMS
-curl -s  "$BASE/downloads/code-grading-suite-4.2.0.zip" -o code-grading-suite-4.2.0.zip
+curl -s  "$BASE/downloads/code-grading-suite-4.2.1.zip" -o code-grading-suite-4.2.1.zip
 sha256sum -c SHA256SUMS --ignore-missing              # expect: OK
 ```
 
@@ -71,7 +71,7 @@ sha256sum -c SHA256SUMS --ignore-missing              # expect: OK
 
 Open the site's landing page. It shows ready-to-copy instructions for the grader, improver and pull-request roles, with your server's URL already filled in. For example:
 
-> Grade the code in this repository using the Code Grading Suite at https://your-server/grading/v4.2.0/AGENT.md. Act as the **grader**. …
+> Grade the code in this repository using the Code Grading Suite at https://your-server/grading/v4.2.1/AGENT.md. Act as the **grader**. …
 
 ## Self-hosting the Python runtime
 
