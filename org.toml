@@ -1,0 +1,24 @@
+# House rules for every project in this repo (optional).
+#
+# Settings are layered:
+#   bundle/bare/config/defaults.toml  →  org.toml (this file)  →  projects/<name>/project.toml
+# Each layer overrides the one before it. Tables merge key by key, and lists are replaced whole.
+# See bundle/bare/TUNING.md, section 6.
+#
+# Everything is commented out, so the defaults apply. Uncomment and edit to change them.
+# People own this file: agents read it but never change it. Change it between grading runs.
+#
+# Check the result for a project:
+#   python3 bundle/bare/tools/gradekit.py resolve --project <name>
+
+# We care more about docs than the defaults do
+# [weights.base]
+# E2 = 3
+
+# Hot zones matter even more to us
+# [zone_settings]
+# priority_multiplier = { hot = 3.0, normal = 1.0, cold = 0.25 }
+
+# Let agent reviewers append decisions (they still go through pull requests)
+# [review]
+# allow_agent_decisions = true

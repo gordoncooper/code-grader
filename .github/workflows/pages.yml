@@ -1,0 +1,55 @@
+# Publishes bundle/web/ (the Code Grading Suite website) to GitHub Pages.
+# Runs when bundle/web/ changes on main, or by hand from the Actions tab.
+# One-time setup: Settings → Pages → Source: GitHub Actions (needs admin on this repo).
+name: Publish website
+
+on:
+  push:
+    branches: [main]
+    paths: ["bundle/web/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Check the site is there
+        id: check
+        run: |
+          if [ -f bundle/web/index.html ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "bundle/web/index.html not found; nothing to publish yet."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Verify checksums
+        if: steps.check.outputs.ready == 'true'
+        working-directory: bundle/web
+        run: sha256sum -c --quiet SHA256SUMS
+
+      - uses: actions/configure-pages@v5
+        if: steps.check.outputs.ready == 'true'
+
+      - uses: actions/upload-pages-artifact@v4
+        if: steps.check.outputs.ready == 'true'
+        with:
+          path: bundle/web
+
+      - id: deployment
+        if: steps.check.outputs.ready == 'true'
+        uses: actions/deploy-pages@v4
