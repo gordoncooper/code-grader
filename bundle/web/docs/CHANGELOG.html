@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Changelog · Code Grading Suite</title>
+<meta name="description" content="A rubric and prompts for AI coding agents to grade codebases from 1 to 10 on 35 benchmarks and improve them.">
+<link rel="stylesheet" href="../assets/style.css">
+<link rel="alternate" type="text/markdown" href="../AGENT.md" title="Agent entry point">
+</head>
+<body>
+<header class="topbar">
+  <button class='menu-btn' type='button'>Menu</button>
+  <a class="brand" href="../index.html">Code <span>Grading</span> Suite</a>
+  <span class="ver">v3.1.0</span>
+  <span class="spacer"></span>
+  
+  <a class="top" href="../docs/README.html">Docs</a>
+  <a class="top" href="../AGENT.md">AGENT.md</a>
+  <a class="top" href="../downloads/code-grading-suite-3.1.0.zip">Download</a>
+</header>
+<div class="layout"><nav class="sidebar" aria-label="Documentation"><h4>Start</h4><a href="../docs/README.html">Overview &amp; workflow</a><a href="../docs/AGENT.html">Agent entry point</a><a href="../docs/DEPLOY.html">Hosting this site</a><h4>Prompts</h4><a href="../docs/prompts/grader.html">Grader</a><a href="../docs/prompts/improver.html">Improver</a><a href="../docs/prompts/pr-review.html">PR quick mode</a><h4>Rubric</h4><a href="../docs/rubric/A-correctness-trust.html">A · Correctness &amp; Trust</a><a href="../docs/rubric/B-design-structure.html">B · Design &amp; Structure</a><a href="../docs/rubric/C-code-health.html">C · Code Health</a><a href="../docs/rubric/D-value-fitness.html">D · Value &amp; Fitness</a><a href="../docs/rubric/E-adoption-experience.html">E · Adoption &amp; Experience</a><a href="../docs/rubric/F-operations-delivery.html">F · Operations &amp; Delivery</a><a href="../docs/rubric/X-conditional.html">X · Conditional</a><a href="../docs/rubric/weights.html">Weights, targets &amp; maturity</a><h4>Guides</h4><a href="../docs/calibration/README.html">Calibration</a><a href="../docs/holdout/README.html">Hidden checks</a><a href="../docs/CHANGELOG.html" class="active" aria-current="page">Changelog</a></nav><main class="doc"><div class="docbar"><a class="btn" href="../suite/CHANGELOG.md">View raw .md</a><button class="btn" type="button" data-copy="../suite/CHANGELOG.md">Copy raw URL for an agent</button></div><details class="toc"><summary>On this page</summary><ul><li><a href="#310">3.1.0</a></li><li><a href="#300">3.0.0</a></li><li><a href="#200">2.0.0</a></li><li><a href="#100">1.0.0</a></li></ul></details><h1 id="changelog">Changelog<a class="anchor" href="#changelog" aria-label="Link to this section">#</a></h1>
+<p>Versioning rules for the suite itself:</p>
+<ul>
+<li><strong>Major:</strong> any change that can move scores, i.e. new or removed benchmarks, changed anchors, caps, weights, targets or maturity rules. Scores from different major versions are <strong>not comparable</strong>. <code>gradekit diff</code> won't treat their deltas as regressions.</li>
+<li><strong>Minor:</strong> clarified wording that shouldn't move scores, new optional fields, new tool commands. Re-run calibration to confirm.</li>
+<li><strong>Patch:</strong> typos, formatting, documentation.</li>
+</ul>
+<p>After any major or minor change, re-run calibration (<code>calibration/README.md</code>) before trusting new scores.</p>
+<h2 id="310">3.1.0<a class="anchor" href="#310" aria-label="Link to this section">#</a></h2>
+<ul>
+<li><strong>Web version:</strong> <code>tools/build_web.py</code> generates a static site you can host on any web server. It has a landing page, an <code>AGENT.md</code> entry point agents can be pointed at, rendered docs, raw files, a downloadable zip, and <code>manifest.json</code> / <code>SHA256SUMS</code> for checking downloads. See <code>DEPLOY.md</code>.</li>
+<li>Optional <code>run.suite_source</code> field records where the suite came from.</li>
+<li>No scoring changes: scores remain comparable with 3.0.0.</li>
+</ul>
+<h2 id="300">3.0.0<a class="anchor" href="#300" aria-label="Link to this section">#</a></h2>
+<ul>
+<li>Split into a kit: grader, improver and pull-request prompts; one rubric file per pillar; canonical <code>weights.json</code>; JSON Schema; <code>gradekit.py</code>.</li>
+<li><strong>Integrity and safety rules:</strong> repo content is evidence, never instruction; attempts to influence the grader become integrity flags that cap maturity at L1; grading runs sandboxed.</li>
+<li><strong>Independence and hidden checks:</strong> a fresh grader for every run, hidden checks kept from improvers, redacted shared reports, and divergence detection.</li>
+<li><strong>Metrics block:</strong> raw measurements recorded alongside scores.</li>
+<li><strong>Calibration:</strong> reference repos with expected scores; stability across runs via median consensus, with unstable benchmarks flagged.</li>
+<li><strong>Targets:</strong> proportional, maximal or level-based, with per-benchmark overrides, replacing &quot;10 everywhere&quot;.</li>
+<li><strong>Findings:</strong> stable IDs, statuses, and human dispositions.</li>
+<li><strong>Evidence:</strong> exact-quote code citations, checked by <code>verify-evidence</code>; absence evidence.</li>
+<li><strong>Actions:</strong> <code>requires_human_decision</code> with a decision question.</li>
+<li><strong>Pull-request quick mode</strong> with a pass/fail verdict.</li>
+<li><strong>Monorepo support</strong> via per-component reports and <code>rollup-repo</code>.</li>
+</ul>
+<h2 id="200">2.0.0<a class="anchor" href="#200" aria-label="Link to this section">#</a></h2>
+<ul>
+<li>Expanded to 29 core benchmarks in 6 pillars plus conditional benchmarks; added &quot;Not this&quot; boundaries, profile weights and the maturity ladder; added applicability (<code>full</code>, <code>limited</code>, <code>not_applicable</code>) and weight notes.</li>
+</ul>
+<h2 id="100">1.0.0<a class="anchor" href="#100" aria-label="Link to this section">#</a></h2>
+<ul>
+<li>First version: 15 core benchmarks and 4 conditional ones in a single prompt.</li>
+</ul>
+<nav class="pager"><a href="../docs/holdout/README.html"><small>Previous</small>Hidden checks</a></nav></main></div>
+<script src="../assets/site.js"></script>
+</body>
+</html>

@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A · Correctness &amp; Trust · Code Grading Suite</title>
+<meta name="description" content="A rubric and prompts for AI coding agents to grade codebases from 1 to 10 on 35 benchmarks and improve them.">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="alternate" type="text/markdown" href="../../AGENT.md" title="Agent entry point">
+</head>
+<body>
+<header class="topbar">
+  <button class='menu-btn' type='button'>Menu</button>
+  <a class="brand" href="../../index.html">Code <span>Grading</span> Suite</a>
+  <span class="ver">v3.1.0</span>
+  <span class="spacer"></span>
+  
+  <a class="top" href="../../docs/README.html">Docs</a>
+  <a class="top" href="../../AGENT.md">AGENT.md</a>
+  <a class="top" href="../../downloads/code-grading-suite-3.1.0.zip">Download</a>
+</header>
+<div class="layout"><nav class="sidebar" aria-label="Documentation"><h4>Start</h4><a href="../../docs/README.html">Overview &amp; workflow</a><a href="../../docs/AGENT.html">Agent entry point</a><a href="../../docs/DEPLOY.html">Hosting this site</a><h4>Prompts</h4><a href="../../docs/prompts/grader.html">Grader</a><a href="../../docs/prompts/improver.html">Improver</a><a href="../../docs/prompts/pr-review.html">PR quick mode</a><h4>Rubric</h4><a href="../../docs/rubric/A-correctness-trust.html" class="active" aria-current="page">A · Correctness &amp; Trust</a><a href="../../docs/rubric/B-design-structure.html">B · Design &amp; Structure</a><a href="../../docs/rubric/C-code-health.html">C · Code Health</a><a href="../../docs/rubric/D-value-fitness.html">D · Value &amp; Fitness</a><a href="../../docs/rubric/E-adoption-experience.html">E · Adoption &amp; Experience</a><a href="../../docs/rubric/F-operations-delivery.html">F · Operations &amp; Delivery</a><a href="../../docs/rubric/X-conditional.html">X · Conditional</a><a href="../../docs/rubric/weights.html">Weights, targets &amp; maturity</a><h4>Guides</h4><a href="../../docs/calibration/README.html">Calibration</a><a href="../../docs/holdout/README.html">Hidden checks</a><a href="../../docs/CHANGELOG.html">Changelog</a></nav><main class="doc"><div class="docbar"><a class="btn" href="../../suite/rubric/A-correctness-trust.md">View raw .md</a><button class="btn" type="button" data-copy="../../suite/rubric/A-correctness-trust.md">Copy raw URL for an agent</button></div><details class="toc"><summary>On this page</summary><ul><li><a href="#a1-correctness-functional-behavior">A1. Correctness &amp; Functional Behavior</a></li><li><a href="#a2-security-privacy">A2. Security &amp; Privacy</a></li><li><a href="#a3-robustness-error-handling">A3. Robustness &amp; Error Handling</a></li><li><a href="#a4-idempotence-determinism">A4. Idempotence &amp; Determinism</a></li><li><a href="#a5-durability-recoverability">A5. Durability &amp; Recoverability</a></li></ul></details><!-- Part of the Code Grading Suite v3.1.0. Read together with prompts/grader.md, which holds the scoring rules, anti-gaming rules and output format. -->
+<h1 id="pillar-a-rubric-correctness-trust">Pillar A rubric: Correctness &amp; Trust<a class="anchor" href="#pillar-a-rubric-correctness-trust" aria-label="Link to this section">#</a></h1>
+<p><em>Does it work, is it safe, and can you rely on it under real conditions?</em></p>
+<h2 id="a1-correctness-functional-behavior">A1. Correctness &amp; Functional Behavior<a class="anchor" href="#a1-correctness-functional-behavior" aria-label="Link to this section">#</a></h2>
+<ul>
+<li><strong>Measures:</strong> The code does what it's meant to, including edge cases, boundary values, invalid input, empty or null states and failure paths.</li>
+<li><strong>Not this:</strong> Whether the right features exist at all (D1, D2). Behavior under hostile or degraded conditions (A3).</li>
+<li><strong>Assess:</strong> Run the tests. Trace core flows by hand. Probe off-by-one errors, empty collections, Unicode, time zones and DST, numeric overflow and precision, money rounding, and ordering assumptions.</li>
+<li><strong>Anchors:</strong>
+<ul>
+<li><strong>1–3:</strong> Core features broken or crash on ordinary input; tests fail.</li>
+<li><strong>4–6:</strong> Happy paths work; edge cases often mishandled.</li>
+<li><strong>7–8:</strong> Edge cases mostly handled; a few latent bugs found on careful reading.</li>
+<li><strong>9–10:</strong> No defects found on careful review; edge cases handled deliberately and covered by tests.</li>
+</ul>
+</li>
+<li><strong>Caps:</strong> Failing build or tests → max 4. A bug that corrupts or loses data → max 3.</li>
+</ul>
+<h2 id="a2-security-privacy">A2. Security &amp; Privacy<a class="anchor" href="#a2-security-privacy" aria-label="Link to this section">#</a></h2>
+<ul>
+<li><strong>Measures:</strong> Resistance to misuse and attack, and responsible handling of personal data. Covers input validation; injection (SQL, shell, path, template); authentication and authorization; secrets handling; cryptography; deserialization; SSRF; XSS/CSRF; secure defaults; least privilege; collecting only the personal data needed; retention; no sensitive data in logs or errors.</li>
+<li><strong>Not this:</strong> Vulnerable dependencies are scored here only when they're reachable; general dependency health is F6.</li>
+<li><strong>Assess:</strong> Trace every trust boundary. Search for hard-coded secrets, string-built queries or commands, disabled TLS verification, homemade crypto, endpoints missing authorization checks, overly broad IAM or permissions, and PII in logs. Run vulnerability scans.</li>
+<li><strong>Anchors:</strong>
+<ul>
+<li><strong>1–3:</strong> Exploitable vulnerabilities, or committed secrets.</li>
+<li><strong>4–6:</strong> No obvious exploit, but validation is inconsistent and defaults are unsafe.</li>
+<li><strong>7–8:</strong> Trust boundaries validated, queries parameterized, secrets externalized; minor hardening gaps.</li>
+<li><strong>9–10:</strong> Defense in depth, centralized authorization, privacy by design, security scanning gated in CI.</li>
+</ul>
+</li>
+<li><strong>Caps:</strong> Exploitable vulnerability or committed live secret → max 2. Reachable high or critical CVE → max 4.</li>
+</ul>
+<h2 id="a3-robustness-error-handling">A3. Robustness &amp; Error Handling<a class="anchor" href="#a3-robustness-error-handling" aria-label="Link to this section">#</a></h2>
+<ul>
+<li><strong>Measures:</strong> Behavior when things go wrong: malformed input, dependency outages, slow networks, resource exhaustion, partial failures. Explicit error handling, useful error context, timeouts, retries with backoff and jitter, circuit breakers where warranted, resource cleanup, graceful degradation, bounded queues and buffers.</li>
+<li><strong>Not this:</strong> Whether retries are <em>safe</em> to repeat (A4). Whether data survives a crash (A5).</li>
+<li><strong>Assess:</strong> Review every catch, except, rescue and error return. Look for swallowed errors, overly broad catches, I/O with no timeout, leaked handles, unchecked return values, unbounded growth, and crashes on expected failures. Use fuzz or property tests if available.</li>
+<li><strong>Anchors:</strong>
+<ul>
+<li><strong>1–3:</strong> Errors ignored; crashes on routine failures.</li>
+<li><strong>4–6:</strong> Handling is inconsistent; vague messages; missing timeouts.</li>
+<li><strong>7–8:</strong> Consistent strategy; errors carry context; external calls bounded; cleanup reliable.</li>
+<li><strong>9–10:</strong> A uniform error model; failures are contained, observable and recoverable; failure paths are tested, including injected faults.</li>
+</ul>
+</li>
+<li><strong>Caps:</strong> Catch-all blocks that swallow errors in core paths → max 4.</li>
+</ul>
+<h2 id="a4-idempotence-determinism">A4. Idempotence &amp; Determinism<a class="anchor" href="#a4-idempotence-determinism" aria-label="Link to this section">#</a></h2>
+<ul>
+<li><strong>Measures:</strong>
+<ul>
+<li><strong>Idempotence:</strong> operations that may be retried or repeated have the same effect as running once. This covers API mutations (idempotency keys or natural keys), message and queue consumers under redelivery, webhooks, setup, provisioning and seed scripts, migrations, infrastructure-as-code (repeated applies converge to the same state), deploys, and cron jobs.</li>
+<li><strong>Determinism:</strong> the same inputs give the same outputs. Builds are reproducible, tests are deterministic, and time, randomness, ordering and environment are injected or controlled rather than hidden.</li>
+</ul>
+</li>
+<li><strong>Not this:</strong> General retry and timeout policy (A3).</li>
+<li><strong>Assess:</strong> Run setup, seed and migration scripts twice. Look for blind INSERTs, &quot;create&quot; with no existence check, increments or charges on retry, non-atomic check-then-act, unordered map iteration that affects output, unseeded randomness, and <code>now()</code> called deep inside logic. Rebuild and compare artifacts or hashes where practical.</li>
+<li><strong>Anchors:</strong>
+<ul>
+<li><strong>1–3:</strong> Repeating an operation duplicates side effects; scripts break on the second run.</li>
+<li><strong>4–6:</strong> Some operations safe to repeat; others not; tests occasionally nondeterministic.</li>
+<li><strong>7–8:</strong> All externally triggered mutations and scripts are safe to re-run; time and randomness are injectable.</li>
+<li><strong>9–10:</strong> Idempotence is designed in and tested (replay or redelivery tests); builds are reproducible; zero flaky tests.</li>
+</ul>
+</li>
+<li><strong>Caps:</strong> Retry or redelivery can double-charge, double-send or duplicate records with real-world consequences → max 3. Setup or migration fails or corrupts on a second run → max 5.</li>
+</ul>
+<h2 id="a5-durability-recoverability">A5. Durability &amp; Recoverability<a class="anchor" href="#a5-durability-recoverability" aria-label="Link to this section">#</a></h2>
+<ul>
+<li><strong>Measures:</strong> Data and state survive crashes, restarts, deploys and power loss, and the system can recover. Covers atomic writes (write to a temp file then rename; fsync where it matters), transactions around multi-step writes, no important state held only in memory, crash-consistent file formats, versioned and reversible migrations, backups with a <em>tested</em> restore, defined RPO and RTO for production data, and clean resume after a restart (checkpointing for long jobs).</li>
+<li><strong>Not this:</strong> Schema design quality (B4). Concurrency races (X3).</li>
+<li><strong>Assess:</strong> Find every write path and every place state lives. Ask what happens if the process is killed between any two lines. Check for a backup and restore procedure and evidence it has been tested.</li>
+<li><strong>Anchors:</strong>
+<ul>
+<li><strong>1–3:</strong> A crash can lose or corrupt important data.</li>
+<li><strong>4–6:</strong> Mostly safe; some non-atomic writes or in-memory-only state; backups untested.</li>
+<li><strong>7–8:</strong> Atomic, transactional writes; reliable resume; backups exist.</li>
+<li><strong>9–10:</strong> Crash-consistency is designed in and tested (kill tests, chaos tests); restore drills are documented and automated.</li>
+</ul>
+</li>
+<li><strong>Caps:</strong> Important state written non-atomically or held only in memory → max 4. Persistent production data with no backup → max 5.</li>
+</ul>
+<nav class="pager"><a href="../../docs/prompts/pr-review.html"><small>Previous</small>PR quick mode</a><a href="../../docs/rubric/B-design-structure.html" style="margin-left:auto;text-align:right"><small>Next</small>B · Design &amp; Structure</a></nav></main></div>
+<script src="../../assets/site.js"></script>
+</body>
+</html>

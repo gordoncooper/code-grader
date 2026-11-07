@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hidden checks · Code Grading Suite</title>
+<meta name="description" content="A rubric and prompts for AI coding agents to grade codebases from 1 to 10 on 35 benchmarks and improve them.">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="alternate" type="text/markdown" href="../../AGENT.md" title="Agent entry point">
+</head>
+<body>
+<header class="topbar">
+  <button class='menu-btn' type='button'>Menu</button>
+  <a class="brand" href="../../index.html">Code <span>Grading</span> Suite</a>
+  <span class="ver">v3.1.0</span>
+  <span class="spacer"></span>
+  
+  <a class="top" href="../../docs/README.html">Docs</a>
+  <a class="top" href="../../AGENT.md">AGENT.md</a>
+  <a class="top" href="../../downloads/code-grading-suite-3.1.0.zip">Download</a>
+</header>
+<div class="layout"><nav class="sidebar" aria-label="Documentation"><h4>Start</h4><a href="../../docs/README.html">Overview &amp; workflow</a><a href="../../docs/AGENT.html">Agent entry point</a><a href="../../docs/DEPLOY.html">Hosting this site</a><h4>Prompts</h4><a href="../../docs/prompts/grader.html">Grader</a><a href="../../docs/prompts/improver.html">Improver</a><a href="../../docs/prompts/pr-review.html">PR quick mode</a><h4>Rubric</h4><a href="../../docs/rubric/A-correctness-trust.html">A · Correctness &amp; Trust</a><a href="../../docs/rubric/B-design-structure.html">B · Design &amp; Structure</a><a href="../../docs/rubric/C-code-health.html">C · Code Health</a><a href="../../docs/rubric/D-value-fitness.html">D · Value &amp; Fitness</a><a href="../../docs/rubric/E-adoption-experience.html">E · Adoption &amp; Experience</a><a href="../../docs/rubric/F-operations-delivery.html">F · Operations &amp; Delivery</a><a href="../../docs/rubric/X-conditional.html">X · Conditional</a><a href="../../docs/rubric/weights.html">Weights, targets &amp; maturity</a><h4>Guides</h4><a href="../../docs/calibration/README.html">Calibration</a><a href="../../docs/holdout/README.html" class="active" aria-current="page">Hidden checks</a><a href="../../docs/CHANGELOG.html">Changelog</a></nav><main class="doc"><div class="docbar"><a class="btn" href="../../suite/holdout/README.md">View raw .md</a><button class="btn" type="button" data-copy="../../suite/holdout/README.md">Copy raw URL for an agent</button></div><h1 id="hidden-checks-the-holdout-set">Hidden checks (the holdout set)<a class="anchor" href="#hidden-checks-the-holdout-set" aria-label="Link to this section">#</a></h1>
+<p>When agents optimize against a visible rubric, scores can rise without the code actually improving. Hidden checks are a small set of tests and probes that <strong>improving agents never see</strong>. If visible scores rise while the hidden-check pass rate stays flat or falls, the code is being tuned to the rubric. <code>gradekit diff</code> flags this as <strong>divergence</strong>.</p>
+<h2 id="where-they-live">Where they live<a class="anchor" href="#where-they-live" aria-label="Link to this section">#</a></h2>
+<ul>
+<li>In a directory <strong>outside the graded repo</strong> and outside anything improvers can read. Don't put it inside <code>SUITE_DIR</code> if improvers can read that; use a separate private location the orchestrator mounts only for grading runs.</li>
+<li>Results go only into <code>holdout.private_details</code> in the private report. <code>gradekit redact</code> strips them from the shared copy, and <code>gradekit validate</code> fails a report if a check's name appears anywhere else in it.</li>
+</ul>
+<h2 id="what-makes-a-good-hidden-check">What makes a good hidden check<a class="anchor" href="#what-makes-a-good-hidden-check" aria-label="Link to this section">#</a></h2>
+<p>Aim for 10–30 checks that test <strong>real quality</strong> in ways the rubric describes but doesn't spell out:</p>
+<table>
+<thead>
+<tr>
+<th>Kind</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Edge-case tests</td>
+<td>Order with one item and a discount; Unicode names; DST boundary; empty file; 0 and negative amounts</td>
+</tr>
+<tr>
+<td>Failure injection</td>
+<td>Dependency times out; disk full; DB connection dropped mid-transaction</td>
+</tr>
+<tr>
+<td>Repeat probes</td>
+<td>Run setup, seed and migration scripts twice; replay the same webhook; retry the same POST</td>
+</tr>
+<tr>
+<td>Crash probes</td>
+<td>Kill the process during a write; restart; check the data is consistent</td>
+</tr>
+<tr>
+<td>Adopter journeys</td>
+<td>A clean container following only the README; time to first success</td>
+</tr>
+<tr>
+<td>Gap probes</td>
+<td>Things a real user would try that aren't in the docs: <code>--help</code>, cancelling an order, pagination beyond page 1</td>
+</tr>
+<tr>
+<td>Contract probes</td>
+<td>Malformed input on every public endpoint or function; check the error shape is consistent</td>
+</tr>
+</tbody>
+</table>
+<p>Guidelines:</p>
+<ul>
+<li>Each check has a stable name of at least 6 characters (e.g. <code>holdout-refund-edge-case</code>, so the leak check works), a pass/fail result and a short note.</li>
+<li>Prefer checks that run automatically (scripts, test files run against the checkout). A few manual &quot;try this as a user&quot; probes for the grader are fine too.</li>
+<li>Rotate about a quarter of the checks every few cycles, so that if any leak through the code itself, they don't stay useful to optimize against.</li>
+<li>Never turn a hidden check into a visible finding verbatim. If one reveals a real defect, the grader describes the defect from its own reading of the code.</li>
+</ul>
+<h2 id="in-the-report">In the report<a class="anchor" href="#in-the-report" aria-label="Link to this section">#</a></h2>
+<pre><code class="language-json">&quot;holdout&quot;: {
+  &quot;run&quot;: true,
+  &quot;checks_run&quot;: 12,
+  &quot;pass_rate&quot;: 0.83,
+  &quot;private_details&quot;: [
+    {&quot;check&quot;: &quot;holdout-refund-edge-case&quot;, &quot;passed&quot;: false, &quot;note&quot;: &quot;...&quot;}
+  ]
+}
+</code></pre>
+<p>Maturity levels L3 and L4 require hidden-check pass rates of at least 80% and 95%, when hidden checks are run.</p>
+<nav class="pager"><a href="../../docs/calibration/README.html"><small>Previous</small>Calibration</a><a href="../../docs/CHANGELOG.html" style="margin-left:auto;text-align:right"><small>Next</small>Changelog</a></nav></main></div>
+<script src="../../assets/site.js"></script>
+</body>
+</html>

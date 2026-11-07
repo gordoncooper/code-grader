@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Home · Code Grading Suite</title>
+<meta name="description" content="A rubric and prompts for AI coding agents to grade codebases from 1 to 10 on 35 benchmarks and improve them.">
+<link rel="stylesheet" href="assets/style.css">
+<link rel="alternate" type="text/markdown" href="AGENT.md" title="Agent entry point">
+</head>
+<body>
+<header class="topbar">
+  
+  <a class="brand" href="index.html">Code <span>Grading</span> Suite</a>
+  <span class="ver">v3.1.0</span>
+  <span class="spacer"></span>
+  
+  <a class="top" href="docs/README.html">Docs</a>
+  <a class="top" href="AGENT.md">AGENT.md</a>
+  <a class="top" href="downloads/code-grading-suite-3.1.0.zip">Download</a>
+</header>
+
+<div class="home">
+  <section class="hero">
+    <div>
+      <div class="eyebrow">For AI coding agents</div>
+      <h1>Grade code like a staff engineer. Improve it without gaming the grade.</h1>
+      <p class="lede">A rubric and prompt kit that has agents score a codebase from 1 to 10 on 35 benchmarks, back every score with checkable evidence, and improve the code toward clear targets.</p>
+      <div class="actions">
+        <a class="btn primary" href="#point">Point an agent here</a>
+        <a class="btn" href="docs/README.html">Read the docs</a>
+        <a class="btn" href="downloads/code-grading-suite-3.1.0.zip">Download v3.1.0</a>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stats">
+        <div><b>29</b><span>core benchmarks</span></div>
+        <div><b>6</b><span>conditional</span></div>
+        <div><b>6</b><span>project profiles</span></div>
+      </div>
+      <ul class="ladder"><li><i>L0</i>Not viable</li><li><i>L1</i>Prototype</li><li><i>L2</i>Usable / Beta</li><li><i>L3</i>Production-ready</li><li><i>L4</i>Exemplary</li></ul>
+    </div>
+  </section>
+
+  <section class="block" id="point">
+    <h2>Point an agent here</h2>
+    <p class="sub">Give your coding agent one of these prompts. Each one tells the agent to start at <code>AGENT.md</code>, which explains how to download and verify the suite, then hands it the right role prompt. Fill in the parts in angle brackets.</p>
+    <div class="entry"><span class="label">Agent entry point</span><code id="agent-url" data-base>{BASE}AGENT.md</code><button class="btn" type="button" data-copy="#agent-url">Copy URL</button></div>
+    <p class="note file-note" hidden>You're viewing this page from a file on disk, so the URLs show a placeholder. Once the site is on a web server, they fill in automatically.</p>
+    <div class="roles"><div class="role"><h3>Grader</h3><p>Runs a full, read-only audit and writes report.json and report.md.</p><pre id="p-grade" data-base>Grade the code in this repository using the Code Grading Suite at {BASE}AGENT.md.
+Act as the grader. Follow AGENT.md to set up the suite, then follow the grader prompt exactly.
+
+Project profile: &lt;Default | Library | Service/API | Web app | CLI | Prototype&gt;
+Commit to grade: &lt;SHA, or current HEAD&gt;
+Previous shared report: &lt;path, or none&gt;
+Dispositions: &lt;path, or none&gt;
+Hidden checks: &lt;path, or none&gt;
+Write report.json and report.md to: &lt;output directory outside the repo&gt;</pre><div class="row"><button class="btn primary" type="button" data-copy="#p-grade">Copy prompt</button></div></div><div class="role"><h3>Improver</h3><p>Works through a shared report and stops at each benchmark's target.</p><pre id="p-improve" data-base>Improve this repository using the Code Grading Suite at {BASE}AGENT.md.
+Act as the improver. Follow AGENT.md to set up the suite, then follow the improver prompt exactly.
+
+Latest shared report: &lt;path to report.shared.json and report.md&gt;
+Human decisions: &lt;path to decisions.json, or none&gt;
+Work on branch: &lt;branch name&gt;
+Budget: &lt;e.g. top 5 priorities, or until all targets are met&gt;</pre><div class="row"><button class="btn primary" type="button" data-copy="#p-improve">Copy prompt</button></div></div><div class="role"><h3>PR reviewer</h3><p>Re-grades only what a change touches; returns PASS or FAIL.</p><pre id="p-review" data-base>Review the changes between &lt;BASE_COMMIT&gt; and &lt;HEAD_COMMIT&gt; using the Code Grading Suite at {BASE}AGENT.md.
+Act as the PR reviewer. Follow AGENT.md to set up the suite, then follow the PR quick-mode prompt exactly.
+
+Last full report (shared): &lt;path&gt;
+Hidden checks: &lt;path, or none&gt;
+Write report.json and pr-comment.md to: &lt;output directory&gt;</pre><div class="row"><button class="btn primary" type="button" data-copy="#p-review">Copy prompt</button></div></div></div>
+  </section>
+
+  <section class="block">
+    <h2>Project context</h2>
+    <p class="sub">Paste this under any of the prompts above. If you leave fields blank, the grader infers them and says what it inferred.</p>
+    <pre id="ctx">Project context
+- What it is: &lt;e.g. &quot;REST API for order processing&quot;&gt;
+- Project profile: &lt;Default / Library / Service-API / Web app / CLI / Prototype&gt;
+- Language(s) / framework(s): &lt;...&gt;
+- Intended users: &lt;...&gt;
+- Intended use &amp; maturity target: &lt;prototype / internal tool / production / public open source&gt;
+- Scale &amp; criticality: &lt;users, traffic, data sensitivity, cost of failure&gt;
+- Stated scope / requirements: &lt;list or link&gt;
+- Target mode: &lt;proportional (default) / maximal / level:L3&gt;, overrides: &lt;e.g. {&quot;F4&quot;: 10}&gt;
+- Components (monorepos only): &lt;name, path, profile, weight&gt;
+- Out of scope: &lt;directories or concerns to skip&gt;</pre>
+    <button class="btn" type="button" data-copy="#ctx">Copy template</button>
+  </section>
+
+  <section class="block">
+    <h2>The loop</h2>
+    <p class="sub">The setup that makes rising scores mean better code. <a href="docs/README.html#the-loop">Full details →</a></p>
+    <ol class="steps"><li><b>Grade</b>Three independent graders audit the same commit, each in a fresh sandbox.</li><li><b>Check</b><code>gradekit validate</code> and <code>verify-evidence</code> reject bad reports.</li><li><b>Consensus</b><code>gradekit stability</code> takes the median and flags unstable benchmarks.</li><li><b>Redact</b><code>gradekit redact</code> strips hidden-check results before sharing.</li><li><b>Decide</b>Humans answer decision questions and record accepted findings.</li><li><b>Improve</b>Improvers clear caps first, then maturity blockers, and stop at each target.</li><li><b>Guard</b>PR quick mode plus <code>gradekit diff --fail-on-regression</code> on every change.</li></ol>
+  </section>
+
+  <section class="block">
+    <h2>The benchmarks</h2>
+    <p class="sub">Grouped into six pillars, plus conditional benchmarks that apply only to some projects. Each one is classified <code>full</code>, <code>limited</code> or <code>not_applicable</code> for the code being graded.</p>
+    <div class="pillars"><div class="pillar"><h3><span class="pid">A</span><a href="docs/rubric/A-correctness-trust.html">Correctness &amp; Trust</a></h3><ul><li><code>A1</code>Correctness &amp; Functional Behavior</li><li><code>A2</code>Security &amp; Privacy</li><li><code>A3</code>Robustness &amp; Error Handling</li><li><code>A4</code>Idempotence &amp; Determinism</li><li><code>A5</code>Durability &amp; Recoverability</li></ul></div><div class="pillar"><h3><span class="pid">B</span><a href="docs/rubric/B-design-structure.html">Design &amp; Structure</a></h3><ul><li><code>B1</code>Architecture &amp; Design Fitness</li><li><code>B2</code>Modularity &amp; Decoupling</li><li><code>B3</code>Structure &amp; Organization</li><li><code>B4</code>Interface Design &amp; Contracts</li><li><code>B5</code>Flexibility &amp; Extensibility</li><li><code>B6</code>Leanness</li></ul></div><div class="pillar"><h3><span class="pid">C</span><a href="docs/rubric/C-code-health.html">Code Health</a></h3><ul><li><code>C1</code>Readability &amp; Clarity</li><li><code>C2</code>Maintainability &amp; Complexity</li><li><code>C3</code>Consistency &amp; Idiomatic Code</li><li><code>C4</code>Test Suite Quality</li></ul></div><div class="pillar"><h3><span class="pid">D</span><a href="docs/rubric/D-value-fitness.html">Value &amp; Fitness for Purpose</a></h3><ul><li><code>D1</code>Feature Completeness</li><li><code>D2</code>Gap Coverage</li><li><code>D3</code>Practicality</li><li><code>D4</code>Intuitiveness</li></ul></div><div class="pillar"><h3><span class="pid">E</span><a href="docs/rubric/E-adoption-experience.html">Adoption &amp; Experience</a></h3><ul><li><code>E1</code>Adopter Friendliness</li><li><code>E2</code>Documentation</li><li><code>E3</code>Developer Experience &amp; Inner Loop</li><li><code>E4</code>Native Tooling &amp; Ecosystem Fit</li></ul></div><div class="pillar"><h3><span class="pid">F</span><a href="docs/rubric/F-operations-delivery.html">Operations &amp; Delivery</a></h3><ul><li><code>F1</code>Ease of Deployability</li><li><code>F2</code>Build, CI/CD &amp; Automation</li><li><code>F3</code>Observability &amp; Debuggability</li><li><code>F4</code>Performance, Efficiency &amp; Scalability</li><li><code>F5</code>Portability</li><li><code>F6</code>Dependency Health &amp; Longevity</li></ul></div><div class="pillar"><h3><span class="pid">X</span><a href="docs/rubric/X-conditional.html">Conditional</a></h3><ul><li><code>X1</code>Accessibility, UX &amp; Internationalization</li><li><code>X2</code>Public API Stability &amp; Upgradeability</li><li><code>X3</code>Concurrency Safety</li><li><code>X4</code>Cost Efficiency</li><li><code>X5</code>Compliance &amp; Licensing</li><li><code>X6</code>Agent-Readiness</li></ul></div></div>
+  </section>
+
+  <section class="block">
+    <h2>Files and checksums</h2>
+    <p class="sub">Agents download the kit and verify it before use. <a href="manifest.json">manifest.json</a> and <a href="SHA256SUMS">SHA256SUMS</a> list every file on this site.</p>
+    <table class="files">
+      <tr><th>File</th><th>What it is</th></tr>
+      <tr><td><a href="AGENT.md"><code>AGENT.md</code></a></td><td>Entry point for agents</td></tr>
+      <tr><td><a href="llms.txt"><code>llms.txt</code></a></td><td>Short machine-readable index</td></tr>
+      <tr><td><a href="downloads/code-grading-suite-3.1.0.zip"><code>code-grading-suite-3.1.0.zip</code></a></td><td>The whole kit (82 KB)<div class="hash">sha256 3ed661be9c12a6786ae5066effad738140228dccbd3cd9b01221add659d79b8d</div></td></tr>
+      <tr><td><a href="suite/prompts/grader.md"><code>suite/…</code></a></td><td>Raw kit files: prompts, rubric, schema, tools, examples</td></tr>
+      <tr><td><a href="docs/README.html"><code>docs/…</code></a></td><td>The same documents, rendered for reading</td></tr>
+    </table>
+    <p class="note">Host this only on a server you control, over HTTPS: agents treat it as their instructions. Never put hidden checks, dispositions or reports here. <a href="docs/DEPLOY.html">Hosting guide →</a></p>
+  </section>
+</div>
+<footer class="site">Code Grading Suite v3.1.0 · built 2026-11-07</footer>
+
+<script src="assets/site.js"></script>
+</body>
+</html>

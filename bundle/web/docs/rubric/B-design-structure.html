@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>B · Design &amp; Structure · Code Grading Suite</title>
+<meta name="description" content="A rubric and prompts for AI coding agents to grade codebases from 1 to 10 on 35 benchmarks and improve them.">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="alternate" type="text/markdown" href="../../AGENT.md" title="Agent entry point">
+</head>
+<body>
+<header class="topbar">
+  <button class='menu-btn' type='button'>Menu</button>
+  <a class="brand" href="../../index.html">Code <span>Grading</span> Suite</a>
+  <span class="ver">v3.1.0</span>
+  <span class="spacer"></span>
+  
+  <a class="top" href="../../docs/README.html">Docs</a>
+  <a class="top" href="../../AGENT.md">AGENT.md</a>
+  <a class="top" href="../../downloads/code-grading-suite-3.1.0.zip">Download</a>
+</header>
+<div class="layout"><nav class="sidebar" aria-label="Documentation"><h4>Start</h4><a href="../../docs/README.html">Overview &amp; workflow</a><a href="../../docs/AGENT.html">Agent entry point</a><a href="../../docs/DEPLOY.html">Hosting this site</a><h4>Prompts</h4><a href="../../docs/prompts/grader.html">Grader</a><a href="../../docs/prompts/improver.html">Improver</a><a href="../../docs/prompts/pr-review.html">PR quick mode</a><h4>Rubric</h4><a href="../../docs/rubric/A-correctness-trust.html">A · Correctness &amp; Trust</a><a href="../../docs/rubric/B-design-structure.html" class="active" aria-current="page">B · Design &amp; Structure</a><a href="../../docs/rubric/C-code-health.html">C · Code Health</a><a href="../../docs/rubric/D-value-fitness.html">D · Value &amp; Fitness</a><a href="../../docs/rubric/E-adoption-experience.html">E · Adoption &amp; Experience</a><a href="../../docs/rubric/F-operations-delivery.html">F · Operations &amp; Delivery</a><a href="../../docs/rubric/X-conditional.html">X · Conditional</a><a href="../../docs/rubric/weights.html">Weights, targets &amp; maturity</a><h4>Guides</h4><a href="../../docs/calibration/README.html">Calibration</a><a href="../../docs/holdout/README.html">Hidden checks</a><a href="../../docs/CHANGELOG.html">Changelog</a></nav><main class="doc"><div class="docbar"><a class="btn" href="../../suite/rubric/B-design-structure.md">View raw .md</a><button class="btn" type="button" data-copy="../../suite/rubric/B-design-structure.md">Copy raw URL for an agent</button></div><details class="toc"><summary>On this page</summary><ul><li><a href="#b1-architecture-design-fitness">B1. Architecture &amp; Design Fitness</a></li><li><a href="#b2-modularity-decoupling">B2. Modularity &amp; Decoupling</a></li><li><a href="#b3-structure-organization">B3. Structure &amp; Organization</a></li><li><a href="#b4-interface-design-contracts">B4. Interface Design &amp; Contracts</a></li><li><a href="#b5-flexibility-extensibility">B5. Flexibility &amp; Extensibility</a></li><li><a href="#b6-leanness">B6. Leanness</a></li></ul></details><!-- Part of the Code Grading Suite v3.1.0. Read together with prompts/grader.md, which holds the scoring rules, anti-gaming rules and output format. -->
+<h1 id="pillar-b-rubric-design-structure">Pillar B rubric: Design &amp; Structure<a class="anchor" href="#pillar-b-rubric-design-structure" aria-label="Link to this section">#</a></h1>
+<p><em>Is the system shaped well, and does that shape stay easy to change?</em></p>
+<h2 id="b1-architecture-design-fitness">B1. Architecture &amp; Design Fitness<a class="anchor" href="#b1-architecture-design-fitness" aria-label="Link to this section">#</a></h2>
+<ul>
+<li><strong>Measures:</strong> The overall shape suits the problem: clear layering, correct dependency direction (domain logic doesn't depend on frameworks or I/O), consistent patterns, important decisions recorded, and a design that can meet the scale and requirements it actually has.</li>
+<li><strong>Not this:</strong> Boundaries of individual units (B2). Physical file layout (B3).</li>
+<li><strong>Assess:</strong> Sketch the system's components and data flow. Look for business logic in controllers, views or SQL, framework types leaking into the domain, and mismatched architecture (e.g. microservices for a tiny app, or a monolith that's tangling under real load).</li>
+<li><strong>Anchors:</strong>
+<ul>
+<li><strong>1–3:</strong> No discernible design.</li>
+<li><strong>4–6:</strong> Some structure; frequent layer violations.</li>
+<li><strong>7–8:</strong> Clear, fitting design with a few leaks.</li>
+<li><strong>9–10:</strong> The design is obvious, fits the problem precisely, has recorded rationale, and its boundaries are enforced by import rules or package visibility.</li>
+</ul>
+</li>
+</ul>
+<h2 id="b2-modularity-decoupling">B2. Modularity &amp; Decoupling<a class="anchor" href="#b2-modularity-decoupling" aria-label="Link to this section">#</a></h2>
+<ul>
+<li><strong>Measures:</strong> Units are cohesive, loosely coupled, encapsulated, replaceable and testable in isolation. No dependency cycles, no hidden global state, and explicit seams (dependency injection) at I/O boundaries.</li>
+<li><strong>Not this:</strong> System-level fit (B1). Where files live (B3).</li>
+<li><strong>Assess:</strong> Build the module dependency graph. Count cycles, god modules, and fan-in and fan-out hotspots. Pick 3 modules and ask whether each could be replaced or tested alone.</li>
+<li><strong>Anchors:</strong>
+<ul>
+<li><strong>1–3:</strong> Big ball of mud.</li>
+<li><strong>4–6:</strong> Some modules; heavy coupling; god files.</li>
+<li><strong>7–8:</strong> Clean boundaries; coupling controlled.</li>
+<li><strong>9–10:</strong> Every unit has one clear job and a narrow interface; replacing one touches only its seam.</li>
+</ul>
+</li>
+<li><strong>Caps:</strong> Circular dependencies between major modules → max 5.</li>
+</ul>
+<h2 id="b3-structure-organization">B3. Structure &amp; Organization<a class="anchor" href="#b3-structure-organization" aria-label="Link to this section">#</a></h2>
+<ul>
+<li><strong>Measures:</strong> The codebase is easy to navigate. Directory layout reflects the domain or architecture; things live where you'd expect; file and folder names are consistent; source, tests, scripts, config and docs are separated; no junk-drawer <code>utils/</code> or <code>misc/</code>; generated code is isolated. Repo hygiene: <code>.gitignore</code> is correct, and no build artifacts, secrets or large binaries are committed.</li>
+<li><strong>Not this:</strong> Logical coupling (B2).</li>
+<li><strong>Assess:</strong> Pick 5 concepts (e.g. &quot;where is pricing calculated?&quot;, &quot;where are the DB models?&quot;) and note how quickly and confidently each can be found. Inspect the top two levels of the tree and the tracked files.</li>
+<li><strong>Anchors:</strong>
+<ul>
+<li><strong>1–3:</strong> Chaotic; things scattered.</li>
+<li><strong>4–6:</strong> Partly organized; several misplaced or junk-drawer areas.</li>
+<li><strong>7–8:</strong> Predictable and tidy.</li>
+<li><strong>9–10:</strong> A newcomer can guess where anything lives; the layout is documented and stays consistent.</li>
+</ul>
+</li>
+</ul>
+<h2 id="b4-interface-design-contracts">B4. Interface Design &amp; Contracts<a class="anchor" href="#b4-interface-design-contracts" aria-label="Link to this section">#</a></h2>
+<ul>
+<li><strong>Measures:</strong> Public and internal APIs (functions, classes, HTTP/gRPC/GraphQL endpoints, CLI arguments, events, schemas) have clear contracts, are hard to misuse, follow consistent conventions, are strongly typed or validated at runtime, and make invalid states unrepresentable.</li>
+<li><strong>Not this:</strong> Long-term version stability for outside consumers (X2). How intuitive the interface feels to end users (D4).</li>
+<li><strong>Assess:</strong> Run the type checker at strict settings and count escape hatches. Review signatures for boolean-flag parameters, stringly-typed values, nullable confusion, and inconsistent naming, pagination or error shapes across endpoints. Check that schemas are validated at boundaries.</li>
+<li><strong>Anchors:</strong>
+<ul>
+<li><strong>1–3:</strong> Untyped or loosely typed; surprising contracts.</li>
+<li><strong>4–6:</strong> Partial typing; frequent escape hatches.</li>
+<li><strong>7–8:</strong> Strong contracts; few justified escape hatches.</li>
+<li><strong>9–10:</strong> Strict mode passes; domain types model the problem; schemas are the source of truth and are checked automatically.</li>
+</ul>
+</li>
+</ul>
+<h2 id="b5-flexibility-extensibility">B5. Flexibility &amp; Extensibility<a class="anchor" href="#b5-flexibility-extensibility" aria-label="Link to this section">#</a></h2>
+<ul>
+<li><strong>Measures:</strong> Likely changes can be made without invasive edits. Things that vary are config rather than code; extension points (plugins, hooks, strategies, adapters) exist <em>where there is real demand</em>; no hard-coded assumptions that limit growth (single tenant, one currency or locale, one region, one storage backend); feature flags where they help.</li>
+<li><strong>Not this:</strong> Speculative over-engineering is penalized under Leanness (B6). Flexibility should be earned by likely change, not imagined change.</li>
+<li><strong>Assess:</strong> Write 3 realistic change requests for this project (e.g. &quot;add a second payment provider&quot;, &quot;support a new file format&quot;, &quot;add a locale&quot;). For each, estimate the blast radius: files and modules touched, and the risk involved.</li>
+<li><strong>Anchors:</strong>
+<ul>
+<li><strong>1–3:</strong> Every change ripples through the codebase.</li>
+<li><strong>4–6:</strong> Some changes are localized; others need shotgun surgery.</li>
+<li><strong>7–8:</strong> Most likely changes touch 1–3 places.</li>
+<li><strong>9–10:</strong> Likely changes are additive and localized, with no unused extension points.</li>
+</ul>
+</li>
+</ul>
+<h2 id="b6-leanness">B6. Leanness<a class="anchor" href="#b6-leanness" aria-label="Link to this section">#</a></h2>
+<ul>
+<li><strong>Measures:</strong> No more code, dependencies, configuration or runtime weight than the job needs. Covers dead code, unused exports and files, unused or redundant dependencies, speculative abstractions and layers, reinventing what the standard library already provides, oversized bundles, binaries or images, slow startup, and a bloated configuration surface.</li>
+<li><strong>Not this:</strong> Duplication and complexity (C2). Removing needed features is <strong>not</strong> leanness (anti-gaming).</li>
+<li><strong>Assess:</strong> Run unused-code and unused-dependency tools (<code>knip</code>, <code>ts-prune</code>, <code>depcheck</code>, <code>vulture</code>, <code>cargo-udeps</code>, <code>deadcode</code>...). Measure bundle, image or binary size and startup time. Count abstraction layers per request path. Compare code size per feature to comparable tools.</li>
+<li><strong>Anchors:</strong>
+<ul>
+<li><strong>1–3:</strong> Heavy bloat; large dead areas; dependency sprawl.</li>
+<li><strong>4–6:</strong> Noticeable dead code, unused dependencies or needless layers.</li>
+<li><strong>7–8:</strong> Tight, with a few leftovers.</li>
+<li><strong>9–10:</strong> Every file, dependency and abstraction earns its place; size and dead code are checked in CI.</li>
+</ul>
+</li>
+</ul>
+<nav class="pager"><a href="../../docs/rubric/A-correctness-trust.html"><small>Previous</small>A · Correctness &amp; Trust</a><a href="../../docs/rubric/C-code-health.html" style="margin-left:auto;text-align:right"><small>Next</small>C · Code Health</a></nav></main></div>
+<script src="../../assets/site.js"></script>
+</body>
+</html>

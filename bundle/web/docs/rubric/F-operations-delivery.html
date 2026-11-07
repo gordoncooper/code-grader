@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>F · Operations &amp; Delivery · Code Grading Suite</title>
+<meta name="description" content="A rubric and prompts for AI coding agents to grade codebases from 1 to 10 on 35 benchmarks and improve them.">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="alternate" type="text/markdown" href="../../AGENT.md" title="Agent entry point">
+</head>
+<body>
+<header class="topbar">
+  <button class='menu-btn' type='button'>Menu</button>
+  <a class="brand" href="../../index.html">Code <span>Grading</span> Suite</a>
+  <span class="ver">v3.1.0</span>
+  <span class="spacer"></span>
+  
+  <a class="top" href="../../docs/README.html">Docs</a>
+  <a class="top" href="../../AGENT.md">AGENT.md</a>
+  <a class="top" href="../../downloads/code-grading-suite-3.1.0.zip">Download</a>
+</header>
+<div class="layout"><nav class="sidebar" aria-label="Documentation"><h4>Start</h4><a href="../../docs/README.html">Overview &amp; workflow</a><a href="../../docs/AGENT.html">Agent entry point</a><a href="../../docs/DEPLOY.html">Hosting this site</a><h4>Prompts</h4><a href="../../docs/prompts/grader.html">Grader</a><a href="../../docs/prompts/improver.html">Improver</a><a href="../../docs/prompts/pr-review.html">PR quick mode</a><h4>Rubric</h4><a href="../../docs/rubric/A-correctness-trust.html">A · Correctness &amp; Trust</a><a href="../../docs/rubric/B-design-structure.html">B · Design &amp; Structure</a><a href="../../docs/rubric/C-code-health.html">C · Code Health</a><a href="../../docs/rubric/D-value-fitness.html">D · Value &amp; Fitness</a><a href="../../docs/rubric/E-adoption-experience.html">E · Adoption &amp; Experience</a><a href="../../docs/rubric/F-operations-delivery.html" class="active" aria-current="page">F · Operations &amp; Delivery</a><a href="../../docs/rubric/X-conditional.html">X · Conditional</a><a href="../../docs/rubric/weights.html">Weights, targets &amp; maturity</a><h4>Guides</h4><a href="../../docs/calibration/README.html">Calibration</a><a href="../../docs/holdout/README.html">Hidden checks</a><a href="../../docs/CHANGELOG.html">Changelog</a></nav><main class="doc"><div class="docbar"><a class="btn" href="../../suite/rubric/F-operations-delivery.md">View raw .md</a><button class="btn" type="button" data-copy="../../suite/rubric/F-operations-delivery.md">Copy raw URL for an agent</button></div><details class="toc"><summary>On this page</summary><ul><li><a href="#f1-ease-of-deployability">F1. Ease of Deployability</a></li><li><a href="#f2-build-cicd-automation">F2. Build, CI/CD &amp; Automation</a></li><li><a href="#f3-observability-debuggability">F3. Observability &amp; Debuggability</a></li><li><a href="#f4-performance-efficiency-scalability">F4. Performance, Efficiency &amp; Scalability</a></li><li><a href="#f5-portability">F5. Portability</a></li><li><a href="#f6-dependency-health-longevity">F6. Dependency Health &amp; Longevity</a></li></ul></details><!-- Part of the Code Grading Suite v3.1.0. Read together with prompts/grader.md, which holds the scoring rules, anti-gaming rules and output format. -->
+<h1 id="pillar-f-rubric-operations-delivery">Pillar F rubric: Operations &amp; Delivery<a class="anchor" href="#pillar-f-rubric-operations-delivery" aria-label="Link to this section">#</a></h1>
+<p><em>Can it be shipped, run, observed and kept healthy over time?</em></p>
+<h2 id="f1-ease-of-deployability">F1. Ease of Deployability<a class="anchor" href="#f1-ease-of-deployability" aria-label="Link to this section">#</a></h2>
+<ul>
+<li><strong>Measures:</strong> The path from merged code to running in an environment:
+<ul>
+<li>Automated or one-command deploy.</li>
+<li>A packaged, immutable artifact (container image or package).</li>
+<li>Infrastructure as code.</li>
+<li>Configuration externalized and validated at startup.</li>
+<li>Proper secrets management.</li>
+<li>Parity between environments.</li>
+<li>Health and readiness checks.</li>
+<li>Migrations integrated into the deploy.</li>
+<li>Zero-downtime deploys and rollback where relevant.</li>
+<li>A documented runbook.</li>
+<li>For libraries and CLIs, &quot;deploy&quot; means release and publish, and installing the published artifact.</li>
+</ul>
+</li>
+<li><strong>Not this:</strong> CI checks and gates (F2). Whether operations are safe to repeat (A4).</li>
+<li><strong>Assess:</strong> Follow the deploy or release process on paper, or for real if possible. Count manual steps. Find hard-coded environment values. Check for a rollback path.</li>
+<li><strong>Anchors:</strong>
+<ul>
+<li><strong>1–3:</strong> Deploying needs the author and code edits.</li>
+<li><strong>4–6:</strong> Scripted but fragile; manual steps.</li>
+<li><strong>7–8:</strong> Automated and repeatable; documented.</li>
+<li><strong>9–10:</strong> Push-button or continuous; a new environment needs no code changes; rollback is fast and tested.</li>
+</ul>
+</li>
+<li><strong>Caps:</strong> Manual, undocumented deploy steps → max 4. No rollback path for a production service → max 6.</li>
+</ul>
+<h2 id="f2-build-cicd-automation">F2. Build, CI/CD &amp; Automation<a class="anchor" href="#f2-build-cicd-automation" aria-label="Link to this section">#</a></h2>
+<ul>
+<li><strong>Measures:</strong> Reproducible builds; automated format, lint, type and test checks; CI that blocks merges on failure; caching and speed; automated releases and versioning; pre-commit hooks.</li>
+<li><strong>Not this:</strong> Which tools are used (E4). Deploy mechanics (F1).</li>
+<li><strong>Assess:</strong> Inspect the CI config. Which checks run, and do they block merges? Measure CI duration if visible.</li>
+<li><strong>Anchors:</strong>
+<ul>
+<li><strong>1–3:</strong> No CI.</li>
+<li><strong>4–6:</strong> CI runs but doesn't block merges.</li>
+<li><strong>7–8:</strong> Full gating.</li>
+<li><strong>9–10:</strong> Fast, cached, comprehensive pipeline; releases fully automated.</li>
+</ul>
+</li>
+</ul>
+<h2 id="f3-observability-debuggability">F3. Observability &amp; Debuggability<a class="anchor" href="#f3-observability-debuggability" aria-label="Link to this section">#</a></h2>
+<ul>
+<li><strong>Measures:</strong> You can tell what the system is doing and diagnose problems without attaching a debugger. Structured, leveled logs; correlation or request IDs; metrics; tracing where relevant; health endpoints; actionable error output; and no secrets or PII in telemetry. For a CLI: clear errors, verbose and debug modes, meaningful exit codes.</li>
+<li><strong>Assess:</strong> Pick a realistic failure in a core flow. Would the logs and metrics be enough to diagnose it?</li>
+<li><strong>Anchors:</strong>
+<ul>
+<li><strong>1–3:</strong> Failures are opaque.</li>
+<li><strong>4–6:</strong> Some logging; inconsistent.</li>
+<li><strong>7–8:</strong> Structured logs with context, plus key metrics.</li>
+<li><strong>9–10:</strong> Any production issue can be diagnosed from telemetry alone; signals are documented, and alerting exists where relevant.</li>
+</ul>
+</li>
+</ul>
+<h2 id="f4-performance-efficiency-scalability">F4. Performance, Efficiency &amp; Scalability<a class="anchor" href="#f4-performance-efficiency-scalability" aria-label="Link to this section">#</a></h2>
+<ul>
+<li><strong>Measures:</strong> Appropriate algorithms and data structures; efficient I/O (no N+1 queries; batching and streaming); sensible memory and CPU use; caching where justified; no blocking calls in async code; no unbounded growth; graceful behavior at 10× expected load; optimization based on measurement.</li>
+<li><strong>Assess:</strong> Review hot paths. Look for queries inside loops, whole datasets loaded into memory, missing indexes and quadratic loops over large inputs. Run benchmarks or profilers if they exist.</li>
+<li><strong>Anchors:</strong>
+<ul>
+<li><strong>1–3:</strong> Will fail at expected scale.</li>
+<li><strong>4–6:</strong> OK now; clear inefficiencies.</li>
+<li><strong>7–8:</strong> Efficient hot paths; no known scaling cliffs.</li>
+<li><strong>9–10:</strong> Performance budgets defined and guarded by benchmarks or load tests in CI, without hurting clarity.</li>
+</ul>
+</li>
+</ul>
+<h2 id="f5-portability">F5. Portability<a class="anchor" href="#f5-portability" aria-label="Link to this section">#</a></h2>
+<ul>
+<li><strong>Measures:</strong> Runs correctly across every operating system, CPU architecture, runtime version, browser or cloud the project claims to support. No hard-coded absolute paths, path-separator or shell assumptions, locale, timezone or encoding assumptions, or machine-specific config. The supported matrix is declared <em>and</em> tested.</li>
+<li><strong>Assess:</strong> Search for absolute paths, <code>/</code> vs <code>\</code> handling, shelling out to platform-specific tools, and dependence on the system timezone or locale. Check whether CI covers the claimed matrix.</li>
+<li><strong>Anchors:</strong>
+<ul>
+<li><strong>1–3:</strong> Works only on the author's machine.</li>
+<li><strong>4–6:</strong> Works on one platform; others break.</li>
+<li><strong>7–8:</strong> Works on the claimed platforms, partly tested.</li>
+<li><strong>9–10:</strong> The full declared matrix is tested in CI.</li>
+</ul>
+</li>
+<li><strong>Caps:</strong> Machine-specific assumptions in core paths → max 4.</li>
+</ul>
+<h2 id="f6-dependency-health-longevity">F6. Dependency Health &amp; Longevity<a class="anchor" href="#f6-dependency-health-longevity" aria-label="Link to this section">#</a></h2>
+<ul>
+<li><strong>Measures:</strong> Dependencies are pinned and locked, maintained, minimal and license-compatible, and the project resists bit rot: runtime and framework versions are within their support windows, no deprecated APIs, the toolchain is pinned, and updates are automated.</li>
+<li><strong>Not this:</strong> <em>Reachable</em> vulnerabilities (A2). <em>Unused</em> dependencies (B6).</li>
+<li><strong>Assess:</strong> Inspect manifests and lockfiles. Run outdated and audit checks. Check end-of-life dates for the runtime and major frameworks. Grep for deprecation warnings in build and test output.</li>
+<li><strong>Anchors:</strong>
+<ul>
+<li><strong>1–3:</strong> Unpinned, abandoned or end-of-life.</li>
+<li><strong>4–6:</strong> Locked but stale.</li>
+<li><strong>7–8:</strong> Current and pinned.</li>
+<li><strong>9–10:</strong> Automated updates (Renovate, Dependabot) with audit gates; no deprecations; would still build cleanly a year from now.</li>
+</ul>
+</li>
+</ul>
+<nav class="pager"><a href="../../docs/rubric/E-adoption-experience.html"><small>Previous</small>E · Adoption &amp; Experience</a><a href="../../docs/rubric/X-conditional.html" style="margin-left:auto;text-align:right"><small>Next</small>X · Conditional</a></nav></main></div>
+<script src="../../assets/site.js"></script>
+</body>
+</html>

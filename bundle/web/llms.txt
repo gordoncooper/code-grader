@@ -1,0 +1,29 @@
+# Code Grading Suite
+
+> Rubric and prompts for AI coding agents to grade a codebase from 1 to 10 on 35 benchmarks and improve it against those grades. Version 3.1.0. Agents: start with AGENT.md.
+
+## Start
+- [AGENT.md](AGENT.md): entry point for agents (roles, how to download and verify the suite)
+- [Overview](suite/README.md): the grade, improve and review workflow
+
+## Prompts
+- [Grader](suite/prompts/grader.md): full audit prompt
+- [Improver](suite/prompts/improver.md): improve code against a report
+- [PR quick mode](suite/prompts/pr-review.md): grade a single change
+
+## Rubric
+- [A · Correctness & Trust](suite/rubric/A-correctness-trust.md)
+- [B · Design & Structure](suite/rubric/B-design-structure.md)
+- [C · Code Health](suite/rubric/C-code-health.md)
+- [D · Value & Fitness](suite/rubric/D-value-fitness.md)
+- [E · Adoption & Experience](suite/rubric/E-adoption-experience.md)
+- [F · Operations & Delivery](suite/rubric/F-operations-delivery.md)
+- [X · Conditional](suite/rubric/X-conditional.md)
+- [Weights, targets & maturity](suite/rubric/weights.md)
+- [weights.json](suite/rubric/weights.json): canonical weights, targets and maturity rules
+
+## Tools
+- [gradekit.py](suite/tools/gradekit.py): validate, verify-evidence, rollup, stability, diff, calibrate, redact, rollup-repo
+- [report.schema.json](suite/schema/report.schema.json)
+- [Download the kit](downloads/code-grading-suite-3.1.0.zip)
+- [manifest.json](manifest.json): checksums

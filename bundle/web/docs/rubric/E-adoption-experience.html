@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>E · Adoption &amp; Experience · Code Grading Suite</title>
+<meta name="description" content="A rubric and prompts for AI coding agents to grade codebases from 1 to 10 on 35 benchmarks and improve them.">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="alternate" type="text/markdown" href="../../AGENT.md" title="Agent entry point">
+</head>
+<body>
+<header class="topbar">
+  <button class='menu-btn' type='button'>Menu</button>
+  <a class="brand" href="../../index.html">Code <span>Grading</span> Suite</a>
+  <span class="ver">v3.1.0</span>
+  <span class="spacer"></span>
+  
+  <a class="top" href="../../docs/README.html">Docs</a>
+  <a class="top" href="../../AGENT.md">AGENT.md</a>
+  <a class="top" href="../../downloads/code-grading-suite-3.1.0.zip">Download</a>
+</header>
+<div class="layout"><nav class="sidebar" aria-label="Documentation"><h4>Start</h4><a href="../../docs/README.html">Overview &amp; workflow</a><a href="../../docs/AGENT.html">Agent entry point</a><a href="../../docs/DEPLOY.html">Hosting this site</a><h4>Prompts</h4><a href="../../docs/prompts/grader.html">Grader</a><a href="../../docs/prompts/improver.html">Improver</a><a href="../../docs/prompts/pr-review.html">PR quick mode</a><h4>Rubric</h4><a href="../../docs/rubric/A-correctness-trust.html">A · Correctness &amp; Trust</a><a href="../../docs/rubric/B-design-structure.html">B · Design &amp; Structure</a><a href="../../docs/rubric/C-code-health.html">C · Code Health</a><a href="../../docs/rubric/D-value-fitness.html">D · Value &amp; Fitness</a><a href="../../docs/rubric/E-adoption-experience.html" class="active" aria-current="page">E · Adoption &amp; Experience</a><a href="../../docs/rubric/F-operations-delivery.html">F · Operations &amp; Delivery</a><a href="../../docs/rubric/X-conditional.html">X · Conditional</a><a href="../../docs/rubric/weights.html">Weights, targets &amp; maturity</a><h4>Guides</h4><a href="../../docs/calibration/README.html">Calibration</a><a href="../../docs/holdout/README.html">Hidden checks</a><a href="../../docs/CHANGELOG.html">Changelog</a></nav><main class="doc"><div class="docbar"><a class="btn" href="../../suite/rubric/E-adoption-experience.md">View raw .md</a><button class="btn" type="button" data-copy="../../suite/rubric/E-adoption-experience.md">Copy raw URL for an agent</button></div><details class="toc"><summary>On this page</summary><ul><li><a href="#e1-adopter-friendliness">E1. Adopter Friendliness</a></li><li><a href="#e2-documentation">E2. Documentation</a></li><li><a href="#e3-developer-experience-inner-loop">E3. Developer Experience &amp; Inner Loop</a></li><li><a href="#e4-native-tooling-ecosystem-fit">E4. Native Tooling &amp; Ecosystem Fit</a></li></ul></details><!-- Part of the Code Grading Suite v3.1.0. Read together with prompts/grader.md, which holds the scoring rules, anti-gaming rules and output format. -->
+<h1 id="pillar-e-rubric-adoption-experience">Pillar E rubric: Adoption &amp; Experience<a class="anchor" href="#pillar-e-rubric-adoption-experience" aria-label="Link to this section">#</a></h1>
+<p><em>How easy is it for new users, integrators and contributors to pick up and work with?</em></p>
+<h2 id="e1-adopter-friendliness">E1. Adopter Friendliness<a class="anchor" href="#e1-adopter-friendliness" aria-label="Link to this section">#</a></h2>
+<ul>
+<li><strong>Measures:</strong> Time-to-first-success for someone <em>adopting</em> the project (end user, integrator, library consumer, new operator). Covers:
+<ul>
+<li>Installing through standard channels.</li>
+<li>A quickstart that actually works.</li>
+<li>Runnable examples.</li>
+<li>Zero-config or sensible defaults.</li>
+<li>A clear license.</li>
+<li>A supported-versions or compatibility matrix.</li>
+<li>Upgrade and migration guides.</li>
+<li>Issue and support paths.</li>
+<li>Low integration friction with common stacks.</li>
+<li>No lock-in surprises.</li>
+</ul>
+</li>
+<li><strong>Not this:</strong> The contributor experience (E3). Docs accuracy in general (E2).</li>
+<li><strong>Assess:</strong> From a clean environment, follow the quickstart literally. Count the steps, minutes and stumbles to the first meaningful result.</li>
+<li><strong>Anchors:</strong>
+<ul>
+<li><strong>1–3:</strong> Can't get started without help from the author.</li>
+<li><strong>4–6:</strong> Gets working after real effort.</li>
+<li><strong>7–8:</strong> Smooth start within minutes.</li>
+<li><strong>9–10:</strong> Delightful; examples cover the main use cases, and the quickstart is tested in CI.</li>
+</ul>
+</li>
+<li><strong>Caps:</strong> Quickstart fails → max 4. No license in a distributed or open project → max 5.</li>
+</ul>
+<h2 id="e2-documentation">E2. Documentation<a class="anchor" href="#e2-documentation" aria-label="Link to this section">#</a></h2>
+<ul>
+<li><strong>Measures:</strong> Quality and accuracy of the documentation at every layer: README (purpose, setup, usage, configuration), API reference, architecture overview, decision records, runbooks, changelog, and inline comments explaining <em>why</em>. Above all, docs must match the code.</li>
+<li><strong>Not this:</strong> The onboarding experience (E1). Agent-specific instructions (X6).</li>
+<li><strong>Assess:</strong> Spot-check documented behavior against the code. Check coverage of public APIs and config options. Look for stale sections.</li>
+<li><strong>Anchors:</strong>
+<ul>
+<li><strong>1–3:</strong> Missing or misleading.</li>
+<li><strong>4–6:</strong> Basic, with gaps and stale parts.</li>
+<li><strong>7–8:</strong> Accurate and covers the essentials.</li>
+<li><strong>9–10:</strong> Complete and layered; versioned with the code and verified (doc tests, examples run in CI, generated references).</li>
+</ul>
+</li>
+<li><strong>Caps:</strong> Wrong setup instructions → max 5.</li>
+</ul>
+<h2 id="e3-developer-experience-inner-loop">E3. Developer Experience &amp; Inner Loop<a class="anchor" href="#e3-developer-experience-inner-loop" aria-label="Link to this section">#</a></h2>
+<ul>
+<li><strong>Measures:</strong> How productive a <em>contributor</em> is day to day:
+<ul>
+<li>One-command dev setup.</li>
+<li>Fast edit-build-test cycle, with hot reload where relevant.</li>
+<li>Easy single-test runs.</li>
+<li>Local environment that matches production (compose file, devcontainer, Nix...), plus seed data.</li>
+<li>A working debugger.</li>
+<li>Discoverable task scripts (<code>make</code>, <code>just</code>, npm scripts).</li>
+<li>A contribution guide.</li>
+<li>Fast CI feedback.</li>
+</ul>
+</li>
+<li><strong>Not this:</strong> The outsider-adopter experience (E1). Choice of standard toolchain (E4).</li>
+<li><strong>Assess:</strong> Measure time from clone to passing tests, time to run one test, incremental build time, and how many undocumented steps you hit.</li>
+<li><strong>Anchors:</strong>
+<ul>
+<li><strong>1–3:</strong> Painful setup; slow loops.</li>
+<li><strong>4–6:</strong> Workable with tribal knowledge.</li>
+<li><strong>7–8:</strong> Quick setup; fast loops.</li>
+<li><strong>9–10:</strong> Productive within an hour of cloning; inner loop measured in seconds.</li>
+</ul>
+</li>
+</ul>
+<h2 id="e4-native-tooling-ecosystem-fit">E4. Native Tooling &amp; Ecosystem Fit<a class="anchor" href="#e4-native-tooling-ecosystem-fit" aria-label="Link to this section">#</a></h2>
+<ul>
+<li><strong>Measures:</strong> The project uses its ecosystem's standard tools and conventions rather than bespoke ones:
+<ul>
+<li>The native package manager and manifest (<code>pyproject.toml</code>, <code>package.json</code>, <code>Cargo.toml</code>, <code>go.mod</code>, Gradle/Maven...).</li>
+<li>The standard test runner, formatter and linter.</li>
+<li>The conventional project layout.</li>
+<li>Built-in language features and the standard library over custom scripts.</li>
+<li>Publishing in native formats (wheel, crate, npm package, OCI image).</li>
+<li>Working IDE and language-server integration.</li>
+<li>No sprawl of shell scripts that reinvent what the toolchain already does.</li>
+</ul>
+</li>
+<li><strong>Not this:</strong> Code-level idiom (C3).</li>
+<li><strong>Assess:</strong> Inventory the build, test, lint, format, release and task-running tools. Flag each custom tool where a standard exists, and check whether a documented reason is given.</li>
+<li><strong>Anchors:</strong>
+<ul>
+<li><strong>1–3:</strong> A homegrown toolchain that fights the ecosystem.</li>
+<li><strong>4–6:</strong> Mixed; several bespoke pieces.</li>
+<li><strong>7–8:</strong> Standard tools used throughout.</li>
+<li><strong>9–10:</strong> Feels native; any ecosystem developer is productive immediately with tools they already know.</li>
+</ul>
+</li>
+<li><strong>Caps:</strong> A custom build or test harness where a standard exists, with no documented reason → max 6.</li>
+</ul>
+<nav class="pager"><a href="../../docs/rubric/D-value-fitness.html"><small>Previous</small>D · Value &amp; Fitness</a><a href="../../docs/rubric/F-operations-delivery.html" style="margin-left:auto;text-align:right"><small>Next</small>F · Operations &amp; Delivery</a></nav></main></div>
+<script src="../../assets/site.js"></script>
+</body>
+</html>
