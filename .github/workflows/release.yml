@@ -1,0 +1,39 @@
+# Tags and releases each suite version when its bundle PR merges.
+# The version comes from bundle/web/manifest.json (and must match the top of bundle/bare/CHANGELOG.md).
+# Versions that are already tagged are skipped, so other changes to bundle/ don't release anything.
+#
+# To release a version by hand (for example one merged before this workflow existed):
+#   Actions → Release suite → Run workflow, optionally with the commit to release.
+name: Release suite
+
+on:
+  push:
+    branches: [main]
+    paths: ["bundle/**"]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Commit to release. Leave empty for the newest bundle change on main."
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Tag and release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET: ${{ inputs.ref }}
+        run: bash .github/scripts/release.sh
