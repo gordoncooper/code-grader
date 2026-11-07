@@ -4,7 +4,7 @@ When agents optimize against a visible rubric, scores can rise without the code 
 
 ## Where they live
 - In a directory **outside the graded repo** and outside anything improvers can read. Don't put it inside `SUITE_DIR` if improvers can read that; use a separate private location the orchestrator mounts only for grading runs.
-- Results go only into `holdout.private_details` in the private report. `gradekit redact` strips them from the shared copy, and `gradekit validate` fails a report if a check's name appears anywhere else in it.
+- Graders write per-check results **next to the checks** (`<hidden-checks>/results/<commit>.json`), never into the repo. Reports carry only `checks_run` and `pass_rate`. If a report ever does contain per-check details, `gradekit redact` strips them, and `gradekit validate` fails a report if a check's name appears anywhere outside `holdout.private_details`.
 
 ## What makes a good hidden check
 Aim for 10–30 checks that test **real quality** in ways the rubric describes but doesn't spell out:
@@ -32,9 +32,7 @@ Guidelines:
   "run": true,
   "checks_run": 12,
   "pass_rate": 0.83,
-  "private_details": [
-    {"check": "holdout-refund-edge-case", "passed": false, "note": "..."}
-  ]
+  "private_details": "[kept with the hidden checks]"
 }
 ```
 

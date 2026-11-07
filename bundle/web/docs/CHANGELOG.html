@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Changelog · Code Grading Suite</title>
-<meta name="description" content="A rubric and prompts for AI coding agents to grade codebases from 1 to 10 on 35 benchmarks and improve them.">
+<meta name="description" content="A rubric, prompts and browser tools for AI coding agents to grade codebases from 1 to 10 on 35 benchmarks and improve them.">
 <link rel="stylesheet" href="../assets/style.css">
 <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
 <link rel="alternate" type="text/markdown" href="../AGENT.md" title="Agent entry point">
@@ -13,14 +13,13 @@
 <header class="topbar">
   <button class='menu-btn' type='button'>Menu</button>
   <a class="brand" href="../index.html">Code <span>Grading</span> Suite</a>
-  <span class="ver">v4.0.0</span>
+  <span class="ver">v4.1.0</span>
+  <nav class="main" aria-label="Main"><a href="../docs/GETTING-STARTED.html">Get started</a><a href="../app/setup.html">Set up</a><a href="../app/run.html">Start a run</a><a href="../app/review.html">Review</a><a href="../docs/README.html" class="active" aria-current="page">Docs</a></nav>
   <span class="spacer"></span>
-  
-  <a class="top" href="../docs/README.html">Docs</a>
   <a class="top opt" href="../AGENT.md">AGENT.md</a>
-  <a class="top opt" href="../downloads/code-grading-suite-4.0.0.zip">Download</a>
+  <a class="top opt" href="../downloads/code-grading-suite-4.1.0.zip">Download</a>
 </header>
-<div class="layout"><nav class="sidebar" aria-label="Documentation"><h4>Start</h4><a href="../docs/README.html">Overview &amp; workflow</a><a href="../docs/AGENT.html">Agent entry point</a><a href="../docs/DEPLOY.html">Hosting this site</a><h4>Configuration</h4><a href="../docs/TUNING.html">Tuning guide</a><a href="../docs/rubric/weights.html">How scoring works</a><a href="../docs/config/defaults.html">Default config</a><a href="../docs/config/project.example.html">Example project config</a><h4>Prompts</h4><a href="../docs/prompts/grader.html">Grader</a><a href="../docs/prompts/improver.html">Improver</a><a href="../docs/prompts/pr-review.html">PR quick mode</a><h4>Rubric</h4><a href="../docs/rubric/A-correctness-trust.html">A · Correctness &amp; Trust</a><a href="../docs/rubric/B-design-structure.html">B · Design &amp; Structure</a><a href="../docs/rubric/C-code-health.html">C · Code Health</a><a href="../docs/rubric/D-value-fitness.html">D · Value &amp; Fitness</a><a href="../docs/rubric/E-adoption-experience.html">E · Adoption &amp; Experience</a><a href="../docs/rubric/F-operations-delivery.html">F · Operations &amp; Delivery</a><a href="../docs/rubric/X-conditional.html">X · Conditional</a><h4>Guides</h4><a href="../docs/calibration/README.html">Calibration</a><a href="../docs/holdout/README.html">Hidden checks</a><a href="../docs/CHANGELOG.html" class="active" aria-current="page">Changelog</a></nav><main class="doc"><div class="docbar"><a class="btn" href="../suite/CHANGELOG.md">View raw .md</a><button class="btn" type="button" data-copy="../suite/CHANGELOG.md">Copy raw URL for an agent</button></div><details class="toc"><summary>On this page</summary><ul><li><a href="#400">4.0.0</a></li><li><a href="#310">3.1.0</a></li><li><a href="#300">3.0.0</a></li><li><a href="#200">2.0.0</a></li><li><a href="#100">1.0.0</a></li></ul></details><h1 id="changelog">Changelog<a class="anchor" href="#changelog" aria-label="Link to this section">#</a></h1>
+<div class="layout"><nav class="sidebar" aria-label="Documentation"><h4>Start</h4><a href="../docs/GETTING-STARTED.html">Getting started</a><a href="../docs/README.html">Overview &amp; reference</a><a href="../docs/AGENT.html">Agent entry point</a><a href="../docs/DEPLOY.html">Hosting this site</a><h4>Configuration</h4><a href="../docs/TUNING.html">Tuning guide</a><a href="../docs/rubric/weights.html">How scoring works</a><a href="../docs/config/defaults.html">Default config</a><a href="../docs/config/project.example.html">Example project config</a><h4>Prompts</h4><a href="../docs/prompts/grader.html">Grader</a><a href="../docs/prompts/reviewer.html">Report reviewer</a><a href="../docs/prompts/improver.html">Improver</a><a href="../docs/prompts/pr-review.html">Pull-request check</a><h4>Rubric</h4><a href="../docs/rubric/A-correctness-trust.html">A · Correctness &amp; Trust</a><a href="../docs/rubric/B-design-structure.html">B · Design &amp; Structure</a><a href="../docs/rubric/C-code-health.html">C · Code Health</a><a href="../docs/rubric/D-value-fitness.html">D · Value &amp; Fitness</a><a href="../docs/rubric/E-adoption-experience.html">E · Adoption &amp; Experience</a><a href="../docs/rubric/F-operations-delivery.html">F · Operations &amp; Delivery</a><a href="../docs/rubric/X-conditional.html">X · Conditional</a><h4>Guides</h4><a href="../docs/calibration/README.html">Calibration</a><a href="../docs/holdout/README.html">Hidden checks</a><a href="../docs/CHANGELOG.html" class="active" aria-current="page">Changelog</a></nav><main class="doc"><div class="docbar"><a class="btn" href="../suite/CHANGELOG.md">View raw .md</a><button class="btn" type="button" data-copy="../suite/CHANGELOG.md">Copy raw URL for an agent</button></div><details class="toc"><summary>On this page</summary><ul><li><a href="#410">4.1.0</a></li><li><a href="#400">4.0.0</a></li><li><a href="#310">3.1.0</a></li><li><a href="#300">3.0.0</a></li><li><a href="#200">2.0.0</a></li><li><a href="#100">1.0.0</a></li></ul></details><h1 id="changelog">Changelog<a class="anchor" href="#changelog" aria-label="Link to this section">#</a></h1>
 <p>Versioning rules for the suite itself:</p>
 <ul>
 <li><strong>Major:</strong> any change that can move scores, i.e. new or removed benchmarks, changed anchors, caps, weights, targets or maturity rules. Scores from different major versions are <strong>not comparable</strong>. <code>gradekit diff</code> won't treat their deltas as regressions.</li>
@@ -28,6 +27,18 @@
 <li><strong>Patch:</strong> typos, formatting, documentation.</li>
 </ul>
 <p>After any major or minor change, re-run calibration (<code>calibration/README.md</code>) before trusting new scores.</p>
+<h2 id="410">4.1.0<a class="anchor" href="#410" aria-label="Link to this section">#</a></h2>
+<p>Scoring rules are unchanged, so scores remain comparable with 4.0.0. Config fingerprints changed: re-run <code>resolve</code> before validating older reports.</p>
+<ul>
+<li><strong>The website is now a set of tools:</strong> <strong>Set up a project</strong>, <strong>Start a run</strong> and <strong>Review a report</strong> run <code>gradekit.py</code> in the browser via Pyodide. Nothing to install, and nothing uploaded. Plus a new <strong>Getting started</strong> tutorial with common setups.</li>
+<li><strong>One grading folder:</strong> <code>.grading/</code> in the repo (or anywhere else) holds <code>project.toml</code> and the latest <code>report.json</code> / <code>report.md</code>. Graders read the previous report from there, and git history keeps the older ones.</li>
+<li><strong>Accepted findings and decisions moved into <code>project.toml</code></strong> as <code>[[dispositions]]</code> and <code>[[decisions]]</code>, replacing the separate JSON files. Decisions are matched to actions by ID and question text. Agent answers count only when <code>[review] allow_agent_decisions = true</code>.</li>
+<li><strong>Flexible delivery:</strong> graders deliver by pull request, commit, saved files, or back in the chat. Every prompt starts with an inputs table with defaults. New <strong>reviewer</strong> prompt for agent reviewers.</li>
+<li><strong>Pull-request checks</strong> read their baseline from the base commit, and fail improvement PRs that touch the grading folder.</li>
+<li>Hidden-check details stay next to the checks instead of in the report.</li>
+<li><code>gradekit</code>: <code>init --grading-dir</code>; finds <code>.grading/project.toml</code> and <code>.grading/report.json</code> automatically; <code>verify-evidence</code> accepts a repo <code>.zip</code>; reusable library functions and a <code>web_api()</code> used by the website.</li>
+<li>The config fingerprint now covers only what affects scoring; project prose, dispositions and decisions are excluded.</li>
+</ul>
 <h2 id="400">4.0.0<a class="anchor" href="#400" aria-label="Link to this section">#</a></h2>
 <p>Weights changed, so scores are <strong>not comparable</strong> with 3.x.</p>
 <ul>

@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Default config · Code Grading Suite</title>
-<meta name="description" content="A rubric and prompts for AI coding agents to grade codebases from 1 to 10 on 35 benchmarks and improve them.">
+<meta name="description" content="A rubric, prompts and browser tools for AI coding agents to grade codebases from 1 to 10 on 35 benchmarks and improve them.">
 <link rel="stylesheet" href="../../assets/style.css">
 <link rel="icon" href="../../assets/favicon.svg" type="image/svg+xml">
 <link rel="alternate" type="text/markdown" href="../../AGENT.md" title="Agent entry point">
@@ -13,17 +13,16 @@
 <header class="topbar">
   <button class='menu-btn' type='button'>Menu</button>
   <a class="brand" href="../../index.html">Code <span>Grading</span> Suite</a>
-  <span class="ver">v4.0.0</span>
+  <span class="ver">v4.1.0</span>
+  <nav class="main" aria-label="Main"><a href="../../docs/GETTING-STARTED.html">Get started</a><a href="../../app/setup.html">Set up</a><a href="../../app/run.html">Start a run</a><a href="../../app/review.html">Review</a><a href="../../docs/README.html" class="active" aria-current="page">Docs</a></nav>
   <span class="spacer"></span>
-  
-  <a class="top" href="../../docs/README.html">Docs</a>
   <a class="top opt" href="../../AGENT.md">AGENT.md</a>
-  <a class="top opt" href="../../downloads/code-grading-suite-4.0.0.zip">Download</a>
+  <a class="top opt" href="../../downloads/code-grading-suite-4.1.0.zip">Download</a>
 </header>
-<div class="layout"><nav class="sidebar" aria-label="Documentation"><h4>Start</h4><a href="../../docs/README.html">Overview &amp; workflow</a><a href="../../docs/AGENT.html">Agent entry point</a><a href="../../docs/DEPLOY.html">Hosting this site</a><h4>Configuration</h4><a href="../../docs/TUNING.html">Tuning guide</a><a href="../../docs/rubric/weights.html">How scoring works</a><a href="../../docs/config/defaults.html" class="active" aria-current="page">Default config</a><a href="../../docs/config/project.example.html">Example project config</a><h4>Prompts</h4><a href="../../docs/prompts/grader.html">Grader</a><a href="../../docs/prompts/improver.html">Improver</a><a href="../../docs/prompts/pr-review.html">PR quick mode</a><h4>Rubric</h4><a href="../../docs/rubric/A-correctness-trust.html">A · Correctness &amp; Trust</a><a href="../../docs/rubric/B-design-structure.html">B · Design &amp; Structure</a><a href="../../docs/rubric/C-code-health.html">C · Code Health</a><a href="../../docs/rubric/D-value-fitness.html">D · Value &amp; Fitness</a><a href="../../docs/rubric/E-adoption-experience.html">E · Adoption &amp; Experience</a><a href="../../docs/rubric/F-operations-delivery.html">F · Operations &amp; Delivery</a><a href="../../docs/rubric/X-conditional.html">X · Conditional</a><h4>Guides</h4><a href="../../docs/calibration/README.html">Calibration</a><a href="../../docs/holdout/README.html">Hidden checks</a><a href="../../docs/CHANGELOG.html">Changelog</a></nav><main class="doc"><div class="docbar"><a class="btn" href="../../suite/config/defaults.toml">View raw .toml</a><button class="btn" type="button" data-copy="../../suite/config/defaults.toml">Copy raw URL for an agent</button></div><h1 id="default-config">Default config<a class="anchor" href="#default-config" aria-label="Link to this section">#</a></h1>
+<div class="layout"><nav class="sidebar" aria-label="Documentation"><h4>Start</h4><a href="../../docs/GETTING-STARTED.html">Getting started</a><a href="../../docs/README.html">Overview &amp; reference</a><a href="../../docs/AGENT.html">Agent entry point</a><a href="../../docs/DEPLOY.html">Hosting this site</a><h4>Configuration</h4><a href="../../docs/TUNING.html">Tuning guide</a><a href="../../docs/rubric/weights.html">How scoring works</a><a href="../../docs/config/defaults.html" class="active" aria-current="page">Default config</a><a href="../../docs/config/project.example.html">Example project config</a><h4>Prompts</h4><a href="../../docs/prompts/grader.html">Grader</a><a href="../../docs/prompts/reviewer.html">Report reviewer</a><a href="../../docs/prompts/improver.html">Improver</a><a href="../../docs/prompts/pr-review.html">Pull-request check</a><h4>Rubric</h4><a href="../../docs/rubric/A-correctness-trust.html">A · Correctness &amp; Trust</a><a href="../../docs/rubric/B-design-structure.html">B · Design &amp; Structure</a><a href="../../docs/rubric/C-code-health.html">C · Code Health</a><a href="../../docs/rubric/D-value-fitness.html">D · Value &amp; Fitness</a><a href="../../docs/rubric/E-adoption-experience.html">E · Adoption &amp; Experience</a><a href="../../docs/rubric/F-operations-delivery.html">F · Operations &amp; Delivery</a><a href="../../docs/rubric/X-conditional.html">X · Conditional</a><h4>Guides</h4><a href="../../docs/calibration/README.html">Calibration</a><a href="../../docs/holdout/README.html">Hidden checks</a><a href="../../docs/CHANGELOG.html">Changelog</a></nav><main class="doc"><div class="docbar"><a class="btn" href="../../suite/config/defaults.toml">View raw .toml</a><button class="btn" type="button" data-copy="../../suite/config/defaults.toml">Copy raw URL for an agent</button></div><h1 id="default-config">Default config<a class="anchor" href="#default-config" aria-label="Link to this section">#</a></h1>
 <p><code>config/defaults.toml</code>. Download the raw file with the button above.</p>
 <pre><code class="language-toml"># =============================================================================
-# Code Grading Suite: default configuration (suite v4.0.0)
+# Code Grading Suite: default configuration (suite v4.1.0)
 # =============================================================================
 #
 # Every adjustable part of scoring lives in this file: weights, the questions
@@ -35,18 +34,19 @@
 #
 #     config/defaults.toml   ← this file (suite defaults)
 #     your-org.toml          ← optional: house rules shared across projects
-#     project.toml           ← per project: answers, zones, overrides
+#     project.toml           ← per project (.grading/project.toml): answers, zones, overrides,
+#                               accepted findings and decisions
 #
 #     python3 tools/gradekit.py resolve --config your-org.toml --config project.toml
 #
 # Tables merge key by key; lists are replaced whole. Start from
 # config/project.example.toml. See TUNING.md for recipes.
 #
-# Keep org and project configs OUTSIDE the repo being graded, owned by humans.
-# An improving agent that could edit them could re-weight its way to a better score.
+# Org and project configs are owned by people. project.toml normally lives in the
+# repo's .grading/ folder (protect it with CODEOWNERS); improving agents only read it.
 # =============================================================================
 
-suite_version = &quot;4.0.0&quot;
+suite_version = &quot;4.1.0&quot;
 
 
 # -----------------------------------------------------------------------------
@@ -351,6 +351,17 @@ holdout_pass_rate_min    = 0.95
 # -----------------------------------------------------------------------------
 [priorities]
 effort_cost = { S = 1, M = 2, L = 4 }
+
+
+# -----------------------------------------------------------------------------
+# REVIEW: who may answer decision questions
+# Decision questions (e.g. &quot;drop the deprecated endpoint?&quot;) are answered in
+# project.toml as [[decisions]]. By default only humans may approve them: an
+# answer whose decided_by starts with &quot;agent&quot; counts as still pending.
+# Set allow_agent_decisions = true to let agent reviewers approve them too.
+# -----------------------------------------------------------------------------
+[review]
+allow_agent_decisions = false
 
 </code></pre>
 <nav class="pager"><a href="../../docs/rubric/weights.html"><small>Previous</small>How scoring works</a><a href="../../docs/config/project.example.html" style="margin-left:auto;text-align:right"><small>Next</small>Example project config</a></nav></main></div>

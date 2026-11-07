@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Overview &amp; workflow · Code Grading Suite</title>
-<meta name="description" content="A rubric and prompts for AI coding agents to grade codebases from 1 to 10 on 35 benchmarks and improve them.">
+<title>Overview &amp; reference · Code Grading Suite</title>
+<meta name="description" content="A rubric, prompts and browser tools for AI coding agents to grade codebases from 1 to 10 on 35 benchmarks and improve them.">
 <link rel="stylesheet" href="../assets/style.css">
 <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
 <link rel="alternate" type="text/markdown" href="../AGENT.md" title="Agent entry point">
@@ -13,119 +13,167 @@
 <header class="topbar">
   <button class='menu-btn' type='button'>Menu</button>
   <a class="brand" href="../index.html">Code <span>Grading</span> Suite</a>
-  <span class="ver">v4.0.0</span>
+  <span class="ver">v4.1.0</span>
+  <nav class="main" aria-label="Main"><a href="../docs/GETTING-STARTED.html">Get started</a><a href="../app/setup.html">Set up</a><a href="../app/run.html">Start a run</a><a href="../app/review.html">Review</a><a href="../docs/README.html" class="active" aria-current="page">Docs</a></nav>
   <span class="spacer"></span>
-  
-  <a class="top" href="../docs/README.html">Docs</a>
   <a class="top opt" href="../AGENT.md">AGENT.md</a>
-  <a class="top opt" href="../downloads/code-grading-suite-4.0.0.zip">Download</a>
+  <a class="top opt" href="../downloads/code-grading-suite-4.1.0.zip">Download</a>
 </header>
-<div class="layout"><nav class="sidebar" aria-label="Documentation"><h4>Start</h4><a href="../docs/README.html" class="active" aria-current="page">Overview &amp; workflow</a><a href="../docs/AGENT.html">Agent entry point</a><a href="../docs/DEPLOY.html">Hosting this site</a><h4>Configuration</h4><a href="../docs/TUNING.html">Tuning guide</a><a href="../docs/rubric/weights.html">How scoring works</a><a href="../docs/config/defaults.html">Default config</a><a href="../docs/config/project.example.html">Example project config</a><h4>Prompts</h4><a href="../docs/prompts/grader.html">Grader</a><a href="../docs/prompts/improver.html">Improver</a><a href="../docs/prompts/pr-review.html">PR quick mode</a><h4>Rubric</h4><a href="../docs/rubric/A-correctness-trust.html">A · Correctness &amp; Trust</a><a href="../docs/rubric/B-design-structure.html">B · Design &amp; Structure</a><a href="../docs/rubric/C-code-health.html">C · Code Health</a><a href="../docs/rubric/D-value-fitness.html">D · Value &amp; Fitness</a><a href="../docs/rubric/E-adoption-experience.html">E · Adoption &amp; Experience</a><a href="../docs/rubric/F-operations-delivery.html">F · Operations &amp; Delivery</a><a href="../docs/rubric/X-conditional.html">X · Conditional</a><h4>Guides</h4><a href="../docs/calibration/README.html">Calibration</a><a href="../docs/holdout/README.html">Hidden checks</a><a href="../docs/CHANGELOG.html">Changelog</a></nav><main class="doc"><div class="docbar"><a class="btn" href="../suite/README.md">View raw .md</a><button class="btn" type="button" data-copy="../suite/README.md">Copy raw URL for an agent</button></div><details class="toc"><summary>On this page</summary><ul><li><a href="#whats-in-the-kit">What&#x27;s in the kit</a></li><li><a href="#ground-rules-for-whoever-runs-this">Ground rules for whoever runs this</a></li><li><a href="#the-loop">The loop</a></li><li><a href="#key-concepts">Key concepts</a></li><li><a href="#calibration">Calibration</a></li><li><a href="#monorepos">Monorepos</a></li><li><a href="#try-it">Try it</a></li><li><a href="#web-version">Web version</a></li><li><a href="#versioning">Versioning</a></li></ul></details><h1 id="code-grading-suite-v400">Code Grading Suite v4.0.0<a class="anchor" href="#code-grading-suite-v400" aria-label="Link to this section">#</a></h1>
+<div class="layout"><nav class="sidebar" aria-label="Documentation"><h4>Start</h4><a href="../docs/GETTING-STARTED.html">Getting started</a><a href="../docs/README.html" class="active" aria-current="page">Overview &amp; reference</a><a href="../docs/AGENT.html">Agent entry point</a><a href="../docs/DEPLOY.html">Hosting this site</a><h4>Configuration</h4><a href="../docs/TUNING.html">Tuning guide</a><a href="../docs/rubric/weights.html">How scoring works</a><a href="../docs/config/defaults.html">Default config</a><a href="../docs/config/project.example.html">Example project config</a><h4>Prompts</h4><a href="../docs/prompts/grader.html">Grader</a><a href="../docs/prompts/reviewer.html">Report reviewer</a><a href="../docs/prompts/improver.html">Improver</a><a href="../docs/prompts/pr-review.html">Pull-request check</a><h4>Rubric</h4><a href="../docs/rubric/A-correctness-trust.html">A · Correctness &amp; Trust</a><a href="../docs/rubric/B-design-structure.html">B · Design &amp; Structure</a><a href="../docs/rubric/C-code-health.html">C · Code Health</a><a href="../docs/rubric/D-value-fitness.html">D · Value &amp; Fitness</a><a href="../docs/rubric/E-adoption-experience.html">E · Adoption &amp; Experience</a><a href="../docs/rubric/F-operations-delivery.html">F · Operations &amp; Delivery</a><a href="../docs/rubric/X-conditional.html">X · Conditional</a><h4>Guides</h4><a href="../docs/calibration/README.html">Calibration</a><a href="../docs/holdout/README.html">Hidden checks</a><a href="../docs/CHANGELOG.html">Changelog</a></nav><main class="doc"><div class="docbar"><a class="btn" href="../suite/README.md">View raw .md</a><button class="btn" type="button" data-copy="../suite/README.md">Copy raw URL for an agent</button></div><details class="toc"><summary>On this page</summary><ul><li><a href="#the-pieces">The pieces</a></li><li><a href="#where-things-live">Where things live</a></li><li><a href="#the-cycle">The cycle</a></li><li><a href="#ground-rules">Ground rules</a></li><li><a href="#key-concepts">Key concepts</a></li><li><a href="#command-line-reference">Command-line reference</a></li><li><a href="#whats-in-the-kit">What&#x27;s in the kit</a></li><li><a href="#calibration-and-monorepos">Calibration and monorepos</a></li><li><a href="#versioning">Versioning</a></li></ul></details><h1 id="code-grading-suite-v410">Code Grading Suite v4.1.0<a class="anchor" href="#code-grading-suite-v410" aria-label="Link to this section">#</a></h1>
 <p>A kit for having AI agents grade a codebase from 1 to 10 on <strong>35 benchmarks</strong> (29 core in 6 pillars, plus 6 that apply only to some projects), and then improve it against those grades. It is built so that <strong>rising scores mean better code</strong>, not just code tuned to the rubric.</p>
-<h2 id="whats-in-the-kit">What's in the kit<a class="anchor" href="#whats-in-the-kit" aria-label="Link to this section">#</a></h2>
-<pre><code>code-grading-suite/
-├── prompts/
-│   ├── grader.md        Full audit prompt: process, rules, evidence, output format
-│   ├── improver.md      Prompt for agents that improve the code against a report
-│   └── pr-review.md     Quick mode for grading a single pull request
-├── rubric/
-│   ├── A-correctness-trust.md      A1–A5   correctness, security, robustness, idempotence, durability
-│   ├── B-design-structure.md       B1–B6   architecture, modularity, structure, interfaces, flexibility, leanness
-│   ├── C-code-health.md            C1–C4   readability, maintainability, consistency, tests
-│   ├── D-value-fitness.md          D1–D4   features, gaps, practicality, intuitiveness
-│   ├── E-adoption-experience.md    E1–E4   adopter friendliness, docs, dev experience, native tooling
-│   ├── F-operations-delivery.md    F1–F6   deployability, CI/CD, observability, performance, portability, dependencies
-│   ├── X-conditional.md            X1–X6   accessibility, API stability, concurrency, cost, compliance, agent-readiness
-│   ├── catalog.json                Benchmark IDs, names and pillars
-│   └── weights.md                  How weights, gates, zones, targets and maturity work
-├── config/
-│   ├── defaults.toml               Every tunable setting, commented: weights, questions, presets, gates, zones…
-│   └── project.example.toml        A filled-in project config to copy
-├── schema/report.schema.json       JSON Schema every report must match
-├── tools/gradekit.py               Resolves configs; validates reports, checks evidence, does all the arithmetic
-├── tools/build_web.py              Builds the web version (static site agents can be pointed at)
-├── TUNING.md                       How to customize scoring for your projects and organization
-├── DEPLOY.md                       How to host the web version on your server
-├── calibration/                    Reference repos with expected scores, to catch grader drift
-├── holdout/                        How to write hidden checks the improvers never see
-├── dispositions/                   Human decisions: accepted findings and answers to decision questions
-└── examples/                       A tiny sample repo, its project config and a complete example report
+<p><strong>New here? Start with <a href="../docs/GETTING-STARTED.html">Getting started</a>.</strong> It walks through a full cycle using the website, with nothing to install. This page is the reference.</p>
+<h2 id="the-pieces">The pieces<a class="anchor" href="#the-pieces" aria-label="Link to this section">#</a></h2>
+<table>
+<thead>
+<tr>
+<th>Piece</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>The website</strong></td>
+<td>Built from this kit with <code>tools/build_web.py</code> and hosted anywhere. Three browser tools: <strong>Set up a project</strong>, <strong>Start a run</strong> and <strong>Review a report</strong>. They run <code>gradekit.py</code> in the browser via Pyodide, so nothing is installed or uploaded. Also includes <code>AGENT.md</code>, the entry point for agents.</td>
+</tr>
+<tr>
+<td><strong>The prompts</strong></td>
+<td>One per job: <code>grader.md</code>, <code>reviewer.md</code>, <code>improver.md</code>, <code>pr-review.md</code>. Each starts with a table of inputs (code, grading folder, delivery) with sensible defaults.</td>
+</tr>
+<tr>
+<td><strong>The rubric</strong></td>
+<td>One file per pillar, with anchors, caps and &quot;Not this&quot; boundaries for each benchmark.</td>
+</tr>
+<tr>
+<td><strong>The config</strong></td>
+<td><code>config/defaults.toml</code> holds every tunable setting. Each project has its own <code>project.toml</code> on top.</td>
+</tr>
+<tr>
+<td><strong><code>gradekit.py</code></strong></td>
+<td>Does all the arithmetic and checking: weights, gates, zones, validation, evidence checks, roll-ups, ranked priorities, consensus, comparisons. Use it from the command line (Python 3.11+, standard library only), or let the website run it.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="where-things-live">Where things live<a class="anchor" href="#where-things-live" aria-label="Link to this section">#</a></h2>
+<pre><code>your-repo/
+└── .grading/                  the grading folder
+    ├── README.md              explains the folder to contributors
+    ├── project.toml           settings + accepted findings + decision answers   ← people only
+    ├── report.json            latest report (older ones: git history)           ← graders
+    ├── report.md              the same, readable
+    └── runs/                  only when several graders grade one commit
 </code></pre>
-<h2 id="ground-rules-for-whoever-runs-this">Ground rules for whoever runs this<a class="anchor" href="#ground-rules-for-whoever-runs-this" aria-label="Link to this section">#</a></h2>
+<ul>
+<li><strong>Hidden checks</strong> (optional) live <em>outside</em> the repo, somewhere only graders can reach. Their per-check results stay next to them; reports only carry the pass rate.</li>
+<li><strong>Stricter setup:</strong> keep the same folder layout in a separate private repo or folder instead, so improvers can't even read it. Every prompt takes the grading folder's location as an input.</li>
+<li><strong>Protecting the folder:</strong> add a CODEOWNERS line (<code>/.grading/ @your-team</code>). The pull-request check also fails any improvement PR that touches <code>.grading/</code>.</li>
+</ul>
+<h2 id="the-cycle">The cycle<a class="anchor" href="#the-cycle" aria-label="Link to this section">#</a></h2>
+<table>
+<thead>
+<tr>
+<th>Step</th>
+<th>Who</th>
+<th>How</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0. Set up (once)</td>
+<td>You</td>
+<td><strong>Set up a project</strong> page → <code>.grading/project.toml</code></td>
+</tr>
+<tr>
+<td>1. Grade</td>
+<td>A fresh agent session</td>
+<td><strong>Start a run</strong> → <em>Grade the code</em>. Delivers <code>report.json</code> / <code>report.md</code> as a PR, a commit, saved files, or back in the chat.</td>
+</tr>
+<tr>
+<td>2. Review and decide</td>
+<td>You (an agent can help)</td>
+<td><strong>Review a report</strong> → check it, answer decision questions → paste <code>[[decisions]]</code> into <code>project.toml</code> on the grader's PR → merge</td>
+</tr>
+<tr>
+<td>3. Improve</td>
+<td>Another fresh agent session</td>
+<td><strong>Start a run</strong> → <em>Improve the code</em>. Reads <code>.grading/</code>, follows the ranked priorities, opens a PR.</td>
+</tr>
+<tr>
+<td>4. Guard</td>
+<td>An agent, or CI</td>
+<td><strong>Start a run</strong> → <em>Check a pull request</em>: PASS or FAIL against the base report</td>
+</tr>
+</tbody>
+</table>
+<p>Repeat from step 1. Optionally, use three graders for milestone audits; the Review page merges their runs into a consensus.</p>
+<h2 id="ground-rules">Ground rules<a class="anchor" href="#ground-rules" aria-label="Link to this section">#</a></h2>
 <ol>
-<li><strong>Keep the suite and your config files outside the repo being graded</strong>, read-only to improving agents. If an improver could edit the rubric, config, dispositions or hidden checks, it could game them.</li>
-<li><strong>The grader is independent.</strong> Use a fresh agent with no memory of the improvement work for every grading run, and ideally a different model from the improver. Give it only the repo, the suite and the previous <em>shared</em> report. Never give it the improver's notes or reasoning.</li>
-<li><strong>Sandbox the grader.</strong> It runs the repo's own scripts. Give it a throwaway environment with no production credentials or secrets, and network access only to package registries.</li>
-<li><strong>Hidden checks stay hidden.</strong> Improvers only ever see the redacted report (<code>gradekit redact</code>).</li>
-<li><strong>Humans own decisions.</strong> Improvers carry out an action marked <code>requires_human_decision</code> only after you approve it in <code>decisions.json</code>. Findings you deliberately accept go in <code>dispositions.json</code>.</li>
-<li><strong>Use gradekit's numbers.</strong> Weights, gates, effective severities, pillar scores, the overall score, targets, maturity and priorities always come from <code>gradekit</code>, never from the grader's own arithmetic.</li>
+<li><strong>Graders are independent.</strong> Use a fresh session every time, ideally a different model from the improver, and never the session that did the improving.</li>
+<li><strong>Graders run sandboxed.</strong> They run the repo's own scripts, so give them a disposable environment with no production credentials.</li>
+<li><strong>People own <code>project.toml</code>.</strong> It holds the weights, gates, zones, accepted findings and decisions. Agents only ever <em>read</em> it, except an agent reviewer explicitly allowed to answer decision questions (<code>[review] allow_agent_decisions = true</code>).</li>
+<li><strong>Hidden checks stay hidden.</strong> They live outside the repo, and only aggregate pass rates appear in reports.</li>
+<li><strong>Trust <code>gradekit</code>'s numbers.</strong> Weights, gates, effective severities, pillar scores, the overall score, targets, maturity and priorities always come from <code>gradekit</code>, never from the grader's own arithmetic.</li>
 </ol>
-<h2 id="the-loop">The loop<a class="anchor" href="#the-loop" aria-label="Link to this section">#</a></h2>
-<pre><code>          ┌───────────────────────────────────────────────────────────────┐
-          ▼                                                               │
-  1. Grade (3 independent runs) ──► 2. Check ──► 3. Consensus ──► 4. Redact &amp; share
-                                                                          │
-  7. PR quick mode on each change ◄── 6. Improve ◄── 5. Humans decide ◄───┘
-</code></pre>
-<p><strong>0. Configure (once per project).</strong> Describe the project in a <code>project.toml</code>: a preset, answers to eight short questions, and a map of hot and cold code. Keep it outside the repo.</p>
-<pre><code class="language-bash">K=&quot;python3 SUITE_DIR/tools/gradekit.py&quot;
-$K init --preset service --name orders-api --out project.toml   # then edit it
-$K resolve --config project.toml                                 # check the weights, gates and zones it produces
-</code></pre>
-<p><strong>1. Grade.</strong> Run <code>prompts/grader.md</code> three times on the same commit, each in a fresh, sandboxed agent. Pass in <code>SUITE_DIR</code>, <code>project.toml</code>, the commit SHA, the previous shared report (if any), the dispositions, and the hidden-check directory.</p>
-<p><strong>2. Check each run:</strong></p>
-<pre><code class="language-bash">$K validate run1.json --config project.toml    # schema + rules (config weights, IDs, caps, 10s need enforcement, leak check)
-$K verify-evidence run1.json --repo REPO       # every code quote must exist at the cited lines
-</code></pre>
-<p>A run that fails either check gets sent back to its grader to fix, or thrown out.</p>
-<p><strong>3. Consensus:</strong></p>
-<pre><code class="language-bash">$K stability run1.json run2.json run3.json --config project.toml --out report.json
-</code></pre>
-<p>This takes the median score for each benchmark, and a majority vote on applicability. Benchmarks whose scores spread by more than 1 point, or whose applicability split, are flagged as unstable. If the same benchmarks keep coming up unstable, their rubric wording is too vague: tighten it and bump the suite version. (A single run is fine for low-stakes use; skip this step.)</p>
-<p><strong>4. Redact and share:</strong></p>
-<pre><code class="language-bash">$K redact report.json --out report.shared.json     # removes hidden-check details
-</code></pre>
-<p>Keep <code>report.json</code> private. Give <code>report.shared.json</code> (and the grader's <code>report.md</code>) to improvers and to the next grading run.</p>
-<p><strong>5. Humans decide.</strong> Answer the <code>decision_question</code>s in <code>dispositions/decisions.json</code>. Record any findings you accept as-is in <code>dispositions/dispositions.json</code>.</p>
-<p><strong>6. Improve.</strong> Run <code>prompts/improver.md</code> with the shared report and decisions. It works through <code>gradekit</code>'s ranked priorities: failed gates and hot-zone criticals first, then maturity blockers, then everything else. It stops at each benchmark's target.</p>
-<p><strong>7. Guard every change.</strong> Run <code>prompts/pr-review.md</code> on each pull request, then:</p>
-<pre><code class="language-bash">$K diff last-full-report.json pr-report.json --config project.toml --fail-on-regression   # exit 2 = block the merge
-</code></pre>
-<p>Then go back to step 1 for the next full audit. <code>diff</code> between full audits shows progress, fixed and regressed findings, and <strong>divergence</strong>: visible scores rising while hidden checks fall, which is the clearest sign of rubric-gaming.</p>
 <h2 id="key-concepts">Key concepts<a class="anchor" href="#key-concepts" aria-label="Link to this section">#</a></h2>
 <ul>
-<li><strong>Weights.</strong> Each benchmark counts 1 (minor) to 3 (critical). Weights start from base values and move with the project's answers, e.g. &quot;handles money&quot; raises Security, Idempotence and Durability. <code>gradekit resolve --explain ID</code> shows exactly why a weight is what it is.</li>
+<li><strong>Weights.</strong> Each benchmark counts 1 (minor) to 3 (critical). Weights start from base values and move with the project's answers to eight questions, e.g. &quot;handles money&quot; raises Security, Idempotence and Durability.</li>
 <li><strong>Gates.</strong> Correctness and Security always, plus whatever the answers add. A gate at or below 3 caps the overall score at 4.0: an average can't make up for a security hole.</li>
 <li><strong>Criticality zones.</strong> Hot code (money, auth, data writes) counts more than cold code (scripts, examples). Findings are one severity higher in hot zones and one lower in cold, and hot-zone work is ranked first.</li>
 <li><strong>Applicability.</strong> Every benchmark is classified <code>full</code>, <code>limited</code> (counts at weight 1) or <code>not_applicable</code> (excluded), each with a reason. The decision is based on the project's purpose, never on current quality.</li>
 <li><strong>Targets.</strong> <code>proportional</code> (default: 10 / 9 / 8 by weight), <code>maximal</code> or <code>level:L3</code>, plus per-benchmark overrides. Improvers stop at the target.</li>
 <li><strong>Maturity ladder.</strong> L0 Not viable → L1 Prototype → L2 Usable → L3 Production-ready → L4 Exemplary. Each report names the exact blockers.</li>
-<li><strong>Ranked priorities.</strong> <code>gradekit rollup</code> sorts every action into tiers (failed gates and hot-zone criticals, then maturity blockers, then the rest), then by weight × gain × zone ÷ effort.</li>
-<li><strong>Stable findings.</strong> Findings get IDs like <code>A3-007</code> that persist across runs, with a status of new, open, fixed, regressed or accepted. Together the reports form a running backlog.</li>
-<li><strong>Metrics.</strong> Raw measurements (coverage, vulnerability counts, complexity, setup re-run success, time to first success…) are recorded alongside the scores, so trends can be tracked without relying on grader consistency.</li>
+<li><strong>Decisions.</strong> Fixes that change behavior or public interfaces carry a yes/no question. Improvers skip them until a <code>[[decisions]]</code> entry in <code>project.toml</code> approves them. Entries are only ever appended, and the newest answer wins.</li>
+<li><strong>Stable findings.</strong> Findings get IDs like <code>A3-007</code> that persist across runs, with a status of new, open, fixed, regressed or accepted. Accepted findings need a <code>[[dispositions]]</code> entry in <code>project.toml</code>.</li>
+<li><strong>Metrics.</strong> Raw measurements (coverage, vulnerability counts, complexity, setup re-run success, time to first success…) are recorded alongside the scores.</li>
 <li><strong>Integrity flags.</strong> Text in the repo that tries to influence the grader caps maturity at L1 for that run.</li>
 </ul>
-<p>All of these are tunable. See <code>TUNING.md</code>, and <code>rubric/weights.md</code> for how the numbers combine.</p>
-<h2 id="calibration">Calibration<a class="anchor" href="#calibration" aria-label="Link to this section">#</a></h2>
-<p>Before relying on the suite, and after any rubric change, follow <code>calibration/README.md</code>: grade 2–3 reference repos whose expected scores you've set by hand, and confirm the grader lands within tolerance.</p>
-<h2 id="monorepos">Monorepos<a class="anchor" href="#monorepos" aria-label="Link to this section">#</a></h2>
-<p>Define <code>[[components]]</code> in <code>project.toml</code>, each with its own preset, answers and zones. The grader writes one report per component plus a <code>repo</code> report for shared concerns. Run <code>rollup --write</code> on each with its own config, then combine them:</p>
-<pre><code class="language-bash">$K rollup-repo repo.json api.json web.json --out monorepo.json
+<p>All of these are tunable: see <a href="../docs/TUNING.html">TUNING.md</a>, and <a href="../docs/rubric/weights.html">rubric/weights.md</a> for how the numbers combine.</p>
+<h2 id="command-line-reference">Command-line reference<a class="anchor" href="#command-line-reference" aria-label="Link to this section">#</a></h2>
+<p>Inside a repo that has a <code>.grading/</code> folder, <code>gradekit</code> finds <code>project.toml</code> and <code>report.json</code> by itself.</p>
+<pre><code class="language-bash">K=&quot;python3 SUITE_DIR/tools/gradekit.py&quot;
+$K init --preset service --name myapp --grading-dir .grading   # create .grading/project.toml + README
+$K resolve [--explain A4]                                      # weights, gates, zones (and why)
+$K presets                                                     # compare presets side by side
+$K validate                                                    # schema, config and rule checks
+$K verify-evidence [--repo PATH_OR_ZIP]                        # every quoted line exists
+$K rollup [--write]                                            # gates, maturity, targets, ranked priorities
+$K stability runs/run-1.json runs/run-2.json runs/run-3.json --out .grading/report.json
+$K diff OLD.json NEW.json [--fail-on-regression]               # exit 2 = something got worse
+$K calibrate report.json expected.json                         # grader drift check
+$K redact report.json                                          # strip hidden-check details
+$K rollup-repo components/*.json                               # monorepos
 </code></pre>
-<p>The repo-wide overall score is weighted by component; repo-wide maturity is the lowest component's level.</p>
-<h2 id="try-it">Try it<a class="anchor" href="#try-it" aria-label="Link to this section">#</a></h2>
-<pre><code class="language-bash">cd code-grading-suite
-python3 tools/gradekit.py resolve --config examples/sample-project.toml
-python3 tools/gradekit.py validate examples/sample-report.json --config examples/sample-project.toml
-python3 tools/gradekit.py verify-evidence examples/sample-report.json --repo examples/sample-repo
-python3 tools/gradekit.py rollup examples/sample-report.json --config examples/sample-project.toml
+<p>Try it on the bundled sample:</p>
+<pre><code class="language-bash">cd examples/sample-repo
+python3 ../../tools/gradekit.py resolve
+python3 ../../tools/gradekit.py validate &amp;&amp; python3 ../../tools/gradekit.py rollup
 </code></pre>
-<p><code>gradekit.py</code> needs Python 3.11+ (for its built-in TOML reader) and otherwise uses only the standard library. If the <code>jsonschema</code> package is installed, it also runs full schema validation.</p>
-<h2 id="web-version">Web version<a class="anchor" href="#web-version" aria-label="Link to this section">#</a></h2>
-<p>To host the suite on a web server and point agents at a URL instead of handing them files, see <code>DEPLOY.md</code>. <code>python3 tools/build_web.py --out ../web</code> builds the site from this kit.</p>
+<h2 id="whats-in-the-kit">What's in the kit<a class="anchor" href="#whats-in-the-kit" aria-label="Link to this section">#</a></h2>
+<pre><code>code-grading-suite/
+├── GETTING-STARTED.md      operator tutorial and common setups
+├── README.md               this reference
+├── TUNING.md               customizing weights, gates, zones, targets
+├── DEPLOY.md               hosting the website
+├── CHANGELOG.md
+├── prompts/                grader, reviewer, improver, pr-review
+├── rubric/                 one file per pillar, catalog.json, weights.md
+├── config/                 defaults.toml, project.example.toml
+├── schema/                 report.schema.json
+├── tools/
+│   ├── gradekit.py         the engine (CLI + the browser API)
+│   ├── build_web.py        builds the website
+│   └── web/                website sources (pages, styles, scripts)
+├── calibration/            checking graders against known scores
+├── holdout/                writing hidden checks
+└── examples/sample-repo/   a tiny repo with a .grading/ folder and a full example report
+</code></pre>
+<h2 id="calibration-and-monorepos">Calibration and monorepos<a class="anchor" href="#calibration-and-monorepos" aria-label="Link to this section">#</a></h2>
+<ul>
+<li><strong>Calibration:</strong> before relying on the suite, and after big config or model changes, grade 2–3 reference repos with hand-set expected scores. See <a href="../docs/calibration/README.html">calibration/README.md</a>.</li>
+<li><strong>Monorepos:</strong> define <code>[[components]]</code> in <code>project.toml</code>, each with its own preset, answers and zones. The grader writes one report per component (<code>components/NAME.json</code>) plus a repo-level <code>report.json</code>; <code>gradekit rollup-repo</code> combines them. Repo-wide maturity is the lowest component's level.</li>
+</ul>
 <h2 id="versioning">Versioning<a class="anchor" href="#versioning" aria-label="Link to this section">#</a></h2>
-<p>See <code>CHANGELOG.md</code>. Scores are comparable only between reports with the same <strong>major</strong> suite version.</p>
-<nav class="pager"><a href="../docs/AGENT.html" style="margin-left:auto;text-align:right"><small>Next</small>Agent entry point</a></nav></main></div>
+<p>See <a href="../docs/CHANGELOG.html">CHANGELOG.md</a>. Scores are comparable only between reports with the same <strong>major</strong> suite version.</p>
+<nav class="pager"><a href="../docs/GETTING-STARTED.html"><small>Previous</small>Getting started</a><a href="../docs/AGENT.html" style="margin-left:auto;text-align:right"><small>Next</small>Agent entry point</a></nav></main></div>
 <script src="../assets/site.js"></script>
 </body>
 </html>

@@ -1,31 +1,33 @@
-# EXAMPLE project configuration for the Code Grading Suite (v4.0.0)
-# Keep this file OUTSIDE the repository being graded, owned by humans.
-# Check it with:  python3 SUITE_DIR/tools/gradekit.py resolve --config project.toml
+# EXAMPLE project configuration for the Code Grading Suite (v4.1.0)
+# In a real repo this file lives at .grading/project.toml.
+# Humans own this file. Agents may read it but must never change it.
+# Check it with:  python3 SUITE_DIR/tools/gradekit.py resolve --config .grading/project.toml
+# Or use the "Set up a project" page on the suite's website.
 
 [project]
 name            = "orders-api"
 description     = "REST API that takes orders and payments for the web shop"
-preset          = "service"            # default | service | web_app | library | oss_library | cli | internal_tool | prototype
+preset          = "service"   # default | service | web_app | library | oss_library | cli | internal_tool | prototype
 languages       = "Python 3.12, FastAPI, Postgres"
 users           = "The web shop front end and the internal sales dashboard"
-maturity_target = "production"
+maturity_target = "production"   # prototype | internal tool | production | public open source
 scope           = "Create, list and cancel orders; idempotent payments; CSV export (see docs/requirements.md)"
-out_of_scope    = ["vendor/**", "src/generated/**"]
+out_of_scope    = ["vendor/**", "src/generated/**"]   # paths the grader skips, e.g. "vendor/**"
 
-# Answers override the preset. Delete a line to use the preset's answer.
-# Run `gradekit resolve --explain ID` to see how answers moved a weight.
+# Answers override the preset. Each one moves specific weights; see `gradekit resolve --explain ID`.
 [answers]
-data_sensitivity  = "financial"   # What is the most sensitive data this code handles?  (none | internal | personal | financial | regulated)
-audience          = "internal_org"   # Who uses it?  (just_me | team | internal_org | public | developers)
-lifespan          = "years"   # How long will this code live?  (throwaway | months | years | indefinite)
-failure_impact    = "revenue_loss"   # What happens when it fails?  (inconvenience | degraded_work | revenue_loss | safety_or_legal)
-team              = "small"   # Who works on it?  (solo | small | large | open_source)
-change_rate       = "regular"   # How often does it change?  (rare | regular | constant)
-delivery          = "service"   # How is it delivered?  (mixed | service | website | package | installed_app | internal_script)
-scale             = "moderate"   # What load or data volume does it face?  (small | moderate | large | massive)
+data_sensitivity  = "financial"   # What is the most sensitive data this code handles? (none | internal | personal | financial | regulated)
+audience          = "internal_org"   # Who uses it? (just_me | team | internal_org | public | developers)
+lifespan          = "years"   # How long will this code live? (throwaway | months | years | indefinite)
+failure_impact    = "revenue_loss"   # What happens when it fails? (inconvenience | degraded_work | revenue_loss | safety_or_legal)
+team              = "small"   # Who works on it? (solo | small | large | open_source)
+change_rate       = "regular"   # How often does it change? (rare | regular | constant)
+delivery          = "service"   # How is it delivered? (mixed | service | website | package | installed_app | internal_script)
+scale             = "moderate"   # What load or data volume does it face? (small | moderate | large | massive)
 
-# Criticality zones: first match wins, so list specific zones first.
+# Criticality zones: the first match wins, so list specific zones first.
 # hot = matters most (money, auth, data writes); cold = matters least (scripts, examples).
+
 [[zones]]
 name        = "payments"
 paths       = ["src/payments/**", "src/billing/**"]
@@ -49,7 +51,7 @@ why         = "Developer convenience; never runs in production"
 mode = "proportional"
 # overrides = { F4 = 10 }
 
-# Explicit weight overrides (always need a reason):
+# Explicit weight overrides (each needs a reason).
 [weights.overrides]
 F4 = { weight = 3, reason = "Checkout calls this synchronously; p99 latency budget is 150 ms" }
 
@@ -58,8 +60,31 @@ F4 = { weight = 3, reason = "Checkout calls this synchronously; p99 latency budg
 # extra   = ["C4"]
 # exclude = []
 
+# Let agent reviewers approve decision questions (default: humans only):
+# [review]
+# allow_agent_decisions = true
+
+# Accepted findings: the grader marks these 'accepted' and they stop lowering scores.
+
+[[dispositions]]
+finding_id = "B5-001"
+decision   = "won't fix"
+reason     = "One payment provider is a deliberate business constraint through 2027"
+decided_by = "jane@example.com"
+date       = "2026-11-07"
+
+# Answers to decision questions from grading reports (append new ones at the end).
+
+[[decisions]]
+action_id  = "D1-act-1"
+question   = "Implement CSV and XLSX export, or drop the export claim from the README?"
+approved   = true
+answer     = "Implement CSV only; remove XLSX from the README."
+decided_by = "jane@example.com"
+date       = "2026-11-07"
+
 # Monorepos: one block per component. Each can set its own preset, answers, zones and gates.
-# Grade each with:  gradekit resolve --config project.toml --component NAME
+# Grade each with:  gradekit resolve --config .grading/project.toml --component NAME
 # [[components]]
 # name    = "web"
 # path    = "apps/web"

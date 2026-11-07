@@ -1,5 +1,5 @@
 # =============================================================================
-# Code Grading Suite: default configuration (suite v4.0.0)
+# Code Grading Suite: default configuration (suite v4.1.0)
 # =============================================================================
 #
 # Every adjustable part of scoring lives in this file: weights, the questions
@@ -11,18 +11,19 @@
 #
 #     config/defaults.toml   ← this file (suite defaults)
 #     your-org.toml          ← optional: house rules shared across projects
-#     project.toml           ← per project: answers, zones, overrides
+#     project.toml           ← per project (.grading/project.toml): answers, zones, overrides,
+#                               accepted findings and decisions
 #
 #     python3 tools/gradekit.py resolve --config your-org.toml --config project.toml
 #
 # Tables merge key by key; lists are replaced whole. Start from
 # config/project.example.toml. See TUNING.md for recipes.
 #
-# Keep org and project configs OUTSIDE the repo being graded, owned by humans.
-# An improving agent that could edit them could re-weight its way to a better score.
+# Org and project configs are owned by people. project.toml normally lives in the
+# repo's .grading/ folder (protect it with CODEOWNERS); improving agents only read it.
 # =============================================================================
 
-suite_version = "4.0.0"
+suite_version = "4.1.0"
 
 
 # -----------------------------------------------------------------------------
@@ -327,3 +328,14 @@ holdout_pass_rate_min    = 0.95
 # -----------------------------------------------------------------------------
 [priorities]
 effort_cost = { S = 1, M = 2, L = 4 }
+
+
+# -----------------------------------------------------------------------------
+# REVIEW: who may answer decision questions
+# Decision questions (e.g. "drop the deprecated endpoint?") are answered in
+# project.toml as [[decisions]]. By default only humans may approve them: an
+# answer whose decided_by starts with "agent" counts as still pending.
+# Set allow_agent_decisions = true to let agent reviewers approve them too.
+# -----------------------------------------------------------------------------
+[review]
+allow_agent_decisions = false
