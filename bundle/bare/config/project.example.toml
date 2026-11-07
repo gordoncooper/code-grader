@@ -1,0 +1,68 @@
+# EXAMPLE project configuration for the Code Grading Suite (v4.0.0)
+# Keep this file OUTSIDE the repository being graded, owned by humans.
+# Check it with:  python3 SUITE_DIR/tools/gradekit.py resolve --config project.toml
+
+[project]
+name            = "orders-api"
+description     = "REST API that takes orders and payments for the web shop"
+preset          = "service"            # default | service | web_app | library | oss_library | cli | internal_tool | prototype
+languages       = "Python 3.12, FastAPI, Postgres"
+users           = "The web shop front end and the internal sales dashboard"
+maturity_target = "production"
+scope           = "Create, list and cancel orders; idempotent payments; CSV export (see docs/requirements.md)"
+out_of_scope    = ["vendor/**", "src/generated/**"]
+
+# Answers override the preset. Delete a line to use the preset's answer.
+# Run `gradekit resolve --explain ID` to see how answers moved a weight.
+[answers]
+data_sensitivity  = "financial"   # What is the most sensitive data this code handles?  (none | internal | personal | financial | regulated)
+audience          = "internal_org"   # Who uses it?  (just_me | team | internal_org | public | developers)
+lifespan          = "years"   # How long will this code live?  (throwaway | months | years | indefinite)
+failure_impact    = "revenue_loss"   # What happens when it fails?  (inconvenience | degraded_work | revenue_loss | safety_or_legal)
+team              = "small"   # Who works on it?  (solo | small | large | open_source)
+change_rate       = "regular"   # How often does it change?  (rare | regular | constant)
+delivery          = "service"   # How is it delivered?  (mixed | service | website | package | installed_app | internal_script)
+scale             = "moderate"   # What load or data volume does it face?  (small | moderate | large | massive)
+
+# Criticality zones: first match wins, so list specific zones first.
+# hot = matters most (money, auth, data writes); cold = matters least (scripts, examples).
+[[zones]]
+name        = "payments"
+paths       = ["src/payments/**", "src/billing/**"]
+criticality = "hot"
+why         = "Moves money"
+
+[[zones]]
+name        = "auth"
+paths       = ["src/auth/**"]
+criticality = "hot"
+why         = "Controls who can do what"
+
+[[zones]]
+name        = "tooling"
+paths       = ["scripts/**", "examples/**", "tests/fixtures/**"]
+criticality = "cold"
+why         = "Developer convenience; never runs in production"
+
+# Where improving agents stop: proportional (default) | maximal | level:L3
+[targets]
+mode = "proportional"
+# overrides = { F4 = 10 }
+
+# Explicit weight overrides (always need a reason):
+[weights.overrides]
+F4 = { weight = 3, reason = "Checkout calls this synchronously; p99 latency budget is 150 ms" }
+
+# Extra gates for this project, or (rarely) remove one:
+# [gates]
+# extra   = ["C4"]
+# exclude = []
+
+# Monorepos: one block per component. Each can set its own preset, answers, zones and gates.
+# Grade each with:  gradekit resolve --config project.toml --component NAME
+# [[components]]
+# name    = "web"
+# path    = "apps/web"
+# weight  = 1
+# preset  = "web_app"
+# answers = { scale = "large" }

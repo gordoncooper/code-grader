@@ -1,5 +1,5 @@
 {
-  "suite_version": "3.1.0",
+  "suite_version": "4.0.0",
   "mode": "full",
   "run": {
     "commit": "a1b2c3d",
@@ -7,13 +7,17 @@
     "date": "2026-11-07",
     "grader": "example",
     "run_index": 1,
-    "run_count": 1
+    "run_count": 1,
+    "suite_source": "local"
   },
   "component": null,
   "project_context_inferred": "Small internal orders API (Python), example only",
-  "profile": "Service/API",
-  "target_mode": "proportional",
-  "target_overrides": {},
+  "config": {
+    "hash": "06cfd807d4b75ede",
+    "preset": "service",
+    "source": "examples/sample-project.toml",
+    "component": null
+  },
   "commands_run": [
     {
       "command": "pytest -q",
@@ -343,7 +347,10 @@
         }
       ],
       "disposition": null,
-      "disposition_concern": null
+      "disposition_concern": null,
+      "paths": [
+        "tests/**"
+      ]
     },
     {
       "id": "D1-001",
@@ -386,7 +393,10 @@
         }
       ],
       "disposition": null,
-      "disposition_concern": null
+      "disposition_concern": null,
+      "paths": [
+        "src/orders/**"
+      ]
     },
     {
       "id": "D3-001",
@@ -540,7 +550,10 @@
         }
       ],
       "disposition": null,
-      "disposition_concern": null
+      "disposition_concern": null,
+      "paths": [
+        ".github/**"
+      ]
     },
     {
       "id": "F3-001",
@@ -660,7 +673,7 @@
       "pillar": "A",
       "applicability": "full",
       "applicability_reason": null,
-      "profile_weight": 3,
+      "config_weight": 3,
       "weight": 3,
       "weight_note": null,
       "score": 5,
@@ -684,10 +697,10 @@
       "pillar": "A",
       "applicability": "full",
       "applicability_reason": null,
-      "profile_weight": 3,
+      "config_weight": 3,
       "weight": 3,
       "weight_note": null,
-      "score": 6,
+      "score": 5,
       "confidence": "medium",
       "carried_forward": false,
       "caps_applied": [],
@@ -708,7 +721,7 @@
       "pillar": "A",
       "applicability": "full",
       "applicability_reason": null,
-      "profile_weight": 3,
+      "config_weight": 3,
       "weight": 3,
       "weight_note": null,
       "score": 4,
@@ -747,7 +760,7 @@
       "pillar": "A",
       "applicability": "full",
       "applicability_reason": null,
-      "profile_weight": 3,
+      "config_weight": 3,
       "weight": 3,
       "weight_note": null,
       "score": 5,
@@ -800,7 +813,7 @@
       "pillar": "A",
       "applicability": "full",
       "applicability_reason": null,
-      "profile_weight": 3,
+      "config_weight": 3,
       "weight": 3,
       "weight_note": null,
       "score": 4,
@@ -826,7 +839,7 @@
       "pillar": "B",
       "applicability": "full",
       "applicability_reason": null,
-      "profile_weight": 2,
+      "config_weight": 2,
       "weight": 2,
       "weight_note": null,
       "score": 6,
@@ -850,7 +863,7 @@
       "pillar": "B",
       "applicability": "full",
       "applicability_reason": null,
-      "profile_weight": 2,
+      "config_weight": 2,
       "weight": 2,
       "weight_note": null,
       "score": 6,
@@ -874,7 +887,7 @@
       "pillar": "B",
       "applicability": "full",
       "applicability_reason": null,
-      "profile_weight": 1,
+      "config_weight": 1,
       "weight": 1,
       "weight_note": null,
       "score": 7,
@@ -908,7 +921,7 @@
       "pillar": "B",
       "applicability": "full",
       "applicability_reason": null,
-      "profile_weight": 2,
+      "config_weight": 2,
       "weight": 2,
       "weight_note": null,
       "score": 5,
@@ -932,7 +945,7 @@
       "pillar": "B",
       "applicability": "full",
       "applicability_reason": null,
-      "profile_weight": 1,
+      "config_weight": 1,
       "weight": 1,
       "weight_note": null,
       "score": 6,
@@ -956,8 +969,8 @@
       "pillar": "B",
       "applicability": "full",
       "applicability_reason": null,
-      "profile_weight": 1,
-      "weight": 1,
+      "config_weight": 2,
+      "weight": 2,
       "weight_note": null,
       "score": 7,
       "confidence": "medium",
@@ -979,7 +992,7 @@
       ],
       "enforcement": [],
       "gaming_flags": [],
-      "target": 8,
+      "target": 9,
       "path_to_target": [],
       "previous_score": null,
       "change_explanation": null
@@ -990,7 +1003,7 @@
       "pillar": "C",
       "applicability": "full",
       "applicability_reason": null,
-      "profile_weight": 2,
+      "config_weight": 2,
       "weight": 2,
       "weight_note": null,
       "score": 7,
@@ -1025,7 +1038,7 @@
       "pillar": "C",
       "applicability": "full",
       "applicability_reason": null,
-      "profile_weight": 2,
+      "config_weight": 2,
       "weight": 2,
       "weight_note": null,
       "score": 6,
@@ -1049,7 +1062,7 @@
       "pillar": "C",
       "applicability": "full",
       "applicability_reason": null,
-      "profile_weight": 1,
+      "config_weight": 1,
       "weight": 1,
       "weight_note": null,
       "score": 7,
@@ -1083,7 +1096,7 @@
       "pillar": "C",
       "applicability": "full",
       "applicability_reason": null,
-      "profile_weight": 2,
+      "config_weight": 2,
       "weight": 2,
       "weight_note": null,
       "score": 3,
@@ -1109,7 +1122,7 @@
       "pillar": "D",
       "applicability": "full",
       "applicability_reason": null,
-      "profile_weight": 2,
+      "config_weight": 2,
       "weight": 2,
       "weight_note": null,
       "score": 5,
@@ -1148,7 +1161,7 @@
       "pillar": "D",
       "applicability": "full",
       "applicability_reason": null,
-      "profile_weight": 2,
+      "config_weight": 2,
       "weight": 2,
       "weight_note": null,
       "score": 5,
@@ -1172,7 +1185,7 @@
       "pillar": "D",
       "applicability": "full",
       "applicability_reason": null,
-      "profile_weight": 2,
+      "config_weight": 2,
       "weight": 2,
       "weight_note": null,
       "score": 6,
@@ -1196,8 +1209,8 @@
       "pillar": "D",
       "applicability": "full",
       "applicability_reason": null,
-      "profile_weight": 1,
-      "weight": 1,
+      "config_weight": 2,
+      "weight": 2,
       "weight_note": null,
       "score": 6,
       "confidence": "medium",
@@ -1209,7 +1222,7 @@
       "strengths": [],
       "enforcement": [],
       "gaming_flags": [],
-      "target": 8,
+      "target": 9,
       "path_to_target": [],
       "previous_score": null,
       "change_explanation": null
@@ -1220,8 +1233,8 @@
       "pillar": "E",
       "applicability": "full",
       "applicability_reason": null,
-      "profile_weight": 1,
-      "weight": 1,
+      "config_weight": 2,
+      "weight": 2,
       "weight_note": null,
       "score": 3,
       "confidence": "high",
@@ -1235,7 +1248,7 @@
       "strengths": [],
       "enforcement": [],
       "gaming_flags": [],
-      "target": 8,
+      "target": 9,
       "path_to_target": [],
       "previous_score": null,
       "change_explanation": null
@@ -1246,7 +1259,7 @@
       "pillar": "E",
       "applicability": "full",
       "applicability_reason": null,
-      "profile_weight": 2,
+      "config_weight": 2,
       "weight": 2,
       "weight_note": null,
       "score": 4,
@@ -1272,7 +1285,7 @@
       "pillar": "E",
       "applicability": "full",
       "applicability_reason": null,
-      "profile_weight": 1,
+      "config_weight": 1,
       "weight": 1,
       "weight_note": null,
       "score": 4,
@@ -1296,7 +1309,7 @@
       "pillar": "E",
       "applicability": "full",
       "applicability_reason": null,
-      "profile_weight": 1,
+      "config_weight": 1,
       "weight": 1,
       "weight_note": null,
       "score": 6,
@@ -1320,7 +1333,7 @@
       "pillar": "F",
       "applicability": "full",
       "applicability_reason": null,
-      "profile_weight": 3,
+      "config_weight": 3,
       "weight": 3,
       "weight_note": "Deploys are owned by a platform team; weight 2 would better reflect this repo's share.",
       "score": 3,
@@ -1346,8 +1359,8 @@
       "pillar": "F",
       "applicability": "full",
       "applicability_reason": null,
-      "profile_weight": 2,
-      "weight": 2,
+      "config_weight": 1,
+      "weight": 1,
       "weight_note": null,
       "score": 2,
       "confidence": "high",
@@ -1359,7 +1372,7 @@
       "strengths": [],
       "enforcement": [],
       "gaming_flags": [],
-      "target": 9,
+      "target": 8,
       "path_to_target": [
         {
           "id": "F2-act-1",
@@ -1383,7 +1396,7 @@
       "pillar": "F",
       "applicability": "full",
       "applicability_reason": null,
-      "profile_weight": 3,
+      "config_weight": 3,
       "weight": 3,
       "weight_note": null,
       "score": 3,
@@ -1407,8 +1420,8 @@
       "pillar": "F",
       "applicability": "full",
       "applicability_reason": null,
-      "profile_weight": 2,
-      "weight": 2,
+      "config_weight": 1,
+      "weight": 1,
       "weight_note": null,
       "score": 6,
       "confidence": "medium",
@@ -1420,7 +1433,7 @@
       "strengths": [],
       "enforcement": [],
       "gaming_flags": [],
-      "target": 9,
+      "target": 8,
       "path_to_target": [],
       "previous_score": null,
       "change_explanation": null
@@ -1431,7 +1444,7 @@
       "pillar": "F",
       "applicability": "limited",
       "applicability_reason": "Ships only as one pinned Linux container; would become fully relevant if it ran on other platforms.",
-      "profile_weight": 1,
+      "config_weight": 1,
       "weight": 1,
       "weight_note": null,
       "score": 7,
@@ -1465,7 +1478,7 @@
       "pillar": "F",
       "applicability": "full",
       "applicability_reason": null,
-      "profile_weight": 1,
+      "config_weight": 1,
       "weight": 1,
       "weight_note": null,
       "score": 5,
@@ -1489,7 +1502,7 @@
       "pillar": "X",
       "applicability": "not_applicable",
       "applicability_reason": "Backend API with no user interface.",
-      "profile_weight": 2,
+      "config_weight": 2,
       "weight": 0,
       "weight_note": null,
       "score": null,
@@ -1511,7 +1524,7 @@
       "pillar": "X",
       "applicability": "limited",
       "applicability_reason": "Internal API with one known consumer; becomes fully relevant if exposed to other teams.",
-      "profile_weight": 2,
+      "config_weight": 2,
       "weight": 1,
       "weight_note": null,
       "score": 5,
@@ -1535,7 +1548,7 @@
       "pillar": "X",
       "applicability": "full",
       "applicability_reason": null,
-      "profile_weight": 2,
+      "config_weight": 2,
       "weight": 2,
       "weight_note": null,
       "score": 5,
@@ -1559,7 +1572,7 @@
       "pillar": "X",
       "applicability": "not_applicable",
       "applicability_reason": "Runs on fixed, already-paid hardware; no metered resources or paid APIs.",
-      "profile_weight": 2,
+      "config_weight": 2,
       "weight": 0,
       "weight_note": null,
       "score": null,
@@ -1581,7 +1594,7 @@
       "pillar": "X",
       "applicability": "not_applicable",
       "applicability_reason": "No regulated data and the software is not distributed.",
-      "profile_weight": 2,
+      "config_weight": 2,
       "weight": 0,
       "weight_note": null,
       "score": null,
@@ -1603,7 +1616,7 @@
       "pillar": "X",
       "applicability": "full",
       "applicability_reason": null,
-      "profile_weight": 1,
+      "config_weight": 1,
       "weight": 1,
       "weight_note": null,
       "score": 2,
@@ -1648,18 +1661,61 @@
   },
   "rollup": {
     "computed_by": "gradekit.py",
+    "config_hash": "06cfd807d4b75ede",
     "pillar_scores": {
-      "A": 4.8,
-      "B": 6.0,
+      "A": 4.6,
+      "B": 6.1,
       "C": 5.6,
-      "D": 5.4,
-      "E": 4.2,
+      "D": 5.5,
+      "E": 4.0,
       "F": 3.8,
       "X": 4.2
     },
     "overall_score_uncapped": 4.9,
     "overall_score": 4.9,
     "overall_cap_applied": false,
+    "gates": [
+      {
+        "benchmark_id": "A1",
+        "why": [
+          "always"
+        ],
+        "score": 5,
+        "status": "passed"
+      },
+      {
+        "benchmark_id": "A2",
+        "why": [
+          "always"
+        ],
+        "score": 5,
+        "status": "passed"
+      },
+      {
+        "benchmark_id": "A3",
+        "why": [
+          "failure_impact=revenue_loss"
+        ],
+        "score": 4,
+        "status": "passed"
+      },
+      {
+        "benchmark_id": "A4",
+        "why": [
+          "data_sensitivity=financial"
+        ],
+        "score": 5,
+        "status": "passed"
+      },
+      {
+        "benchmark_id": "A5",
+        "why": [
+          "data_sensitivity=financial"
+        ],
+        "score": 4,
+        "status": "passed"
+      }
+    ],
     "maturity": {
       "current_level": "L0",
       "level_before_integrity_cap": null,
@@ -1675,6 +1731,249 @@
       "critical": 0,
       "major_must_have": 1
     },
+    "open_findings_by_zone": {
+      "hot": {
+        "minor": 0,
+        "major": 8,
+        "critical": 7
+      },
+      "cold": {
+        "minor": 1,
+        "major": 1,
+        "critical": 0
+      },
+      "normal": {
+        "minor": 2,
+        "major": 6,
+        "critical": 3
+      }
+    },
+    "finding_zones": {
+      "A1-001": {
+        "zone": "orders",
+        "criticality": "hot",
+        "severity": "major",
+        "effective_severity": "critical",
+        "status": "new",
+        "benchmark_id": "A1"
+      },
+      "A2-001": {
+        "zone": "payments",
+        "criticality": "hot",
+        "severity": "major",
+        "effective_severity": "critical",
+        "status": "new",
+        "benchmark_id": "A2"
+      },
+      "A3-001": {
+        "zone": "orders",
+        "criticality": "hot",
+        "severity": "critical",
+        "effective_severity": "critical",
+        "status": "new",
+        "benchmark_id": "A3"
+      },
+      "A4-001": {
+        "zone": "scripts",
+        "criticality": "cold",
+        "severity": "major",
+        "effective_severity": "minor",
+        "status": "new",
+        "benchmark_id": "A4"
+      },
+      "A4-002": {
+        "zone": "orders",
+        "criticality": "hot",
+        "severity": "minor",
+        "effective_severity": "major",
+        "status": "new",
+        "benchmark_id": "A4"
+      },
+      "A5-001": {
+        "zone": "orders",
+        "criticality": "hot",
+        "severity": "major",
+        "effective_severity": "critical",
+        "status": "new",
+        "benchmark_id": "A5"
+      },
+      "B1-001": {
+        "zone": "orders",
+        "criticality": "hot",
+        "severity": "minor",
+        "effective_severity": "major",
+        "status": "new",
+        "benchmark_id": "B1"
+      },
+      "B2-001": {
+        "zone": "payments",
+        "criticality": "hot",
+        "severity": "minor",
+        "effective_severity": "major",
+        "status": "new",
+        "benchmark_id": "B2"
+      },
+      "B4-001": {
+        "zone": "orders",
+        "criticality": "hot",
+        "severity": "major",
+        "effective_severity": "critical",
+        "status": "new",
+        "benchmark_id": "B4"
+      },
+      "B5-001": {
+        "zone": "payments",
+        "criticality": "hot",
+        "severity": "minor",
+        "effective_severity": "major",
+        "status": "new",
+        "benchmark_id": "B5"
+      },
+      "C2-001": {
+        "zone": "orders",
+        "criticality": "hot",
+        "severity": "minor",
+        "effective_severity": "major",
+        "status": "new",
+        "benchmark_id": "C2"
+      },
+      "C4-001": {
+        "zone": "scripts",
+        "criticality": "cold",
+        "severity": "critical",
+        "effective_severity": "major",
+        "status": "new",
+        "benchmark_id": "C4"
+      },
+      "D1-001": {
+        "zone": null,
+        "criticality": "normal",
+        "severity": "major",
+        "effective_severity": "major",
+        "status": "new",
+        "benchmark_id": "D1"
+      },
+      "D2-001": {
+        "zone": "orders",
+        "criticality": "hot",
+        "severity": "major",
+        "effective_severity": "critical",
+        "status": "new",
+        "benchmark_id": "D2"
+      },
+      "D3-001": {
+        "zone": "orders",
+        "criticality": "hot",
+        "severity": "minor",
+        "effective_severity": "major",
+        "status": "new",
+        "benchmark_id": "D3"
+      },
+      "D4-001": {
+        "zone": "orders",
+        "criticality": "hot",
+        "severity": "minor",
+        "effective_severity": "major",
+        "status": "new",
+        "benchmark_id": "D4"
+      },
+      "E1-001": {
+        "zone": null,
+        "criticality": "normal",
+        "severity": "critical",
+        "effective_severity": "critical",
+        "status": "new",
+        "benchmark_id": "E1"
+      },
+      "E2-001": {
+        "zone": null,
+        "criticality": "normal",
+        "severity": "major",
+        "effective_severity": "major",
+        "status": "new",
+        "benchmark_id": "E2"
+      },
+      "E3-001": {
+        "zone": null,
+        "criticality": "normal",
+        "severity": "major",
+        "effective_severity": "major",
+        "status": "new",
+        "benchmark_id": "E3"
+      },
+      "E4-001": {
+        "zone": null,
+        "criticality": "normal",
+        "severity": "minor",
+        "effective_severity": "minor",
+        "status": "new",
+        "benchmark_id": "E4"
+      },
+      "F1-001": {
+        "zone": null,
+        "criticality": "normal",
+        "severity": "critical",
+        "effective_severity": "critical",
+        "status": "new",
+        "benchmark_id": "F1"
+      },
+      "F2-001": {
+        "zone": null,
+        "criticality": "normal",
+        "severity": "critical",
+        "effective_severity": "critical",
+        "status": "new",
+        "benchmark_id": "F2"
+      },
+      "F3-001": {
+        "zone": null,
+        "criticality": "normal",
+        "severity": "major",
+        "effective_severity": "major",
+        "status": "new",
+        "benchmark_id": "F3"
+      },
+      "F4-001": {
+        "zone": "orders",
+        "criticality": "hot",
+        "severity": "minor",
+        "effective_severity": "major",
+        "status": "new",
+        "benchmark_id": "F4"
+      },
+      "F6-001": {
+        "zone": null,
+        "criticality": "normal",
+        "severity": "major",
+        "effective_severity": "major",
+        "status": "new",
+        "benchmark_id": "F6"
+      },
+      "X2-001": {
+        "zone": null,
+        "criticality": "normal",
+        "severity": "minor",
+        "effective_severity": "minor",
+        "status": "new",
+        "benchmark_id": "X2"
+      },
+      "X3-001": {
+        "zone": "payments",
+        "criticality": "hot",
+        "severity": "major",
+        "effective_severity": "critical",
+        "status": "new",
+        "benchmark_id": "X3"
+      },
+      "X6-001": {
+        "zone": null,
+        "criticality": "normal",
+        "severity": "major",
+        "effective_severity": "major",
+        "status": "new",
+        "benchmark_id": "X6"
+      }
+    },
     "targets": {
       "A1": 10,
       "A2": 10,
@@ -1686,7 +1985,7 @@
       "B3": 8,
       "B4": 9,
       "B5": 8,
-      "B6": 8,
+      "B6": 9,
       "C1": 9,
       "C2": 9,
       "C3": 8,
@@ -1694,15 +1993,15 @@
       "D1": 9,
       "D2": 9,
       "D3": 9,
-      "D4": 8,
-      "E1": 8,
+      "D4": 9,
+      "E1": 9,
       "E2": 9,
       "E3": 8,
       "E4": 8,
       "F1": 10,
-      "F2": 9,
+      "F2": 8,
       "F3": 10,
-      "F4": 9,
+      "F4": 8,
       "F5": 8,
       "F6": 8,
       "X1": null,
@@ -1754,6 +2053,14 @@
         "weighted_gap": 15
       },
       {
+        "benchmark_id": "A2",
+        "score": 5,
+        "target": 10,
+        "gap": 5,
+        "weight": 3,
+        "weighted_gap": 15
+      },
+      {
         "benchmark_id": "A4",
         "score": 5,
         "target": 10,
@@ -1762,23 +2069,15 @@
         "weighted_gap": 15
       },
       {
-        "benchmark_id": "F2",
-        "score": 2,
+        "benchmark_id": "C4",
+        "score": 3,
         "target": 9,
-        "gap": 7,
+        "gap": 6,
         "weight": 2,
-        "weighted_gap": 14
-      },
-      {
-        "benchmark_id": "A2",
-        "score": 6,
-        "target": 10,
-        "gap": 4,
-        "weight": 3,
         "weighted_gap": 12
       },
       {
-        "benchmark_id": "C4",
+        "benchmark_id": "E1",
         "score": 3,
         "target": 9,
         "gap": 6,
@@ -1858,11 +2157,19 @@
         "weighted_gap": 6
       },
       {
-        "benchmark_id": "F4",
+        "benchmark_id": "D4",
         "score": 6,
         "target": 9,
         "gap": 3,
         "weight": 2,
+        "weighted_gap": 6
+      },
+      {
+        "benchmark_id": "F2",
+        "score": 2,
+        "target": 8,
+        "gap": 6,
+        "weight": 1,
         "weighted_gap": 6
       },
       {
@@ -1874,12 +2181,12 @@
         "weighted_gap": 6
       },
       {
-        "benchmark_id": "E1",
-        "score": 3,
-        "target": 8,
-        "gap": 5,
-        "weight": 1,
-        "weighted_gap": 5
+        "benchmark_id": "B6",
+        "score": 7,
+        "target": 9,
+        "gap": 2,
+        "weight": 2,
+        "weighted_gap": 4
       },
       {
         "benchmark_id": "C1",
@@ -1922,14 +2229,6 @@
         "weighted_gap": 2
       },
       {
-        "benchmark_id": "D4",
-        "score": 6,
-        "target": 8,
-        "gap": 2,
-        "weight": 1,
-        "weighted_gap": 2
-      },
-      {
         "benchmark_id": "E4",
         "score": 6,
         "target": 8,
@@ -1938,15 +2237,15 @@
         "weighted_gap": 2
       },
       {
-        "benchmark_id": "B3",
-        "score": 7,
+        "benchmark_id": "F4",
+        "score": 6,
         "target": 8,
-        "gap": 1,
+        "gap": 2,
         "weight": 1,
-        "weighted_gap": 1
+        "weighted_gap": 2
       },
       {
-        "benchmark_id": "B6",
+        "benchmark_id": "B3",
         "score": 7,
         "target": 8,
         "gap": 1,
@@ -1968,6 +2267,60 @@
         "gap": 1,
         "weight": 1,
         "weighted_gap": 1
+      }
+    ],
+    "priorities": [
+      {
+        "action_id": "A3-act-1",
+        "benchmark_id": "A3",
+        "tier": 0,
+        "priority": 18.0,
+        "zone": "hot",
+        "gain": 3,
+        "effort": "S",
+        "requires_human_decision": false,
+        "decision_question": null,
+        "action": "In src/orders/service.py create_order, remove the bare except; let reserve_stock failures propagate as an OutOfStock error and return 409 from the API layer",
+        "rank": 1
+      },
+      {
+        "action_id": "F2-act-1",
+        "benchmark_id": "F2",
+        "tier": 2,
+        "priority": 5.0,
+        "zone": "normal",
+        "gain": 5,
+        "effort": "S",
+        "requires_human_decision": false,
+        "decision_question": null,
+        "action": "Add .github/workflows/ci.yml running ruff, mypy --strict and pytest --cov with a branch-coverage floor, required on main",
+        "rank": 2
+      },
+      {
+        "action_id": "A4-act-1",
+        "benchmark_id": "A4",
+        "tier": 2,
+        "priority": 3.0,
+        "zone": "cold",
+        "gain": 2,
+        "effort": "S",
+        "requires_human_decision": false,
+        "decision_question": null,
+        "action": "Rewrite scripts/seed.sql inserts as INSERT ... ON CONFLICT (id) DO NOTHING and add a CI step that runs the seed twice",
+        "rank": 3
+      },
+      {
+        "action_id": "D1-act-1",
+        "benchmark_id": "D1",
+        "tier": 2,
+        "priority": 3.0,
+        "zone": "normal",
+        "gain": 3,
+        "effort": "M",
+        "requires_human_decision": true,
+        "decision_question": "Implement CSV and XLSX export, or drop the export claim from the README?",
+        "action": "Either implement CSV/XLSX export in a new src/export module with tests, or remove the claim from README.md",
+        "rank": 4
       }
     ],
     "weight_issues": [],

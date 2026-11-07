@@ -11,7 +11,7 @@ The rubric anchors are written in words, so different graders, or the same grade
 
 ```json
 {
-  "suite_version": "3.1.0",
+  "suite_version": "4.0.0",
   "reference": "payments-service @ 4f2a9c1",
   "criteria": {"within_tolerance_pct": 90, "mae_max": 0.75},
   "expected": {
@@ -23,6 +23,8 @@ The rubric anchors are written in words, so different graders, or the same grade
 ```
 
 Keep these files with the suite, out of reach of improving agents.
+
+Also keep a `project.toml` for each reference repo, and grade it with that same config every time. Calibration checks the *scores*; weights don't affect them, but zones affect what the grader reads closely.
 
 ## Run it
 

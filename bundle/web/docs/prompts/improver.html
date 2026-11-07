@@ -6,35 +6,40 @@
 <title>Improver · Code Grading Suite</title>
 <meta name="description" content="A rubric and prompts for AI coding agents to grade codebases from 1 to 10 on 35 benchmarks and improve them.">
 <link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/favicon.svg" type="image/svg+xml">
 <link rel="alternate" type="text/markdown" href="../../AGENT.md" title="Agent entry point">
 </head>
 <body>
 <header class="topbar">
   <button class='menu-btn' type='button'>Menu</button>
   <a class="brand" href="../../index.html">Code <span>Grading</span> Suite</a>
-  <span class="ver">v3.1.0</span>
+  <span class="ver">v4.0.0</span>
   <span class="spacer"></span>
   
   <a class="top" href="../../docs/README.html">Docs</a>
-  <a class="top" href="../../AGENT.md">AGENT.md</a>
-  <a class="top" href="../../downloads/code-grading-suite-3.1.0.zip">Download</a>
+  <a class="top opt" href="../../AGENT.md">AGENT.md</a>
+  <a class="top opt" href="../../downloads/code-grading-suite-4.0.0.zip">Download</a>
 </header>
-<div class="layout"><nav class="sidebar" aria-label="Documentation"><h4>Start</h4><a href="../../docs/README.html">Overview &amp; workflow</a><a href="../../docs/AGENT.html">Agent entry point</a><a href="../../docs/DEPLOY.html">Hosting this site</a><h4>Prompts</h4><a href="../../docs/prompts/grader.html">Grader</a><a href="../../docs/prompts/improver.html" class="active" aria-current="page">Improver</a><a href="../../docs/prompts/pr-review.html">PR quick mode</a><h4>Rubric</h4><a href="../../docs/rubric/A-correctness-trust.html">A · Correctness &amp; Trust</a><a href="../../docs/rubric/B-design-structure.html">B · Design &amp; Structure</a><a href="../../docs/rubric/C-code-health.html">C · Code Health</a><a href="../../docs/rubric/D-value-fitness.html">D · Value &amp; Fitness</a><a href="../../docs/rubric/E-adoption-experience.html">E · Adoption &amp; Experience</a><a href="../../docs/rubric/F-operations-delivery.html">F · Operations &amp; Delivery</a><a href="../../docs/rubric/X-conditional.html">X · Conditional</a><a href="../../docs/rubric/weights.html">Weights, targets &amp; maturity</a><h4>Guides</h4><a href="../../docs/calibration/README.html">Calibration</a><a href="../../docs/holdout/README.html">Hidden checks</a><a href="../../docs/CHANGELOG.html">Changelog</a></nav><main class="doc"><div class="docbar"><a class="btn" href="../../suite/prompts/improver.md">View raw .md</a><button class="btn" type="button" data-copy="../../suite/prompts/improver.md">Copy raw URL for an agent</button></div><details class="toc"><summary>On this page</summary><ul><li><a href="#inputs">Inputs</a></li><li><a href="#what-to-work-on-in-order">What to work on, in order</a></li><li><a href="#hard-rules">Hard rules</a></li><li><a href="#output">Output</a></li></ul></details><h1 id="code-grading-suite-v310-improver-prompt">Code Grading Suite v3.1.0: Improver Prompt<a class="anchor" href="#code-grading-suite-v310-improver-prompt" aria-label="Link to this section">#</a></h1>
+<div class="layout"><nav class="sidebar" aria-label="Documentation"><h4>Start</h4><a href="../../docs/README.html">Overview &amp; workflow</a><a href="../../docs/AGENT.html">Agent entry point</a><a href="../../docs/DEPLOY.html">Hosting this site</a><h4>Configuration</h4><a href="../../docs/TUNING.html">Tuning guide</a><a href="../../docs/rubric/weights.html">How scoring works</a><a href="../../docs/config/defaults.html">Default config</a><a href="../../docs/config/project.example.html">Example project config</a><h4>Prompts</h4><a href="../../docs/prompts/grader.html">Grader</a><a href="../../docs/prompts/improver.html" class="active" aria-current="page">Improver</a><a href="../../docs/prompts/pr-review.html">PR quick mode</a><h4>Rubric</h4><a href="../../docs/rubric/A-correctness-trust.html">A · Correctness &amp; Trust</a><a href="../../docs/rubric/B-design-structure.html">B · Design &amp; Structure</a><a href="../../docs/rubric/C-code-health.html">C · Code Health</a><a href="../../docs/rubric/D-value-fitness.html">D · Value &amp; Fitness</a><a href="../../docs/rubric/E-adoption-experience.html">E · Adoption &amp; Experience</a><a href="../../docs/rubric/F-operations-delivery.html">F · Operations &amp; Delivery</a><a href="../../docs/rubric/X-conditional.html">X · Conditional</a><h4>Guides</h4><a href="../../docs/calibration/README.html">Calibration</a><a href="../../docs/holdout/README.html">Hidden checks</a><a href="../../docs/CHANGELOG.html">Changelog</a></nav><main class="doc"><div class="docbar"><a class="btn" href="../../suite/prompts/improver.md">View raw .md</a><button class="btn" type="button" data-copy="../../suite/prompts/improver.md">Copy raw URL for an agent</button></div><details class="toc"><summary>On this page</summary><ul><li><a href="#inputs">Inputs</a></li><li><a href="#what-to-work-on-in-order">What to work on, in order</a></li><li><a href="#hard-rules">Hard rules</a></li><li><a href="#output">Output</a></li></ul></details><h1 id="code-grading-suite-v400-improver-prompt">Code Grading Suite v4.0.0: Improver Prompt<a class="anchor" href="#code-grading-suite-v400-improver-prompt" aria-label="Link to this section">#</a></h1>
 <p>You are an engineer improving a codebase against the grades in a quality report. Your goal is to make the code <strong>genuinely better</strong>, in a way an independent grader who has never seen your work will confirm. You are not trying to move numbers.</p>
 <h2 id="inputs">Inputs<a class="anchor" href="#inputs" aria-label="Link to this section">#</a></h2>
 <ul>
 <li><strong><code>REPO</code></strong>: a working branch you may change.</li>
 <li><strong><code>report.json</code> / <code>report.md</code></strong>: the latest <em>shared</em> grading report. Hidden-check details have been removed on purpose. Don't try to work out or recreate them.</li>
-<li><strong><code>SUITE_DIR</code></strong>: the grading suite (rubric, weights, tools). You may read it to understand what each benchmark means. <strong>Never modify it.</strong></li>
+<li><strong><code>SUITE_DIR</code></strong>: the grading suite (rubric, config, tools). You may read it to understand what each benchmark means. <strong>Never modify it.</strong></li>
+<li><strong>Project config</strong> (<code>project.toml</code>): read-only. It shows which benchmarks are gates and which code is in hot or cold zones. <strong>Never modify it.</strong></li>
 <li><strong><code>decisions.json</code></strong> (optional): human answers to <code>decision_question</code>s from the report. Format: see <code>SUITE_DIR/dispositions/decisions.example.json</code>.</li>
 </ul>
 <h2 id="what-to-work-on-in-order">What to work on, in order<a class="anchor" href="#what-to-work-on-in-order" aria-label="Link to this section">#</a></h2>
+<p>Work through <strong><code>rollup.priorities</code> in rank order</strong>. <code>gradekit</code> has already sorted the actions into tiers:</p>
 <ol>
-<li>Actions that clear a <strong>cap</strong> or the <strong>overall cap</strong>.</li>
-<li>Actions that unblock the <strong>next maturity level</strong> (listed under <code>rollup.maturity.blockers</code>).</li>
-<li><code>top_priorities</code>, in rank order.</li>
-<li>Remaining <code>path_to_target</code> actions, by (weight × expected gain) ÷ effort.</li>
+<li><strong>Tier 0:</strong> fixes a failed gate, or a critical problem in a hot zone.</li>
+<li><strong>Tier 1:</strong> unblocks the next maturity level.</li>
+<li><strong>Tier 2:</strong> everything else below target, ordered by weight × gain × zone ÷ effort.</li>
+<li><strong>Tier 3:</strong> optional; only if asked.</li>
 </ol>
+<p>You may change the order only to group closely related actions into one change, or when an action depends on another. Say so in your log when you do.</p>
+<p><strong>Take extra care in hot zones</strong>, the paths the project config marks <code>hot</code> (money, auth, data writes and the like). Changes there need tests that pin the behavior <em>before</em> you refactor, and the smallest change that does the job.</p>
 <p><strong>Stop when a benchmark reaches its target.</strong> Don't push past a target unless the action is marked <code>optional</code> and you have been asked to do optional work. Overshooting low-weight targets usually costs Leanness (B6) and Practicality (D3).</p>
 <h2 id="hard-rules">Hard rules<a class="anchor" href="#hard-rules" aria-label="Link to this section">#</a></h2>
 <ol>
@@ -53,7 +58,7 @@
 <li>weaken CI gates, coverage thresholds or checks.</li>
 </ul>
 </li>
-<li><strong>Don't touch human-owned files:</strong> <code>SUITE_DIR</code>, dispositions, decisions, or any branch-protection and CI settings that enforce gates. You may <em>add</em> new CI checks. You may never weaken existing ones.</li>
+<li><strong>Don't touch human-owned files:</strong> <code>SUITE_DIR</code>, the project and org config files, dispositions, decisions, or any branch-protection and CI settings that enforce gates. You may <em>add</em> new CI checks. You may never weaken existing ones.</li>
 <li><strong>Finish with enforcement.</strong> When a benchmark reaches 9, the last point usually comes from adding the CI gate, lint rule, test or automated check that keeps it there.</li>
 <li><strong>Resolve tensions deliberately:</strong>
 <ul>

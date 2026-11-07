@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Default config · Code Grading Suite</title>
+<meta name="description" content="A rubric and prompts for AI coding agents to grade codebases from 1 to 10 on 35 benchmarks and improve them.">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/favicon.svg" type="image/svg+xml">
+<link rel="alternate" type="text/markdown" href="../../AGENT.md" title="Agent entry point">
+</head>
+<body>
+<header class="topbar">
+  <button class='menu-btn' type='button'>Menu</button>
+  <a class="brand" href="../../index.html">Code <span>Grading</span> Suite</a>
+  <span class="ver">v4.0.0</span>
+  <span class="spacer"></span>
+  
+  <a class="top" href="../../docs/README.html">Docs</a>
+  <a class="top opt" href="../../AGENT.md">AGENT.md</a>
+  <a class="top opt" href="../../downloads/code-grading-suite-4.0.0.zip">Download</a>
+</header>
+<div class="layout"><nav class="sidebar" aria-label="Documentation"><h4>Start</h4><a href="../../docs/README.html">Overview &amp; workflow</a><a href="../../docs/AGENT.html">Agent entry point</a><a href="../../docs/DEPLOY.html">Hosting this site</a><h4>Configuration</h4><a href="../../docs/TUNING.html">Tuning guide</a><a href="../../docs/rubric/weights.html">How scoring works</a><a href="../../docs/config/defaults.html" class="active" aria-current="page">Default config</a><a href="../../docs/config/project.example.html">Example project config</a><h4>Prompts</h4><a href="../../docs/prompts/grader.html">Grader</a><a href="../../docs/prompts/improver.html">Improver</a><a href="../../docs/prompts/pr-review.html">PR quick mode</a><h4>Rubric</h4><a href="../../docs/rubric/A-correctness-trust.html">A · Correctness &amp; Trust</a><a href="../../docs/rubric/B-design-structure.html">B · Design &amp; Structure</a><a href="../../docs/rubric/C-code-health.html">C · Code Health</a><a href="../../docs/rubric/D-value-fitness.html">D · Value &amp; Fitness</a><a href="../../docs/rubric/E-adoption-experience.html">E · Adoption &amp; Experience</a><a href="../../docs/rubric/F-operations-delivery.html">F · Operations &amp; Delivery</a><a href="../../docs/rubric/X-conditional.html">X · Conditional</a><h4>Guides</h4><a href="../../docs/calibration/README.html">Calibration</a><a href="../../docs/holdout/README.html">Hidden checks</a><a href="../../docs/CHANGELOG.html">Changelog</a></nav><main class="doc"><div class="docbar"><a class="btn" href="../../suite/config/defaults.toml">View raw .toml</a><button class="btn" type="button" data-copy="../../suite/config/defaults.toml">Copy raw URL for an agent</button></div><h1 id="default-config">Default config<a class="anchor" href="#default-config" aria-label="Link to this section">#</a></h1>
+<p><code>config/defaults.toml</code>. Download the raw file with the button above.</p>
+<pre><code class="language-toml"># =============================================================================
+# Code Grading Suite: default configuration (suite v4.0.0)
+# =============================================================================
+#
+# Every adjustable part of scoring lives in this file: weights, the questions
+# that adjust them, presets, gates, criticality zones, targets, maturity
+# levels and how actions are prioritized.
+#
+# HOW TO CUSTOMIZE: you rarely need to edit this file. Configs stack, each
+# layer overriding the one before:
+#
+#     config/defaults.toml   ← this file (suite defaults)
+#     your-org.toml          ← optional: house rules shared across projects
+#     project.toml           ← per project: answers, zones, overrides
+#
+#     python3 tools/gradekit.py resolve --config your-org.toml --config project.toml
+#
+# Tables merge key by key; lists are replaced whole. Start from
+# config/project.example.toml. See TUNING.md for recipes.
+#
+# Keep org and project configs OUTSIDE the repo being graded, owned by humans.
+# An improving agent that could edit them could re-weight its way to a better score.
+# =============================================================================
+
+suite_version = &quot;4.0.0&quot;
+
+
+# -----------------------------------------------------------------------------
+# WEIGHTS
+# A benchmark's weight is how much it counts in the averages: 1 = minor,
+# 2 = important, 3 = critical. Final weight =
+#     base + effects of your answers to the questions below,
+#     clamped to [min, max], unless an explicit override applies.
+# -----------------------------------------------------------------------------
+[weights]
+min = 1
+max = 3
+
+[weights.base]
+# A: Correctness &amp; Trust
+A1 = 3   # Correctness &amp; Functional Behavior
+A2 = 3   # Security &amp; Privacy
+A3 = 2   # Robustness &amp; Error Handling
+A4 = 2   # Idempotence &amp; Determinism
+A5 = 2   # Durability &amp; Recoverability
+# B: Design &amp; Structure
+B1 = 2   # Architecture &amp; Design Fitness
+B2 = 2   # Modularity &amp; Decoupling
+B3 = 1   # Structure &amp; Organization
+B4 = 2   # Interface Design &amp; Contracts
+B5 = 1   # Flexibility &amp; Extensibility
+B6 = 2   # Leanness
+# C: Code Health
+C1 = 2   # Readability &amp; Clarity
+C2 = 2   # Maintainability &amp; Complexity
+C3 = 1   # Consistency &amp; Idiomatic Code
+C4 = 2   # Test Suite Quality
+# D: Value &amp; Fitness for Purpose
+D1 = 2   # Feature Completeness
+D2 = 2   # Gap Coverage
+D3 = 2   # Practicality
+D4 = 2   # Intuitiveness
+# E: Adoption &amp; Experience
+E1 = 2   # Adopter Friendliness
+E2 = 2   # Documentation
+E3 = 1   # Developer Experience &amp; Inner Loop
+E4 = 1   # Native Tooling &amp; Ecosystem Fit
+# F: Operations &amp; Delivery
+F1 = 2   # Ease of Deployability
+F2 = 1   # Build, CI/CD &amp; Automation
+F3 = 1   # Observability &amp; Debuggability
+F4 = 1   # Performance, Efficiency &amp; Scalability
+F5 = 1   # Portability
+F6 = 1   # Dependency Health &amp; Longevity
+# X: Conditional (only count when the grader finds them applicable)
+X1 = 2   # Accessibility, UX &amp; Internationalization
+X2 = 2   # Public API Stability &amp; Upgradeability
+X3 = 2   # Concurrency Safety
+X4 = 2   # Cost Efficiency
+X5 = 2   # Compliance &amp; Licensing
+X6 = 1   # Agent-Readiness
+
+# Explicit overrides beat everything else, and each one needs a reason.
+# Normally set in project.toml, e.g.:
+#   [weights.overrides]
+#   F4 = { weight = 3, reason = &quot;Contractual p99 latency SLA of 50 ms&quot; }
+[weights.overrides]
+
+
+# -----------------------------------------------------------------------------
+# QUESTIONS
+# Facts about the project that adjust weights. Each answer lists:
+#   effects = { ID = delta, ... }   added to base weights (then clamped)
+#   gates   = [ IDs ]               benchmarks that become gates (see GATES)
+# The `default` answer is used when neither the preset nor the project answers.
+# Add your own questions or options freely; resolve checks every ID.
+# -----------------------------------------------------------------------------
+
+[questions.data_sensitivity]
+prompt  = &quot;What is the most sensitive data this code handles?&quot;
+default = &quot;internal&quot;
+options.none      = { label = &quot;Nothing sensitive (public or synthetic data only)&quot;, effects = { A2 = -1, A5 = -1 } }
+options.internal  = { label = &quot;Internal business data&quot;, effects = {} }
+options.personal  = { label = &quot;Personal data about people (PII)&quot;, effects = { A2 = 1, A5 = 1, X5 = 1 }, gates = [&quot;A5&quot;] }
+options.financial = { label = &quot;Money, payment details or credentials&quot;, effects = { A2 = 1, A4 = 1, A5 = 1 }, gates = [&quot;A4&quot;, &quot;A5&quot;] }
+options.regulated = { label = &quot;Regulated data (health, financial records, children's data...)&quot;, effects = { A2 = 1, A5 = 1, X5 = 2 }, gates = [&quot;A5&quot;, &quot;X5&quot;] }
+
+[questions.audience]
+prompt  = &quot;Who uses it?&quot;
+default = &quot;internal_org&quot;
+options.just_me      = { label = &quot;Only its author&quot;, effects = { D4 = -1, E1 = -1, E2 = -1, X2 = -1 } }
+options.team         = { label = &quot;The team that builds it&quot;, effects = { E1 = -1 } }
+options.internal_org = { label = &quot;People across our organization&quot;, effects = {} }
+options.public       = { label = &quot;The public / end customers&quot;, effects = { A2 = 1, D4 = 1, X1 = 1 } }
+options.developers   = { label = &quot;Developers who integrate with it (library, SDK, API, CLI)&quot;, effects = { B4 = 1, E1 = 1, E2 = 1, X2 = 1 } }
+
+[questions.lifespan]
+prompt  = &quot;How long will this code live?&quot;
+default = &quot;years&quot;
+options.throwaway  = { label = &quot;Days to weeks (spike, demo, experiment)&quot;, effects = { B1 = -1, B2 = -1, B5 = -1, C2 = -1, C4 = -1, E3 = -1, F6 = -1, D3 = 1 } }
+options.months     = { label = &quot;Months&quot;, effects = { B5 = -1, F6 = -1 } }
+options.years      = { label = &quot;Years&quot;, effects = {} }
+options.indefinite = { label = &quot;Indefinitely (core system, long-lived product)&quot;, effects = { B1 = 1, C2 = 1, F6 = 1 } }
+
+[questions.failure_impact]
+prompt  = &quot;What happens when it fails?&quot;
+default = &quot;degraded_work&quot;
+options.inconvenience   = { label = &quot;Minor inconvenience&quot;, effects = { A3 = -1, F1 = -1, F3 = -1 } }
+options.degraded_work   = { label = &quot;People's work is slowed or blocked&quot;, effects = {} }
+options.revenue_loss    = { label = &quot;Lost revenue or customer trust&quot;, effects = { A3 = 1, A4 = 1, F1 = 1, F3 = 1 }, gates = [&quot;A3&quot;] }
+options.safety_or_legal = { label = &quot;Harm to people, or legal / regulatory exposure&quot;, effects = { A3 = 1, A5 = 1, C4 = 1, F3 = 1 }, gates = [&quot;A3&quot;, &quot;A5&quot;] }
+
+[questions.team]
+prompt  = &quot;Who works on it?&quot;
+default = &quot;small&quot;
+options.solo        = { label = &quot;One person&quot;, effects = { C3 = -1, E3 = -1 } }
+options.small       = { label = &quot;A small team (2–10)&quot;, effects = {} }
+options.large       = { label = &quot;A large team or several teams&quot;, effects = { B2 = 1, C3 = 1, E3 = 1, F2 = 1 } }
+options.open_source = { label = &quot;Open source with outside contributors&quot;, effects = { C3 = 1, E1 = 1, E2 = 1, E3 = 1, F2 = 1 } }
+
+[questions.change_rate]
+prompt  = &quot;How often does it change?&quot;
+default = &quot;regular&quot;
+options.rare     = { label = &quot;Rarely (mostly stable)&quot;, effects = { B5 = -1 } }
+options.regular  = { label = &quot;Regularly&quot;, effects = {} }
+options.constant = { label = &quot;Constantly (many changes a day)&quot;, effects = { B5 = 1, C2 = 1, C4 = 1, F2 = 1 } }
+
+[questions.delivery]
+prompt  = &quot;How is it delivered?&quot;
+default = &quot;mixed&quot;
+options.mixed           = { label = &quot;Mixed or unsure&quot;, effects = {} }
+options.service         = { label = &quot;A service or API we deploy and operate&quot;, effects = { A4 = 1, F1 = 1, F3 = 2 } }
+options.website         = { label = &quot;A website or web app&quot;, effects = { D4 = 1, F3 = 1, F4 = 1 } }
+options.package         = { label = &quot;A library or SDK others install&quot;, effects = { B2 = 1, B4 = 1, E4 = 1, F1 = -1, F2 = 1, F5 = 1, X2 = 1 } }
+options.installed_app   = { label = &quot;A CLI, desktop or mobile app users install&quot;, effects = { A5 = -1, D4 = 1, F1 = -1, F5 = 1 } }
+options.internal_script = { label = &quot;Scripts or tools run only by their authors&quot;, effects = { E1 = -1, F1 = -1, F5 = -1 } }
+
+[questions.scale]
+prompt  = &quot;What load or data volume does it face?&quot;
+default = &quot;moderate&quot;
+options.small    = { label = &quot;Small (a few users, small data)&quot;, effects = { F4 = -1 } }
+options.moderate = { label = &quot;Moderate&quot;, effects = {} }
+options.large    = { label = &quot;Large (heavy traffic or big data)&quot;, effects = { F4 = 1, X4 = 1 } }
+options.massive  = { label = &quot;Massive (internet scale, tight latency budgets)&quot;, effects = { F4 = 2, X3 = 1, X4 = 1 } }
+
+
+# -----------------------------------------------------------------------------
+# PRESETS
+# Typical answers for common kinds of project. A project picks one preset,
+# then overrides individual answers as needed. Unlisted questions use their default.
+# -----------------------------------------------------------------------------
+[presets.default]
+description = &quot;No assumptions: every question at its default answer&quot;
+
+[presets.service]
+description = &quot;A backend service or API you deploy and operate&quot;
+answers = { delivery = &quot;service&quot;, failure_impact = &quot;revenue_loss&quot; }
+
+[presets.web_app]
+description = &quot;A public-facing web application&quot;
+answers = { delivery = &quot;website&quot;, audience = &quot;public&quot;, data_sensitivity = &quot;personal&quot; }
+
+[presets.library]
+description = &quot;A library or SDK other developers depend on&quot;
+answers = { delivery = &quot;package&quot;, audience = &quot;developers&quot;, lifespan = &quot;indefinite&quot; }
+
+[presets.oss_library]
+description = &quot;An open-source library with outside contributors&quot;
+answers = { delivery = &quot;package&quot;, audience = &quot;developers&quot;, lifespan = &quot;indefinite&quot;, team = &quot;open_source&quot; }
+
+[presets.cli]
+description = &quot;A command-line tool people install&quot;
+answers = { delivery = &quot;installed_app&quot;, audience = &quot;developers&quot; }
+
+[presets.internal_tool]
+description = &quot;An internal tool or script collection used by one team&quot;
+answers = { delivery = &quot;internal_script&quot;, audience = &quot;team&quot;, failure_impact = &quot;inconvenience&quot; }
+
+[presets.prototype]
+description = &quot;A spike, demo or experiment&quot;
+answers = { lifespan = &quot;throwaway&quot;, audience = &quot;team&quot;, failure_impact = &quot;inconvenience&quot;, team = &quot;solo&quot; }
+
+
+# -----------------------------------------------------------------------------
+# GATES
+# Gates are non-negotiable: a weighted average can't make up for them.
+#   - A gate at or below `hard_floor` caps the overall score at `overall_cap`.
+#   - Each maturity level sets a `gate_min` that every gate must meet.
+# Gates = `always` + gates added by your answers + `extra` - `exclude`.
+# -----------------------------------------------------------------------------
+[gates]
+always      = [&quot;A1&quot;, &quot;A2&quot;]
+extra       = []            # e.g. [&quot;C4&quot;] to make tests a gate for every project
+exclude     = []            # removing A1 or A2 is allowed, but resolve warns loudly
+hard_floor  = 3
+overall_cap = 4.0
+
+
+# -----------------------------------------------------------------------------
+# CRITICALITY ZONES
+# Not all code matters equally. Projects map paths to zones in project.toml
+# (as a [[zones]] list; the settings below are in [zone_settings]):
+#   [[zones]]
+#   name = &quot;payments&quot;
+#   paths = [&quot;src/payments/**&quot;, &quot;src/billing/**&quot;]
+#   criticality = &quot;hot&quot;            # hot | normal | cold
+#   why = &quot;Moves money&quot;
+# A file takes the FIRST zone whose pattern matches, so list specific zones
+# first. Unmatched files are `default`. A finding takes the hottest zone among
+# the files it cites.
+#
+# Effects:
+#   - severity_shift: hot findings count one severity higher, cold one lower
+#     (never lower than minor or higher than critical).
+#   - never_downgrade: findings in these benchmarks keep their severity in cold zones.
+#   - Maturity levels limit open findings by severity and zone (see MATURITY).
+#   - priority_multiplier: hot-zone work is ranked first (see PRIORITIES).
+#   - The grader reads hot zones in full and weighs them most when scoring.
+# -----------------------------------------------------------------------------
+[zone_settings]
+default         = &quot;normal&quot;
+severity_shift  = { hot = 1, normal = 0, cold = -1 }
+never_downgrade = [&quot;A2&quot;]
+priority_multiplier = { hot = 2.0, normal = 1.0, cold = 0.5 }
+
+
+# -----------------------------------------------------------------------------
+# TARGETS: where improving agents stop
+#   proportional: by weight used (see by_weight)
+#   maximal:      10 for every applicable benchmark
+#   level:L3:     the minimum each benchmark needs for that maturity level
+# Per-benchmark overrides go in project.toml: [targets.overrides] F4 = 10
+# -----------------------------------------------------------------------------
+[targets]
+mode        = &quot;proportional&quot;
+by_weight   = { &quot;3&quot; = 10, &quot;2&quot; = 9, &quot;1&quot; = 8 }
+limited_cap = 8             # a benchmark of limited relevance never targets above this
+overrides   = {}
+
+
+# -----------------------------------------------------------------------------
+# MATURITY LEVELS (checked in order; a level counts only if all lower ones do)
+#   overall_min             weighted overall score
+#   gate_min                every gate benchmark
+#   any_min                 every applicable benchmark
+#   max_critical_gaps / max_major_must_have_gaps   open gaps in the gap register
+#   findings_limits         open findings by EFFECTIVE severity (after zone
+#                           shift), optionally limited to one zone
+#   tens_require_enforcement   every 10 must cite enforcement evidence
+#   holdout_pass_rate_min   only checked when hidden checks were run
+# Any integrity flag caps maturity at `integrity_cap`.
+# -----------------------------------------------------------------------------
+[maturity]
+integrity_cap = &quot;L1&quot;
+
+[[maturity.levels]]
+level = &quot;L0&quot;
+name  = &quot;Not viable&quot;
+
+[[maturity.levels]]
+level       = &quot;L1&quot;
+name        = &quot;Prototype&quot;
+overall_min = 5.0
+gate_min    = 4
+
+[[maturity.levels]]
+level             = &quot;L2&quot;
+name              = &quot;Usable / Beta&quot;
+overall_min       = 6.5
+gate_min          = 6
+any_min           = 4
+max_critical_gaps = 0
+findings_limits   = [ { severity = &quot;critical&quot;, zone = &quot;hot&quot;, max = 0 } ]
+
+[[maturity.levels]]
+level                    = &quot;L3&quot;
+name                     = &quot;Production-ready&quot;
+overall_min              = 8.0
+gate_min                 = 8
+any_min                  = 6
+max_critical_gaps        = 0
+max_major_must_have_gaps = 0
+findings_limits          = [ { severity = &quot;critical&quot;, max = 0 } ]
+holdout_pass_rate_min    = 0.8
+
+[[maturity.levels]]
+level                    = &quot;L4&quot;
+name                     = &quot;Exemplary&quot;
+overall_min              = 9.3
+gate_min                 = 9
+any_min                  = 8
+max_critical_gaps        = 0
+max_major_must_have_gaps = 0
+findings_limits          = [ { severity = &quot;critical&quot;, max = 0 }, { severity = &quot;major&quot;, max = 0 } ]
+tens_require_enforcement = true
+holdout_pass_rate_min    = 0.95
+
+
+# -----------------------------------------------------------------------------
+# PRIORITIES: how gradekit ranks improvement actions
+#   score = weight × points gained (capped at target) × zone multiplier ÷ effort cost
+# Actions are grouped into tiers before sorting by score:
+#   tier 0: fixes a failed gate (at or below hard_floor) or an effective-critical hot-zone finding
+#   tier 1: unblocks the next maturity level
+#   tier 2: everything else below target
+#   tier 3: optional (benchmark already at target)
+# -----------------------------------------------------------------------------
+[priorities]
+effort_cost = { S = 1, M = 2, L = 4 }
+
+</code></pre>
+<nav class="pager"><a href="../../docs/rubric/weights.html"><small>Previous</small>How scoring works</a><a href="../../docs/config/project.example.html" style="margin-left:auto;text-align:right"><small>Next</small>Example project config</a></nav></main></div>
+<script src="../../assets/site.js"></script>
+</body>
+</html>

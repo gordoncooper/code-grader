@@ -6,22 +6,23 @@
 <title>Agent entry point · Code Grading Suite</title>
 <meta name="description" content="A rubric and prompts for AI coding agents to grade codebases from 1 to 10 on 35 benchmarks and improve them.">
 <link rel="stylesheet" href="../assets/style.css">
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
 <link rel="alternate" type="text/markdown" href="../AGENT.md" title="Agent entry point">
 </head>
 <body>
 <header class="topbar">
   <button class='menu-btn' type='button'>Menu</button>
   <a class="brand" href="../index.html">Code <span>Grading</span> Suite</a>
-  <span class="ver">v3.1.0</span>
+  <span class="ver">v4.0.0</span>
   <span class="spacer"></span>
   
   <a class="top" href="../docs/README.html">Docs</a>
-  <a class="top" href="../AGENT.md">AGENT.md</a>
-  <a class="top" href="../downloads/code-grading-suite-3.1.0.zip">Download</a>
+  <a class="top opt" href="../AGENT.md">AGENT.md</a>
+  <a class="top opt" href="../downloads/code-grading-suite-4.0.0.zip">Download</a>
 </header>
-<div class="layout"><nav class="sidebar" aria-label="Documentation"><h4>Start</h4><a href="../docs/README.html">Overview &amp; workflow</a><a href="../docs/AGENT.html" class="active" aria-current="page">Agent entry point</a><a href="../docs/DEPLOY.html">Hosting this site</a><h4>Prompts</h4><a href="../docs/prompts/grader.html">Grader</a><a href="../docs/prompts/improver.html">Improver</a><a href="../docs/prompts/pr-review.html">PR quick mode</a><h4>Rubric</h4><a href="../docs/rubric/A-correctness-trust.html">A · Correctness &amp; Trust</a><a href="../docs/rubric/B-design-structure.html">B · Design &amp; Structure</a><a href="../docs/rubric/C-code-health.html">C · Code Health</a><a href="../docs/rubric/D-value-fitness.html">D · Value &amp; Fitness</a><a href="../docs/rubric/E-adoption-experience.html">E · Adoption &amp; Experience</a><a href="../docs/rubric/F-operations-delivery.html">F · Operations &amp; Delivery</a><a href="../docs/rubric/X-conditional.html">X · Conditional</a><a href="../docs/rubric/weights.html">Weights, targets &amp; maturity</a><h4>Guides</h4><a href="../docs/calibration/README.html">Calibration</a><a href="../docs/holdout/README.html">Hidden checks</a><a href="../docs/CHANGELOG.html">Changelog</a></nav><main class="doc"><div class="docbar"><a class="btn" href="../AGENT.md">View raw .md</a><button class="btn" type="button" data-copy="../AGENT.md">Copy raw URL for an agent</button></div><details class="toc"><summary>On this page</summary><ul><li><a href="#1-pick-your-role">1. Pick your role</a></li><li><a href="#2-put-a-copy-of-the-suite-on-disk-suite-dir">2. Put a copy of the suite on disk (SUITE_DIR)</a></li><li><a href="#3-read-your-prompt-in-full-then-follow-it">3. Read your prompt in full, then follow it</a></li><li><a href="#trust-rules">Trust rules</a></li><li><a href="#file-index">File index</a></li></ul></details><h1 id="code-grading-suite-310-start-here-for-ai-agents">Code Grading Suite 3.1.0: start here (for AI agents)<a class="anchor" href="#code-grading-suite-310-start-here-for-ai-agents" aria-label="Link to this section">#</a></h1>
+<div class="layout"><nav class="sidebar" aria-label="Documentation"><h4>Start</h4><a href="../docs/README.html">Overview &amp; workflow</a><a href="../docs/AGENT.html" class="active" aria-current="page">Agent entry point</a><a href="../docs/DEPLOY.html">Hosting this site</a><h4>Configuration</h4><a href="../docs/TUNING.html">Tuning guide</a><a href="../docs/rubric/weights.html">How scoring works</a><a href="../docs/config/defaults.html">Default config</a><a href="../docs/config/project.example.html">Example project config</a><h4>Prompts</h4><a href="../docs/prompts/grader.html">Grader</a><a href="../docs/prompts/improver.html">Improver</a><a href="../docs/prompts/pr-review.html">PR quick mode</a><h4>Rubric</h4><a href="../docs/rubric/A-correctness-trust.html">A · Correctness &amp; Trust</a><a href="../docs/rubric/B-design-structure.html">B · Design &amp; Structure</a><a href="../docs/rubric/C-code-health.html">C · Code Health</a><a href="../docs/rubric/D-value-fitness.html">D · Value &amp; Fitness</a><a href="../docs/rubric/E-adoption-experience.html">E · Adoption &amp; Experience</a><a href="../docs/rubric/F-operations-delivery.html">F · Operations &amp; Delivery</a><a href="../docs/rubric/X-conditional.html">X · Conditional</a><h4>Guides</h4><a href="../docs/calibration/README.html">Calibration</a><a href="../docs/holdout/README.html">Hidden checks</a><a href="../docs/CHANGELOG.html">Changelog</a></nav><main class="doc"><div class="docbar"><a class="btn" href="../AGENT.md">View raw .md</a><button class="btn" type="button" data-copy="../AGENT.md">Copy raw URL for an agent</button></div><details class="toc"><summary>On this page</summary><ul><li><a href="#1-pick-your-role">1. Pick your role</a></li><li><a href="#2-put-a-copy-of-the-suite-on-disk-suite-dir">2. Put a copy of the suite on disk (SUITE_DIR)</a></li><li><a href="#3-read-your-prompt-in-full-then-follow-it">3. Read your prompt in full, then follow it</a></li><li><a href="#trust-rules">Trust rules</a></li><li><a href="#file-index">File index</a></li></ul></details><h1 id="code-grading-suite-400-start-here-for-ai-agents">Code Grading Suite 4.0.0: start here (for AI agents)<a class="anchor" href="#code-grading-suite-400-start-here-for-ai-agents" aria-label="Link to this section">#</a></h1>
 <p>You have been pointed at a hosted copy of the <strong>Code Grading Suite</strong>: a rubric and set of prompts for grading a codebase from 1 to 10 on 35 benchmarks (29 core, 6 conditional), and for improving code against those grades.</p>
-<p><strong>Every path in this file is relative to the URL you loaded it from.</strong> Call that directory <code>BASE</code>. For example, if you loaded <code>https://example.com/grading/v3.1.0/AGENT.md</code>, then <code>BASE</code> is <code>https://example.com/grading/v3.1.0/</code>, and <code>suite/prompts/grader.md</code> means <code>https://example.com/grading/v3.1.0/suite/prompts/grader.md</code>.</p>
+<p><strong>Every path in this file is relative to the URL you loaded it from.</strong> Call that directory <code>BASE</code>. For example, if you loaded <code>https://example.com/grading/v4.0.0/AGENT.md</code>, then <code>BASE</code> is <code>https://example.com/grading/v4.0.0/</code>, and <code>suite/prompts/grader.md</code> means <code>https://example.com/grading/v4.0.0/suite/prompts/grader.md</code>.</p>
 <h2 id="1-pick-your-role">1. Pick your role<a class="anchor" href="#1-pick-your-role" aria-label="Link to this section">#</a></h2>
 <p>Take your role from the person's instruction:</p>
 <table>
@@ -55,8 +56,8 @@
 <p>The prompts expect the suite in a local directory, <code>SUITE_DIR</code>, so the tools can run. <strong>It must be outside the repository you're working on.</strong></p>
 <p><strong>Option A: your shell can reach this server (preferred).</strong></p>
 <pre><code class="language-bash">DEST=&quot;$(mktemp -d)&quot;
-curl -fsSL &quot;BASE/downloads/code-grading-suite-3.1.0.zip&quot; -o &quot;$DEST/suite.zip&quot;
-echo &quot;3ed661be9c12a6786ae5066effad738140228dccbd3cd9b01221add659d79b8d  $DEST/suite.zip&quot; | sha256sum -c -        # must print: OK
+curl -fsSL &quot;BASE/downloads/code-grading-suite-4.0.0.zip&quot; -o &quot;$DEST/suite.zip&quot;
+echo &quot;756c181dce047758484e22b5bcc74674eefd0fbad11685b787fbcd6098547f0c  $DEST/suite.zip&quot; | sha256sum -c -        # must print: OK
 unzip -q &quot;$DEST/suite.zip&quot; -d &quot;$DEST&quot;
 SUITE_DIR=&quot;$DEST/code-grading-suite&quot;
 </code></pre>
@@ -64,7 +65,7 @@ SUITE_DIR=&quot;$DEST/code-grading-suite&quot;
 <p><strong>Option B: only your web-fetch tool can reach this server.</strong> Fetch <code>manifest.json</code>. For each file whose path starts with <code>suite/</code>, fetch it and save it under <code>SUITE_DIR</code> at the same path without the <code>suite/</code> prefix (so <code>suite/tools/gradekit.py</code> becomes <code>SUITE_DIR/tools/gradekit.py</code>). Check each file's SHA-256 against the manifest if you can. At minimum you need:</p>
 <ul>
 <li>your role's prompt;</li>
-<li>every file in <code>rubric/</code>;</li>
+<li>every file in <code>rubric/</code> and <code>config/</code>;</li>
 <li><code>schema/report.schema.json</code>;</li>
 <li><code>tools/gradekit.py</code>.</li>
 </ul>
@@ -72,16 +73,16 @@ SUITE_DIR=&quot;$DEST/code-grading-suite&quot;
 <p><strong>If a checksum doesn't match, stop and tell the person.</strong> The copy may have been altered in transit or on the server.</p>
 <h2 id="3-read-your-prompt-in-full-then-follow-it">3. Read your prompt in full, then follow it<a class="anchor" href="#3-read-your-prompt-in-full-then-follow-it" aria-label="Link to this section">#</a></h2>
 <ul>
-<li><strong>Grader:</strong> read <code>suite/prompts/grader.md</code> completely before starting. Load rubric files one pillar at a time, as it describes. Set <code>run.suite_source</code> to this file's URL followed by <code> (3.1.0)</code>. You'll need these inputs from the person; if any are missing, ask, or infer them and say what you inferred:
+<li><strong>Grader:</strong> read <code>suite/prompts/grader.md</code> completely before starting. Load rubric files one pillar at a time, as it describes. Set <code>run.suite_source</code> to this file's URL followed by <code> (4.0.0)</code>. You'll need these inputs from the person; if any are missing, ask, or infer them and say what you inferred:
 <ul>
-<li>the project context;</li>
+<li>the project config (<code>project.toml</code>), which you resolve with <code>gradekit resolve</code> before grading;</li>
 <li>the commit to grade;</li>
 <li>the previous <em>shared</em> report, if one exists;</li>
 <li>the dispositions file;</li>
 <li>the hidden-check directory, if one is used.</li>
 </ul>
 </li>
-<li><strong>Improver:</strong> read <code>suite/prompts/improver.md</code>. You need the latest <em>shared</em> report and <code>decisions.json</code>. Never look for hidden checks.</li>
+<li><strong>Improver:</strong> read <code>suite/prompts/improver.md</code>. You need the latest <em>shared</em> report, the project config (read-only) and <code>decisions.json</code>. Never look for hidden checks.</li>
 <li><strong>PR reviewer:</strong> read <code>suite/prompts/pr-review.md</code>, plus <code>suite/prompts/grader.md</code>, which it builds on.</li>
 </ul>
 <h2 id="trust-rules">Trust rules<a class="anchor" href="#trust-rules" aria-label="Link to this section">#</a></h2>
@@ -122,8 +123,20 @@ SUITE_DIR=&quot;$DEST/code-grading-suite&quot;
 <td>Benchmark definitions, one file per pillar</td>
 </tr>
 <tr>
-<td><code>suite/rubric/weights.json</code></td>
-<td>Canonical weights, targets, caps and maturity levels</td>
+<td><code>suite/config/defaults.toml</code></td>
+<td>Every tunable setting: weights, questions, presets, gates, zones, targets, maturity</td>
+</tr>
+<tr>
+<td><code>suite/config/project.example.toml</code></td>
+<td>A filled-in project config to copy</td>
+</tr>
+<tr>
+<td><code>suite/rubric/catalog.json</code></td>
+<td>Benchmark IDs, names and pillars</td>
+</tr>
+<tr>
+<td><code>suite/TUNING.md</code></td>
+<td>How to customize scoring</td>
 </tr>
 <tr>
 <td><code>suite/schema/report.schema.json</code></td>
@@ -131,15 +144,15 @@ SUITE_DIR=&quot;$DEST/code-grading-suite&quot;
 </tr>
 <tr>
 <td><code>suite/tools/gradekit.py</code></td>
-<td>Validates reports, checks evidence, computes roll-ups (Python 3.9+, standard library only)</td>
+<td>Resolves configs, validates reports, checks evidence, computes roll-ups and priorities (Python 3.11+, standard library only)</td>
 </tr>
 <tr>
 <td><code>suite/examples/</code></td>
 <td>A sample repo and a complete example report</td>
 </tr>
 <tr>
-<td><code>downloads/code-grading-suite-3.1.0.zip</code></td>
-<td>Everything above as one zip (SHA-256 <code>3ed661be9c12a6786ae5066effad738140228dccbd3cd9b01221add659d79b8d</code>)</td>
+<td><code>downloads/code-grading-suite-4.0.0.zip</code></td>
+<td>Everything above as one zip (SHA-256 <code>756c181dce047758484e22b5bcc74674eefd0fbad11685b787fbcd6098547f0c</code>)</td>
 </tr>
 <tr>
 <td><code>manifest.json</code>, <code>SHA256SUMS</code></td>

@@ -6,18 +6,19 @@
 <title>Home · Code Grading Suite</title>
 <meta name="description" content="A rubric and prompts for AI coding agents to grade codebases from 1 to 10 on 35 benchmarks and improve them.">
 <link rel="stylesheet" href="assets/style.css">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
 <link rel="alternate" type="text/markdown" href="AGENT.md" title="Agent entry point">
 </head>
 <body>
 <header class="topbar">
   
   <a class="brand" href="index.html">Code <span>Grading</span> Suite</a>
-  <span class="ver">v3.1.0</span>
+  <span class="ver">v4.0.0</span>
   <span class="spacer"></span>
   
   <a class="top" href="docs/README.html">Docs</a>
-  <a class="top" href="AGENT.md">AGENT.md</a>
-  <a class="top" href="downloads/code-grading-suite-3.1.0.zip">Download</a>
+  <a class="top opt" href="AGENT.md">AGENT.md</a>
+  <a class="top opt" href="downloads/code-grading-suite-4.0.0.zip">Download</a>
 </header>
 
 <div class="home">
@@ -29,14 +30,14 @@
       <div class="actions">
         <a class="btn primary" href="#point">Point an agent here</a>
         <a class="btn" href="docs/README.html">Read the docs</a>
-        <a class="btn" href="downloads/code-grading-suite-3.1.0.zip">Download v3.1.0</a>
+        <a class="btn" href="downloads/code-grading-suite-4.0.0.zip">Download v4.0.0</a>
       </div>
     </div>
     <div class="stat-card">
       <div class="stats">
         <div><b>29</b><span>core benchmarks</span></div>
         <div><b>6</b><span>conditional</span></div>
-        <div><b>6</b><span>project profiles</span></div>
+        <div><b>8</b><span>presets</span></div>
       </div>
       <ul class="ladder"><li><i>L0</i>Not viable</li><li><i>L1</i>Prototype</li><li><i>L2</i>Usable / Beta</li><li><i>L3</i>Production-ready</li><li><i>L4</i>Exemplary</li></ul>
     </div>
@@ -50,7 +51,7 @@
     <div class="roles"><div class="role"><h3>Grader</h3><p>Runs a full, read-only audit and writes report.json and report.md.</p><pre id="p-grade" data-base>Grade the code in this repository using the Code Grading Suite at {BASE}AGENT.md.
 Act as the grader. Follow AGENT.md to set up the suite, then follow the grader prompt exactly.
 
-Project profile: &lt;Default | Library | Service/API | Web app | CLI | Prototype&gt;
+Project config: &lt;path to project.toml outside the repo, or none&gt;
 Commit to grade: &lt;SHA, or current HEAD&gt;
 Previous shared report: &lt;path, or none&gt;
 Dispositions: &lt;path, or none&gt;
@@ -59,43 +60,50 @@ Write report.json and report.md to: &lt;output directory outside the repo&gt;</p
 Act as the improver. Follow AGENT.md to set up the suite, then follow the improver prompt exactly.
 
 Latest shared report: &lt;path to report.shared.json and report.md&gt;
+Project config (read-only): &lt;path to project.toml&gt;
 Human decisions: &lt;path to decisions.json, or none&gt;
 Work on branch: &lt;branch name&gt;
 Budget: &lt;e.g. top 5 priorities, or until all targets are met&gt;</pre><div class="row"><button class="btn primary" type="button" data-copy="#p-improve">Copy prompt</button></div></div><div class="role"><h3>PR reviewer</h3><p>Re-grades only what a change touches; returns PASS or FAIL.</p><pre id="p-review" data-base>Review the changes between &lt;BASE_COMMIT&gt; and &lt;HEAD_COMMIT&gt; using the Code Grading Suite at {BASE}AGENT.md.
 Act as the PR reviewer. Follow AGENT.md to set up the suite, then follow the PR quick-mode prompt exactly.
 
 Last full report (shared): &lt;path&gt;
+Project config: &lt;path to project.toml&gt;
 Hidden checks: &lt;path, or none&gt;
 Write report.json and pr-comment.md to: &lt;output directory&gt;</pre><div class="row"><button class="btn primary" type="button" data-copy="#p-review">Copy prompt</button></div></div></div>
   </section>
 
-  <section class="block">
-    <h2>Project context</h2>
-    <p class="sub">Paste this under any of the prompts above. If you leave fields blank, the grader infers them and says what it inferred.</p>
-    <pre id="ctx">Project context
-- What it is: &lt;e.g. &quot;REST API for order processing&quot;&gt;
-- Project profile: &lt;Default / Library / Service-API / Web app / CLI / Prototype&gt;
-- Language(s) / framework(s): &lt;...&gt;
-- Intended users: &lt;...&gt;
-- Intended use &amp; maturity target: &lt;prototype / internal tool / production / public open source&gt;
-- Scale &amp; criticality: &lt;users, traffic, data sensitivity, cost of failure&gt;
-- Stated scope / requirements: &lt;list or link&gt;
-- Target mode: &lt;proportional (default) / maximal / level:L3&gt;, overrides: &lt;e.g. {&quot;F4&quot;: 10}&gt;
-- Components (monorepos only): &lt;name, path, profile, weight&gt;
-- Out of scope: &lt;directories or concerns to skip&gt;</pre>
-    <button class="btn" type="button" data-copy="#ctx">Copy template</button>
+  <section class="block" id="weighting">
+    <h2>Weighted to your project</h2>
+    <p class="sub">Not every benchmark matters equally, and what matters depends on the code. Three mechanisms handle that, all set in a small <code>project.toml</code> that humans own.</p>
+    <div class="trio">
+      <div class="pillar"><h3><span class="pid">1</span>Weights from questions</h3><p>Answer eight questions (data sensitivity, audience, lifespan, failure impact, team, change rate, delivery, scale) or start from a preset (<code>default</code>, <code>service</code>, <code>web_app</code>, <code>library</code>, <code>oss_library</code>, <code>cli</code>, <code>internal_tool</code>, <code>prototype</code>). Each answer moves specific weights; <code>--explain</code> shows why.</p></div>
+      <div class="pillar"><h3><span class="pid">2</span>Gates</h3><p>Correctness and Security always, plus whatever your answers add. A failed gate caps the overall score: a weighted average can't make up for a security hole.</p></div>
+      <div class="pillar"><h3><span class="pid">3</span>Criticality zones</h3><p>Mark hot code (money, auth, data writes) and cold code (scripts, examples). Problems count one severity higher in hot zones, and hot-zone fixes are ranked first.</p></div>
+    </div>
+    <pre id="qs"># 1. Describe the project (keep this file outside the repo)
+python3 SUITE_DIR/tools/gradekit.py init --preset service --name orders-api \
+    --answer data_sensitivity=financial --out project.toml
+
+# 2. Edit project.toml: answers, hot/cold zones, targets. Then check the result:
+python3 SUITE_DIR/tools/gradekit.py resolve --config project.toml
+
+# 3. Ask about any weight
+python3 SUITE_DIR/tools/gradekit.py resolve --config project.toml --explain A4</pre>
+    <div class="row-btns"><button class="btn" type="button" data-copy="#qs">Copy commands</button>
+      <a class="btn" href="docs/TUNING.html">Tuning guide</a><a class="btn" href="docs/config/project.example.html">Example project.toml</a>
+      <a class="btn" href="docs/rubric/weights.html">How scoring works</a></div>
   </section>
 
   <section class="block">
     <h2>The loop</h2>
     <p class="sub">The setup that makes rising scores mean better code. <a href="docs/README.html#the-loop">Full details →</a></p>
-    <ol class="steps"><li><b>Grade</b>Three independent graders audit the same commit, each in a fresh sandbox.</li><li><b>Check</b><code>gradekit validate</code> and <code>verify-evidence</code> reject bad reports.</li><li><b>Consensus</b><code>gradekit stability</code> takes the median and flags unstable benchmarks.</li><li><b>Redact</b><code>gradekit redact</code> strips hidden-check results before sharing.</li><li><b>Decide</b>Humans answer decision questions and record accepted findings.</li><li><b>Improve</b>Improvers clear caps first, then maturity blockers, and stop at each target.</li><li><b>Guard</b>PR quick mode plus <code>gradekit diff --fail-on-regression</code> on every change.</li></ol>
+    <ol class="steps"><li><b>Configure</b>Describe the project once in <code>project.toml</code>: preset, answers, hot and cold zones.</li><li><b>Grade</b>Three independent graders audit the same commit, each in a fresh sandbox.</li><li><b>Check</b><code>gradekit validate</code> and <code>verify-evidence</code> reject bad reports.</li><li><b>Consensus</b><code>gradekit stability</code> takes the median and flags unstable benchmarks.</li><li><b>Redact</b><code>gradekit redact</code> strips hidden-check results before sharing.</li><li><b>Decide</b>Humans answer decision questions and record accepted findings.</li><li><b>Improve</b>Improvers follow gradekit's ranked priorities: failed gates and hot-zone problems first, and stop at each target.</li><li><b>Guard</b>PR quick mode plus <code>gradekit diff --fail-on-regression</code> on every change.</li></ol>
   </section>
 
   <section class="block">
     <h2>The benchmarks</h2>
-    <p class="sub">Grouped into six pillars, plus conditional benchmarks that apply only to some projects. Each one is classified <code>full</code>, <code>limited</code> or <code>not_applicable</code> for the code being graded.</p>
-    <div class="pillars"><div class="pillar"><h3><span class="pid">A</span><a href="docs/rubric/A-correctness-trust.html">Correctness &amp; Trust</a></h3><ul><li><code>A1</code>Correctness &amp; Functional Behavior</li><li><code>A2</code>Security &amp; Privacy</li><li><code>A3</code>Robustness &amp; Error Handling</li><li><code>A4</code>Idempotence &amp; Determinism</li><li><code>A5</code>Durability &amp; Recoverability</li></ul></div><div class="pillar"><h3><span class="pid">B</span><a href="docs/rubric/B-design-structure.html">Design &amp; Structure</a></h3><ul><li><code>B1</code>Architecture &amp; Design Fitness</li><li><code>B2</code>Modularity &amp; Decoupling</li><li><code>B3</code>Structure &amp; Organization</li><li><code>B4</code>Interface Design &amp; Contracts</li><li><code>B5</code>Flexibility &amp; Extensibility</li><li><code>B6</code>Leanness</li></ul></div><div class="pillar"><h3><span class="pid">C</span><a href="docs/rubric/C-code-health.html">Code Health</a></h3><ul><li><code>C1</code>Readability &amp; Clarity</li><li><code>C2</code>Maintainability &amp; Complexity</li><li><code>C3</code>Consistency &amp; Idiomatic Code</li><li><code>C4</code>Test Suite Quality</li></ul></div><div class="pillar"><h3><span class="pid">D</span><a href="docs/rubric/D-value-fitness.html">Value &amp; Fitness for Purpose</a></h3><ul><li><code>D1</code>Feature Completeness</li><li><code>D2</code>Gap Coverage</li><li><code>D3</code>Practicality</li><li><code>D4</code>Intuitiveness</li></ul></div><div class="pillar"><h3><span class="pid">E</span><a href="docs/rubric/E-adoption-experience.html">Adoption &amp; Experience</a></h3><ul><li><code>E1</code>Adopter Friendliness</li><li><code>E2</code>Documentation</li><li><code>E3</code>Developer Experience &amp; Inner Loop</li><li><code>E4</code>Native Tooling &amp; Ecosystem Fit</li></ul></div><div class="pillar"><h3><span class="pid">F</span><a href="docs/rubric/F-operations-delivery.html">Operations &amp; Delivery</a></h3><ul><li><code>F1</code>Ease of Deployability</li><li><code>F2</code>Build, CI/CD &amp; Automation</li><li><code>F3</code>Observability &amp; Debuggability</li><li><code>F4</code>Performance, Efficiency &amp; Scalability</li><li><code>F5</code>Portability</li><li><code>F6</code>Dependency Health &amp; Longevity</li></ul></div><div class="pillar"><h3><span class="pid">X</span><a href="docs/rubric/X-conditional.html">Conditional</a></h3><ul><li><code>X1</code>Accessibility, UX &amp; Internationalization</li><li><code>X2</code>Public API Stability &amp; Upgradeability</li><li><code>X3</code>Concurrency Safety</li><li><code>X4</code>Cost Efficiency</li><li><code>X5</code>Compliance &amp; Licensing</li><li><code>X6</code>Agent-Readiness</li></ul></div></div>
+    <p class="sub">Grouped into six pillars, plus conditional benchmarks that apply only to some projects. Each one is classified <code>full</code>, <code>limited</code> or <code>not_applicable</code> for the code being graded. <a href="docs/rubric/weights.html#resulting-weights-by-preset">Weights by preset →</a></p>
+    <div class="pillars"><div class="pillar"><h3><span class="pid">A</span><a href="docs/rubric/A-correctness-trust.html">Correctness &amp; Trust</a></h3><ul><li><code>A1</code>Correctness &amp; Functional Behavior<span class="gate" title="Always a gate">gate</span></li><li><code>A2</code>Security &amp; Privacy<span class="gate" title="Always a gate">gate</span></li><li><code>A3</code>Robustness &amp; Error Handling</li><li><code>A4</code>Idempotence &amp; Determinism</li><li><code>A5</code>Durability &amp; Recoverability</li></ul></div><div class="pillar"><h3><span class="pid">B</span><a href="docs/rubric/B-design-structure.html">Design &amp; Structure</a></h3><ul><li><code>B1</code>Architecture &amp; Design Fitness</li><li><code>B2</code>Modularity &amp; Decoupling</li><li><code>B3</code>Structure &amp; Organization</li><li><code>B4</code>Interface Design &amp; Contracts</li><li><code>B5</code>Flexibility &amp; Extensibility</li><li><code>B6</code>Leanness</li></ul></div><div class="pillar"><h3><span class="pid">C</span><a href="docs/rubric/C-code-health.html">Code Health</a></h3><ul><li><code>C1</code>Readability &amp; Clarity</li><li><code>C2</code>Maintainability &amp; Complexity</li><li><code>C3</code>Consistency &amp; Idiomatic Code</li><li><code>C4</code>Test Suite Quality</li></ul></div><div class="pillar"><h3><span class="pid">D</span><a href="docs/rubric/D-value-fitness.html">Value &amp; Fitness for Purpose</a></h3><ul><li><code>D1</code>Feature Completeness</li><li><code>D2</code>Gap Coverage</li><li><code>D3</code>Practicality</li><li><code>D4</code>Intuitiveness</li></ul></div><div class="pillar"><h3><span class="pid">E</span><a href="docs/rubric/E-adoption-experience.html">Adoption &amp; Experience</a></h3><ul><li><code>E1</code>Adopter Friendliness</li><li><code>E2</code>Documentation</li><li><code>E3</code>Developer Experience &amp; Inner Loop</li><li><code>E4</code>Native Tooling &amp; Ecosystem Fit</li></ul></div><div class="pillar"><h3><span class="pid">F</span><a href="docs/rubric/F-operations-delivery.html">Operations &amp; Delivery</a></h3><ul><li><code>F1</code>Ease of Deployability</li><li><code>F2</code>Build, CI/CD &amp; Automation</li><li><code>F3</code>Observability &amp; Debuggability</li><li><code>F4</code>Performance, Efficiency &amp; Scalability</li><li><code>F5</code>Portability</li><li><code>F6</code>Dependency Health &amp; Longevity</li></ul></div><div class="pillar"><h3><span class="pid">X</span><a href="docs/rubric/X-conditional.html">Conditional</a></h3><ul><li><code>X1</code>Accessibility, UX &amp; Internationalization</li><li><code>X2</code>Public API Stability &amp; Upgradeability</li><li><code>X3</code>Concurrency Safety</li><li><code>X4</code>Cost Efficiency</li><li><code>X5</code>Compliance &amp; Licensing</li><li><code>X6</code>Agent-Readiness</li></ul></div></div>
   </section>
 
   <section class="block">
@@ -105,14 +113,14 @@ Write report.json and pr-comment.md to: &lt;output directory&gt;</pre><div class
       <tr><th>File</th><th>What it is</th></tr>
       <tr><td><a href="AGENT.md"><code>AGENT.md</code></a></td><td>Entry point for agents</td></tr>
       <tr><td><a href="llms.txt"><code>llms.txt</code></a></td><td>Short machine-readable index</td></tr>
-      <tr><td><a href="downloads/code-grading-suite-3.1.0.zip"><code>code-grading-suite-3.1.0.zip</code></a></td><td>The whole kit (82 KB)<div class="hash">sha256 3ed661be9c12a6786ae5066effad738140228dccbd3cd9b01221add659d79b8d</div></td></tr>
+      <tr><td><a href="downloads/code-grading-suite-4.0.0.zip"><code>code-grading-suite-4.0.0.zip</code></a></td><td>The whole kit (106 KB)<div class="hash">sha256 756c181dce047758484e22b5bcc74674eefd0fbad11685b787fbcd6098547f0c</div></td></tr>
       <tr><td><a href="suite/prompts/grader.md"><code>suite/…</code></a></td><td>Raw kit files: prompts, rubric, schema, tools, examples</td></tr>
       <tr><td><a href="docs/README.html"><code>docs/…</code></a></td><td>The same documents, rendered for reading</td></tr>
     </table>
     <p class="note">Host this only on a server you control, over HTTPS: agents treat it as their instructions. Never put hidden checks, dispositions or reports here. <a href="docs/DEPLOY.html">Hosting guide →</a></p>
   </section>
 </div>
-<footer class="site">Code Grading Suite v3.1.0 · built 2026-11-07</footer>
+<footer class="site">Code Grading Suite v4.0.0 · built 2026-11-07</footer>
 
 <script src="assets/site.js"></script>
 </body>

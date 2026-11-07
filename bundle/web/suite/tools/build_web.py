@@ -39,6 +39,8 @@ EXCLUDE_SUFFIXES = {".pyc", ".pyo"}
 # (section, [(kit path or "AGENT.md", nav title)])
 DOCS = [
     ("Start", [("README.md", "Overview & workflow"), ("AGENT.md", "Agent entry point"), ("DEPLOY.md", "Hosting this site")]),
+    ("Configuration", [("TUNING.md", "Tuning guide"), ("rubric/weights.md", "How scoring works"),
+                       ("config/defaults.toml", "Default config"), ("config/project.example.toml", "Example project config")]),
     ("Prompts", [("prompts/grader.md", "Grader"), ("prompts/improver.md", "Improver"), ("prompts/pr-review.md", "PR quick mode")]),
     ("Rubric", [("rubric/A-correctness-trust.md", "A · Correctness & Trust"),
                 ("rubric/B-design-structure.md", "B · Design & Structure"),
@@ -46,8 +48,7 @@ DOCS = [
                 ("rubric/D-value-fitness.md", "D · Value & Fitness"),
                 ("rubric/E-adoption-experience.md", "E · Adoption & Experience"),
                 ("rubric/F-operations-delivery.md", "F · Operations & Delivery"),
-                ("rubric/X-conditional.md", "X · Conditional"),
-                ("rubric/weights.md", "Weights, targets & maturity")]),
+                ("rubric/X-conditional.md", "X · Conditional")]),
     ("Guides", [("calibration/README.md", "Calibration"), ("holdout/README.md", "Hidden checks"), ("CHANGELOG.md", "Changelog")]),
 ]
 
@@ -161,8 +162,9 @@ th,td{border-bottom:1px solid var(--line);padding:.5em .7em;text-align:left;vert
 th{background:var(--soft);font-weight:600;white-space:nowrap}
 blockquote{margin:1.2em 0;padding:.4em 1em;border-left:3px solid var(--accent);background:var(--accent-soft);border-radius:0 6px 6px 0}
 hr{border:0;border-top:1px solid var(--line);margin:2.2em 0}
+.doc hr+h2{border-top:0;margin-top:0;padding-top:0}
 .topbar{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:16px;padding:10px 20px;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
-.brand{font-family:var(--serif);font-weight:700;font-size:1.1rem;color:var(--ink);text-decoration:none;letter-spacing:.01em}
+.brand{white-space:nowrap;font-family:var(--serif);font-weight:700;font-size:1.1rem;color:var(--ink);text-decoration:none;letter-spacing:.01em}
 .brand span{color:var(--accent)}
 .ver{font:600 .72rem var(--mono);color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:2px 8px}
 .topbar .spacer{flex:1}
@@ -242,6 +244,11 @@ section.block>p.sub{color:var(--muted);margin:0 0 22px;max-width:46em}
 .pillar li{display:flex;gap:8px;padding:3px 0;border-top:1px dashed var(--line)}
 .pillar li:first-child{border-top:0}
 .pillar li code{background:none!important;border:0!important;padding:0!important;color:var(--muted);min-width:24px}
+.files{display:table}
+.trio{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:16px}
+.trio p{margin:0;font-size:.9rem;color:var(--muted)}
+.row-btns{display:flex;flex-wrap:wrap;gap:8px}
+.gate{margin-left:auto;font:600 .66rem var(--sans);letter-spacing:.06em;text-transform:uppercase;color:var(--warn);border:1px solid currentColor;border-radius:4px;padding:0 5px;align-self:center}
 .files td:first-child{white-space:nowrap}
 .files td code{font-size:.78rem}
 .hash{font:.72rem var(--mono);color:var(--muted);word-break:break-all}
@@ -256,9 +263,10 @@ footer.site{border-top:1px solid var(--line);margin-top:64px;padding:22px 24px;c
   .menu-btn{display:inline-block}
   main.doc{padding:24px 20px 60px}
   .hero{grid-template-columns:1fr;padding-top:40px}
-  .roles{grid-template-columns:1fr}
+  .roles,.trio{grid-template-columns:1fr}
   .toc ul{columns:1}
 }
+@media (max-width:600px){.topbar{gap:10px;padding:10px 14px}.topbar .ver,.topbar a.top.opt{display:none}}
 @media print{.topbar,.sidebar,.pager,.docbar{display:none}.layout{display:block}main.doc{padding:0}}
 """
 
@@ -290,17 +298,21 @@ JS = r"""
 })();
 """
 
+FAVICON = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="7" fill="#0f6b5c"/><path d="M9 17l4.5 4.5L23 11" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+"""
+
 HTACCESS = """# Code Grading Suite: Apache settings (needs AllowOverride FileInfo; Header lines need mod_headers)
 AddDefaultCharset utf-8
 AddType "text/markdown; charset=utf-8" .md
-AddType "text/plain; charset=utf-8" .txt .py .sql
+AddType "text/plain; charset=utf-8" .txt .py .sql .toml
 AddType "application/json; charset=utf-8" .json
 AddType "text/css; charset=utf-8" .css
 AddType "application/javascript; charset=utf-8" .js
 AddType application/zip .zip
+AddType "image/svg+xml" .svg
 <IfModule mod_headers.c>
   Header set X-Content-Type-Options "nosniff"
-  <FilesMatch "\\.(md|py|json|txt|sql)$">
+  <FilesMatch "\\.(md|py|json|txt|sql|toml)$">
     Header set Access-Control-Allow-Origin "*"
   </FilesMatch>
 </IfModule>
@@ -317,6 +329,7 @@ def page(title: str, body: str, depth: int, version: str, sidebar: str = "", ext
 <title>{html.escape(title)} · Code Grading Suite</title>
 <meta name="description" content="A rubric and prompts for AI coding agents to grade codebases from 1 to 10 on 35 benchmarks and improve them.">
 <link rel="stylesheet" href="{up}assets/style.css">
+<link rel="icon" href="{up}assets/favicon.svg" type="image/svg+xml">
 <link rel="alternate" type="text/markdown" href="{up}AGENT.md" title="Agent entry point">
 </head>
 <body>
@@ -327,8 +340,8 @@ def page(title: str, body: str, depth: int, version: str, sidebar: str = "", ext
   <span class="spacer"></span>
   {extra_bar}
   <a class="top" href="{up}docs/README.html">Docs</a>
-  <a class="top" href="{up}AGENT.md">AGENT.md</a>
-  <a class="top" href="{up}downloads/code-grading-suite-{version}.zip">Download</a>
+  <a class="top opt" href="{up}AGENT.md">AGENT.md</a>
+  <a class="top opt" href="{up}downloads/code-grading-suite-{version}.zip">Download</a>
 </header>
 {body}
 <script src="{up}assets/site.js"></script>
@@ -350,7 +363,7 @@ def sidebar_html(current: str, depth: int) -> str:
 
 
 def doc_html_path(src: str) -> str:
-    return re.sub(r"\.md$", ".html", src)
+    return re.sub(r"\.(md|toml)$", ".html", src)
 
 
 # --------------------------------------------------------------------------- generated content
@@ -394,7 +407,7 @@ Replace `BASE` with the real URL. On macOS, use `shasum -a 256 -c -` instead of 
 
 **Option B: only your web-fetch tool can reach this server.** Fetch `manifest.json`. For each file whose path starts with `suite/`, fetch it and save it under `SUITE_DIR` at the same path without the `suite/` prefix (so `suite/tools/gradekit.py` becomes `SUITE_DIR/tools/gradekit.py`). Check each file's SHA-256 against the manifest if you can. At minimum you need:
 - your role's prompt;
-- every file in `rubric/`;
+- every file in `rubric/` and `config/`;
 - `schema/report.schema.json`;
 - `tools/gradekit.py`.
 
@@ -405,12 +418,12 @@ Replace `BASE` with the real URL. On macOS, use `shasum -a 256 -c -` instead of 
 ## 3. Read your prompt in full, then follow it
 
 - **Grader:** read `suite/prompts/grader.md` completely before starting. Load rubric files one pillar at a time, as it describes. Set `run.suite_source` to this file's URL followed by ` ({version})`. You'll need these inputs from the person; if any are missing, ask, or infer them and say what you inferred:
-  - the project context;
+  - the project config (`project.toml`), which you resolve with `gradekit resolve` before grading;
   - the commit to grade;
   - the previous *shared* report, if one exists;
   - the dispositions file;
   - the hidden-check directory, if one is used.
-- **Improver:** read `suite/prompts/improver.md`. You need the latest *shared* report and `decisions.json`. Never look for hidden checks.
+- **Improver:** read `suite/prompts/improver.md`. You need the latest *shared* report, the project config (read-only) and `decisions.json`. Never look for hidden checks.
 - **PR reviewer:** read `suite/prompts/pr-review.md`, plus `suite/prompts/grader.md`, which it builds on.
 
 ## Trust rules
@@ -430,9 +443,12 @@ Replace `BASE` with the real URL. On macOS, use `shasum -a 256 -c -` instead of 
 | `suite/prompts/improver.md` | Improving code against a report |
 | `suite/prompts/pr-review.md` | Quick mode for a single change, with a pass/fail verdict |
 | `suite/rubric/A-correctness-trust.md` … `F-operations-delivery.md`, `X-conditional.md` | Benchmark definitions, one file per pillar |
-| `suite/rubric/weights.json` | Canonical weights, targets, caps and maturity levels |
+| `suite/config/defaults.toml` | Every tunable setting: weights, questions, presets, gates, zones, targets, maturity |
+| `suite/config/project.example.toml` | A filled-in project config to copy |
+| `suite/rubric/catalog.json` | Benchmark IDs, names and pillars |
+| `suite/TUNING.md` | How to customize scoring |
 | `suite/schema/report.schema.json` | JSON Schema for reports |
-| `suite/tools/gradekit.py` | Validates reports, checks evidence, computes roll-ups (Python 3.9+, standard library only) |
+| `suite/tools/gradekit.py` | Resolves configs, validates reports, checks evidence, computes roll-ups and priorities (Python 3.11+, standard library only) |
 | `suite/examples/` | A sample repo and a complete example report |
 | `downloads/{zip_name}` | Everything above as one zip (SHA-256 `{zip_sha}`) |
 | `manifest.json`, `SHA256SUMS` | Version, sizes and checksums for every file on this site |
@@ -459,23 +475,30 @@ def llms_txt(version: str, zip_name: str) -> str:
     ]
     for src, title in DOCS[2][1]:
         lines.append(f"- [{title}](suite/{src})")
-    lines += ["- [weights.json](suite/rubric/weights.json): canonical weights, targets and maturity rules",
+    lines += ["- [How scoring works](suite/rubric/weights.md): weights, gates, zones, targets, maturity",
+              "", "## Configuration",
+              "- [defaults.toml](suite/config/defaults.toml): every tunable setting, commented",
+              "- [project.example.toml](suite/config/project.example.toml): a filled-in project config",
+              "- [Tuning guide](suite/TUNING.md)",
               "", "## Tools", "- [gradekit.py](suite/tools/gradekit.py): validate, verify-evidence, rollup, stability, diff, calibrate, redact, rollup-repo",
               "- [report.schema.json](suite/schema/report.schema.json)",
               f"- [Download the kit](downloads/{zip_name})", "- [manifest.json](manifest.json): checksums", ""]
     return "\n".join(lines)
 
 
-def landing(version: str, weights: dict, zip_name: str, zip_sha: str, zip_size: int, built: str) -> str:
+def landing(version: str, weights: dict, zip_name: str, zip_sha: str, zip_size: int, built: str, defaults: dict) -> str:
     pillar_files = {k: v["rubric"] for k, v in weights["pillars"].items()}
+    always_gates = set(defaults["gates"]["always"])
     cards = []
     for pid, pdata in weights["pillars"].items():
         items = [b for b in weights["benchmarks"] if b["pillar"] == pid]
-        lis = "".join(f"<li><code>{b['id']}</code>{html.escape(b['name'])}</li>" for b in items)
+        lis = "".join(f"<li><code>{b['id']}</code>{html.escape(b['name'])}"
+                      + ('<span class="gate" title="Always a gate">gate</span>' if b["id"] in always_gates else "") + "</li>"
+                      for b in items)
         href = "docs/" + doc_html_path(pillar_files[pid])
         label = "Conditional" if pid == "X" else html.escape(pdata["name"])
         cards.append(f'<div class="pillar"><h3><span class="pid">{pid}</span><a href="{href}">{label}</a></h3><ul>{lis}</ul></div>')
-    ladder = "".join(f"<li><i>{l['level']}</i>{html.escape(l['name'])}</li>" for l in weights["maturity_levels"])
+    ladder = "".join(f"<li><i>{l['level']}</i>{html.escape(l['name'])}</li>" for l in defaults["maturity"]["levels"])
     n_core = sum(1 for b in weights["benchmarks"] if not b["conditional"])
     n_all = len(weights["benchmarks"])
 
@@ -483,7 +506,7 @@ def landing(version: str, weights: dict, zip_name: str, zip_sha: str, zip_size: 
         "grade": ("Grader", "Runs a full, read-only audit and writes report.json and report.md.",
                   "Grade the code in this repository using the Code Grading Suite at {BASE}AGENT.md.\n"
                   "Act as the grader. Follow AGENT.md to set up the suite, then follow the grader prompt exactly.\n\n"
-                  "Project profile: <Default | Library | Service/API | Web app | CLI | Prototype>\n"
+                  "Project config: <path to project.toml outside the repo, or none>\n"
                   "Commit to grade: <SHA, or current HEAD>\n"
                   "Previous shared report: <path, or none>\n"
                   "Dispositions: <path, or none>\n"
@@ -493,6 +516,7 @@ def landing(version: str, weights: dict, zip_name: str, zip_sha: str, zip_size: 
                     "Improve this repository using the Code Grading Suite at {BASE}AGENT.md.\n"
                     "Act as the improver. Follow AGENT.md to set up the suite, then follow the improver prompt exactly.\n\n"
                     "Latest shared report: <path to report.shared.json and report.md>\n"
+                    "Project config (read-only): <path to project.toml>\n"
                     "Human decisions: <path to decisions.json, or none>\n"
                     "Work on branch: <branch name>\n"
                     "Budget: <e.g. top 5 priorities, or until all targets are met>"),
@@ -500,6 +524,7 @@ def landing(version: str, weights: dict, zip_name: str, zip_sha: str, zip_size: 
                    "Review the changes between <BASE_COMMIT> and <HEAD_COMMIT> using the Code Grading Suite at {BASE}AGENT.md.\n"
                    "Act as the PR reviewer. Follow AGENT.md to set up the suite, then follow the PR quick-mode prompt exactly.\n\n"
                    "Last full report (shared): <path>\n"
+                   "Project config: <path to project.toml>\n"
                    "Hidden checks: <path, or none>\n"
                    "Write report.json and pr-comment.md to: <output directory>"),
     }
@@ -510,25 +535,26 @@ def landing(version: str, weights: dict, zip_name: str, zip_sha: str, zip_size: 
             f'<pre id="p-{key}" data-base>{html.escape(text)}</pre>'
             f'<div class="row"><button class="btn primary" type="button" data-copy="#p-{key}">Copy prompt</button></div></div>')
 
-    context = """Project context
-- What it is: <e.g. "REST API for order processing">
-- Project profile: <Default / Library / Service-API / Web app / CLI / Prototype>
-- Language(s) / framework(s): <...>
-- Intended users: <...>
-- Intended use & maturity target: <prototype / internal tool / production / public open source>
-- Scale & criticality: <users, traffic, data sensitivity, cost of failure>
-- Stated scope / requirements: <list or link>
-- Target mode: <proportional (default) / maximal / level:L3>, overrides: <e.g. {"F4": 10}>
-- Components (monorepos only): <name, path, profile, weight>
-- Out of scope: <directories or concerns to skip>"""
+    quickstart = """# 1. Describe the project (keep this file outside the repo)
+python3 SUITE_DIR/tools/gradekit.py init --preset service --name orders-api \\
+    --answer data_sensitivity=financial --out project.toml
+
+# 2. Edit project.toml: answers, hot/cold zones, targets. Then check the result:
+python3 SUITE_DIR/tools/gradekit.py resolve --config project.toml
+
+# 3. Ask about any weight
+python3 SUITE_DIR/tools/gradekit.py resolve --config project.toml --explain A4"""
+    preset_names = ", ".join(f"<code>{html.escape(n)}</code>" for n in defaults["presets"])
+    questions = ", ".join(html.escape(q.replace("_", " ")) for q in defaults["questions"])
 
     steps = [
+        ("Configure", "Describe the project once in <code>project.toml</code>: preset, answers, hot and cold zones."),
         ("Grade", "Three independent graders audit the same commit, each in a fresh sandbox."),
         ("Check", "<code>gradekit validate</code> and <code>verify-evidence</code> reject bad reports."),
         ("Consensus", "<code>gradekit stability</code> takes the median and flags unstable benchmarks."),
         ("Redact", "<code>gradekit redact</code> strips hidden-check results before sharing."),
         ("Decide", "Humans answer decision questions and record accepted findings."),
-        ("Improve", "Improvers clear caps first, then maturity blockers, and stop at each target."),
+        ("Improve", "Improvers follow gradekit's ranked priorities: failed gates and hot-zone problems first, and stop at each target."),
         ("Guard", "PR quick mode plus <code>gradekit diff --fail-on-regression</code> on every change."),
     ]
     steps_html = "".join(f"<li><b>{t}</b>{d}</li>" for t, d in steps)
@@ -550,7 +576,7 @@ def landing(version: str, weights: dict, zip_name: str, zip_sha: str, zip_size: 
       <div class="stats">
         <div><b>{n_core}</b><span>core benchmarks</span></div>
         <div><b>{n_all - n_core}</b><span>conditional</span></div>
-        <div><b>6</b><span>project profiles</span></div>
+        <div><b>{len(defaults["presets"])}</b><span>presets</span></div>
       </div>
       <ul class="ladder">{ladder}</ul>
     </div>
@@ -564,11 +590,18 @@ def landing(version: str, weights: dict, zip_name: str, zip_sha: str, zip_size: 
     <div class="roles">{"".join(role_cards)}</div>
   </section>
 
-  <section class="block">
-    <h2>Project context</h2>
-    <p class="sub">Paste this under any of the prompts above. If you leave fields blank, the grader infers them and says what it inferred.</p>
-    <pre id="ctx">{html.escape(context)}</pre>
-    <button class="btn" type="button" data-copy="#ctx">Copy template</button>
+  <section class="block" id="weighting">
+    <h2>Weighted to your project</h2>
+    <p class="sub">Not every benchmark matters equally, and what matters depends on the code. Three mechanisms handle that, all set in a small <code>project.toml</code> that humans own.</p>
+    <div class="trio">
+      <div class="pillar"><h3><span class="pid">1</span>Weights from questions</h3><p>Answer eight questions ({questions}) or start from a preset ({preset_names}). Each answer moves specific weights; <code>--explain</code> shows why.</p></div>
+      <div class="pillar"><h3><span class="pid">2</span>Gates</h3><p>Correctness and Security always, plus whatever your answers add. A failed gate caps the overall score: a weighted average can't make up for a security hole.</p></div>
+      <div class="pillar"><h3><span class="pid">3</span>Criticality zones</h3><p>Mark hot code (money, auth, data writes) and cold code (scripts, examples). Problems count one severity higher in hot zones, and hot-zone fixes are ranked first.</p></div>
+    </div>
+    <pre id="qs">{html.escape(quickstart)}</pre>
+    <div class="row-btns"><button class="btn" type="button" data-copy="#qs">Copy commands</button>
+      <a class="btn" href="docs/TUNING.html">Tuning guide</a><a class="btn" href="docs/config/project.example.html">Example project.toml</a>
+      <a class="btn" href="docs/rubric/weights.html">How scoring works</a></div>
   </section>
 
   <section class="block">
@@ -579,7 +612,7 @@ def landing(version: str, weights: dict, zip_name: str, zip_sha: str, zip_size: 
 
   <section class="block">
     <h2>The benchmarks</h2>
-    <p class="sub">Grouped into six pillars, plus conditional benchmarks that apply only to some projects. Each one is classified <code>full</code>, <code>limited</code> or <code>not_applicable</code> for the code being graded.</p>
+    <p class="sub">Grouped into six pillars, plus conditional benchmarks that apply only to some projects. Each one is classified <code>full</code>, <code>limited</code> or <code>not_applicable</code> for the code being graded. <a href="docs/rubric/weights.html#resulting-weights-by-preset">Weights by preset →</a></p>
     <div class="pillars">{"".join(cards)}</div>
   </section>
 
@@ -619,7 +652,12 @@ def main(argv=None) -> int:
         shutil.rmtree(out)
     out.mkdir(parents=True, exist_ok=True)
 
-    weights = json.loads((KIT / "rubric" / "weights.json").read_text(encoding="utf-8"))
+    weights = json.loads((KIT / "rubric" / "catalog.json").read_text(encoding="utf-8"))
+    try:
+        import tomllib
+    except ModuleNotFoundError:
+        sys.exit("error: build_web.py needs Python 3.11+ (tomllib)")
+    defaults = tomllib.loads((KIT / "config" / "defaults.toml").read_text(encoding="utf-8"))
     version = weights["suite_version"]
     built = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     render, renderer_name = make_renderer()
@@ -644,11 +682,15 @@ def main(argv=None) -> int:
     write(out / ".htaccess", HTACCESS)
     write(out / "assets" / "style.css", CSS.strip() + "\n")
     write(out / "assets" / "site.js", JS.strip() + "\n")
+    write(out / "assets" / "favicon.svg", FAVICON)
 
     # rendered docs
     flat = [item for _, items in DOCS for item in items]
     for i, (src, title) in enumerate(flat):
         text = agent if src == "AGENT.md" else (KIT / src).read_text(encoding="utf-8")
+        if src.endswith(".toml"):
+            fence = "~~~~" if "```" in text else "```"
+            text = f"# {title}\n\n`{src}`. Download the raw file with the button above.\n\n{fence}toml\n{text}\n{fence}\n"
         rel_html = doc_html_path(src)
         depth = 1 + rel_html.count("/")
         up = "../" * depth
@@ -660,7 +702,7 @@ def main(argv=None) -> int:
                         + "".join(f'<li><a href="#{s}">{html.escape(html.unescape(t))}</a></li>' for _, t, s in h2s)
                         + "</ul></details>")
         raw_href = f"{up}AGENT.md" if src == "AGENT.md" else f"{up}suite/{src}"
-        bar = (f'<div class="docbar"><a class="btn" href="{raw_href}">View raw .md</a>'
+        bar = (f'<div class="docbar"><a class="btn" href="{raw_href}">View raw .{src.rsplit(".", 1)[-1]}</a>'
                f'<button class="btn" type="button" data-copy="{raw_href}">Copy raw URL for an agent</button></div>')
         prev_link = next_link = ""
         if i > 0:
@@ -673,7 +715,7 @@ def main(argv=None) -> int:
                    f'<nav class="pager">{prev_link}{next_link}</nav></main></div>')
         write(out / "docs" / rel_html, page(title, content, depth, version, sidebar="yes"))
 
-    write(out / "index.html", landing(version, weights, zip_name, zip_sha, zip_path.stat().st_size, built))
+    write(out / "index.html", landing(version, weights, zip_name, zip_sha, zip_path.stat().st_size, built, defaults))
 
     # manifest + checksums (last, over everything else)
     entries = []
