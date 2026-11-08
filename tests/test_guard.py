@@ -240,3 +240,47 @@ def test_improvement_log_carries_the_guard_table(repo, tmp_path):
     assert md.index("**Guard**") < md.index("**Done**")
     bad = gk("render", "log", log, "--guard", repo / ".git" / "gradekit" / "guard-before.json", cwd=repo, code=1)
     assert "isn't a `guard compare` result" in bad.stderr
+
+
+# --------------------------------------------------------------------------- found by the 4.3 release gate
+
+@pytest.mark.parametrize("command, runnable", [
+    ("black --check . (black 20.8b1, as pinned)", "black --check ."),
+    ("python -m pytest test_schedule.py -q  (venv without pytz)", "python -m pytest test_schedule.py -q"),
+    ("make && (cd docs; make html)", "make && (cd docs; make html)"),
+    ("pytest -q", "pytest -q"),
+])
+def test_graders_notes_after_a_command_are_dropped(gk, command, runnable):
+    assert gk.guard_trim_note(command) == runnable
+
+
+def test_report_commands_that_install_packages_are_left_out(repo, tmp_path):
+    report = tmp_path / "report.json"
+    report.write_text(json.dumps({"commands_run": [
+        {"command": "pip install -r requirements-dev.txt && python -m pytest -q (Python 3.11)", "result_summary": ""},
+        {"command": "npm ci && npm test", "result_summary": ""},
+        {"command": "ruff check .  (default rules)", "result_summary": ""}]}))
+    res = json.loads(gk("guard", "snapshot", "--from-report", report, "--list", "--json", cwd=repo).stdout)["result"]
+    assert [c["command"] for c in res["checks"]] == ["ruff check ."]
+    assert any("install packages" in n for n in res["notes"]) and any("(default rules)" in n for n in res["notes"])
+
+
+@pytest.mark.parametrize("output, expected", [
+    ("would reformat a.py\n\nOh no! 💥 💔 💥\n3 files would be reformatted, 1 file would be left unchanged.", {"problems": 3}),
+    ("All done! ✨ 🍰 ✨\n4 files would be left unchanged.", {"problems": 0}),
+    ("Name  Version ID\nblack 20.8b1  PYSEC-2024-48\n\nFound 5 known vulnerabilities in 1 package", {"vulnerabilities": 5}),
+    ("No known vulnerabilities found", {"vulnerabilities": 0}),
+    ("found 0 vulnerabilities", {"vulnerabilities": 0}),
+])
+def test_counts_from_formatters_and_audits(gk, output, expected):
+    assert gk.guard_counts(output) == expected
+
+
+def test_coverage_reads_naturally(gk):
+    assert gk.guard_state({"exit_code": 0, "counts": {"passed": 81, "coverage_pct": 99.0}}) == "81 passed, coverage 99% (ok)"
+
+
+def test_an_action_done_in_several_commits(gk):
+    md = gk.render_improve_log({"done": [{"action_id": "B4-act-1", "commit": "2378b1f d279980", "resolves": ["B4-001"]},
+                                         {"action_id": "A3-act-1", "commit": ["920f39d", "abc1234"]}]})
+    assert "**B4-act-1** in `2378b1f`, `d279980`" in md and "**A3-act-1** in `920f39d`, `abc1234`" in md
