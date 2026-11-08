@@ -3,6 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'wasm-unsafe-eval'; connect-src 'self' https://cdn.jsdelivr.net https://api.github.com https://raw.githubusercontent.com; img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'; worker-src 'self' blob:">
+<meta name="referrer" content="strict-origin-when-cross-origin">
 <title>Getting started · Code Grading Suite</title>
 <meta name="description" content="A rubric, prompts and browser tools for AI coding agents to grade codebases from 1 to 10 on 35 benchmarks and improve them.">
 <link rel="stylesheet" href="../assets/style.css">
@@ -10,16 +12,17 @@
 <link rel="alternate" type="text/markdown" href="../AGENT.md" title="Agent entry point">
 </head>
 <body>
+<a class="skip" href="#main">Skip to content</a>
 <header class="topbar">
   <button class='menu-btn' type='button'>Menu</button>
   <a class="brand" href="../index.html">Code <span>Grading</span> Suite</a>
-  <span class="ver">v4.2.2</span>
+  <span class="ver">v4.3.0</span>
   <nav class="main" aria-label="Main"><a href="../docs/GETTING-STARTED.html" class="active" aria-current="page">Get started</a><a href="../app/setup.html">Set up</a><a href="../app/run.html">Start a run</a><a href="../app/review.html">Review</a><a href="../docs/README.html">Docs</a></nav>
   <span class="spacer"></span>
   <a class="top opt" href="../AGENT.md">AGENT.md</a>
-  <a class="top opt" href="../downloads/code-grading-suite-4.2.2.zip">Download</a>
+  <a class="top opt" href="../downloads/code-grading-suite-4.3.0.zip">Download</a>
 </header>
-<div class="layout"><nav class="sidebar" aria-label="Documentation"><h4>Start</h4><a href="../docs/GETTING-STARTED.html" class="active" aria-current="page">Getting started</a><a href="../docs/README.html">Overview &amp; reference</a><a href="../docs/AGENT.html">Agent entry point</a><a href="../docs/DEPLOY.html">Hosting this site</a><h4>Configuration</h4><a href="../docs/TUNING.html">Tuning guide</a><a href="../docs/rubric/weights.html">How scoring works</a><a href="../docs/config/defaults.html">Default config</a><a href="../docs/config/project.example.html">Example project config</a><h4>Prompts</h4><a href="../docs/prompts/grader.html">Grader</a><a href="../docs/prompts/reviewer.html">Report reviewer</a><a href="../docs/prompts/improver.html">Improver</a><a href="../docs/prompts/pr-review.html">Pull-request check</a><h4>Rubric</h4><a href="../docs/rubric/A-correctness-trust.html">A · Correctness &amp; Trust</a><a href="../docs/rubric/B-design-structure.html">B · Design &amp; Structure</a><a href="../docs/rubric/C-code-health.html">C · Code Health</a><a href="../docs/rubric/D-value-fitness.html">D · Value &amp; Fitness</a><a href="../docs/rubric/E-adoption-experience.html">E · Adoption &amp; Experience</a><a href="../docs/rubric/F-operations-delivery.html">F · Operations &amp; Delivery</a><a href="../docs/rubric/X-conditional.html">X · Conditional</a><h4>Guides</h4><a href="../docs/calibration/README.html">Calibration</a><a href="../docs/holdout/README.html">Hidden checks</a><a href="../docs/CHANGELOG.html">Changelog</a></nav><main class="doc"><div class="docbar"><a class="btn" href="../suite/GETTING-STARTED.md">View raw .md</a><button class="btn" type="button" data-copy="../suite/GETTING-STARTED.md">Copy raw URL for an agent</button></div><details class="toc"><summary>On this page</summary><ul><li><a href="#the-idea-in-one-minute">The idea in one minute</a></li><li><a href="#where-things-live">Where things live</a></li><li><a href="#your-first-cycle">Your first cycle</a></li><li><a href="#common-setups">Common setups</a></li><li><a href="#keeping-agents-honest">Keeping agents honest</a></li><li><a href="#when-something-looks-off">When something looks off</a></li><li><a href="#prefer-the-command-line">Prefer the command line?</a></li></ul></details><h1 id="getting-started">Getting started<a class="anchor" href="#getting-started" aria-label="Link to this section">#</a></h1>
+<div class="layout"><nav class="sidebar" aria-label="Documentation"><h4>Start</h4><a href="../docs/GETTING-STARTED.html" class="active" aria-current="page">Getting started</a><a href="../docs/README.html">Overview &amp; reference</a><a href="../docs/GLOSSARY.html">Glossary</a><a href="../docs/AGENT.html">Agent entry point</a><a href="../docs/DEPLOY.html">Hosting this site</a><h4>Configuration</h4><a href="../docs/TUNING.html">Tuning guide</a><a href="../docs/rubric/weights.html">How scoring works</a><a href="../docs/config/defaults.html">Default config</a><a href="../docs/config/project.example.html">Example project config</a><h4>Prompts</h4><a href="../docs/prompts/grader.html">Grader</a><a href="../docs/prompts/reviewer.html">Report reviewer</a><a href="../docs/prompts/improver.html">Improver</a><a href="../docs/prompts/pr-review.html">PR check</a><h4>Rubric</h4><a href="../docs/rubric/A-correctness-trust.html">A · Correctness &amp; Trust</a><a href="../docs/rubric/B-design-structure.html">B · Design &amp; Structure</a><a href="../docs/rubric/C-code-health.html">C · Code Health</a><a href="../docs/rubric/D-value-fitness.html">D · Value &amp; Fitness</a><a href="../docs/rubric/E-adoption-experience.html">E · Adoption &amp; Experience</a><a href="../docs/rubric/F-operations-delivery.html">F · Operations &amp; Delivery</a><a href="../docs/rubric/X-conditional.html">X · Conditional</a><h4>Guides</h4><a href="../docs/calibration/README.html">Calibration</a><a href="../docs/holdout/README.html">Hidden checks</a><a href="../docs/CHANGELOG.html">Changelog</a></nav><main class="doc" id="main"><div class="docbar"><a class="btn" href="../suite/GETTING-STARTED.md">View raw .md</a><button class="btn" type="button" data-copy="../suite/GETTING-STARTED.md">Copy raw URL for an agent</button></div><details class="toc"><summary>On this page</summary><ul><li><a href="#the-idea-in-one-minute">The idea in one minute</a></li><li><a href="#where-things-live">Where things live</a></li><li><a href="#your-first-cycle">Your first cycle</a></li><li><a href="#common-setups">Common setups</a></li><li><a href="#keeping-agents-honest">Keeping agents honest</a></li><li><a href="#when-something-looks-off">When something looks off</a></li><li><a href="#prefer-the-command-line">Prefer the command line?</a></li></ul></details><h1 id="getting-started">Getting started<a class="anchor" href="#getting-started" aria-label="Link to this section">#</a></h1>
 <p>This guide takes you through a first full cycle: set up a project, have an agent grade it, review the report, and let an agent improve the code. It takes about 20 minutes of your time, plus however long your agents take. <strong>Nothing to install.</strong> You use three pages on this website and whatever coding agent you already have, cloud or local.</p>
 <h2 id="the-idea-in-one-minute">The idea in one minute<a class="anchor" href="#the-idea-in-one-minute" aria-label="Link to this section">#</a></h2>
 <p>Four jobs, each done by a separate agent session (or by you):</p>
@@ -57,7 +60,7 @@
 <p>A fresh grader session each time keeps the grading honest: an agent never grades its own work.</p>
 <h2 id="where-things-live">Where things live<a class="anchor" href="#where-things-live" aria-label="Link to this section">#</a></h2>
 <p>Your code repos stay untouched. Everything about grading lives in <strong>one central grading repo</strong> (or, if you prefer, plain local folders with the same layout):</p>
-<pre><code>grading/                          your grading repo
+<pre tabindex="0"><code>grading/                          your grading repo
 ├── README.md
 ├── org.toml                      optional: house rules for every project
 └── projects/
@@ -83,7 +86,7 @@
 <li><strong>Enter the code repository.</strong> The project name fills in from it (e.g. <code>orders-api</code>). For a monorepo, add a subfolder (<code>apps/web</code>) and give each part its own project.</li>
 <li><strong>Pick a preset</strong> that's closest to your project (e.g. <em>service</em>, <em>web app</em>, <em>library</em>).</li>
 <li><strong>Check the eight questions.</strong> The preset fills them in; change any that don't fit. The panel on the right shows how each answer moves the weights, and which benchmarks become <strong>gates</strong> (non-negotiable).</li>
-<li><strong>Mark critical code.</strong> Add a hot zone for anything that moves money, controls access or writes important data, and a cold zone for scripts and examples. Use <strong>Test a path</strong> to check your patterns.</li>
+<li><strong>Mark hot and cold zones.</strong> Add a hot zone for anything that moves money, controls access or writes important data, and a cold zone for scripts and examples. Use <strong>Test a path</strong> to check your patterns.</li>
 <li><strong>Download <code>project.toml</code></strong> and add it to your grading repo as <code>projects/orders-api/project.toml</code>. The page also gives you starter <code>decisions.json</code> and <code>dispositions.json</code> files, and a README for a brand-new grading repo. On GitHub: <strong>Add file → Upload files</strong>. <em>Needs write access to the grading repo.</em></li>
 </ol>
 <h3 id="2-grade-2-minutes-of-your-time">2. Grade (2 minutes of your time)<a class="anchor" href="#2-grade-2-minutes-of-your-time" aria-label="Link to this section">#</a></h3>
@@ -178,7 +181,7 @@
 </table>
 <h2 id="prefer-the-command-line">Prefer the command line?<a class="anchor" href="#prefer-the-command-line" aria-label="Link to this section">#</a></h2>
 <p>Everything the pages do is also available through <code>tools/gradekit.py</code> in the downloadable kit (Python 3.11+, no other installs). From the root of your grading repo:</p>
-<pre><code class="language-bash">K=&quot;python3 SUITE_DIR/tools/gradekit.py&quot;
+<pre tabindex="0"><code class="language-bash">K=&quot;python3 SUITE_DIR/tools/gradekit.py&quot;
 $K init --project orders-api --code-repo https://github.com/acme/orders-api --preset service
 $K resolve --project orders-api              # weights, gates and zones it produces
 $K rollup  --project orders-api              # the latest report: gates, maturity, priorities

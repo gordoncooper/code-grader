@@ -48,7 +48,7 @@ Open **[Set up a project](../app/setup.html)**.
 1. **Enter the code repository.** The project name fills in from it (e.g. `orders-api`). For a monorepo, add a subfolder (`apps/web`) and give each part its own project.
 2. **Pick a preset** that's closest to your project (e.g. *service*, *web app*, *library*).
 3. **Check the eight questions.** The preset fills them in; change any that don't fit. The panel on the right shows how each answer moves the weights, and which benchmarks become **gates** (non-negotiable).
-4. **Mark critical code.** Add a hot zone for anything that moves money, controls access or writes important data, and a cold zone for scripts and examples. Use **Test a path** to check your patterns.
+4. **Mark hot and cold zones.** Add a hot zone for anything that moves money, controls access or writes important data, and a cold zone for scripts and examples. Use **Test a path** to check your patterns.
 5. **Download `project.toml`** and add it to your grading repo as `projects/orders-api/project.toml`. The page also gives you starter `decisions.json` and `dispositions.json` files, and a README for a brand-new grading repo. On GitHub: **Add file → Upload files**. *Needs write access to the grading repo.*
 
 ### 2. Grade (2 minutes of your time)

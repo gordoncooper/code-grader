@@ -373,6 +373,28 @@
       "items": {
         "type": "string"
       }
+    },
+    "publishing": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "description": "Written by `gradekit redact`",
+      "properties": {
+        "redacted": {
+          "type": "boolean"
+        },
+        "withheld": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "summary": {
+      "type": "string",
+      "description": "3–5 sentences: overall health, biggest risks and strengths. Shown at the top of report.md and the grading pull request"
     }
   },
   "$defs": {
@@ -458,6 +480,21 @@
               "type": "string"
             }
           }
+        },
+        {
+          "type": "object",
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "type": {
+              "const": "withheld"
+            },
+            "note": {
+              "type": "string"
+            }
+          },
+          "description": "Placeholder written by `gradekit redact` for a sensitive finding's evidence; graders never write it"
         }
       ]
     },
@@ -529,6 +566,10 @@
             "type": "string"
           },
           "description": "Repo-relative paths or globs the finding concerns; used for zones when there's no code evidence"
+        },
+        "sensitive": {
+          "type": "boolean",
+          "description": "Details would help an attacker (or otherwise must not be public). `gradekit redact` withholds the title, evidence and the wording of actions that fix it"
         }
       }
     },
@@ -737,6 +778,13 @@
             "string",
             "null"
           ]
+        },
+        "rationale": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "One line: why this score. Shown in the scorecard"
         }
       }
     }

@@ -3,6 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'wasm-unsafe-eval'; connect-src 'self' https://cdn.jsdelivr.net https://api.github.com https://raw.githubusercontent.com; img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'; worker-src 'self' blob:">
+<meta name="referrer" content="strict-origin-when-cross-origin">
 <title>Review a report · Code Grading Suite</title>
 <meta name="description" content="A rubric, prompts and browser tools for AI coding agents to grade codebases from 1 to 10 on 35 benchmarks and improve them.">
 <link rel="stylesheet" href="../assets/style.css">
@@ -10,16 +12,17 @@
 <link rel="alternate" type="text/markdown" href="../AGENT.md" title="Agent entry point">
 </head>
 <body>
+<a class="skip" href="#main">Skip to content</a>
 <header class="topbar">
   
   <a class="brand" href="../index.html">Code <span>Grading</span> Suite</a>
-  <span class="ver">v4.2.2</span>
+  <span class="ver">v4.3.0</span>
   <nav class="main" aria-label="Main"><a href="../docs/GETTING-STARTED.html">Get started</a><a href="../app/setup.html">Set up</a><a href="../app/run.html">Start a run</a><a href="../app/review.html" class="active" aria-current="page">Review</a><a href="../docs/README.html">Docs</a></nav>
   <span class="spacer"></span>
   <a class="top opt" href="../AGENT.md">AGENT.md</a>
-  <a class="top opt" href="../downloads/code-grading-suite-4.2.2.zip">Download</a>
+  <a class="top opt" href="../downloads/code-grading-suite-4.3.0.zip">Download</a>
 </header>
-<div class="app">
+<main id="main"><div class="app">
   <header class="app-head">
     <div>
       <div class="eyebrow">Tool 3 of 3</div>
@@ -31,10 +34,10 @@
   <div id="engine-error"></div>
 
   <section class="card" id="load-card">
-    <nav class="tabs" id="load-tabs" style="margin-top:0">
+    <div class="tabs" id="load-tabs" style="margin-top:0" aria-label="Where the report comes from">
       <button type="button" data-tab="repo">From the grading repo</button>
       <button type="button" data-tab="files">Open files</button>
-    </nav>
+    </div>
     <div class="panel" id="panel-repo">
       <div class="grid2">
         <div class="field"><label for="gh-repo">Grading repo</label><input type="text" id="gh-repo" placeholder="owner/grading, or its github.com URL (a report PR's URL works too)"></div>
@@ -48,8 +51,8 @@
       <div id="gh-status"></div>
     </div>
     <div class="panel" id="panel-files" hidden>
-      <div class="drop" id="drop" tabindex="0" role="button" aria-label="Choose files">
-        <b>Drop files, a project folder, or a .zip here</b> or click to choose files<br>
+      <div class="drop" id="drop">
+        <b>Drop files, a project folder, or a .zip here</b>, or <button type="button" class="link" data-choose>choose files</button><br>
         <small>A project folder (or a zip of the grading repo) brings everything at once. Loose files work too: a <code>report.json</code> plus, optionally, <code>project.toml</code>, <code>decisions.json</code>, <code>dispositions.json</code>, an older report to compare, extra run files, and a zip of the code (to check citations).</small>
       </div>
       <input type="file" id="file-input" multiple hidden accept=".json,.toml,.zip,application/json,application/zip,text/plain">
@@ -73,7 +76,7 @@
       </div>
     </div>
     <div id="result-banners" style="margin-top:18px"></div>
-    <nav class="tabs" id="result-tabs" aria-label="Report sections">
+    <div class="tabs" id="result-tabs" aria-label="Report sections">
       <button type="button" data-tab="overview">Overview</button>
       <button type="button" data-tab="decisions">Decisions <span class="count" id="dec-count" hidden></span></button>
       <button type="button" data-tab="priorities">Priorities</button>
@@ -81,7 +84,7 @@
       <button type="button" data-tab="findings">Findings</button>
       <button type="button" data-tab="compare">Compare</button>
       <button type="button" data-tab="more">More</button>
-    </nav>
+    </div>
     <div class="panel" id="panel-overview"></div>
     <div class="panel" id="panel-decisions" hidden></div>
     <div class="panel" id="panel-priorities" hidden></div>
@@ -91,10 +94,11 @@
     <div class="panel" id="panel-more" hidden></div>
   </div>
 </div>
-
+</main>
 <script src="../assets/site.js"></script>
 <script src="../assets/engine-config.js"></script>
 <script src="../assets/engine.js"></script>
+<script src="../assets/glossary.js"></script>
 <script src="../assets/common.js"></script>
 <script src="../assets/review.js"></script>
 </body>

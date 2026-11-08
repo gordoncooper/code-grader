@@ -1,4 +1,4 @@
-<!-- Part of the Code Grading Suite v4.2.2. Read together with prompts/grader.md, which holds the scoring rules, anti-gaming rules and output format. -->
+<!-- Part of the Code Grading Suite v4.3.0. Read together with prompts/grader.md, which holds the scoring rules, anti-gaming rules and output format. -->
 
 # Conditional benchmarks rubric
 

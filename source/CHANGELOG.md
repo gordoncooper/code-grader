@@ -7,8 +7,8 @@ Versioning rules for the suite itself:
 
 After any major or minor change, re-run calibration (`calibration/README.md`) before trusting new scores.
 
-## 4.3.0 (unreleased)
-Minor release: tools that let agents run the whole cycle without custom scripts, and safer publishing. No scoring changes; config fingerprints and existing reports stay valid.
+## 4.3.0
+Minor release: tools that let agents run the whole cycle without custom scripts, and safer publishing. No scoring changes; config fingerprints and existing reports stay valid. Tested by running the whole cycle on a real repository (dbader/schedule) with `gradekit` commands only: it reproduced the 4.2.2 grade exactly.
 
 **Writing reports with `gradekit report`**
 - Graders build `report.json` with commands instead of typing JSON. The tool fills in every benchmark with its name, weight and target, copies each quote from the code so citations always verify, and picks the next free finding, gap and action IDs (never reusing an ID from the project's earlier reports; an ID only mentioned in text, such as a command's summary, doesn't count as taken).

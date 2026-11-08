@@ -1,5 +1,5 @@
 # =============================================================================
-# Code Grading Suite: default configuration (suite v4.2.2)
+# Code Grading Suite: default configuration (suite v4.3.0)
 # =============================================================================
 #
 # Every adjustable part of scoring lives in this file: weights, the questions
@@ -23,8 +23,9 @@
 # Agents read them but never change them.
 # =============================================================================
 
-# The version of the scoring rules. It changes only when scoring changes (major or minor
-# versions), so patch releases such as 4.2.2 keep config fingerprints, and older reports, valid.
+# The version of the scoring rules, which is not always the kit's version. It changes only
+# when the scoring rules change, so releases that only add tools, fields or wording (such as
+# 4.2.2 and 4.3.0) keep config fingerprints, and older reports, valid.
 suite_version = "4.2.0"
 
 
@@ -341,3 +342,23 @@ effort_cost = { S = 1, M = 2, L = 4 }
 # -----------------------------------------------------------------------------
 [review]
 allow_agent_decisions = false
+
+
+# -----------------------------------------------------------------------------
+# PUBLISHING: keeping security details out of public grading repos
+# A grading repo may be public. Findings the grader marks "sensitive": true
+# (typically security issues) are withheld by `gradekit redact --in-place`:
+# the public report keeps their ID, benchmark, severity, status and the files
+# they concern, so every score, gate and priority comes out the same, but not
+# their title, quotes, commands or the wording of the actions that fix them.
+# The full report is saved beside it as report.private.json, which grading
+# repos never commit.
+#   public               false if only trusted people can read the grading repo
+#   sensitive_benchmarks validate warns about open findings here that aren't
+#   warn_at              marked sensitive, at this severity or worse
+# These settings never change scores, so they don't change the config hash.
+# -----------------------------------------------------------------------------
+[publishing]
+public = true
+sensitive_benchmarks = ["A2"]
+warn_at = "major"

@@ -1,4 +1,4 @@
-# Code Grading Suite v4.2.2
+# Code Grading Suite v4.3.0
 
 A kit for having AI agents grade a codebase from 1 to 10 on **35 benchmarks** (29 core in 6 pillars, plus 6 that apply only to some projects), and then improve it against those grades. It is built so that **rising scores mean better code**, not just code tuned to the rubric.
 
@@ -12,7 +12,7 @@ A kit for having AI agents grade a codebase from 1 to 10 on **35 benchmarks** (2
 | **The prompts** | One per job: `grader.md`, `reviewer.md`, `improver.md`, `pr-review.md`. Each starts with a table of inputs (code, grading repo and project, delivery, permissions) with sensible defaults. |
 | **The rubric** | One file per pillar, with anchors, caps and "Not this" boundaries for each benchmark. |
 | **The config** | `config/defaults.toml` holds every tunable setting. Each project has its own `project.toml` on top. |
-| **`gradekit.py`** | Does all the arithmetic and checking: weights, gates, zones, validation, evidence checks, roll-ups, ranked priorities, consensus, comparisons. Use it from the command line (Python 3.11+, standard library only), or let the website run it. |
+| **`gradekit.py`** | Does all the arithmetic and checking: weights, gates, zones, validation, evidence checks, the rollup, ranked priorities, consensus, comparisons. Use it from the command line (Python 3.11+, standard library only), or let the website run it. |
 
 ## Where things live
 
@@ -56,13 +56,14 @@ Repeat from step 1. Optionally, use three graders for milestone audits; the Revi
 1. **Graders are independent.** Use a fresh session every time, ideally a different model from the improver, and never the session that did the improving.
 2. **Graders run sandboxed.** They run the repo's own scripts, so give them a disposable environment with no production credentials.
 3. **People own the project files** (`project.toml`, `decisions.json`, `dispositions.json`). Graders only add report folders, by PR; they never push to the grading repo's default branch. An agent reviewer may append decisions only if `[review] allow_agent_decisions = true`.
-4. **Trust `gradekit`'s numbers.** Weights, gates, effective severities, pillar scores, the overall score, targets, maturity and priorities always come from `gradekit`, never from the grader's own arithmetic.
+4. **Keep security details out of public reports.** A grading repo is treated as public. Graders mark findings that would help an attacker as sensitive, and `gradekit redact --in-place` withholds their details from the committed report without changing any score. The full report, `report.private.json`, is never committed. Set `[publishing] public = false` if only trusted people can read the grading repo ([TUNING.md](TUNING.md)).
+5. **Trust `gradekit`'s numbers.** Weights, gates, effective severities, pillar scores, the overall score, targets, maturity and priorities always come from `gradekit`, never from the grader's own arithmetic.
 
 ## Key concepts
 
 - **Weights.** Each benchmark counts 1 (minor) to 3 (critical). Weights start from base values and move with the project's answers to eight questions, e.g. "handles money" raises Security, Idempotence and Durability.
 - **Gates.** Correctness and Security always, plus whatever the answers add. A gate at or below 3 caps the overall score at 4.0: an average can't make up for a security hole.
-- **Criticality zones.** Hot code (money, auth, data writes) counts more than cold code (scripts, examples). Findings are one severity higher in hot zones and one lower in cold, and hot-zone work is ranked first.
+- **Zones.** Hot code (money, auth, data writes) counts more than cold code (scripts, examples). Findings are one severity higher in hot zones and one lower in cold, and hot-zone work is ranked first.
 - **Applicability.** Every benchmark is classified `full`, `limited` (counts at weight 1) or `not_applicable` (excluded), each with a reason. The decision is based on the project's purpose, never on current quality.
 - **Targets.** `proportional` (default: 10 / 9 / 8 by weight), `maximal` or `level:L3`, plus per-benchmark overrides. Improvers stop at the target.
 - **Maturity ladder.** L0 Not viable → L1 Prototype → L2 Usable → L3 Production-ready → L4 Exemplary. Each report names the exact blockers.
@@ -82,14 +83,41 @@ K="python3 SUITE_DIR/tools/gradekit.py"
 $K init --project orders-api --code-repo URL --preset service   # create projects/orders-api/
 $K resolve  --project orders-api [--explain A4]                 # weights, gates, zones (and why)
 $K presets                                                       # compare presets side by side
-$K validate --project orders-api                                 # schema, config and rule checks (latest report)
+$K doctor --project orders-api --repo CODE --delivery pr         # preflight: is everything a run needs in place?
+$K report new --project orders-api --commit SHA                   # graders: start a report (weights and targets filled in)
+$K report finding add REPORT --benchmark A3 --cite src/x.py:40 --repo CODE …   # quotes copied from the code; see `report --help`
+$K report check REPORT --repo CODE [--write]                     # what's missing or wrong; --write stores the rollup
+$K carry LAST_REPORT --repo CODE --commit SHA [--mode full|pr …]  # next report from the last: IDs kept, citations moved
+$K report match REPORT --baseline LAST_REPORT [--apply]           # which earlier finding each new one is
+$K deliver REPORT --delivery pr|save|return [--run --push --open github|gitlab]   # hand back a finished report
+$K index [--check]                                               # grading repos: projects/index.json (scores, history, decisions waiting)
+$K ci --base origin/main                                         # grading repos: check a pull request (see ci/README.md)
+$K render report REPORT                                          # report.md from report.json
+$K render pr REPORT                                             # the grading pull request's branch, title and body
+$K render check BASELINE PR_REPORT                               # the PR-check comment
+$K render log improve-log.json --report REPORT --guard CMP      # the improver's log, with the guard's table
+$K guard snapshot CODE --from-report REPORT [--check NAME=CMD]  # improvers: the code's checks before any change
+$K guard compare CODE [--explain KEY=REASON]                    # …and after: exit 2 if anything got worse
+$K validate --project orders-api [--publish]                     # schema, config and rule checks (latest report); --publish: safe to commit?
 $K verify-evidence --project orders-api --repo CODE_DIR_OR_ZIP   # every quoted line exists
 $K rollup   --project orders-api [--write]                       # gates, maturity, targets, ranked priorities
 $K diff     --project orders-api [--fail-on-regression]          # latest vs previous report
 $K stability projects/orders-api/reports/<folder>/runs/run-*.json --project orders-api --out projects/orders-api/reports/<folder>/report.json
 $K calibrate report.json expected.json                           # grader drift check
-$K redact report.json                                            # strip hidden-check details
+$K redact report.json [--in-place]                               # withhold sensitive findings and hidden-check details
 ```
+
+**For agents and scripts:** add `--json` to any command to get exactly one JSON object on stdout: `{"ok", "exit_code", "command", "result", "text"}`, plus `"error"` when the command failed. `result` holds the command's data (validation errors, the rollup, a diff, the path written…) and `text` holds what it would have printed.
+
+| Exit code | Meaning |
+|:-:|---|
+| 0 | OK |
+| 1 | Failed check, invalid report or other error |
+| 2 | Regression (`diff --fail-on-regression`, `guard compare`) |
+| 3 | Unstable runs (`stability --strict`) |
+| 4 | Calibration failed (`calibrate`) |
+| 5 | Report not finished yet (`report check`) |
+| 64 | Bad arguments (the usage message says which) |
 
 Try it on the bundled example grading repo:
 
@@ -116,13 +144,21 @@ code-grading-suite/
 ├── tools/
 │   ├── gradekit.py         the engine (CLI + the browser API)
 │   ├── build_web.py        builds the website
+│   ├── vendor_pyodide.py   puts the Python runtime inside a built website (no CDN)
 │   └── web/                website sources (pages, styles, scripts)
+├── ci/                     the grading check for grading repos (GitHub Actions, GitLab CI, any host)
 ├── calibration/            checking graders against known scores
 ├── holdout/                writing hidden checks
 └── examples/
     ├── sample-repo/        a tiny code repo
     └── grading-repo/       an example grading repo with two reports for it
 ```
+
+## CI for grading repos
+
+`gradekit ci` checks every pull request to a grading repo. Each one must be a single kind of change: either one new report folder, or a project's settings. It validates the report, its rollup and its folder name, and makes sure no private report or withheld detail is published. It keeps `decisions.json` and `dispositions.json` append-only. Then it comments a summary with a link to the Review page, and labels the pull request.
+
+To add it, run `gradekit init --project NAME --ci github|gitlab --site URL`. It works on other hosts too. [ci/README.md](ci/README.md) covers setup and the permissions each host needs.
 
 ## Calibration and monorepos
 

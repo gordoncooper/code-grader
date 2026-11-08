@@ -39,12 +39,12 @@ EXCLUDE_SUFFIXES = {".pyc", ".pyo"}
 
 # (section, [(kit path or "AGENT.md", nav title)])
 DOCS = [
-    ("Start", [("GETTING-STARTED.md", "Getting started"), ("README.md", "Overview & reference"), ("AGENT.md", "Agent entry point"),
-               ("DEPLOY.md", "Hosting this site")]),
+    ("Start", [("GETTING-STARTED.md", "Getting started"), ("README.md", "Overview & reference"), ("GLOSSARY.md", "Glossary"),
+               ("AGENT.md", "Agent entry point"), ("DEPLOY.md", "Hosting this site")]),
     ("Configuration", [("TUNING.md", "Tuning guide"), ("rubric/weights.md", "How scoring works"),
                        ("config/defaults.toml", "Default config"), ("config/project.example.toml", "Example project config")]),
     ("Prompts", [("prompts/grader.md", "Grader"), ("prompts/reviewer.md", "Report reviewer"), ("prompts/improver.md", "Improver"),
-                 ("prompts/pr-review.md", "Pull-request check")]),
+                 ("prompts/pr-review.md", "PR check")]),
     ("Rubric", [("rubric/A-correctness-trust.md", "A · Correctness & Trust"),
                 ("rubric/B-design-structure.md", "B · Design & Structure"),
                 ("rubric/C-code-health.md", "C · Code Health"),
@@ -140,11 +140,19 @@ def add_heading_ids(body: str) -> tuple[str, list[tuple[int, str, str]]]:
 # --------------------------------------------------------------------------- templates
 
 WEB_SRC = KIT / "tools" / "web"
+# Content-Security-Policy for every page. Scripts come only from this site and the pinned Pyodide on
+# jsDelivr ('wasm-unsafe-eval' lets Pyodide compile its WebAssembly; nothing else may eval). Pages may
+# talk to this site, jsDelivr (Pyodide's files) and GitHub (the Review page reads public grading repos).
+# Kept in a <meta> tag so it works on any host; DEPLOY.md shows the same policy as a header.
+CSP = ("default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'wasm-unsafe-eval'; "
+       "connect-src 'self' https://cdn.jsdelivr.net https://api.github.com https://raw.githubusercontent.com; "
+       "img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self'; object-src 'none'; "
+       "base-uri 'self'; form-action 'none'; worker-src 'self' blob:")
 ASSETS = ["style.css", "site.js", "common.js", "engine.js", "engine-config.js", "setup.js", "run.js", "review.js", "favicon.svg"]
 APP_PAGES = [  # (slug, title, nav key, scripts)
-    ("setup", "Set up a project", "setup", ["engine-config.js", "engine.js", "common.js", "setup.js"]),
-    ("run", "Start a run", "run", ["common.js", "run.js"]),
-    ("review", "Review a report", "review", ["engine-config.js", "engine.js", "common.js", "review.js"]),
+    ("setup", "Set up a project", "setup", ["engine-config.js", "engine.js", "glossary.js", "common.js", "setup.js"]),
+    ("run", "Start a run", "run", ["glossary.js", "common.js", "run.js"]),
+    ("review", "Review a report", "review", ["engine-config.js", "engine.js", "glossary.js", "common.js", "review.js"]),
 ]
 NAV = [("start", "Get started", "docs/GETTING-STARTED.html"), ("setup", "Set up", "app/setup.html"),
        ("run", "Start a run", "app/run.html"), ("review", "Review", "app/review.html"), ("docs", "Docs", "docs/README.html")]
@@ -152,6 +160,8 @@ NAV = [("start", "Get started", "docs/GETTING-STARTED.html"), ("setup", "Set up"
 
 def page(title: str, body: str, depth: int, version: str, sidebar: str = "", active: str = "", scripts=()) -> str:
     up = "../" * depth
+    # Code blocks can scroll sideways on a phone; make them reachable with the keyboard.
+    body = re.sub(r"<pre(?![^>]*tabindex)(?=[\s>])", '<pre tabindex="0"', body)
     current = ' class="active" aria-current="page"'
     nav = "".join(f'<a href="{up}{href}"{current if key == active else ""}>{label}</a>' for key, label, href in NAV)
     script_tags = "".join(f'<script src="{up}assets/{s}"></script>\n' for s in scripts)
@@ -160,6 +170,8 @@ def page(title: str, body: str, depth: int, version: str, sidebar: str = "", act
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="{CSP}">
+<meta name="referrer" content="strict-origin-when-cross-origin">
 <title>{html.escape(title)} · Code Grading Suite</title>
 <meta name="description" content="A rubric, prompts and browser tools for AI coding agents to grade codebases from 1 to 10 on 35 benchmarks and improve them.">
 <link rel="stylesheet" href="{up}assets/style.css">
@@ -167,6 +179,7 @@ def page(title: str, body: str, depth: int, version: str, sidebar: str = "", act
 <link rel="alternate" type="text/markdown" href="{up}AGENT.md" title="Agent entry point">
 </head>
 <body>
+<a class="skip" href="#main">Skip to content</a>
 <header class="topbar">
   {"<button class='menu-btn' type='button'>Menu</button>" if sidebar else ""}
   <a class="brand" href="{up}index.html">Code <span>Grading</span> Suite</a>
@@ -176,7 +189,7 @@ def page(title: str, body: str, depth: int, version: str, sidebar: str = "", act
   <a class="top opt" href="{up}AGENT.md">AGENT.md</a>
   <a class="top opt" href="{up}downloads/code-grading-suite-{version}.zip">Download</a>
 </header>
-{body}
+{body if "<main" in body else '<main id="main">' + body + "</main>"}
 <script src="{up}assets/site.js"></script>
 {script_tags}</body>
 </html>
@@ -234,7 +247,7 @@ Take your role from the person's instruction:
 | **Grader** | grade, audit, score or evaluate a codebase | `suite/prompts/grader.md` |
 | **Report reviewer** | check a grading report, or prepare or answer its decision questions | `suite/prompts/reviewer.md` |
 | **Improver** | improve or fix code against an existing report | `suite/prompts/improver.md` |
-| **Pull-request reviewer** | check one pull request, change or diff | `suite/prompts/pr-review.md` (it builds on `grader.md`) |
+| **PR checker** | check one pull request, change or diff | `suite/prompts/pr-review.md` (it builds on `grader.md`) |
 
 If the role isn't clear, ask. Take **one role per session**: never grade code you improved in the same session, because the grader must be independent.
 
@@ -271,7 +284,7 @@ Every prompt starts with a short table of inputs: where the code is, where the *
 - **Grader:** read `suite/prompts/grader.md` completely before starting. Load rubric files one pillar at a time, as it describes. Set `run.suite_source` to this file's URL followed by ` ({version})`.
 - **Report reviewer:** read `suite/prompts/reviewer.md`. Only humans approve decision questions, unless `project.toml` says agents may.
 - **Improver:** read `suite/prompts/improver.md`. Never change grading files, and look only at the ones you're pointed to.
-- **Pull-request reviewer:** read `suite/prompts/pr-review.md`, plus `suite/prompts/grader.md`, which it builds on.
+- **PR checker:** read `suite/prompts/pr-review.md`, plus `suite/prompts/grader.md`, which it builds on.
 
 ## Trust rules
 
@@ -297,7 +310,7 @@ Every prompt starts with a short table of inputs: where the code is, where the *
 | `suite/rubric/catalog.json` | Benchmark IDs, names and pillars |
 | `suite/TUNING.md` | How to customize scoring |
 | `suite/schema/report.schema.json` | JSON Schema for reports |
-| `suite/tools/gradekit.py` | Resolves configs, validates reports, checks evidence, computes roll-ups and priorities (Python 3.11+, standard library only) |
+| `suite/tools/gradekit.py` | Builds reports (`gradekit report …`), resolves configs, validates reports, checks evidence, computes the rollup and priorities (Python 3.11+, standard library only) |
 | `suite/examples/` | A sample repo and a complete example report |
 | `downloads/{zip_name}` | Everything above as one zip (SHA-256 `{zip_sha}`) |
 | `manifest.json`, `SHA256SUMS` | Version, sizes and checksums for every file on this site |
@@ -329,7 +342,7 @@ def llms_txt(version: str, zip_name: str) -> str:
               "- [defaults.toml](suite/config/defaults.toml): every tunable setting, commented",
               "- [project.example.toml](suite/config/project.example.toml): a filled-in project config",
               "- [Tuning guide](suite/TUNING.md)",
-              "", "## Tools", "- [gradekit.py](suite/tools/gradekit.py): validate, verify-evidence, rollup, stability, diff, calibrate, redact, rollup-repo",
+              "", "## Tools", "- [gradekit.py](suite/tools/gradekit.py): report (new, finding, score, check…), validate, verify-evidence, rollup, stability, diff, calibrate, redact, rollup-repo",
               "- [report.schema.json](suite/schema/report.schema.json)",
               f"- [Download the kit](downloads/{zip_name})", "- [manifest.json](manifest.json): checksums", ""]
     return "\n".join(lines)
@@ -357,7 +370,7 @@ def landing(version: str, weights: dict, zip_name: str, zip_sha: str, zip_size: 
         ("Grade", 'Get a grader prompt from <a href="app/run.html">Start a run</a> and paste it into any agent, cloud or local. The report arrives as a pull request to the grading repo, or as files.'),
         ("Review and decide", 'Open it in <a href="app/review.html">Review a report</a>, which also compares it with the previous report. Answer the decision questions and merge.'),
         ("Improve", "An improver agent works down the ranked priorities and opens a pull request."),
-        ("Guard", "A pull-request check on each change fails anything that makes the code worse."),
+        ("Guard", "A PR check on each change fails anything that makes the code worse."),
     ]
     steps_html = "".join(f"<li><b>{t}</b>{d}</li>" for t, d in steps)
     body = f"""
@@ -387,7 +400,7 @@ def landing(version: str, weights: dict, zip_name: str, zip_sha: str, zip_size: 
     <h2>Three tools, nothing to install</h2>
     <p class="sub">They run the suite's own code in your browser. Your files and reports stay on your computer and aren't uploaded anywhere.</p>
     <div class="tool-cards">
-      <a class="tool-card" href="app/setup.html"><div class="eyebrow">1 · Once per project</div><h3>Set up a project</h3><p>Pick a preset, answer eight questions, and mark critical code. Weights and gates update live, and you download <code>project.toml</code>.</p></a>
+      <a class="tool-card" href="app/setup.html"><div class="eyebrow">1 · Once per project</div><h3>Set up a project</h3><p>Pick a preset, answer eight questions, and mark hot and cold zones. Weights and gates update live, and you download <code>project.toml</code>.</p></a>
       <a class="tool-card" href="app/run.html"><div class="eyebrow">2 · Every run</div><h3>Start a run</h3><p>Choose the job, where things live and how results come back. You get the exact prompt to paste into your agent.</p></a>
       <a class="tool-card" href="app/review.html"><div class="eyebrow">3 · Every report</div><h3>Review a report</h3><p>See where the code stands, answer decision questions, compare with last time, and check the grader's citations.</p></a>
     </div>
@@ -405,7 +418,7 @@ def landing(version: str, weights: dict, zip_name: str, zip_sha: str, zip_size: 
     <div class="trio">
       <div class="pillar"><h3><span class="pid">1</span>Weights from questions</h3><p>Answer eight questions ({questions}) or start from a preset ({preset_names}). Each answer moves specific weights.</p></div>
       <div class="pillar"><h3><span class="pid">2</span>Gates</h3><p>Correctness and Security always, plus whatever your answers add. A failed gate caps the overall score: a weighted average can't make up for a security hole.</p></div>
-      <div class="pillar"><h3><span class="pid">3</span>Criticality zones</h3><p>Mark hot code (money, auth, data writes) and cold code (scripts, examples). Problems count one severity higher in hot zones, and hot-zone fixes are ranked first.</p></div>
+      <div class="pillar"><h3><span class="pid">3</span>Zones</h3><p>Mark hot code (money, auth, data writes) and cold code (scripts, examples). Problems count one severity higher in hot zones, and hot-zone fixes are ranked first.</p></div>
     </div>
     <div class="row-btns"><a class="btn primary" href="app/setup.html">Try it in Set up a project</a><a class="btn" href="docs/rubric/weights.html">How scoring works</a><a class="btn" href="docs/TUNING.html">Tuning guide</a></div>
   </section>
@@ -490,6 +503,12 @@ def main(argv=None) -> int:
     for name in ASSETS:
         shutil.copyfile(WEB_SRC / name, out / "assets" / name)
     shutil.copyfile(WEB_SRC / "htaccess", out / ".htaccess")
+    # The glossary for the pages' "?" help, from the same file as GLOSSARY.md (rubric/glossary.json).
+    glossary = json.loads((KIT / "rubric" / "glossary.json").read_text(encoding="utf-8"))
+    (out / "assets" / "glossary.js").write_text(
+        "// Generated from rubric/glossary.json by build_web.py. Don't edit.\nwindow.GLOSSARY = "
+        + json.dumps({t["term"]: t["definition"] for g in glossary["groups"] for t in g["terms"]}, ensure_ascii=False, indent=0) + ";\n",
+        encoding="utf-8")
 
     # the three tool pages
     for slug, title, key, scripts in APP_PAGES:
@@ -525,7 +544,7 @@ def main(argv=None) -> int:
         if i < len(flat) - 1:
             ns, nt = flat[i + 1]
             next_link = f'<a href="{up}docs/{doc_html_path(ns)}" style="margin-left:auto;text-align:right"><small>Next</small>{html.escape(nt)}</a>'
-        content = (f'<div class="layout">{sidebar_html(src, depth)}<main class="doc">{bar}{toc_html}{body_html}'
+        content = (f'<div class="layout">{sidebar_html(src, depth)}<main class="doc" id="main">{bar}{toc_html}{body_html}'
                    f'<nav class="pager">{prev_link}{next_link}</nav></main></div>')
         active = "start" if src == "GETTING-STARTED.md" else "docs"
         write(out / "docs" / rel_html, page(title, content, depth, version, sidebar="yes", active=active))

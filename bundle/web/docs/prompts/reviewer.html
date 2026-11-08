@@ -3,6 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'wasm-unsafe-eval'; connect-src 'self' https://cdn.jsdelivr.net https://api.github.com https://raw.githubusercontent.com; img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'; worker-src 'self' blob:">
+<meta name="referrer" content="strict-origin-when-cross-origin">
 <title>Report reviewer · Code Grading Suite</title>
 <meta name="description" content="A rubric, prompts and browser tools for AI coding agents to grade codebases from 1 to 10 on 35 benchmarks and improve them.">
 <link rel="stylesheet" href="../../assets/style.css">
@@ -10,17 +12,19 @@
 <link rel="alternate" type="text/markdown" href="../../AGENT.md" title="Agent entry point">
 </head>
 <body>
+<a class="skip" href="#main">Skip to content</a>
 <header class="topbar">
   <button class='menu-btn' type='button'>Menu</button>
   <a class="brand" href="../../index.html">Code <span>Grading</span> Suite</a>
-  <span class="ver">v4.2.2</span>
+  <span class="ver">v4.3.0</span>
   <nav class="main" aria-label="Main"><a href="../../docs/GETTING-STARTED.html">Get started</a><a href="../../app/setup.html">Set up</a><a href="../../app/run.html">Start a run</a><a href="../../app/review.html">Review</a><a href="../../docs/README.html" class="active" aria-current="page">Docs</a></nav>
   <span class="spacer"></span>
   <a class="top opt" href="../../AGENT.md">AGENT.md</a>
-  <a class="top opt" href="../../downloads/code-grading-suite-4.2.2.zip">Download</a>
+  <a class="top opt" href="../../downloads/code-grading-suite-4.3.0.zip">Download</a>
 </header>
-<div class="layout"><nav class="sidebar" aria-label="Documentation"><h4>Start</h4><a href="../../docs/GETTING-STARTED.html">Getting started</a><a href="../../docs/README.html">Overview &amp; reference</a><a href="../../docs/AGENT.html">Agent entry point</a><a href="../../docs/DEPLOY.html">Hosting this site</a><h4>Configuration</h4><a href="../../docs/TUNING.html">Tuning guide</a><a href="../../docs/rubric/weights.html">How scoring works</a><a href="../../docs/config/defaults.html">Default config</a><a href="../../docs/config/project.example.html">Example project config</a><h4>Prompts</h4><a href="../../docs/prompts/grader.html">Grader</a><a href="../../docs/prompts/reviewer.html" class="active" aria-current="page">Report reviewer</a><a href="../../docs/prompts/improver.html">Improver</a><a href="../../docs/prompts/pr-review.html">Pull-request check</a><h4>Rubric</h4><a href="../../docs/rubric/A-correctness-trust.html">A · Correctness &amp; Trust</a><a href="../../docs/rubric/B-design-structure.html">B · Design &amp; Structure</a><a href="../../docs/rubric/C-code-health.html">C · Code Health</a><a href="../../docs/rubric/D-value-fitness.html">D · Value &amp; Fitness</a><a href="../../docs/rubric/E-adoption-experience.html">E · Adoption &amp; Experience</a><a href="../../docs/rubric/F-operations-delivery.html">F · Operations &amp; Delivery</a><a href="../../docs/rubric/X-conditional.html">X · Conditional</a><h4>Guides</h4><a href="../../docs/calibration/README.html">Calibration</a><a href="../../docs/holdout/README.html">Hidden checks</a><a href="../../docs/CHANGELOG.html">Changelog</a></nav><main class="doc"><div class="docbar"><a class="btn" href="../../suite/prompts/reviewer.md">View raw .md</a><button class="btn" type="button" data-copy="../../suite/prompts/reviewer.md">Copy raw URL for an agent</button></div><details class="toc"><summary>On this page</summary><ul><li><a href="#inputs">Inputs</a></li><li><a href="#step-1-check-the-report">Step 1: Check the report</a></li><li><a href="#step-2-prepare-the-decision-questions">Step 2: Prepare the decision questions</a></li><li><a href="#who-may-decide">Who may decide</a></li><li><a href="#delivery">Delivery</a></li></ul></details><h1 id="code-grading-suite-v422-report-reviewer-prompt">Code Grading Suite v4.2.2: Report Reviewer Prompt<a class="anchor" href="#code-grading-suite-v422-report-reviewer-prompt" aria-label="Link to this section">#</a></h1>
+<div class="layout"><nav class="sidebar" aria-label="Documentation"><h4>Start</h4><a href="../../docs/GETTING-STARTED.html">Getting started</a><a href="../../docs/README.html">Overview &amp; reference</a><a href="../../docs/GLOSSARY.html">Glossary</a><a href="../../docs/AGENT.html">Agent entry point</a><a href="../../docs/DEPLOY.html">Hosting this site</a><h4>Configuration</h4><a href="../../docs/TUNING.html">Tuning guide</a><a href="../../docs/rubric/weights.html">How scoring works</a><a href="../../docs/config/defaults.html">Default config</a><a href="../../docs/config/project.example.html">Example project config</a><h4>Prompts</h4><a href="../../docs/prompts/grader.html">Grader</a><a href="../../docs/prompts/reviewer.html" class="active" aria-current="page">Report reviewer</a><a href="../../docs/prompts/improver.html">Improver</a><a href="../../docs/prompts/pr-review.html">PR check</a><h4>Rubric</h4><a href="../../docs/rubric/A-correctness-trust.html">A · Correctness &amp; Trust</a><a href="../../docs/rubric/B-design-structure.html">B · Design &amp; Structure</a><a href="../../docs/rubric/C-code-health.html">C · Code Health</a><a href="../../docs/rubric/D-value-fitness.html">D · Value &amp; Fitness</a><a href="../../docs/rubric/E-adoption-experience.html">E · Adoption &amp; Experience</a><a href="../../docs/rubric/F-operations-delivery.html">F · Operations &amp; Delivery</a><a href="../../docs/rubric/X-conditional.html">X · Conditional</a><h4>Guides</h4><a href="../../docs/calibration/README.html">Calibration</a><a href="../../docs/holdout/README.html">Hidden checks</a><a href="../../docs/CHANGELOG.html">Changelog</a></nav><main class="doc" id="main"><div class="docbar"><a class="btn" href="../../suite/prompts/reviewer.md">View raw .md</a><button class="btn" type="button" data-copy="../../suite/prompts/reviewer.md">Copy raw URL for an agent</button></div><details class="toc"><summary>On this page</summary><ul><li><a href="#inputs">Inputs</a></li><li><a href="#step-1-check-the-report">Step 1: Check the report</a></li><li><a href="#step-2-prepare-the-decision-questions">Step 2: Prepare the decision questions</a></li><li><a href="#who-may-decide">Who may decide</a></li><li><a href="#delivery">Delivery</a></li></ul></details><h1 id="code-grading-suite-v430-report-reviewer-prompt">Code Grading Suite v4.3.0: Report Reviewer Prompt<a class="anchor" href="#code-grading-suite-v430-report-reviewer-prompt" aria-label="Link to this section">#</a></h1>
 <p>You are reviewing a grading report <strong>after</strong> the grader has delivered it and <strong>before</strong> improvement work starts. A person can do this job with the website's <strong>Review a report</strong> page. This prompt is for when an agent does it, or helps a person do it.</p>
+<p><strong>Terms</strong> mean exactly what the suite's <code>GLOSSARY.md</code> says (<code>gradekit glossary TERM</code> looks one up). Use them that way in everything you write.</p>
 <p>You have three jobs:</p>
 <ol>
 <li><strong>Check the report.</strong> Make sure it is valid, its evidence is real, and its numbers come from the config.</li>
@@ -67,7 +71,7 @@
 </table>
 <h2 id="step-1-check-the-report">Step 1: Check the report<a class="anchor" href="#step-1-check-the-report" aria-label="Link to this section">#</a></h2>
 <p>Check out the report's commit of the code. Use <code>project.toml</code>, <code>decisions.json</code> and <code>dispositions.json</code> from the <strong>grading repo's default branch</strong> (or from the PR branch, if the PR changed them), then run:</p>
-<pre><code class="language-bash">python3 SUITE_DIR/tools/gradekit.py validate        REPORT_FOLDER/report.json --project-dir PROJECT_DIR
+<pre tabindex="0"><code class="language-bash">python3 SUITE_DIR/tools/gradekit.py validate        REPORT_FOLDER/report.json --project-dir PROJECT_DIR
 python3 SUITE_DIR/tools/gradekit.py verify-evidence REPORT_FOLDER/report.json --repo CODE_CHECKOUT
 python3 SUITE_DIR/tools/gradekit.py rollup          REPORT_FOLDER/report.json --project-dir PROJECT_DIR
 python3 SUITE_DIR/tools/gradekit.py diff            PREVIOUS/report.json REPORT_FOLDER/report.json --project-dir PROJECT_DIR   # if there is a previous report
@@ -96,7 +100,7 @@ python3 SUITE_DIR/tools/gradekit.py diff            PREVIOUS/report.json REPORT_
 </li>
 <li>
 <p><strong><code>true</code>: you may decide,</strong> within any guidance you were given. Append one entry per question to the <code>decisions</code> list in <code>PROJECT_DIR/decisions.json</code>:</p>
-<pre><code class="language-json">{
+<pre tabindex="0"><code class="language-json">{
   &quot;action_id&quot;: &quot;D1-act-1&quot;,
   &quot;question&quot;: &quot;Implement CSV and XLSX export, or drop the export claim from the README?&quot;,
   &quot;approved&quot;: true,

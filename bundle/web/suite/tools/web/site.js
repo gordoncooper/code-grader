@@ -1,5 +1,5 @@
 (function(){
-  var toast=document.createElement('div');toast.className='toast';document.body.appendChild(toast);
+  var toast=document.createElement('div');toast.className='toast';toast.setAttribute('role','status');(document.querySelector('main')||document.body).appendChild(toast);
   function say(msg){toast.textContent=msg;toast.classList.add('show');clearTimeout(say.t);say.t=setTimeout(function(){toast.classList.remove('show')},1600)}
   function copy(text){
     if(navigator.clipboard&&window.isSecureContext){navigator.clipboard.writeText(text).then(function(){say('Copied')},fallback)}else{fallback()}
@@ -22,4 +22,16 @@
   });
   var mb=document.querySelector('.menu-btn');
   if(mb){mb.addEventListener('click',function(){document.body.classList.toggle('nav-open')})}
+  // Wide tables and code blocks scroll sideways on small screens: put the ones that do in the Tab
+  // order, so keyboard users can scroll them too (and only those, to keep the Tab order short).
+  function markScrollers(){
+    document.querySelectorAll('table, pre').forEach(function(el){
+      var scrolls=el.scrollWidth>el.clientWidth+1;
+      if(scrolls&&!el.hasAttribute('tabindex')){el.setAttribute('tabindex','0');el.dataset.scrollFocus='1'}
+      else if(!scrolls&&el.dataset.scrollFocus){el.removeAttribute('tabindex');delete el.dataset.scrollFocus}
+    });
+  }
+  var mt;function later(){clearTimeout(mt);mt=setTimeout(markScrollers,60)}
+  window.addEventListener('load',markScrollers);window.addEventListener('resize',later);
+  if(window.MutationObserver){new MutationObserver(later).observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['hidden','open','class']})}
 })();

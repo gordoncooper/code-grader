@@ -3,6 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'wasm-unsafe-eval'; connect-src 'self' https://cdn.jsdelivr.net https://api.github.com https://raw.githubusercontent.com; img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'; worker-src 'self' blob:">
+<meta name="referrer" content="strict-origin-when-cross-origin">
 <title>Changelog · Code Grading Suite</title>
 <meta name="description" content="A rubric, prompts and browser tools for AI coding agents to grade codebases from 1 to 10 on 35 benchmarks and improve them.">
 <link rel="stylesheet" href="../assets/style.css">
@@ -10,16 +12,17 @@
 <link rel="alternate" type="text/markdown" href="../AGENT.md" title="Agent entry point">
 </head>
 <body>
+<a class="skip" href="#main">Skip to content</a>
 <header class="topbar">
   <button class='menu-btn' type='button'>Menu</button>
   <a class="brand" href="../index.html">Code <span>Grading</span> Suite</a>
-  <span class="ver">v4.2.2</span>
+  <span class="ver">v4.3.0</span>
   <nav class="main" aria-label="Main"><a href="../docs/GETTING-STARTED.html">Get started</a><a href="../app/setup.html">Set up</a><a href="../app/run.html">Start a run</a><a href="../app/review.html">Review</a><a href="../docs/README.html" class="active" aria-current="page">Docs</a></nav>
   <span class="spacer"></span>
   <a class="top opt" href="../AGENT.md">AGENT.md</a>
-  <a class="top opt" href="../downloads/code-grading-suite-4.2.2.zip">Download</a>
+  <a class="top opt" href="../downloads/code-grading-suite-4.3.0.zip">Download</a>
 </header>
-<div class="layout"><nav class="sidebar" aria-label="Documentation"><h4>Start</h4><a href="../docs/GETTING-STARTED.html">Getting started</a><a href="../docs/README.html">Overview &amp; reference</a><a href="../docs/AGENT.html">Agent entry point</a><a href="../docs/DEPLOY.html">Hosting this site</a><h4>Configuration</h4><a href="../docs/TUNING.html">Tuning guide</a><a href="../docs/rubric/weights.html">How scoring works</a><a href="../docs/config/defaults.html">Default config</a><a href="../docs/config/project.example.html">Example project config</a><h4>Prompts</h4><a href="../docs/prompts/grader.html">Grader</a><a href="../docs/prompts/reviewer.html">Report reviewer</a><a href="../docs/prompts/improver.html">Improver</a><a href="../docs/prompts/pr-review.html">Pull-request check</a><h4>Rubric</h4><a href="../docs/rubric/A-correctness-trust.html">A · Correctness &amp; Trust</a><a href="../docs/rubric/B-design-structure.html">B · Design &amp; Structure</a><a href="../docs/rubric/C-code-health.html">C · Code Health</a><a href="../docs/rubric/D-value-fitness.html">D · Value &amp; Fitness</a><a href="../docs/rubric/E-adoption-experience.html">E · Adoption &amp; Experience</a><a href="../docs/rubric/F-operations-delivery.html">F · Operations &amp; Delivery</a><a href="../docs/rubric/X-conditional.html">X · Conditional</a><h4>Guides</h4><a href="../docs/calibration/README.html">Calibration</a><a href="../docs/holdout/README.html">Hidden checks</a><a href="../docs/CHANGELOG.html" class="active" aria-current="page">Changelog</a></nav><main class="doc"><div class="docbar"><a class="btn" href="../suite/CHANGELOG.md">View raw .md</a><button class="btn" type="button" data-copy="../suite/CHANGELOG.md">Copy raw URL for an agent</button></div><details class="toc"><summary>On this page</summary><ul><li><a href="#422">4.2.2</a></li><li><a href="#421">4.2.1</a></li><li><a href="#420">4.2.0</a></li><li><a href="#410">4.1.0</a></li><li><a href="#400">4.0.0</a></li><li><a href="#310">3.1.0</a></li><li><a href="#300">3.0.0</a></li><li><a href="#200">2.0.0</a></li><li><a href="#100">1.0.0</a></li></ul></details><h1 id="changelog">Changelog<a class="anchor" href="#changelog" aria-label="Link to this section">#</a></h1>
+<div class="layout"><nav class="sidebar" aria-label="Documentation"><h4>Start</h4><a href="../docs/GETTING-STARTED.html">Getting started</a><a href="../docs/README.html">Overview &amp; reference</a><a href="../docs/GLOSSARY.html">Glossary</a><a href="../docs/AGENT.html">Agent entry point</a><a href="../docs/DEPLOY.html">Hosting this site</a><h4>Configuration</h4><a href="../docs/TUNING.html">Tuning guide</a><a href="../docs/rubric/weights.html">How scoring works</a><a href="../docs/config/defaults.html">Default config</a><a href="../docs/config/project.example.html">Example project config</a><h4>Prompts</h4><a href="../docs/prompts/grader.html">Grader</a><a href="../docs/prompts/reviewer.html">Report reviewer</a><a href="../docs/prompts/improver.html">Improver</a><a href="../docs/prompts/pr-review.html">PR check</a><h4>Rubric</h4><a href="../docs/rubric/A-correctness-trust.html">A · Correctness &amp; Trust</a><a href="../docs/rubric/B-design-structure.html">B · Design &amp; Structure</a><a href="../docs/rubric/C-code-health.html">C · Code Health</a><a href="../docs/rubric/D-value-fitness.html">D · Value &amp; Fitness</a><a href="../docs/rubric/E-adoption-experience.html">E · Adoption &amp; Experience</a><a href="../docs/rubric/F-operations-delivery.html">F · Operations &amp; Delivery</a><a href="../docs/rubric/X-conditional.html">X · Conditional</a><h4>Guides</h4><a href="../docs/calibration/README.html">Calibration</a><a href="../docs/holdout/README.html">Hidden checks</a><a href="../docs/CHANGELOG.html" class="active" aria-current="page">Changelog</a></nav><main class="doc" id="main"><div class="docbar"><a class="btn" href="../suite/CHANGELOG.md">View raw .md</a><button class="btn" type="button" data-copy="../suite/CHANGELOG.md">Copy raw URL for an agent</button></div><details class="toc"><summary>On this page</summary><ul><li><a href="#430">4.3.0</a></li><li><a href="#422">4.2.2</a></li><li><a href="#421">4.2.1</a></li><li><a href="#420">4.2.0</a></li><li><a href="#410">4.1.0</a></li><li><a href="#400">4.0.0</a></li><li><a href="#310">3.1.0</a></li><li><a href="#300">3.0.0</a></li><li><a href="#200">2.0.0</a></li><li><a href="#100">1.0.0</a></li></ul></details><h1 id="changelog">Changelog<a class="anchor" href="#changelog" aria-label="Link to this section">#</a></h1>
 <p>Versioning rules for the suite itself:</p>
 <ul>
 <li><strong>Major:</strong> any change that can move scores, i.e. new or removed benchmarks, changed anchors, caps, weights, targets or maturity rules. Scores from different major versions are <strong>not comparable</strong>. <code>gradekit diff</code> won't treat their deltas as regressions.</li>
@@ -27,6 +30,237 @@
 <li><strong>Patch:</strong> typos, formatting, documentation.</li>
 </ul>
 <p>After any major or minor change, re-run calibration (<code>calibration/README.md</code>) before trusting new scores.</p>
+<h2 id="430">4.3.0<a class="anchor" href="#430" aria-label="Link to this section">#</a></h2>
+<p>Minor release: tools that let agents run the whole cycle without custom scripts, and safer publishing. No scoring changes; config fingerprints and existing reports stay valid. Tested by running the whole cycle on a real repository (dbader/schedule) with <code>gradekit</code> commands only: it reproduced the 4.2.2 grade exactly.</p>
+<p><strong>Writing reports with <code>gradekit report</code></strong></p>
+<ul>
+<li>Graders build <code>report.json</code> with commands instead of typing JSON. The tool fills in every benchmark with its name, weight and target, copies each quote from the code so citations always verify, and picks the next free finding, gap and action IDs (never reusing an ID from the project's earlier reports; an ID only mentioned in text, such as a command's summary, doesn't count as taken).
+<ul>
+<li><code>report new</code> starts a report in <code>projects/NAME/reports/&lt;date&gt;-&lt;commit&gt;/</code> (or <code>runs/run-N.json</code> for several graders), with previous scores filled in.</li>
+<li><code>report finding add|update</code>, <code>score</code>, <code>strength</code>, <code>enforcement</code>, <code>action</code>, <code>gap</code>, <code>feature</code>, <code>flag</code>, <code>ran</code> and <code>set</code> record judgments. <code>report feature</code> with a name already in the inventory updates that feature, e.g. to replace a citation <code>carry</code> couldn't move. <code>report ran --command</code> records a command exactly as run; notes go in <code>--summary</code>. Evidence comes from <code>--cite FILE:LINES --repo CODE</code>, <code>--command CMD --excerpt TEXT</code> or <code>--absence WHAT --method HOW</code>.</li>
+<li><code>report cite FILE:LINES</code> prints one evidence object with the exact quote.</li>
+<li><code>report check</code> runs validation, citation checks and the rollup, and lists what's still missing. Exit code 0 means ready, 5 not finished yet, 1 errors. <code>--write</code> stores the rollup and the finish time.</li>
+<li>Every <code>report</code> command takes <code>--json</code>.</li>
+</ul>
+</li>
+<li>The grader prompt shows the commands. Hand-written reports still work.</li>
+</ul>
+<p><strong>Carrying a report forward with <code>gradekit carry</code></strong></p>
+<ul>
+<li><code>carry LAST_REPORT --repo CODE --commit SHA</code> starts the next report from the last one. Every finding keeps its ID, and every code citation moves to where that code is now. Citations whose lines changed or disappeared are listed, so each one is re-checked rather than silently going stale. Quotes that are part of a line work too.</li>
+<li><strong>PR mode</strong> (the default, with <code>--base-commit</code>): untouched benchmarks are marked <code>carried_forward</code>, and the touched ones are cleared for re-grading. The touched benchmarks are suggested from the changed files, which come from git when <code>--repo</code> is a checkout: the benchmarks whose evidence cites a changed file, the ones every code change re-grades, and the gates when a hot-zone file changed. <code>--touched</code> adds more.</li>
+<li><strong>Full mode</strong> (<code>--mode full</code>): every score is cleared for a fresh grade, but findings and their IDs carry over. The new report folder is made for you.</li>
+<li><code>report match REPORT --baseline LAST_REPORT</code> suggests which earlier finding each newly written finding is, comparing benchmark, files, quoted code and wording. <code>--apply</code> renames the clear matches back to their earlier IDs.</li>
+<li><code>report score</code> now clears <code>carried_forward</code> on the benchmark it scores.</li>
+<li>The grader and PR-check prompts use these commands, so a PR check no longer needs custom scripts.</li>
+</ul>
+<p><strong>Markdown made from the data with <code>gradekit render</code></strong></p>
+<ul>
+<li><code>render report</code> writes <code>report.md</code> from <code>report.json</code>, with the same sections every time: summary, gates and maturity, scorecard by pillar, applicability notes, top priorities, decisions, metrics, findings, feature inventory, gap register, per-benchmark detail, flags and limitations.</li>
+<li><code>render pr</code> gives the grading pull request's branch, title and body, with the decision checklist and a link to the Review page.</li>
+<li><code>render check</code> gives the PR-check comment from the baseline and PR reports.</li>
+<li><code>render log</code> gives the improver's log from a small JSON file, listing pending decisions as blocked by itself. An action's <code>commit</code> may name several commits.</li>
+<li>Public text never carries withheld details. In a public grading repo, <code>render report</code> and <code>render pr</code> withhold sensitive findings even before <code>redact</code> has run, and PR-check comments always do.</li>
+<li>New optional report fields: <code>summary</code> (set with <code>report set summary</code>) and each benchmark's one-line <code>rationale</code> (<code>report score --rationale</code>).</li>
+<li>The prompts use these commands. The example reports' <code>report.md</code> files are now rendered.</li>
+</ul>
+<p><strong>The improver guard with <code>gradekit guard</code></strong></p>
+<ul>
+<li>&quot;Never trade one benchmark for another&quot; is now checked, not just asked for.
+<ul>
+<li><strong><code>guard snapshot CODE</code></strong>, before any change, runs the code's own checks and records each one's exit code and counts. The checks come from <code>--check NAME=COMMAND</code>, the test, lint, type-check, coverage, build and audit commands the grader ran (<code>--from-report</code>), or a small detection from the repo. The counts are tests passed, failed and skipped, lint and type problems, formatting, known vulnerabilities and coverage, read from pytest, unittest, jest, vitest, mocha, go, cargo, rspec, ruff, mypy, tsc, eslint, pylint, black, pip-audit and npm audit. From a report it drops graders' notes after a command (<code>pytest -q  (without pytz)</code>) and leaves out commands that install packages. It also counts suppressions and skipped tests in the code and fingerprints CI and lint settings. The snapshot is kept in <code>.git/</code>, so it can't be committed.</li>
+<li><strong><code>guard compare CODE</code></strong>, after, runs exactly the same commands again. Exit code 2 means something got worse: a check that now fails or times out, fewer tests passing, more failures or problems, lower coverage, more suppressions or skipped tests, or a check that wasn't run. <code>--explain KEY=&quot;reason&quot;</code> records a deliberate change instead. Changed CI or lint settings are listed for review.</li>
+</ul>
+</li>
+<li><code>render log --guard</code> puts the before → after table in the improvement log, so the pull request shows the proof.</li>
+<li>The improver prompt takes a snapshot before its first change and compares after each one.</li>
+</ul>
+<p><strong>CI for grading repos</strong></p>
+<ul>
+<li><code>gradekit ci --base origin/main</code> checks a pull request to a grading repo. It needs only git, so it runs on any host.
+<ul>
+<li><strong>One kind of change per pull request:</strong> either one new report folder (<code>report.json</code>, <code>report.md</code>, <code>runs/*.json</code>), or a project's settings (<code>project.toml</code>, <code>decisions.json</code>, <code>dispositions.json</code>, <code>org.toml</code>). Anything else, or a mix, needs changes.</li>
+<li><strong>Reports:</strong>
+<ul>
+<li>the report is valid and safe to publish in a public repo;</li>
+<li>its stored rollup matches its scores, so no hand edits;</li>
+<li>the folder name matches the graded commit;</li>
+<li>no <code>*.private.json</code> is committed;</li>
+<li>earlier reports are never edited;</li>
+<li><code>report.md</code> matches <code>render report</code> (a warning).</li>
+</ul>
+</li>
+<li><strong>Settings:</strong> decisions and dispositions are append-only, and their entries have the fields they need. The config resolves, and a change to the scoring config is flagged.</li>
+<li><strong>Output:</strong> a summary comment (score, maturity, gates, the decisions waiting as a checklist, a link to the Review page) and the labels <code>grading: report</code>, <code>grading: settings</code> or <code>grading: needs changes</code>. Exit 1 when changes are needed.</li>
+</ul>
+</li>
+<li>New <code>ci/</code> folder in the kit:
+<ul>
+<li>a GitHub Actions workflow, and a GitLab CI job that comments and labels when given a <code>GRADING_BOT_TOKEN</code>;</li>
+<li><code>fetch-kit.py</code>, which downloads the kit from your suite website and refuses it unless it matches the published checksum.</li>
+</ul>
+</li>
+<li><code>gradekit init --ci github|gitlab --site URL</code> installs the check. It never overwrites an existing <code>.gitlab-ci.yml</code>.</li>
+</ul>
+<p><strong>Supply-chain trust</strong></p>
+<ul>
+<li>
+<p><strong>Pyodide is pinned and checked.</strong> <code>assets/engine-config.js</code> holds the SHA-384 hash of every Pyodide core file: the loader, its WebAssembly runtime, the standard library and the lock file. The pages load them with subresource integrity, so the browser refuses any file that doesn't match. Packages are checked against the (checked) lock file. A changed CDN or a wrong self-hosted copy stops the engine with a clear message instead of running.</p>
+</li>
+<li>
+<p><strong>The kit's own files</strong> that the pages run (<code>gradekit.py</code>, the config, catalog and schema) are checked against the site's <code>manifest.json</code>, so a half-finished deploy or an edited file is refused.</p>
+</li>
+<li>
+<p><strong>A strict content-security policy on every page</strong>, as a <code>&lt;meta&gt;</code> tag so it works on any host:</p>
+<ul>
+<li>scripts only from the site and jsDelivr, never inline, and no <code>eval</code>;</li>
+<li>connections only to the site, jsDelivr and GitHub;</li>
+<li>no forms or plugins.</li>
+</ul>
+<p><code>.htaccess</code> also sends it as a header, with <code>frame-ancestors 'none'</code>.</p>
+</li>
+<li>
+<p><strong>A website with Pyodide included.</strong> Each release adds <code>code-grading-suite-web-pyodide-vX.Y.Z.zip</code>: the website with its Python runtime and packages in <code>pyodide/</code>. It loads nothing from a CDN, so it works on air-gapped networks and on hosts that allow only their own origin. The new <code>tools/vendor_pyodide.py</code> does the same to any built or deployed site. It checks every file against the pins and Pyodide's lock file, switches the pages over, and updates <code>manifest.json</code> and <code>SHA256SUMS</code>. Relative Pyodide addresses in <code>engine-config.js</code> now resolve from the page.</p>
+</li>
+<li>
+<p><strong>Signed releases:</strong> every release has <code>SHA256SUMS</code>, and its zips carry signed build provenance (Sigstore, keyless). The release notes show how to check both.</p>
+</li>
+<li>
+<p><strong>New tests:</strong></p>
+<ul>
+<li>every page carries the policy, and every page and state works under it with no violations;</li>
+<li>the real engine starts under it with every file verified;</li>
+<li>tampered Pyodide files and an edited kit file are refused;</li>
+<li>the pins match the published Pyodide.</li>
+</ul>
+</li>
+</ul>
+<p><strong>One vocabulary</strong></p>
+<ul>
+<li><strong><code>rubric/glossary.json</code></strong> defines the suite's 44 terms, from <em>benchmark</em> and <em>gate</em> to <em>effective severity</em>, <em>accepted finding</em> and <em>PR check</em>. It also lists alternatives to avoid.</li>
+<li><strong>Generated from it:</strong>
+<ul>
+<li><strong><code>GLOSSARY.md</code></strong>, a new docs page;</li>
+<li><strong>the website's &quot;?&quot; help</strong> next to key terms (gates, zones, presets, targets, weights, pillars, maturity, delivery…);</li>
+<li><strong><code>gradekit glossary [TERM]</code></strong>, which also accepts an avoided word and says which term to use.</li>
+</ul>
+</li>
+<li><strong>Every prompt</strong> points at the glossary.</li>
+<li><strong>Tests keep the alternatives out</strong> of the prompts, docs, rendered reports and every page's visible text. File names such as <code>dispositions.json</code> are still fine.</li>
+<li><strong>Wording made consistent:</strong>
+<ul>
+<li>&quot;PR check&quot; (was also &quot;quality check&quot; and &quot;pull-request check&quot;); the PR-check comment now starts <strong>PR check: PASS/FAIL</strong>, and the PR-check role is the <em>PR checker</em>;</li>
+<li>&quot;rollup&quot;;</li>
+<li>&quot;grading repo&quot;;</li>
+<li>&quot;zones&quot; (Setup's step 5 is now <em>Mark hot and cold zones</em>, since &quot;critical&quot; is a severity);</li>
+<li>&quot;accepted findings&quot;;</li>
+<li>&quot;hidden checks&quot;;</li>
+<li>&quot;busiest code paths&quot; in F4, so it isn't mistaken for a hot zone.</li>
+</ul>
+</li>
+</ul>
+<p><strong>Start a run remembers your projects</strong></p>
+<ul>
+<li><strong>Saved settings:</strong> each project's settings are kept in your browser: where the agent runs, where the code and grading files are, the suite, the number of graders, the improver's budget and source, guidance, code size, and the delivery you chose for each task. A <strong>Your projects</strong> row restores them in one click. Per-run details (commit, pull request, branch, report) start empty each time. Up to 8 projects are kept, and each can be forgotten.</li>
+<li><strong>What to expect:</strong> a rough agent time for the task and code size (for example, grading a medium codebase takes about 45 min to 1.5 h, and a PR check 10–25 min), what drives the cost, and your part.</li>
+<li><strong>Where you are in the cycle:</strong> grade → decide → improve → check, with what comes next.</li>
+</ul>
+<p><strong>Accessibility</strong></p>
+<ul>
+<li>Every page now passes axe-core's WCAG 2.2 AA and best-practice rules, at desktop and phone width, in every state tested: each Review tab with a report loaded, Setup filled in, Start a run with three graders, and every docs page. Fixed along the way:
+<ul>
+<li><strong>Tabs</strong> follow the ARIA tabs pattern: a tab list, tab panels, one tab in the Tab order, and arrow keys, Home and End to move between tabs.</li>
+<li><strong>Landmarks:</strong> each page has a <code>main</code> landmark and a &quot;Skip to content&quot; link, and status messages are announced.</li>
+<li><strong>Drop zones</strong> have a real &quot;choose files&quot; button inside, instead of a whole box posing as one.</li>
+<li><strong>Scrolling content:</strong> code blocks, generated output and tables that scroll sideways can be reached and scrolled with the keyboard.</li>
+<li><strong>Focus outlines</strong> show on every control.</li>
+<li><strong>Tap targets</strong> are at least 24×24 px, a WCAG 2.2 requirement (summaries, small buttons).</li>
+<li><strong>Motion</strong> is reduced for people who ask for it.</li>
+</ul>
+</li>
+<li><strong>Narrow screens:</strong> the home page and the Review overview no longer scroll sideways at 320 px; long gate badges wrap. The top bar wraps its links from 900 px down instead of overflowing at tablet width.</li>
+<li><strong>New tests:</strong>
+<ul>
+<li>axe-core on every page and state;</li>
+<li>keyboard checks: every control reachable with Tab and showing focus, the skip link, tabs, choosing files;</li>
+<li>layout checks at 320, 390, 768 and 1280 px: no sideways scrolling, no tiny, overlapping or cut-off controls;</li>
+<li>screenshot comparison, which CI runs against baselines it makes and keeps itself.</li>
+</ul>
+</li>
+</ul>
+<p><strong><code>projects/index.json</code></strong></p>
+<ul>
+<li><code>gradekit index</code> writes one file listing every project in a grading repo. For each project it has the description and preset, the latest full report (score, maturity, next level, failed gates, open findings by effective severity), the decisions still waiting, and the history of every report. Dashboards and the Review page read it. It's derived from the reports and settings with no timestamps of its own, so <code>index --check</code> tells whether it's current. Its format is in <code>schema/index.schema.json</code>.</li>
+<li><strong>The CI templates rebuild it</strong> when reports or decisions land on the default branch:
+<ul>
+<li><strong>GitHub:</strong> a second job with <code>contents: write</code>.</li>
+<li><strong>GitLab:</strong> a job that runs only with <code>GRADING_BOT_TOKEN</code>.</li>
+</ul>
+</li>
+<li><strong><code>gradekit ci</code></strong> lets a pull request include the index only if it matches what <code>gradekit index</code> makes.</li>
+<li><strong>The Review page</strong>, loading a grading repo with several projects from GitHub, lists them with their scores and decisions waiting from the index, one click each.</li>
+<li>The example grading repo has its index.</li>
+</ul>
+<p><strong>One engine</strong></p>
+<ul>
+<li>The Review page no longer re-implements gradekit's rules in JavaScript. It calls the engine for:
+<ul>
+<li>which projects a folder, zip or repo holds (<code>scan_layout</code>, from the file paths alone, so files are only read once a project is chosen);</li>
+<li>the order of reports (<code>order_report_folders</code>, which names the few reports whose <code>run.date</code> it needs);</li>
+<li>what each dropped file is (<code>classify_files</code>).</li>
+</ul>
+</li>
+<li>The command line uses the same functions, so the page and the CLI can't disagree. A test keeps the JavaScript copies from coming back.</li>
+<li>A role you pick for a dropped file is now kept: a newer report no longer takes over the &quot;report to review&quot; slot you chose.</li>
+<li>Fixed: dropping a grading repo zip and a code zip together could skip the citation check, if the zip of the code arrived before the report's review had finished.</li>
+</ul>
+<p><strong>A preflight with <code>gradekit doctor</code></strong></p>
+<ul>
+<li><code>doctor</code> checks, before a run starts, everything the run will need, so a missing permission shows up in seconds rather than after an hour of grading:
+<ul>
+<li>Python 3.11+, the kit itself, jsonschema (optional) and a writable temp folder;</li>
+<li>the project's config, <code>decisions.json</code> and <code>dispositions.json</code>, a writable reports folder, and whether to start with <code>carry</code> or <code>report new</code>;</li>
+<li>the code (<code>--repo</code>).</li>
+</ul>
+</li>
+<li><code>--delivery pr</code> adds git, a committer identity, reading the remote and its default branch, and permission to push (a dry run, so nothing is pushed). <code>--open github|gitlab</code> adds <code>gh</code> or <code>glab</code> sign-in.</li>
+<li><code>--site URL</code> checks that the suite website is reachable from the sandbox, that it serves this kit's version, and that the kit's files match the website's copy.</li>
+<li>Each problem comes with its fix. Exit 1 if anything fails. The grader and PR-check prompts run it first.</li>
+</ul>
+<p><strong>Handing reports back with <code>gradekit deliver</code></strong></p>
+<ul>
+<li><code>deliver REPORT --delivery pr|save|return</code> does what the grader prompt's delivery table says, for any host. Every delivery starts the same way:
+<ul>
+<li>it refuses an unfinished or invalid report (exit 5 or 1, with the list);</li>
+<li>it stores the rollup, and withholds sensitive findings in a public grading repo;</li>
+<li>it checks the report is safe to publish and renders <code>report.md</code>.</li>
+</ul>
+</li>
+<li><strong><code>pr</code></strong> prints the branch, commit, title and body, or does the git steps with <code>--run</code>. The branch starts from the remote's default branch, or <code>--base</code>. Only the report folder is committed, never a <code>*.private.json</code>, even without a <code>.gitignore</code>. It refuses to commit onto the default branch, and running it again is safe.</li>
+<li><code>--push</code> pushes the branch. <code>--open github</code> or <code>--open gitlab</code> opens the pull request with <code>gh</code> or <code>glab</code> when they're installed and signed in. Without them, it says what to open by hand, and the body is written to a file.</li>
+<li><strong><code>save</code></strong> leaves the folder in place. <strong><code>return</code></strong> prints the fenced blocks for the final message, with the private report labeled.</li>
+<li>The example grading repo now has the <code>.gitignore</code> that <code>gradekit init</code> writes.</li>
+</ul>
+<p><strong>JSON output and exit codes for every command</strong></p>
+<ul>
+<li>Every command takes <code>--json</code> and prints exactly one JSON object: <code>{ok, exit_code, command, result, text}</code>, plus <code>error</code> on failure. <code>result</code> is the command's data (validation errors and warnings, the rollup, the diff, citation results, the resolved config, written paths…), and <code>text</code> is what it would have printed, so agents never parse text.</li>
+<li>One exit-code table for every command: 0 ok, 1 failed or error, 2 regression, 3 unstable runs, 4 calibration failed, 5 report not finished, 64 bad arguments. Bad arguments used to exit 2, the same code as a <code>diff</code> regression.</li>
+<li>The <code>report</code> and <code>render</code> commands' JSON now uses the same envelope (their data is in <code>result</code>).</li>
+<li><code>gradekit</code> no longer changes the SIGPIPE handling of a Python process that imports it; only the command line does.</li>
+</ul>
+<p><strong>Safe publishing for public grading repos</strong></p>
+<ul>
+<li>Graders mark findings whose details would help an attacker (an exploitable vulnerability, a leaked secret) with <code>&quot;sensitive&quot;: true</code>.</li>
+<li><code>gradekit redact --in-place</code> splits a report into a public <code>report.json</code> and a full <code>report.private.json</code>, which is never committed (<code>gradekit init</code> adds <code>*.private.json</code> to the grading repo's <code>.gitignore</code>). In the public report, a sensitive finding keeps its ID, benchmark, severity, status and the files it concerns, so scores, gates, zones and priorities are exactly the same; its title, quotes and commands, and the wording of the actions and decision questions that fix it, are withheld. <code>redact</code> refuses to write anything while withheld text still appears elsewhere in the report, and says where.</li>
+<li><code>gradekit redact</code> (without <code>--in-place</code>) withholds sensitive findings too, as well as hidden-check details.</li>
+<li><code>gradekit validate --publish</code> fails until a report is safe to commit. In a public grading repo, <code>validate</code> also warns about open security findings of major severity or worse that aren't marked sensitive.</li>
+<li>New <code>[publishing]</code> settings: <code>public</code> (default true), <code>sensitive_benchmarks</code> and <code>warn_at</code>. They don't affect scores or the config fingerprint. See TUNING.md.</li>
+<li>Report format: optional <code>sensitive</code> on findings, a <code>withheld</code> evidence type (written only by <code>redact</code>) and a <code>publishing</code> block.</li>
+<li>The grader, improver and PR-check prompts say how to handle sensitive findings. <code>verify-evidence</code> counts withheld evidence separately.</li>
+<li><strong>Review a report</strong> marks sensitive and withheld findings, warns when a report isn't safe to commit to a public grading repo, and downloads a copy that is (refusing, with the places to fix, if withheld text still shows elsewhere).</li>
+<li><strong>Set up a project</strong> has an option for grading repos that only trusted people can read.</li>
+<li>The example grading repo's security finding A2-001 is now withheld, as a grader would publish it.</li>
+</ul>
 <h2 id="422">4.2.2<a class="anchor" href="#422" aria-label="Link to this section">#</a></h2>
 <p>Patch release from an end-to-end run of the whole workflow on a real repository. No scoring changes; config fingerprints and existing reports stay valid.</p>
 <p><strong>Fixes</strong></p>

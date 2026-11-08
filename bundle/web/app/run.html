@@ -3,6 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'wasm-unsafe-eval'; connect-src 'self' https://cdn.jsdelivr.net https://api.github.com https://raw.githubusercontent.com; img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'; worker-src 'self' blob:">
+<meta name="referrer" content="strict-origin-when-cross-origin">
 <title>Start a run · Code Grading Suite</title>
 <meta name="description" content="A rubric, prompts and browser tools for AI coding agents to grade codebases from 1 to 10 on 35 benchmarks and improve them.">
 <link rel="stylesheet" href="../assets/style.css">
@@ -10,16 +12,17 @@
 <link rel="alternate" type="text/markdown" href="../AGENT.md" title="Agent entry point">
 </head>
 <body>
+<a class="skip" href="#main">Skip to content</a>
 <header class="topbar">
   
   <a class="brand" href="../index.html">Code <span>Grading</span> Suite</a>
-  <span class="ver">v4.2.2</span>
+  <span class="ver">v4.3.0</span>
   <nav class="main" aria-label="Main"><a href="../docs/GETTING-STARTED.html">Get started</a><a href="../app/setup.html">Set up</a><a href="../app/run.html" class="active" aria-current="page">Start a run</a><a href="../app/review.html">Review</a><a href="../docs/README.html">Docs</a></nav>
   <span class="spacer"></span>
   <a class="top opt" href="../AGENT.md">AGENT.md</a>
-  <a class="top opt" href="../downloads/code-grading-suite-4.2.2.zip">Download</a>
+  <a class="top opt" href="../downloads/code-grading-suite-4.3.0.zip">Download</a>
 </header>
-<div class="app">
+<main id="main"><div class="app">
   <header class="app-head">
     <div>
       <div class="eyebrow">Tool 2 of 3</div>
@@ -30,6 +33,11 @@
 
   <div class="two-col">
     <div id="run-form">
+      <section class="card" id="saved-card" hidden>
+        <h2 style="font-size:1.05rem">Your projects</h2>
+        <p class="hint" style="margin:0 0 8px">Pick one to fill in its settings from last time. They're kept in this browser only.</p>
+        <div id="saved-projects" class="saved-list"></div>
+      </section>
       <section class="card">
         <h2><span class="num">1</span>What should the agent do?</h2>
         <div class="choices" id="roles"></div>
@@ -58,6 +66,9 @@
         <div class="field"><label for="project-name">Project name</label>
           <input type="text" id="project-name" placeholder="orders-api">
           <small>Its folder is <code id="project-path">projects/…/</code> in the grading repo. Defaults to the code repo's name.</small></div>
+        <div class="field"><label for="size">How big is the code?</label>
+          <select id="size"></select>
+          <small>Only used to estimate the time below.</small></div>
         <div class="field"><span class="label">The suite is…</span>
           <div class="seg" role="radiogroup" aria-label="Where the suite is">
             <label><input type="radio" name="suite" value="site" checked><span>This website</span></label>
@@ -67,7 +78,7 @@
       </section>
 
       <section class="card">
-        <h2><span class="num">3</span>How should it hand back results?</h2>
+        <h2 data-term="delivery"><span class="num">3</span>How should it hand back results?</h2>
         <div class="choices" id="delivery"></div>
       </section>
 
@@ -80,17 +91,23 @@
     <aside class="sticky">
       <div class="card">
         <h2 style="font-size:1.1rem">Your prompt</h2>
-        <nav class="tabs" id="prompt-tabs" style="margin:4px 0 10px" hidden></nav>
-        <pre id="prompt-out" class="out-pre" style="white-space:pre-wrap"></pre>
+        <div class="tabs" id="prompt-tabs" style="margin:4px 0 10px" aria-label="Prompt for each run" hidden></div>
+        <pre id="prompt-out" class="out-pre" style="white-space:pre-wrap" tabindex="0" role="region" aria-label="Prompt to give the agent"></pre>
         <div class="row-btns" style="margin-top:10px"><button class="btn primary" type="button" id="copy-prompt">Copy prompt</button></div>
+        <h3 style="font-size:.95rem;margin:20px 0 4px">What to expect</h3>
+        <div id="expect"></div>
+        <p class="hint" style="margin:4px 0 0;font-size:.78rem">Rough guides for a capable coding agent; yours may differ.</p>
         <h3 style="font-size:.95rem;margin:20px 0 4px">Then</h3>
         <ol class="steps-mini" id="next-steps"></ol>
+        <div id="cycle"></div>
+        <p class="hint" id="after" style="margin:6px 0 0;font-size:.85rem"></p>
       </div>
     </aside>
   </div>
 </div>
-
+</main>
 <script src="../assets/site.js"></script>
+<script src="../assets/glossary.js"></script>
 <script src="../assets/common.js"></script>
 <script src="../assets/run.js"></script>
 </body>
