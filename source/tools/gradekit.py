@@ -27,6 +27,7 @@ Writing a report (graders):
   report check     List what's missing or wrong; --write stores the rollup when it's complete.
   carry            Start the next report from the last one: IDs kept, citations moved to the new code.
   report match     Suggest which earlier finding each new one is, to keep its ID.
+  deliver          Hand back a finished report: pr (git steps printed, or run), save or return.
   render           Markdown from data: report.md, the PR title and body, the PR-check comment, the improvement log.
 
 Projects: in a grading repo, pass --project NAME (folder projects/NAME/) and commands find the
@@ -56,6 +57,7 @@ import json
 import re
 import statistics
 import sys
+import tempfile
 from pathlib import Path
 
 try:
@@ -2772,6 +2774,198 @@ def cmd_report_match(args) -> int:
     return 0
 
 
+# =========================================================================== deliver
+# Hands a finished report back in one of the grader's three deliveries (pr, save, return). The
+# preparation is the same for all: finished, redacted if the grading repo is public, safe to
+# publish, report.md rendered. For pr, the git steps are printed, or run with --run. Pushing and
+# opening the pull request are separate opt-ins, because those depend on where the repo is hosted.
+
+def git_out(cwd, *args, check=True) -> str:
+    import subprocess
+    try:
+        r = subprocess.run(["git", "-C", str(cwd), *args], capture_output=True, text=True, timeout=120)
+    except (OSError, subprocess.SubprocessError) as exc:
+        die(f"git {' '.join(args)}: {exc}")
+    if check and r.returncode != 0:
+        die(f"git {' '.join(args)} failed: {(r.stderr or r.stdout).strip()}")
+    return r.stdout.strip() if r.returncode == 0 else ""
+
+
+def default_branch(root, remote: str) -> str:
+    ref = git_out(root, "symbolic-ref", "--quiet", "--short", f"refs/remotes/{remote}/HEAD", check=False)
+    if ref:
+        return ref
+    for cand in (f"{remote}/main", f"{remote}/master", "main", "master"):
+        if git_out(root, "rev-parse", "--verify", "--quiet", cand, check=False):
+            return cand
+    die("can't tell the grading repo's default branch; pass --base BRANCH")
+
+
+def prepare_delivery(args, report: dict, cfg: dict) -> dict:
+    """Everything every delivery needs. Returns the file paths, or dies with what's left to do."""
+    normalize_report(report, cfg)
+    errors, _ = validate_report(report, cfg, load_catalog())
+    todo = report_todo(report)
+    if args.repo:
+        errors += [f"citation: {f}" for f in verify_evidence(report, repo_reader(args.repo), 2)["failures"]]
+    if errors or todo:
+        args._exit = 1 if errors else EXIT_INCOMPLETE
+        raise DeliveryBlocked(errors, todo)
+    if not report.get("rollup") or report["rollup"].get("config_hash") != cfg["hash"]:
+        apply_rollup(report, cfg)
+    write_json(args.report, report)
+    files = {"report": args.report, "private": None}
+    public = bool((cfg.get("publishing") or PUBLISHING_DEFAULTS).get("public"))
+    if public and not (report.get("publishing") or {}).get("redacted"):
+        pub, leaks = redact_report(report)
+        if leaks:
+            args._exit = 1
+            raise DeliveryBlocked([f"leak: {x}" for x in leaks], [])
+        priv = private_path(args.report)
+        write_json(priv, report)
+        write_json(args.report, pub)
+        report = pub
+    if Path(private_path(args.report)).exists():
+        files["private"] = private_path(args.report)
+    if public:
+        problems = publish_problems(report)
+        if problems:
+            args._exit = 1
+            raise DeliveryBlocked([f"publish: {p}" for p in problems], [])
+    md = re.sub(r"\.json$", "", args.report) + ".md"
+    Path(md).write_text(render_report_md(report, cfg), encoding="utf-8")
+    files["markdown"] = md
+    files["report_obj"] = report
+    return files
+
+
+class DeliveryBlocked(Exception):
+    def __init__(self, errors, todo):
+        super().__init__("report not ready")
+        self.errors, self.todo = errors, todo
+
+
+def cmd_deliver(args) -> int:
+    report = load_json(args.report)
+    cfg = authoring_config(args, report)
+    if (args.push or args.open) and not args.run:
+        die("--push and --open need --run")
+    if args.open and not args.push:
+        die("--open needs --push (the branch must be on the host first)")
+    try:
+        files = prepare_delivery(args, report, cfg)
+    except DeliveryBlocked as b:
+        lines = [f"ERROR: {e}" for e in b.errors] + [f"todo:  {t}" for t in b.todo]
+        lines.append(f"\nnot delivered: {len(b.errors)} error(s), {len(b.todo)} to do (`gradekit report check` lists the same)")
+        emit(args, {"delivered": False, "errors": b.errors, "todo": b.todo}, "\n".join(lines))
+        return args._exit
+    report = files.pop("report_obj")
+    folder = Path(args.report).resolve().parent
+    if folder.name == "runs":
+        die("deliver the consensus report.json, not one run (see `gradekit stability`)")
+    pr = render_report_pr(report, cfg, args.site, args.grading_repo_url, args.branch, folder.name)
+    result = {"delivered": False, "delivery": args.delivery, "files": files, "title": pr["title"]}
+    lines = [f"ready: {files['report']}" + (f" (public copy; full report in {files['private']})" if files["private"] else ""),
+             f"wrote {files['markdown']}"]
+    private_note = (f"keep {files['private']} private: never commit it or paste it into a pull request; "
+                    f"hand it to whoever fixes the code") if files["private"] else None
+
+    if args.delivery == "return":
+        blocks = [("report.json", Path(files["report"]).read_text(encoding="utf-8"), "json"),
+                  ("report.md", Path(files["markdown"]).read_text(encoding="utf-8"), "markdown")]
+        if files["private"]:
+            blocks.append(("report.private.json (private: don't commit)", Path(files["private"]).read_text(encoding="utf-8"), "json"))
+        result.update(delivered=True, blocks=[{"name": n, "content": c} for n, c, _ in blocks])
+        lines.append("\nReturn these in your final message, each in its own fenced block:")
+        for name, content, lang in blocks:
+            lines += ["", f"**{name}**", f"````{lang}", content.rstrip("\n"), "````"]
+        emit(args, result, "\n".join(lines))
+        return 0
+
+    if args.delivery == "save":
+        result["delivered"] = True
+        result["folder"] = str(folder)
+        lines.append(f"saved in {folder}")
+        if private_note:
+            lines.append(private_note)
+        emit(args, result, "\n".join(lines))
+        return 0
+
+    # ---- pr
+    root = Path(git_out(folder, "rev-parse", "--show-toplevel"))
+    rel = folder.relative_to(root.resolve()).as_posix()
+    base = args.base or default_branch(root, args.remote)
+    branch = pr["branch"]
+    base_name = base.split("/", 1)[1] if base.startswith(args.remote + "/") else base
+    if branch in (base, base_name):
+        die("refusing to deliver onto the default branch; reports go through a pull request")
+    body_file = Path(args.body_file) if args.body_file else Path(tempfile.gettempdir()) / f"gradekit-{branch.replace('/', '_')}.md"
+    body_file.write_text(pr["body"], encoding="utf-8")
+    msg = f"{pr['title']}\n\n{(report.get('summary') or '').strip()}".strip()
+    only = [rel, f":(exclude){rel}/**/*.private.json", f":(exclude){rel}/*.private.json"]   # never the private report
+    steps = [["git", "-C", str(root), "switch", "-c", branch, base],
+             ["git", "-C", str(root), "add", "--", *only],
+             ["git", "-C", str(root), "commit", "-m", msg, "--", *only]]
+    if args.push:
+        steps.append(["git", "-C", str(root), "push", "-u", args.remote, branch])
+    if args.open == "github":
+        steps.append(["gh", "pr", "create", "--base", base_name, "--head", branch,
+                      "--title", pr["title"], "--body-file", str(body_file)])
+    elif args.open == "gitlab":
+        steps.append(["glab", "mr", "create", "--source-branch", branch, "--target-branch", base_name,
+                      "--title", pr["title"], "--description", pr["body"], "--yes"])
+    result.update(branch=branch, base=base_name, body_file=str(body_file), commands=[shell_join(s) for s in steps])
+    if not args.run:
+        lines += ["", f"pull request: {pr['title']}", f"branch {branch} from {base}; body in {body_file}", "",
+                  "run these (or `gradekit deliver … --run`), then open a pull request from that branch with that title and body:"]
+        lines += [f"  {shell_join(s)}" for s in steps]
+        if private_note:
+            lines += ["", private_note]
+        emit(args, result, "\n".join(lines))
+        return 0
+
+    import subprocess
+    current = git_out(root, "rev-parse", "--abbrev-ref", "HEAD")
+    if current == branch:
+        steps = steps[1:]          # already on the report branch (a re-run)
+    elif git_out(root, "rev-parse", "--verify", "--quiet", f"refs/heads/{branch}", check=False):
+        die(f"branch {branch} already exists; switch to it, or delete it, and run again")
+    url = None
+    for s in steps:
+        r = subprocess.run(s, capture_output=True, text=True, cwd=str(root), timeout=300)
+        if r.returncode != 0:
+            msg_ = (r.stderr or r.stdout).strip()
+            if s[3:5] == ["commit", "-m"] and re.search(r"nothing (added )?to commit", r.stdout + r.stderr):
+                continue
+            if "user.email" in msg_ or "Author identity unknown" in msg_:
+                msg_ += "\n(set the committer: git config user.name … and git config user.email …)"
+            die(f"`{shell_join(s)}` failed:\n{msg_}")
+        found = re.findall(r"https?://\S+", r.stdout)
+        if s[0] in ("gh", "glab") and found:
+            url = found[-1]
+    staged = git_out(root, "show", "--name-only", "--format=", "HEAD").splitlines()
+    leaked = [f for f in staged if f.endswith(".private.json")]
+    if leaked:
+        die(f"a private report was committed ({', '.join(leaked)}): undo with `git reset --soft HEAD~1` before pushing")
+    result.update(delivered=True, commit=git_out(root, "rev-parse", "HEAD"), pushed=bool(args.push), url=url)
+    lines += ["", f"pull request title: {pr['title']}", f"committed {rel} on {branch}" + (f" and pushed to {args.remote}" if args.push else "")]
+    if url:
+        lines.append(f"pull request: {url}")
+    elif args.push:
+        lines.append(f"open a pull request from {branch} into {base_name} with that title and the body in {body_file}")
+    else:
+        lines.append(f"next: push {branch} and open a pull request into {base_name} with that title and the body in {body_file}")
+    if private_note:
+        lines.append(private_note)
+    emit(args, result, "\n".join(lines))
+    return 0
+
+
+def shell_join(parts) -> str:
+    import shlex
+    return " ".join(shlex.quote(str(p)) for p in parts)
+
+
 # =========================================================================== render
 # Markdown made from report data, so every report, pull request, PR check and improvement log
 # has the same layout and no hand-copied numbers. Public text never carries withheld details.
@@ -3573,6 +3767,26 @@ def main(argv=None) -> int:
     p.add_argument("--allow-withheld", action="store_true", help="carry from a public copy anyway")
     with_config(p)
     p.set_defaults(fn=cmd_carry)
+
+    # ------------------------------------------------------------ deliver
+    p = sub.add_parser("deliver", help="hand back a finished report: pr, save or return (prints the git steps, or runs them)",
+                       description="Checks the report is finished, withholds sensitive findings if the grading repo is public, "
+                                   "renders report.md, then delivers. For pr it prints the branch, commit, title and body "
+                                   "(or does the git steps with --run); pushing and opening the pull request are opt-in.")
+    p.add_argument("report", help="the finished report.json, in projects/NAME/reports/<folder>/")
+    p.add_argument("--delivery", choices=["pr", "save", "return"], default="pr")
+    p.add_argument("--repo", metavar="DIR_OR_ZIP", help="also verify every citation against the code first")
+    p.add_argument("--run", action="store_true", help="pr: create the branch and commit (otherwise just print the steps)")
+    p.add_argument("--push", action="store_true", help="pr, with --run: push the branch")
+    p.add_argument("--open", choices=["github", "gitlab"], help="pr, with --push: open it with gh or glab (needs them installed and signed in)")
+    p.add_argument("--base", metavar="BRANCH", help="pr: branch to start from and target (default: the remote's default branch)")
+    p.add_argument("--remote", default="origin")
+    p.add_argument("--branch", help="default: report/<project>/<date>-<commit>")
+    p.add_argument("--body-file", metavar="FILE", help="where to write the pull request body (default: a temp file)")
+    p.add_argument("--site", metavar="URL", help="the suite website, for a Review-page link in the body")
+    p.add_argument("--grading-repo-url", metavar="URL", help="the grading repo's address, for that link")
+    with_config(p)
+    p.set_defaults(fn=cmd_deliver)
 
     # ------------------------------------------------------------ render
     p = sub.add_parser("render", help="markdown from report data: report.md, PR title/body, PR-check comment, improvement log")

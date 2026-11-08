@@ -88,6 +88,7 @@ $K report finding add REPORT --benchmark A3 --cite src/x.py:40 --repo CODE …  
 $K report check REPORT --repo CODE [--write]                     # what's missing or wrong; --write stores the rollup
 $K carry LAST_REPORT --repo CODE --commit SHA [--mode full|pr …]  # next report from the last: IDs kept, citations moved
 $K report match REPORT --baseline LAST_REPORT [--apply]           # which earlier finding each new one is
+$K deliver REPORT --delivery pr|save|return [--run --push --open github|gitlab]   # hand back a finished report
 $K render report REPORT                                          # report.md from report.json
 $K render pr REPORT                                             # the grading pull request's branch, title and body
 $K render check BASELINE PR_REPORT                               # the PR-check comment
