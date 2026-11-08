@@ -78,7 +78,7 @@
     var box = UI.clear($("#saved-projects"));
     $("#saved-card").hidden = !names.length;
     names.forEach(function (n) {
-      var use = h("button", { type: "button", class: "chip" + (n === slugName(s.project) ? " on" : ""), "aria-pressed": String(n === slugName(s.project)) }, n);
+      var use = h("button", { type: "button", class: "saved-chip" + (n === slugName(s.project) ? " on" : ""), "aria-pressed": String(n === slugName(s.project)) }, n);
       use.addEventListener("click", function () { useProject(n); });
       var forget = h("button", { type: "button", class: "icon-btn", "aria-label": "Forget " + n }, "×");
       forget.addEventListener("click", function () { var a = savedProjects(); delete a[n]; UI.store.set("run:projects", a); renderSaved(); });

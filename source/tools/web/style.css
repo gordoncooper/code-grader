@@ -313,8 +313,8 @@ summary{min-height:24px;display:list-item;padding:3px 0}
 /* Start a run: remembered projects, expectations, the cycle */
 .saved-list{display:flex;flex-wrap:wrap;gap:8px}
 .saved{display:inline-flex;align-items:center;gap:2px}
-.chip{border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:999px;padding:4px 12px;font:500 .85rem var(--sans);cursor:pointer;min-height:28px}
-.chip.on{border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}
+.saved-chip{border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:999px;padding:4px 12px;font:500 .85rem var(--sans);cursor:pointer;min-height:28px}
+.saved-chip.on{border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}
 ul.expect{margin:0;padding-left:18px;font-size:.88rem}
 ul.expect li{margin:3px 0}
 ol.cycle{display:flex;flex-wrap:wrap;gap:6px;list-style:none;margin:12px 0 0;padding:0;font-size:.8rem}
