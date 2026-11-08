@@ -1,4 +1,4 @@
-<!-- Part of the Code Grading Suite v4.3.0. The tables show the shipped defaults (config/defaults.toml). For your own configuration, run `gradekit presets` and `gradekit resolve`. -->
+<!-- Part of the Code Grading Suite v5.0.0. The tables show the shipped defaults (config/defaults.toml). For your own configuration, run `gradekit presets` and `gradekit resolve`. -->
 
 # How scoring works: weights, gates, zones, targets and maturity
 

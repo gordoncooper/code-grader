@@ -24,6 +24,7 @@ Writing a report (graders):
   report finding   Add or update a finding (next free ID, quotes copied from the code).
   report score     Score a benchmark, or mark it limited / not applicable.
   report strength | enforcement | action | gap | feature | flag | ran | set
+  report show | update | remove   List records numbered, then correct or remove one.
   report check     List what's missing or wrong; --write stores the rollup when it's complete.
   carry            Start the next report from the last one: IDs kept, citations moved to the new code.
   report match     Suggest which earlier finding each new one is, to keep its ID.
@@ -111,6 +112,9 @@ def load_json(path) -> dict:
 
 
 def write_json(path, data: dict) -> None:
+    parent = Path(path).parent
+    if str(parent) not in ("", "."):
+        parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w", encoding="utf-8") as fh:
         json.dump(data, fh, indent=2, ensure_ascii=False)
         fh.write("\n")
@@ -229,6 +233,18 @@ def norm(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip()
 
 
+def enforcement_items(b: dict) -> list[dict]:
+    """A benchmark's enforcement as {note, evidence}. Format 5 stores it that way, like strengths; format 4 stored
+    bare evidence objects, which this wraps."""
+    out = []
+    for e in b.get("enforcement") or []:
+        if isinstance(e, dict) and "type" not in e and isinstance(e.get("evidence"), list):
+            out.append(e)
+        elif isinstance(e, dict):
+            out.append({"note": e.get("note") or "", "evidence": [e]})
+    return out
+
+
 def iter_evidence(report: dict):
     """Yield (location, evidence, benchmark_id_or_None) for every evidence object."""
     for f in report.get("findings", []):
@@ -238,8 +254,9 @@ def iter_evidence(report: dict):
         for i, s in enumerate(b.get("strengths", [])):
             for ev in s.get("evidence", []):
                 yield f"{b.get('id')} strength #{i + 1}", ev, b.get("id")
-        for ev in b.get("enforcement", []):
-            yield f"{b.get('id')} enforcement", ev, b.get("id")
+        for i, e in enumerate(enforcement_items(b)):
+            for ev in e["evidence"]:
+                yield f"{b.get('id')} enforcement #{i + 1}", ev, b.get("id")
     for feat in report.get("feature_inventory", []):
         for ev in feat.get("evidence", []) or []:
             yield f"feature '{feat.get('feature')}'", ev, None
@@ -782,6 +799,7 @@ def validate_report(report: dict, cfg: dict, catalog: dict) -> tuple[list[str], 
             referenced.add(fid)
             if fid not in findings:
                 errors.append(f"{bid}: references unknown finding {fid}")
+        prev_expected = None
         for act in b.get("path_to_target", []):
             aid = act.get("id", "")
             if aid in action_ids:
@@ -796,6 +814,12 @@ def validate_report(report: dict, cfg: dict, catalog: dict) -> tuple[list[str], 
                 errors.append(f"{aid}: requires_human_decision needs a decision_question")
             if isinstance(score, int) and isinstance(act.get("expected_new_score"), int) and act["expected_new_score"] < score:
                 warnings.append(f"{aid}: expected_new_score {act['expected_new_score']} is below current score {score}")
+            elif (report_format(report) >= 5 and isinstance(act.get("expected_new_score"), int) and isinstance(prev_expected, int)
+                  and act["expected_new_score"] < prev_expected):
+                warnings.append(f"{aid}: expected_new_score {act['expected_new_score']} is below the earlier action's "
+                                f"{prev_expected}; it counts earlier actions as done, so it should be at least that")
+            if isinstance(act.get("expected_new_score"), int):
+                prev_expected = max(act["expected_new_score"], prev_expected or 0)
 
     for fid, f in findings.items():
         if f.get("status") in OPEN_STATUSES and fid not in referenced:
@@ -832,9 +856,15 @@ def validate_report(report: dict, cfg: dict, catalog: dict) -> tuple[list[str], 
         warnings.append("full-mode report has carried_forward benchmarks; full audits should grade everything")
 
     sens = sensitive_ids(report)
+    long_quotes = []
     for loc, ev, _ in iter_evidence(report):
         if ev.get("type") == "withheld" and loc.removeprefix("finding ") not in sens:
             errors.append(f"{loc}: withheld evidence is only for findings marked sensitive (redact adds it; graders cite real evidence)")
+        if ev.get("type") == "code" and len(str(ev.get("quote") or "").strip("\n").splitlines()) > MAX_QUOTE_LINES:
+            long_quotes.append(f"{loc} ({ev.get('file')}:{ev.get('lines')})")
+    if long_quotes and report_format(report) >= 5:
+        warnings.append(f"{len(long_quotes)} quote(s) longer than {MAX_QUOTE_LINES} lines (cite the lines that show it; "
+                        f"several --cite for several places): {', '.join(long_quotes[:5])}" + (" …" if len(long_quotes) > 5 else ""))
     pub = cfg.get("publishing") or PUBLISHING_DEFAULTS
     if pub.get("public"):
         floor = SEVERITIES.index(pub.get("warn_at", "major")) if pub.get("warn_at") in SEVERITIES else 1
@@ -1216,14 +1246,22 @@ def compute_rollup(report: dict, cfg: dict) -> dict:
     blocker_ids = {x.get("benchmark_id") for x in blockers if x.get("benchmark_id")}
     blocker_findings = {fid for x in blockers for fid in x.get("finding_ids", [])}
     prios = []
+    sequential = report_format(report) >= 5
     for b in report.get("benchmarks", []):
         if b.get("applicability") == "not_applicable" or not isinstance(b.get("score"), int):
             continue
         tv = targets.get(b["id"])
+        ceiling = tv if tv is not None else 10
+        reached = b["score"]   # format 5: each action's expected score counts the benchmark's earlier actions as done
         for act in b.get("path_to_target", []):
             resolved = [fz[f] for f in act.get("resolves", []) if f in fz]
             heat = max((r["criticality"] for r in resolved), key=lambda c: HEAT[c], default=cfg["zones"]["default"])
-            gain = max(0, min(act.get("expected_new_score", b["score"]), tv if tv is not None else 10) - b["score"])
+            expected = act.get("expected_new_score", b["score"])
+            if not isinstance(expected, int):
+                expected = b["score"]
+            gain = max(0, min(expected, ceiling) - min(reached, ceiling))
+            if sequential:
+                reached = max(reached, expected)
             score = round(b.get("weight", 1) * gain * float(mult.get(heat, 1.0)) / float(cost.get(act.get("effort", "M"), 2)), 2)
             hot_critical = any(r["criticality"] == "hot" and r["effective_severity"] == "critical" and r["status"] in OPEN_STATUSES
                                for r in resolved)
@@ -1292,6 +1330,28 @@ def decision_for(action: dict, cfg: dict) -> dict | None:
             "decided_by": by, "date": match.get("date")}
 
 
+TIER_WHY = {0: "Fixes a critical problem in a hot zone, or a failed hard gate",
+            1: "Clears a blocker to the next maturity level",
+            2: "Raises a benchmark that's below its target",
+            3: "Beyond the target"}
+TOP_PRIORITIES = 10
+
+
+def derived_top_priorities(report: dict, roll: dict) -> list[dict]:
+    """The first ten of rollup.priorities, as top_priorities. `why_first` is the action's own (`report action
+    --why-first`), else what the report already said for that action, else a line from its tier."""
+    actions = {a.get("id"): a for b in report.get("benchmarks", []) for a in b.get("path_to_target", [])}
+    said = {p.get("action_id"): p for p in report.get("top_priorities") or [] if p.get("action_id")}
+    out = []
+    for p in roll.get("priorities", [])[:TOP_PRIORITIES]:
+        act, old = actions.get(p["action_id"]) or {}, said.get(p["action_id"]) or {}
+        why = act.get("why_first") or old.get("why_first") or TIER_WHY.get(p["tier"], "")
+        gain = f"+{p['gain']} on {p['benchmark_id']}" if p.get("gain") else f"no gain on {p['benchmark_id']} by itself"
+        out.append({"rank": p["rank"], "benchmark_id": p["benchmark_id"], "action_id": p["action_id"], "why_first": why,
+                    "expected_gain": gain})
+    return out
+
+
 def apply_rollup(report: dict, cfg: dict) -> dict:
     if report_format(report) >= 5:
         for f in report.get("findings", []):
@@ -1300,6 +1360,8 @@ def apply_rollup(report: dict, cfg: dict) -> dict:
     report["rollup"] = roll
     for b in report.get("benchmarks", []):
         b["target"] = roll["targets"].get(b.get("id"))
+    if report_format(report) >= 5:
+        report["top_priorities"] = derived_top_priorities(report, roll)
     return roll
 
 
@@ -1738,6 +1800,14 @@ def private_path(path: str) -> str:
     return re.sub(r"\.json$", "", path) + ".private.json"
 
 
+def same_but_marked(public: dict, report: dict) -> bool:
+    """True when redact withheld and stripped nothing: the public copy only says it was redacted."""
+    pub = {k: v for k, v in public.items() if k != "publishing"}
+    if "holdout" in pub and not (report.get("holdout") or {}).get("private_details"):
+        pub["holdout"] = {**pub["holdout"], "private_details": report["holdout"].get("private_details")}
+    return pub == report
+
+
 def cmd_redact(args) -> int:
     report = load_json(args.report)
     if (report.get("publishing") or {}).get("redacted"):
@@ -1750,7 +1820,11 @@ def cmd_redact(args) -> int:
         args._result = {"leaks": leaks, "written": []}
         return 1
     withheld = public["publishing"]["withheld"]
-    if args.in_place:
+    if args.in_place and same_but_marked(public, report):
+        write_json(args.report, public)   # nothing withheld or stripped: no private copy to keep or hand over
+        written = {"public": args.report}
+        print(f"nothing to withhold: marked {args.report} redacted, and no {Path(private_path(args.report)).name} is needed")
+    elif args.in_place:
         priv = private_path(args.report)
         write_json(priv, report)
         write_json(args.report, public)
@@ -1981,7 +2055,7 @@ def _emit_table(name: str, table: dict, out: list[str], array: bool = False) -> 
                 _emit_table(f"{name}.{toml_key(k)}", item, out, array=True)
 
 
-PROJECT_HEADER = """# Code Grading Suite (v{version}): project configuration
+PROJECT_HEADER = """# Code Grading Suite project configuration (created with kit v{version})
 # People own this file. Agents read it but don't change it.
 # Answers to decision questions go in decisions.json, accepted findings in dispositions.json.
 # Check it with:  python3 SUITE_DIR/tools/gradekit.py resolve --config {path}
@@ -2357,6 +2431,9 @@ def repo_reader(repo: str | None):
     return fs_reader(path)
 
 
+MAX_QUOTE_LINES = 3   # grader.md Part 5: a quote is 1-3 lines
+
+
 def cite(spec: str, read_lines, note: str | None = None) -> dict:
     """An evidence object whose quote is copied from the file, so it always verifies."""
     rel, start, end = parse_cite(spec)
@@ -2367,9 +2444,16 @@ def cite(spec: str, read_lines, note: str | None = None) -> dict:
         die(lines)
     if end > len(lines):
         die(f"{rel} has {len(lines)} lines; cited {start}-{end}")
-    quote = "\n".join(lines[start - 1:end]).strip("\n")
-    if not quote.strip():
+    if not "".join(lines[start - 1:end]).strip():
         die(f"{rel}:{start}-{end} is blank; cite the lines that show the problem")
+    while not lines[start - 1].strip():   # a blank line at either end is an off-by-one: cite only the lines with text
+        start += 1
+    while not lines[end - 1].strip():
+        end -= 1
+    if end - start + 1 > MAX_QUOTE_LINES:
+        die(f"{rel}:{start}-{end} is {end - start + 1} lines; a quote is 1–{MAX_QUOTE_LINES} lines. Cite the lines that "
+            f"show it, and give several --cite for several places")
+    quote = "\n".join(lines[start - 1:end])
     ev = {"type": "code", "file": rel, "lines": str(start) if start == end else f"{start}-{end}", "quote": quote}
     if note:
         ev["note"] = note
@@ -2503,7 +2587,7 @@ def cmd_report_new(args) -> int:
     project = (cfg.get("project") or {}).get("name") or (pdir.name if pdir else None)
     report = {
         "schema_version": REPORT_FORMAT, "suite_version": catalog["suite_version"], "mode": args.mode,
-        "run": {"project": project, "commit": commit, "base_commit": args.base_commit, "started": now, "date": now,
+        "run": {"project": project, "commit": commit, "base_commit": args.base_commit, "started": started_arg(args, now), "date": now,
                 "grader": args.grader, "model": args.model, "session": args.session, "work_order": args.work_order,
                 "run_index": run_index, "run_count": run_count, "suite_source": args.suite_source},
         "component": ({"name": cfg["component"]["name"], "path": cfg["component"].get("path"), "weight": cfg["component"].get("weight", 1)}
@@ -2686,7 +2770,7 @@ def cmd_report_strength(args) -> int:
 def cmd_report_enforcement(args) -> int:
     report, cfg = load_for_edit(args)
     b = benchmark_or_die(report, args.benchmark)
-    b["enforcement"] += evidence_from_args(args, required=True)
+    b["enforcement"].append({"note": args.text, "evidence": evidence_from_args(args, required=True)})
     save_edit(args, report, cfg)
     emit(args, {"benchmark_id": b["id"], "enforcement": len(b["enforcement"])}, f"{b['id']}: {len(b['enforcement'])} enforcement item(s)")
     return 0
@@ -2704,6 +2788,8 @@ def cmd_report_action(args) -> int:
            "effort": args.effort, "requires_human_decision": bool(args.decision), "decision_question": args.decision}
     if args.optional:
         act["optional"] = True
+    if args.why_first:
+        act["why_first"] = args.why_first
     b["path_to_target"].append(act)
     save_edit(args, report, cfg)
     emit(args, {"id": aid, "action": act}, f"added {aid}" + (" (needs a human decision)" if args.decision else ""))
@@ -2720,6 +2806,182 @@ def cmd_report_gap(args) -> int:
     report["gap_register"].append(gap)
     save_edit(args, report, cfg)
     emit(args, {"id": gid, "gap": gap}, f"added {gid}: {args.gap}")
+    return 0
+
+
+def earlier_report_ids(report_path) -> set[str]:
+    """Finding and gap IDs in the project's other report folders: IDs that must stay, because carry and diff track them."""
+    ids: set[str] = set()
+    pdir = project_dir_for_report(report_path)
+    here = Path(report_path).resolve().parent
+    for folder in report_folders(pdir) if pdir else []:
+        if folder.resolve() == here:
+            continue
+        for f in [folder / "report.json", *sorted((folder / "runs").glob("*.json"))]:
+            if f.exists():
+                try:
+                    ids |= recorded_ids(json.loads(f.read_text(encoding="utf-8", errors="replace")))
+                except json.JSONDecodeError:
+                    continue
+    return ids
+
+
+EDIT_REF_HELP = ("what to change: a strength or enforcement item as BENCHMARK/strength/N or BENCHMARK/enforcement/N "
+                 "(N as `report show` numbers them), an action ID (A3-act-2), a gap ID (GAP-003), feature/N, or, for "
+                 "remove, a finding ID")
+
+
+def edit_target(report: dict, ref: str) -> dict:
+    """{kind, items, index, item, benchmark} for a reference to one record of a report."""
+    m = re.fullmatch(r"([A-Za-z]\d+)/(strength|strengths|enforcement)/(\d+)", ref.strip())
+    if m:
+        b = benchmark_or_die(report, m.group(1))
+        kind = "enforcement" if m.group(2) == "enforcement" else "strength"
+        items = b["enforcement"] if kind == "enforcement" else b["strengths"]
+        n = int(m.group(3))
+        if not 1 <= n <= len(items):
+            die(f"{b['id']} has {len(items)} {kind} item(s); `report show $R {b['id']}` lists them")
+        return {"kind": kind, "items": items, "index": n - 1, "item": items[n - 1], "benchmark": b}
+    m = re.fullmatch(r"features?/(\d+)", ref.strip())
+    if m:
+        items, n = report["feature_inventory"], int(m.group(1))
+        if not 1 <= n <= len(items):
+            die(f"the report has {len(items)} feature(s); `report show $R features` lists them")
+        return {"kind": "feature", "items": items, "index": n - 1, "item": items[n - 1], "benchmark": None}
+    for b in report["benchmarks"]:
+        for i, a in enumerate(b["path_to_target"]):
+            if a.get("id") == ref:
+                return {"kind": "action", "items": b["path_to_target"], "index": i, "item": a, "benchmark": b}
+    for kind, key in (("gap", "gap_register"), ("finding", "findings")):
+        for i, x in enumerate(report[key]):
+            if x.get("id") == ref:
+                return {"kind": kind, "items": report[key], "index": i, "item": x, "benchmark": None}
+    die(f"nothing called {ref!r} in this report. {EDIT_REF_HELP[0].upper() + EDIT_REF_HELP[1:]}.")
+
+
+def show_lines(report: dict, what: str | None) -> list[str]:
+    """Numbered records, as `report update` and `report remove` address them."""
+    def ev_text(evs):
+        return "; ".join(evidence_line(e) for e in evs or [])
+    if what and what.lower() in ("feature", "features"):
+        return [f"feature/{i} {f.get('feature')} ({f.get('status')}){': ' + ev_text(f.get('evidence')) if f.get('evidence') else ''}"
+                for i, f in enumerate(report["feature_inventory"], 1)] or ["no features yet"]
+    if what and what.lower() in ("gap", "gaps"):
+        return [f"{g['id']} {g.get('severity')} {g.get('necessity')} ({g.get('status')}): {g.get('gap')}"
+                for g in report["gap_register"]] or ["no gaps yet"]
+    benches = [benchmark_or_die(report, what)] if what else report["benchmarks"]
+    out = []
+    for b in benches:
+        if not what and not (b["strengths"] or b["enforcement"] or b["path_to_target"] or b["finding_ids"]):
+            continue
+        score = b.get("score") if b.get("applicability") != "not_applicable" else "n/a"
+        out.append(f"{b['id']} {b.get('name', '')} · score {score if score is not None else '–'}")
+        out += [f"  {b['id']}/strength/{i} {s.get('note')} ({ev_text(s.get('evidence'))})" for i, s in enumerate(b["strengths"], 1)]
+        out += [f"  {b['id']}/enforcement/{i} {e['note'] or '(no text)'} ({ev_text(e['evidence'])})"
+                for i, e in enumerate(enforcement_items(b), 1)]
+        fmap = {f.get("id"): f for f in report["findings"]}
+        out += [f"  {fid} {fmap.get(fid, {}).get('severity')} {fmap.get(fid, {}).get('status')}: {fmap.get(fid, {}).get('title')}"
+                for fid in b["finding_ids"]]
+        for a in b["path_to_target"]:
+            extra = (" optional" if a.get("optional") else "") + (f" resolves {', '.join(a['resolves'])}" if a.get("resolves") else "")
+            out.append(f"  {a['id']} → {a.get('expected_new_score')} (effort {a.get('effort')}{extra}): {a.get('action')}")
+    return out or ["nothing recorded yet"]
+
+
+def cmd_report_show(args) -> int:
+    report = load_json(args.report)
+    lines = show_lines(report, args.what)
+    emit(args, {"lines": lines}, "\n".join(lines))
+    return 0
+
+
+def cmd_report_update(args) -> int:
+    report, cfg = load_for_edit(args)
+    t = edit_target(report, args.ref)
+    item, kind, changed = t["item"], t["kind"], []
+    allowed = {"strength": {"text", "evidence"}, "enforcement": {"text", "evidence"},
+               "action": {"action", "new_score", "effort", "resolves", "decision", "optional", "why_first"},
+               "gap": {"gap", "severity", "necessity", "status", "rationale", "benchmarks"}}
+    if kind not in allowed:
+        die(f"{args.ref} is a {kind}: " + ("use `report finding update`" if kind == "finding" else "give the feature again with `report feature`"))
+    new_ev = evidence_from_args(args)
+    given = {k for k in ("text", "action", "new_score", "effort", "resolves", "decision", "optional", "why_first", "gap", "severity",
+                         "necessity", "status", "rationale", "benchmarks") if getattr(args, k) is not None}
+    if new_ev:
+        given.add("evidence")
+    if not given:
+        die("nothing to change: give the new values (see `report update --help`)")
+    wrong = given - allowed[kind]
+    if wrong:
+        die(f"{args.ref} is a{'n' if kind[0] in 'aeiou' else ''} {kind}; it has no {', '.join('--' + w.replace('_', '-') for w in sorted(wrong))}")
+    if kind in ("strength", "enforcement"):
+        if kind == "enforcement" and "type" in item:   # a format-4 item: wrap it first
+            item = t["items"][t["index"]] = enforcement_items({"enforcement": [item]})[0]
+        if args.text is not None:
+            item["note"] = args.text
+            changed.append("text")
+        if new_ev:
+            item["evidence"] = new_ev if args.replace_evidence else item.get("evidence", []) + new_ev
+            changed.append("evidence replaced" if args.replace_evidence else "evidence added")
+    elif kind == "action":
+        if args.resolves is not None:
+            ids = {f.get("id") for f in report["findings"]} | {g.get("id") for g in report["gap_register"]}
+            for fid in args.resolves:
+                if fid not in ids:
+                    die(f"--resolves {fid}: no such finding or gap in this report")
+            item["resolves"] = args.resolves
+        for key, field in (("action", "action"), ("new_score", "expected_new_score"), ("effort", "effort")):
+            if getattr(args, key) is not None:
+                item[field] = getattr(args, key)
+        if args.decision is not None:
+            item["requires_human_decision"] = bool(args.decision)
+            item["decision_question"] = args.decision or None
+        if args.optional is not None:
+            if args.optional:
+                item["optional"] = True
+            else:
+                item.pop("optional", None)
+        if args.why_first is not None:
+            if args.why_first:
+                item["why_first"] = args.why_first
+            else:
+                item.pop("why_first", None)
+        changed = sorted(given)
+    else:
+        for key in ("gap", "severity", "necessity", "status", "rationale"):
+            if getattr(args, key) is not None:
+                item[key] = getattr(args, key)
+        if args.benchmarks is not None:
+            for bid in args.benchmarks:
+                benchmark_or_die(report, bid)
+            item["benchmark_ids"] = [b.upper() for b in args.benchmarks]
+        changed = sorted(given)
+    save_edit(args, report, cfg)
+    emit(args, {"ref": args.ref, "kind": kind, "changed": changed, "item": item}, f"updated {args.ref}: {', '.join(changed)}")
+    return 0
+
+
+def cmd_report_remove(args) -> int:
+    report, cfg = load_for_edit(args)
+    t = edit_target(report, args.ref)
+    kind, item, notes = t["kind"], t["item"], []
+    if kind in ("finding", "gap") and item.get("id") in earlier_report_ids(args.report):
+        die(f"{item['id']} is in an earlier report, so its ID stays: " +
+            ("update it instead (`report finding update`: --status fixed if it's gone, or new evidence)" if kind == "finding"
+             else f"update it instead (`report update $R {item['id']} --status …`)"))
+    del t["items"][t["index"]]
+    if kind in ("finding", "gap"):
+        for b in report["benchmarks"]:
+            if item["id"] in b["finding_ids"]:
+                b["finding_ids"].remove(item["id"])
+            for a in b["path_to_target"]:
+                if item["id"] in a.get("resolves", []):
+                    a["resolves"] = [x for x in a["resolves"] if x != item["id"]]
+                    notes.append(f"{a['id']} no longer resolves it")
+    save_edit(args, report, cfg)
+    later = " (later items are renumbered: `report show` lists them)" if kind in ("strength", "enforcement", "feature") else ""
+    emit(args, {"ref": args.ref, "kind": kind, "removed": item, "notes": notes},
+         f"removed {args.ref}{later}" + "".join(f"\n  note: {n}" for n in notes))
     return 0
 
 
@@ -2805,6 +3067,15 @@ def report_todo(report: dict, pdir: Path | None = None) -> list[str]:
         todo.append("record the commands you ran: `report ran REPORT --command-text CMD --summary TEXT`")
     if not report.get("limitations"):
         todo.append("list limitations (or 'None'): `report set REPORT limitations \"...\" --append`")
+    if not str(report.get("summary") or "").strip():
+        todo.append("write the summary: `report set REPORT summary \"...\"`")
+    if report_format(report) >= 5:
+        for b in report.get("benchmarks", []):
+            tv = b.get("target")
+            if (isinstance(b.get("score"), int) and isinstance(tv, int) and b["score"] < tv and not b.get("carried_forward")
+                    and not any(not a.get("optional") for a in b.get("path_to_target", []))):
+                todo.append(f"{b['id']}: {b['score']} is below its target {tv}; plan the path there "
+                            f"(`report action REPORT {b['id']} --action \"...\" --new-score N --effort S|M|L`)")
     if report_format(report) >= 5 and not str((report.get("run") or {}).get("model") or "").strip():
         todo.append("record the model that graded: `report set REPORT run.model NAME` (or `report new --model`)")
     if report_format(report) >= 5 and pdir is not None:
@@ -2998,7 +3269,11 @@ def carry_report(baseline: dict, read_lines, cfg: dict, commit: str, mode: str, 
         b["change_explanation"] = None
         for i, s in enumerate(b.get("strengths", [])):
             s["evidence"] = move(f"{b['id']} strength #{i + 1}", s.get("evidence", []))
-        b["enforcement"] = move(f"{b['id']} enforcement", b.get("enforcement", []))
+        if report_format(r) >= 5:
+            for i, e in enumerate(b.get("enforcement", [])):
+                e["evidence"] = move(f"{b['id']} enforcement #{i + 1}", e.get("evidence", []))
+        else:
+            b["enforcement"] = move(f"{b['id']} enforcement", b.get("enforcement", []))
         if b["id"] in regrade:
             b["carried_forward"] = False
             if b.get("applicability") != "not_applicable":
@@ -3044,7 +3319,7 @@ def cmd_carry(args) -> int:
             why.append(f"--touched: {', '.join(extra)}")
     report, stats = carry_report(baseline, read, cfg, args.commit, args.mode, args.base_commit, touched)
     report = {"schema_version": REPORT_FORMAT, **{k: v for k, v in report.items() if k != "schema_version"}}
-    report["run"].update({"started": report["run"]["date"], "grader": args.grader or report["run"].get("grader"),
+    report["run"].update({"started": started_arg(args, report["run"]["date"]), "grader": args.grader or report["run"].get("grader"),
                           "model": args.model, "session": args.session, "work_order": args.work_order})
     report["run"].pop("usage", None)
     pdir = project_dir_for_report(args.baseline) or project_dir_from_args(args)
@@ -3184,6 +3459,39 @@ def _run(cmd, cwd=None, timeout=30):
         return None, str(exc)
 
 
+CODE_SUFFIXES = {".py", ".js", ".mjs", ".cjs", ".ts", ".tsx", ".jsx", ".go", ".rs", ".java", ".kt", ".kts", ".rb", ".php",
+                 ".c", ".h", ".cc", ".cpp", ".hpp", ".cs", ".swift", ".scala", ".m", ".mm", ".sh", ".lua", ".ex", ".exs",
+                 ".erl", ".hs", ".ml", ".clj", ".dart", ".vue", ".svelte", ".sql", ".r", ".jl", ".zig", ".pl"}
+HOT_SHARE_WARN = 0.5
+SKIP_DIRS = {".git", "node_modules", "vendor", "third_party", "dist", "build", ".venv", "venv", "__pycache__", ".tox"}
+
+
+def is_test_path(rel: str) -> bool:
+    parts = rel.lower().split("/")
+    name = parts[-1]
+    return (any(p in ("test", "tests", "spec", "specs", "__tests__", "testing") for p in parts[:-1])
+            or name.startswith("test_") or re.search(r"(_test|_spec|\.test|\.spec)\.[a-z]+$", name) is not None)
+
+
+def hot_share(repo: Path, cfg: dict) -> dict | None:
+    """How much of the code (by lines, tests left out) the hot zones cover: {share, files}."""
+    total, hot, files = 0, 0, []
+    for f in sorted(repo.rglob("*")):
+        rel = f.relative_to(repo).as_posix()
+        if (f.suffix.lower() not in CODE_SUFFIXES or not f.is_file() or SKIP_DIRS.intersection(rel.split("/")[:-1])
+                or is_test_path(rel)):
+            continue
+        try:
+            n = sum(1 for ln in f.read_text(encoding="utf-8", errors="replace").splitlines() if ln.strip())
+        except OSError:
+            continue
+        total += n
+        if zone_for_path(rel, cfg)[1] == "hot":
+            hot += n
+            files.append(rel)
+    return {"share": hot / total, "files": files, "lines": total} if total else None
+
+
 def doctor_checks(args) -> list[dict]:
     import shutil
     out = []
@@ -3260,6 +3568,14 @@ def doctor_checks(args) -> list[dict]:
             n = sum(1 for _ in repo.rglob("*") if ".git" not in _.parts)
             rc, head = _run(["git", "-C", str(repo), "rev-parse", "HEAD"]) if shutil.which("git") else (None, "")
             out.append(_check("code repo", "ok", f"{repo} · {n} files" + (f" · commit {head[:12]}" if rc == 0 else " · not a git checkout")))
+            hot = hot_share(repo, cfg) if (pdir or getattr(args, "config", None)) and cfg else None
+            if hot and hot["share"] > HOT_SHARE_WARN:
+                out.append(_check("hot zones", "warn",
+                                  f"hot zones cover {round(hot['share'] * 100)}% of the code's lines ({', '.join(hot['files'][:3])}"
+                                  f"{' …' if len(hot['files']) > 3 else ''}). Every finding there counts one severity higher, so "
+                                  "scores turn on each major-or-minor call",
+                                  "keep hot zones to the code where a bug costs more (project.toml [[zones]]); judge severity "
+                                  "as if the code were normal, and never lower it to get under a limit"))
         else:
             out.append(_check("code repo", "fail", f"not found: {repo}", "pass the code checkout (or a zip of it) with --repo"))
 
@@ -3574,6 +3890,18 @@ def shell_join(parts) -> str:
 # reports in format 5. The change is mechanical and deterministic, so `gradekit ci` checks a migration pull
 # request by redoing it from the base branch's files. Scores and rollups are never touched.
 
+def started_arg(args, now: str) -> str:
+    """run.started: --started if given (a UTC time no later than now), else now."""
+    if not getattr(args, "started", None):
+        return now
+    stamp = utc_stamp(args.started)
+    if stamp is None or "T" not in str(args.started):
+        die(f"--started {args.started!r}: give a UTC time like 2026-11-08T14:05:00Z")
+    if stamp > now:
+        die(f"--started {stamp} is later than now ({now})")
+    return stamp
+
+
 def utc_stamp(value) -> str | None:
     """A 4.x run.date as a format-5 UTC timestamp: '2026-11-07' → '2026-11-07T00:00:00Z'."""
     import datetime
@@ -3618,6 +3946,13 @@ def migrate_report(report: dict, private: dict | None = None) -> tuple[dict, lis
         run.setdefault(key, None)
     r["config"] = {**(r.get("config") or {})}
     r["config"].setdefault("scoring_version", scoring_version_4x(report.get("suite_version")))
+    wrapped = 0
+    for b in r.get("benchmarks", []):
+        if b.get("enforcement"):
+            b["enforcement"] = enforcement_items(b)
+            wrapped += len(b["enforcement"])
+    if wrapped:
+        notes.append(f"{wrapped} enforcement item(s) → {{note, evidence}}, like strengths")
     base = str(run.get("base_commit") or "")
     full = {f.get("id"): f for f in (private or {}).get("findings", [])}
     for f in r.get("findings", []):
@@ -4902,8 +5237,9 @@ def render_report_md(report: dict, cfg: dict, catalog: dict | None = None) -> st
             f = fmap.get(fid, {})
             evs = [evidence_line(e) for e in f.get("evidence", []) if e.get("type") != "withheld"]
             out.append(f"- Finding {fid} ({f.get('severity')}, {f.get('status')}): {f.get('title')}" + (f" ({'; '.join(evs)})" if evs else ""))
-        for e in b.get("enforcement", []):
-            out.append(f"- Enforced by: {evidence_line(e)}")
+        for e in enforcement_items(b):
+            evs = '; '.join(evidence_line(x) for x in e["evidence"])
+            out.append(f"- Enforced by: {e['note']} ({evs})" if e["note"] else f"- Enforced by: {evs}")
         if report_format(report) >= 5:
             lim = (roll.get("limits") or {}).get(b.get("id"))
             held = [w for w in (lim or {}).get("why", []) if w["kind"] in ("cap", "critical")]
@@ -6268,6 +6604,8 @@ def build_parser() -> argparse.ArgumentParser:
         p.add_argument("--model", help="the model grading, e.g. claude-opus-5-5 (a finished report needs it)")
         p.add_argument("--session", help="the agent session's ID or URL, so reviewers can see who graded")
         p.add_argument("--work-order", help="the work order this run answers (its ID)")
+        p.add_argument("--started", metavar="UTC_TIME", help="when the run began, if before this command (e.g. "
+                       "the `date -u +%%Y-%%m-%%dT%%H:%%M:%%SZ` you noted before preflight); usage.minutes counts from it")
 
     def with_config(p):
         p.add_argument("--project", metavar="NAME", help="project folder projects/NAME in the grading repo")
@@ -6462,6 +6800,7 @@ def build_parser() -> argparse.ArgumentParser:
     q = rsub.add_parser("enforcement", help="add evidence that a benchmark's quality is enforced (CI, lint rule, test)")
     report_arg(q)
     q.add_argument("benchmark", metavar="ID")
+    q.add_argument("--text", required=True, help="what enforces it, e.g. 'CI runs mypy --strict on every PR'")
     evidence_args(q)
     q.set_defaults(fn=cmd_report_enforcement)
 
@@ -6470,11 +6809,45 @@ def build_parser() -> argparse.ArgumentParser:
     q.add_argument("benchmark", metavar="ID")
     q.add_argument("--action", required=True, help="what to do")
     q.add_argument("--resolves", nargs="*", default=[], metavar="ID", help="finding or gap IDs it resolves")
-    q.add_argument("--new-score", type=int, required=True, choices=range(1, 11), metavar="1-10", help="expected score afterwards")
+    q.add_argument("--new-score", type=int, required=True, choices=range(1, 11), metavar="1-10", help="the benchmark's expected score once this action is done, counting this benchmark's earlier actions as done too (so a second step that takes it from 6 to 8 says 8)")
     q.add_argument("--effort", required=True, choices=["S", "M", "L"])
     q.add_argument("--decision", metavar="QUESTION", help="a yes/no question a person must answer first")
     q.add_argument("--optional", action="store_true", help="beyond the target; only done when asked")
+    q.add_argument("--why-first", metavar="TEXT", help="one line for top_priorities on why it comes first (default: a line from its tier)")
     q.set_defaults(fn=cmd_report_action)
+
+    q = rsub.add_parser("show", help="list a report's strengths, enforcement, findings and actions, numbered for update and remove")
+    q.add_argument("report", help="the report JSON")
+    q.add_argument("what", nargs="?", metavar="ID|features|gaps", help="one benchmark, the features or the gaps (default: every benchmark with records)")
+    q.set_defaults(fn=cmd_report_show)
+
+    q = rsub.add_parser("update", help="change a strength, enforcement item, action or gap (findings: `report finding update`)")
+    report_arg(q)
+    q.add_argument("ref", metavar="REF", help=EDIT_REF_HELP.replace(", or, for remove, a finding ID", ""))
+    q.add_argument("--text", help="strength or enforcement: the new text")
+    evidence_args(q)
+    q.add_argument("--replace-evidence", action="store_true", help="strength or enforcement: replace its evidence instead of adding to it")
+    q.add_argument("--action", help="action: what to do")
+    q.add_argument("--new-score", type=int, choices=range(1, 11), metavar="1-10", help="action: see `report action --help`")
+    q.add_argument("--effort", choices=["S", "M", "L"])
+    q.add_argument("--resolves", nargs="*", metavar="ID", help="action: the finding or gap IDs it resolves (replaces the list)")
+    q.add_argument("--decision", metavar="QUESTION", help="action: a question a person must answer first ('' for none)")
+    g = q.add_mutually_exclusive_group()
+    g.add_argument("--optional", dest="optional", action="store_true", default=None, help="action: beyond the target, done only when asked")
+    g.add_argument("--not-optional", dest="optional", action="store_false", help="action: needed to reach the target")
+    q.add_argument("--why-first", metavar="TEXT", help="action: one line for top_priorities ('' for the default)")
+    q.add_argument("--gap", help="gap: its text")
+    q.add_argument("--severity", choices=SEVERITIES[::-1])
+    q.add_argument("--necessity", choices=["must-have", "nice-to-have"])
+    q.add_argument("--status", choices=GAP_STATUSES)
+    q.add_argument("--rationale")
+    q.add_argument("--benchmarks", nargs="+", metavar="ID", help="gap: the benchmarks it affects (replaces the list)")
+    q.set_defaults(fn=cmd_report_update)
+
+    q = rsub.add_parser("remove", help="remove a strength, enforcement item, action, feature, or a finding or gap new in this report")
+    report_arg(q)
+    q.add_argument("ref", metavar="REF", help=EDIT_REF_HELP + " (only one no earlier report has: IDs that were reported stay)")
+    q.set_defaults(fn=cmd_report_remove)
 
     q = rsub.add_parser("gap", help="add a gap (something the code should do but doesn't)")
     report_arg(q)
@@ -6747,13 +7120,16 @@ def build_parser() -> argparse.ArgumentParser:
     for leaf in leaf_parsers(ap):
         leaf.add_argument("--json", action="store_true",
                           help="print one JSON object instead: {ok, exit_code, command, result, text}")
+        leaf.set_defaults(_leaf=leaf)   # so a stray argument is reported with the command's own usage
 
     return ap
 
 
 def main(argv=None) -> int:
     ap = build_parser()
-    args = ap.parse_args(argv)
+    args, extra = ap.parse_known_args(argv)
+    if extra:
+        getattr(args, "_leaf", ap).error(f"unrecognized arguments: {' '.join(extra)}")
     if not getattr(args, "json", False):
         return run_command(ap, args)
     buf = io.StringIO()

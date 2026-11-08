@@ -55,6 +55,11 @@ def finish(repo, rel):
     gk("report", "set", rel, "scope_examined", "all of src/", cwd=repo)
     gk("report", "ran", rel, "--command", "pytest -q", "--exit-code", "0", "--summary", "12 passed", cwd=repo)
     gk("report", "set", rel, "limitations", '["None"]', cwd=repo)
+    gk("report", "set", rel, "summary", "Readable; thin tests.", cwd=repo)
+    for b in load(repo, rel)["benchmarks"]:   # every benchmark below its target needs a path there
+        if isinstance(b["score"], int) and isinstance(b["target"], int) and b["score"] < b["target"]:
+            gk("report", "action", rel, b["id"], "--action", "Raise it to the target", "--new-score", str(b["target"]),
+               "--effort", "M", cwd=repo)
 
 
 # --------------------------------------------------------------------------- what report new writes

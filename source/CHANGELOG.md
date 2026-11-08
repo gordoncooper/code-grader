@@ -58,7 +58,7 @@ Major release, in progress: a beta for agents first, then the pages for people. 
 - **Golden repos:** `calibration/golden/NAME/` holds a frozen commit's expected scores, its `project.toml` and one file per independent grader run (`gradekit calibration add-run`).
 - **`gradekit calibration run`** scores every run against its golden's expected scores and measures the spread across runs. It writes `calibration/results.json` and publishes `calibration/RESULTS.md`. A golden repo passes with at least 3 runs, all passing, and no benchmark spreading more than allowed.
 - **No scoring change ships unmeasured:** the results carry a fingerprint of the scoring rules (the scoring version, the rubric, the caps and the limits). The kit's tests fail when the rules change without the results being regenerated.
-- **The first golden repo is dbader/schedule at 82a43db,** with provisional expected scores from the 4.3 release gate and one run. It needs two more independent runs, and a person's review of the expected scores, before the 5.0 gate.
+- **The first golden repo is dbader/schedule at 82a43db,** with expected scores from the 4.3 release gate, provisional until a person reviews them, and three runs: that gate's grade and two independent graders on the 5.0 kit. Both 5.0 runs came to 6.8 (L1) and are within a point of each other on all but one benchmark. They differ from the 4.3 grade on A1 and E2, where the 4.3 grade predates enforced limits, so calibration doesn't pass until the expected scores are reviewed.
 
 **Operating cards, and the rubric one benchmark at a time**
 - **Each role has a one-page card** in `prompts/cards/` (grader, pr-check, improver, reviewer): the run as `gradekit` commands, what the tools enforce for you, and the rules only an agent can follow. `AGENT.md` and **Start a run** now send agents to their card. The full prompts stay as the reference for details, and for working without Python.
@@ -105,6 +105,24 @@ Major release, in progress: a beta for agents first, then the pages for people. 
   - **Start a run** writes prompts that point at the page's own major (`…/v5/AGENT.md`), so a later major can't change a project's rules;
   - `AGENT.md` sends agents to the version a project pins.
 - Every built site ships a `versions.json` that lists only itself, so a single-version host changes nothing and makes no failed requests. It isn't in `SHA256SUMS`, because it describes the host. `DEPLOY.md` shows how to host several majors on your own server.
+
+**What the gate's grader runs asked for**
+- **Correcting a report without editing its JSON:**
+  - `report show REPORT [ID|features|gaps]` numbers what's recorded;
+  - `report update REPORT REF` changes a strength or enforcement item (`A3/strength/2`: text, evidence), an action (`A3-act-1`: text, score, effort, what it resolves, decision, optional, `--why-first`) or a gap (`GAP-002`: severity, necessity, status…);
+  - `report remove REPORT REF` removes one of those, a feature, or a finding or gap that no earlier report has. IDs that were reported stay, so carry and diff keep tracking them.
+- **Enforcement is shaped like strengths:** `{"note": "what enforces it", "evidence": [...]}`, and `report enforcement` takes `--text`. Format-4 reports keep bare evidence objects, which every tool still reads; `migrate` wraps them. The Review page now shows enforcement.
+- **Quotes stay short:** `cite` refuses a quote over 3 lines, which grader.md always required, and drops blank lines at either end of the range (an off-by-one). `validate` warns about longer quotes in format-5 reports.
+- **`report check` isn't ready too early:** it lists a missing summary, and every benchmark below its target with no non-optional action to get there.
+- **`top_priorities` is filled for you:** `report check --write` copies the first ten of the ranking, each with its `why_first` (the action's own, from `report action --why-first`, or a line from its tier) and expected gain.
+- **Each action gains only what it adds:** `expected_new_score` counts the benchmark's earlier actions as done, so a second step from 6 to 8 is worth 2 points in the ranking, not 4. `validate` warns when a later action expects less than an earlier one. Format-4 reports keep the gains their stored rollups have.
+- **The run:**
+  - `report new` and `carry` take `--started`, so the run's minutes count from preflight rather than from `report new`;
+  - `redact --in-place` writes `report.private.json` only when something is withheld;
+  - `doctor` warns when hot zones cover most of the code (over half its lines, tests left out), where every major-or-minor call moves scores by 2–3 points;
+  - `--out` creates its folder, and a stray argument is reported with the command's own usage.
+- **The grader card** adds the time for `--started`, the delivery you were asked for (not always `pr`), `--run N/COUNT`, running tools in a copy so CODE stays clean, the 1–3 line quote and copied command excerpts, the correcting commands, and never lowering a severity to get under a limit.
+- **One version on every label:** the prompts, rubric and README say v5.0.0, and a test keeps them in step with the kit. A new `project.toml` says which kit created it, so an older one doesn't read as a mismatch.
 
 ## 4.3.0
 Minor release: tools that let agents run the whole cycle without custom scripts, and safer publishing. No scoring changes; config fingerprints and existing reports stay valid. Tested by running the whole cycle on a real repository (dbader/schedule) with `gradekit` commands only: it reproduced the 4.2.2 grade exactly.

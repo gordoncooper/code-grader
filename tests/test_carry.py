@@ -157,6 +157,12 @@ def test_a_pr_check_from_carry_to_comment(tmp_path, changed_repo):
         if not b["carried_forward"] and b["applicability"] != "not_applicable":
             gk("report", "score", pr, b["id"], "--score", base[b["id"]]["score"], "--confidence", "medium", "--project", "orders-api")
     gk("report", "ran", pr, "--command-text", "pytest -q", "--summary", "1 passed", "--project", "orders-api")
+    gk("report", "set", pr, "summary", "The seed script is gone, and A4-001 with it.", "--project", "orders-api")
+    for b in json.loads(pr.read_text())["benchmarks"]:   # a regraded benchmark below target needs its path again
+        if not b["carried_forward"] and isinstance(b["score"], int) and isinstance(b["target"], int) and b["score"] < b["target"] \
+                and not b["path_to_target"]:
+            gk("report", "action", pr, b["id"], "--action", "Raise it to the target", "--new-score", b["target"], "--effort", "M",
+               "--project", "orders-api")
     done = json.loads(gk("report", "check", pr, "--repo", repo, "--project", "orders-api", "--write", "--json").stdout)["result"]
     assert done["status"] == "ready", done
     d = gk("diff", NEW, pr, "--project", "orders-api", "--fail-on-regression")
