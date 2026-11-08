@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from conftest import EXAMPLE
+from conftest import EXAMPLE, SRC
 
 pytestmark = pytest.mark.browser
 PROJECT = EXAMPLE / "projects" / "orders-api"
@@ -95,7 +95,7 @@ def test_review_sample(page, site):
     assert not page.errors
 
 
-def mock_github(page):
+def mock_github(page, root=EXAMPLE):
     def handle(route):
         u = route.request.url
         if u.endswith("/repos/acme/grading"):
@@ -107,15 +107,15 @@ def mock_github(page):
         m = re.search(r"/repos/acme/grading/contents/([^?]+)\?ref=(.+)$", u)
         if m:
             assert m.group(2) == SHA, "files are read at the resolved commit"
-            path = EXAMPLE / m.group(1)
+            path = root / m.group(1)
             if path.is_dir():
                 return route.fulfill(json=[{"name": n.name, "type": "dir" if n.is_dir() else "file",
                                             "download_url": f"https://raw.githubusercontent.com/acme/grading/{SHA}/{m.group(1)}/{n.name}"}
                                            for n in sorted(path.iterdir())])
             return route.fulfill(status=404, json={})
         m = re.search(rf"raw\.githubusercontent\.com/acme/grading/{SHA}/(.+)$", u)
-        if m and (EXAMPLE / m.group(1)).is_file():
-            return route.fulfill(path=str(EXAMPLE / m.group(1)))
+        if m and (root / m.group(1)).is_file():
+            return route.fulfill(path=str(root / m.group(1)))
         return route.fulfill(status=404, body="not found")
     page.context.route("https://api.github.com/**", handle)
     page.context.route("https://raw.githubusercontent.com/**", handle)
@@ -282,3 +282,24 @@ def test_review_recognises_loose_files(page, site, tmp_path):
     assert dict(roles) == {"b-older.json": "previous", "a-newer.json": "report", "project.toml": "project"}
     assert "a1b2c3d" in page.inner_text("#results")
     assert not page.errors
+
+
+def test_review_lists_projects_from_the_index(page, site, tmp_path):
+    """A grading repo with several projects: projects/index.json lists them with their scores."""
+    import subprocess, sys
+    root = tmp_path / "grading"
+    shutil.copytree(EXAMPLE, root)
+    shutil.copytree(root / "projects" / "orders-api", root / "projects" / "billing")
+    shutil.rmtree(root / "projects" / "billing" / "reports")
+    subprocess.run([sys.executable, str(SRC / "tools" / "gradekit.py"), "index"], cwd=root, check=True, capture_output=True)
+    mock_github(page, root)
+    ready(page, site, "app/review.html")
+    page.fill("#gh-repo", "acme/grading")
+    page.click("#gh-load")
+    page.wait_for_selector("#gh-status .project-index")
+    text = page.inner_text("#gh-status")
+    assert "orders-api (4.9, L0, 1 decision waiting)" in text and "billing (no report yet)" in text
+    page.click("#gh-status .project-index button:has-text('orders-api')")
+    page.wait_for_selector("#results:not([hidden])")
+    assert "Loaded orders-api" in page.inner_text("#gh-status")
+    assert not [e for e in page.errors if "status of 404" not in e], "optional files (org.toml…) may 404"
