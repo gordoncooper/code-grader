@@ -4,51 +4,223 @@
   "title": "Grading repo index (projects/index.json)",
   "description": "Written by `gradekit index` from a grading repo's reports and settings. Don't edit it by hand.",
   "type": "object",
-  "required": ["suite_version", "projects"],
+  "required": [
+    "suite_version",
+    "projects"
+  ],
   "properties": {
-    "_about": {"type": "string"},
-    "suite_version": {"type": "string"},
+    "_about": {
+      "type": "string"
+    },
+    "suite_version": {
+      "type": "string"
+    },
     "projects": {
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["name", "latest", "pending_decisions", "history", "problems"],
+        "required": [
+          "name",
+          "latest",
+          "pending_decisions",
+          "history",
+          "problems"
+        ],
         "properties": {
-          "name": {"type": "string"},
-          "description": {"type": ["string", "null"]},
-          "preset": {"type": ["string", "null"]},
-          "code_repo": {"type": ["string", "null"]},
-          "path": {"type": ["string", "null"]},
-          "config_hash": {"type": ["string", "null"]},
-          "problems": {"type": "array", "items": {"type": "string"}},
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "preset": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "code_repo": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "path": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "config_hash": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "problems": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
           "latest": {
             "description": "The newest full report (PR checks aren't committed, but are skipped if they are)",
-            "type": ["object", "null"],
-            "required": ["folder", "overall", "level"],
+            "type": [
+              "object",
+              "null"
+            ],
+            "required": [
+              "folder",
+              "overall",
+              "level"
+            ],
             "properties": {
-              "folder": {"type": "string"},
-              "date": {"type": "string"},
-              "commit": {"type": "string"},
-              "overall": {"type": ["number", "null"]},
-              "level": {"type": ["string", "null"]},
-              "next_level": {"type": ["string", "null"]},
-              "failed_gates": {"type": "array", "items": {"type": "string"}},
-              "open_findings": {"type": "object", "additionalProperties": {"type": "integer"}}
+              "folder": {
+                "type": "string"
+              },
+              "date": {
+                "type": "string"
+              },
+              "commit": {
+                "type": "string"
+              },
+              "overall": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "level": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "next_level": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "failed_gates": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "open_findings": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "integer"
+                }
+              }
             }
           },
           "pending_decisions": {
             "description": "Decision questions in the latest report with no answer in decisions.json yet",
             "type": "array",
-            "items": {"type": "object", "required": ["action_id", "question", "folder"],
-                      "properties": {"action_id": {"type": "string"}, "question": {"type": ["string", "null"]}, "folder": {"type": "string"}}}
+            "items": {
+              "type": "object",
+              "required": [
+                "action_id",
+                "question",
+                "folder"
+              ],
+              "properties": {
+                "action_id": {
+                  "type": "string"
+                },
+                "question": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "folder": {
+                  "type": "string"
+                }
+              }
+            }
           },
           "history": {
             "description": "Every report, oldest first",
             "type": "array",
-            "items": {"type": "object", "required": ["folder", "overall", "level"],
-                      "properties": {"folder": {"type": "string"}, "date": {"type": "string"}, "commit": {"type": "string"},
-                                     "mode": {"type": ["string", "null"]}, "overall": {"type": ["number", "null"]},
-                                     "level": {"type": ["string", "null"]}}}
+            "items": {
+              "type": "object",
+              "required": [
+                "folder",
+                "overall",
+                "level"
+              ],
+              "properties": {
+                "folder": {
+                  "type": "string"
+                },
+                "date": {
+                  "type": "string"
+                },
+                "commit": {
+                  "type": "string"
+                },
+                "mode": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "overall": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "level": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              }
+            }
+          },
+          "open_orders": {
+            "type": "array",
+            "description": "Work orders (projects/NAME/orders/) no report has answered and nobody has closed.",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "role"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "role": {
+                  "enum": [
+                    "grade",
+                    "review",
+                    "improve",
+                    "prcheck"
+                  ]
+                },
+                "created": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "requested_by": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              }
+            }
           }
         }
       }

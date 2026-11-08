@@ -1,0 +1,673 @@
+{
+  "_about": "Generated from the rubric files by `gradekit rubric --json --out rubric/rubric.json`. Don't edit.",
+  "suite_version": "5.0.0",
+  "pillars": {
+    "A": {
+      "name": "Correctness & Trust",
+      "question": "Does it work, is it safe, and can you rely on it under real conditions?",
+      "file": "rubric/A-correctness-trust.md"
+    },
+    "B": {
+      "name": "Design & Structure",
+      "question": "Is the system shaped well, and does that shape stay easy to change?",
+      "file": "rubric/B-design-structure.md"
+    },
+    "C": {
+      "name": "Code Health",
+      "question": "Is the code itself pleasant and safe to work in day to day?",
+      "file": "rubric/C-code-health.md"
+    },
+    "D": {
+      "name": "Value & Fitness for Purpose",
+      "question": "Does it do the right things, completely, in a way that makes sense in the real world?",
+      "file": "rubric/D-value-fitness.md"
+    },
+    "E": {
+      "name": "Adoption & Experience",
+      "question": "How easy is it for new users, integrators and contributors to pick up and work with?",
+      "file": "rubric/E-adoption-experience.md"
+    },
+    "F": {
+      "name": "Operations & Delivery",
+      "question": "Can it be shipped, run, observed and kept healthy over time?",
+      "file": "rubric/F-operations-delivery.md"
+    },
+    "X": {
+      "name": "Conditional",
+      "question": null,
+      "file": "rubric/X-conditional.md"
+    }
+  },
+  "benchmarks": [
+    {
+      "id": "A1",
+      "name": "Correctness & Functional Behavior",
+      "pillar": "A",
+      "applies_when": null,
+      "measures": "The code does what it's meant to, including edge cases, boundary values, invalid input, empty or null states and failure paths.",
+      "not_this": "Whether the right features exist at all (D1, D2). Behavior under hostile or degraded conditions (A3).",
+      "assess": "Run the tests. Trace core flows by hand. Probe off-by-one errors, empty collections, Unicode, time zones and DST, numeric overflow and precision, money rounding, and ordering assumptions.",
+      "anchors": {
+        "1–3": "Core features broken or crash on ordinary input; tests fail.",
+        "4–6": "Happy paths work; edge cases often mishandled.",
+        "7–8": "Edge cases mostly handled; a few latent bugs found on careful reading.",
+        "9–10": "No defects found on careful review; edge cases handled deliberately and covered by tests."
+      },
+      "caps": [
+        {
+          "id": "A1-cap-1",
+          "when": "Failing build or tests",
+          "max": 4
+        },
+        {
+          "id": "A1-cap-2",
+          "when": "A bug that corrupts or loses data",
+          "max": 3
+        }
+      ]
+    },
+    {
+      "id": "A2",
+      "name": "Security & Privacy",
+      "pillar": "A",
+      "applies_when": null,
+      "measures": "Resistance to misuse and attack, and responsible handling of personal data. Covers input validation; injection (SQL, shell, path, template); authentication and authorization; secrets handling; cryptography; deserialization; SSRF; XSS/CSRF; secure defaults; least privilege; collecting only the personal data needed; retention; no sensitive data in logs or errors.",
+      "not_this": "Vulnerable dependencies are scored here only when they're reachable; general dependency health is F6.",
+      "assess": "Trace every trust boundary. Search for hard-coded secrets, string-built queries or commands, disabled TLS verification, homemade crypto, endpoints missing authorization checks, overly broad IAM or permissions, and PII in logs. Run vulnerability scans.",
+      "anchors": {
+        "1–3": "Exploitable vulnerabilities, or committed secrets.",
+        "4–6": "No obvious exploit, but validation is inconsistent and defaults are unsafe.",
+        "7–8": "Trust boundaries validated, queries parameterized, secrets externalized; minor hardening gaps.",
+        "9–10": "Defense in depth, centralized authorization, privacy by design, security scanning gated in CI."
+      },
+      "caps": [
+        {
+          "id": "A2-cap-1",
+          "when": "Exploitable vulnerability or committed live secret",
+          "max": 2
+        },
+        {
+          "id": "A2-cap-2",
+          "when": "Reachable high or critical CVE",
+          "max": 4
+        }
+      ]
+    },
+    {
+      "id": "A3",
+      "name": "Robustness & Error Handling",
+      "pillar": "A",
+      "applies_when": null,
+      "measures": "Behavior when things go wrong: malformed input, dependency outages, slow networks, resource exhaustion, partial failures. Explicit error handling, useful error context, timeouts, retries with backoff and jitter, circuit breakers where warranted, resource cleanup, graceful degradation, bounded queues and buffers.",
+      "not_this": "Whether retries are *safe* to repeat (A4). Whether data survives a crash (A5).",
+      "assess": "Review every catch, except, rescue and error return. Look for swallowed errors, overly broad catches, I/O with no timeout, leaked handles, unchecked return values, unbounded growth, and crashes on expected failures. Use fuzz or property tests if available.",
+      "anchors": {
+        "1–3": "Errors ignored; crashes on routine failures.",
+        "4–6": "Handling is inconsistent; vague messages; missing timeouts.",
+        "7–8": "Consistent strategy; errors carry context; external calls bounded; cleanup reliable.",
+        "9–10": "A uniform error model; failures are contained, observable and recoverable; failure paths are tested, including injected faults."
+      },
+      "caps": [
+        {
+          "id": "A3-cap-1",
+          "when": "Catch-all blocks that swallow errors in core paths",
+          "max": 4
+        }
+      ]
+    },
+    {
+      "id": "A4",
+      "name": "Idempotence & Determinism",
+      "pillar": "A",
+      "applies_when": null,
+      "measures": "Idempotence: operations that may be retried or repeated have the same effect as running once. This covers API mutations (idempotency keys or natural keys), message and queue consumers under redelivery, webhooks, setup, provisioning and seed scripts, migrations, infrastructure-as-code (repeated applies converge to the same state), deploys, and cron jobs. Determinism: the same inputs give the same outputs. Builds are reproducible, tests are deterministic, and time, randomness, ordering and environment are injected or controlled rather than hidden.",
+      "not_this": "General retry and timeout policy (A3).",
+      "assess": "Run setup, seed and migration scripts twice. Look for blind INSERTs, \"create\" with no existence check, increments or charges on retry, non-atomic check-then-act, unordered map iteration that affects output, unseeded randomness, and `now()` called deep inside logic. Rebuild and compare artifacts or hashes where practical.",
+      "anchors": {
+        "1–3": "Repeating an operation duplicates side effects; scripts break on the second run.",
+        "4–6": "Some operations safe to repeat; others not; tests occasionally nondeterministic.",
+        "7–8": "All externally triggered mutations and scripts are safe to re-run; time and randomness are injectable.",
+        "9–10": "Idempotence is designed in and tested (replay or redelivery tests); builds are reproducible; zero flaky tests."
+      },
+      "caps": [
+        {
+          "id": "A4-cap-1",
+          "when": "Retry or redelivery can double-charge, double-send or duplicate records with real-world consequences",
+          "max": 3
+        },
+        {
+          "id": "A4-cap-2",
+          "when": "Setup or migration fails or corrupts on a second run",
+          "max": 5
+        }
+      ]
+    },
+    {
+      "id": "A5",
+      "name": "Durability & Recoverability",
+      "pillar": "A",
+      "applies_when": null,
+      "measures": "Data and state survive crashes, restarts, deploys and power loss, and the system can recover. Covers atomic writes (write to a temp file then rename; fsync where it matters), transactions around multi-step writes, no important state held only in memory, crash-consistent file formats, versioned and reversible migrations, backups with a *tested* restore, defined RPO and RTO for production data, and clean resume after a restart (checkpointing for long jobs).",
+      "not_this": "Schema design quality (B4). Concurrency races (X3).",
+      "assess": "Find every write path and every place state lives. Ask what happens if the process is killed between any two lines. Check for a backup and restore procedure and evidence it has been tested.",
+      "anchors": {
+        "1–3": "A crash can lose or corrupt important data.",
+        "4–6": "Mostly safe; some non-atomic writes or in-memory-only state; backups untested.",
+        "7–8": "Atomic, transactional writes; reliable resume; backups exist.",
+        "9–10": "Crash-consistency is designed in and tested (kill tests, chaos tests); restore drills are documented and automated."
+      },
+      "caps": [
+        {
+          "id": "A5-cap-1",
+          "when": "Important state written non-atomically or held only in memory",
+          "max": 4
+        },
+        {
+          "id": "A5-cap-2",
+          "when": "Persistent production data with no backup",
+          "max": 5
+        }
+      ]
+    },
+    {
+      "id": "B1",
+      "name": "Architecture & Design Fitness",
+      "pillar": "B",
+      "applies_when": null,
+      "measures": "The overall shape suits the problem: clear layering, correct dependency direction (domain logic doesn't depend on frameworks or I/O), consistent patterns, important decisions recorded, and a design that can meet the scale and requirements it actually has.",
+      "not_this": "Boundaries of individual units (B2). Physical file layout (B3).",
+      "assess": "Sketch the system's components and data flow. Look for business logic in controllers, views or SQL, framework types leaking into the domain, and mismatched architecture (e.g. microservices for a tiny app, or a monolith that's tangling under real load).",
+      "anchors": {
+        "1–3": "No discernible design.",
+        "4–6": "Some structure; frequent layer violations.",
+        "7–8": "Clear, fitting design with a few leaks.",
+        "9–10": "The design is obvious, fits the problem precisely, has recorded rationale, and its boundaries are enforced by import rules or package visibility."
+      }
+    },
+    {
+      "id": "B2",
+      "name": "Modularity & Decoupling",
+      "pillar": "B",
+      "applies_when": null,
+      "measures": "Units are cohesive, loosely coupled, encapsulated, replaceable and testable in isolation. No dependency cycles, no hidden global state, and explicit seams (dependency injection) at I/O boundaries.",
+      "not_this": "System-level fit (B1). Where files live (B3).",
+      "assess": "Build the module dependency graph. Count cycles, god modules, and fan-in and fan-out hotspots. Pick 3 modules and ask whether each could be replaced or tested alone.",
+      "anchors": {
+        "1–3": "Big ball of mud.",
+        "4–6": "Some modules; heavy coupling; god files.",
+        "7–8": "Clean boundaries; coupling controlled.",
+        "9–10": "Every unit has one clear job and a narrow interface; replacing one touches only its seam."
+      },
+      "caps": [
+        {
+          "id": "B2-cap-1",
+          "when": "Circular dependencies between major modules",
+          "max": 5
+        }
+      ]
+    },
+    {
+      "id": "B3",
+      "name": "Structure & Organization",
+      "pillar": "B",
+      "applies_when": null,
+      "measures": "The codebase is easy to navigate. Directory layout reflects the domain or architecture; things live where you'd expect; file and folder names are consistent; source, tests, scripts, config and docs are separated; no junk-drawer `utils/` or `misc/`; generated code is isolated. Repo hygiene: `.gitignore` is correct, and no build artifacts, secrets or large binaries are committed.",
+      "not_this": "Logical coupling (B2).",
+      "assess": "Pick 5 concepts (e.g. \"where is pricing calculated?\", \"where are the DB models?\") and note how quickly and confidently each can be found. Inspect the top two levels of the tree and the tracked files.",
+      "anchors": {
+        "1–3": "Chaotic; things scattered.",
+        "4–6": "Partly organized; several misplaced or junk-drawer areas.",
+        "7–8": "Predictable and tidy.",
+        "9–10": "A newcomer can guess where anything lives; the layout is documented and stays consistent."
+      }
+    },
+    {
+      "id": "B4",
+      "name": "Interface Design & Contracts",
+      "pillar": "B",
+      "applies_when": null,
+      "measures": "Public and internal APIs (functions, classes, HTTP/gRPC/GraphQL endpoints, CLI arguments, events, schemas) have clear contracts, are hard to misuse, follow consistent conventions, are strongly typed or validated at runtime, and make invalid states unrepresentable.",
+      "not_this": "Long-term version stability for outside consumers (X2). How intuitive the interface feels to end users (D4).",
+      "assess": "Run the type checker at strict settings and count escape hatches. Review signatures for boolean-flag parameters, stringly-typed values, nullable confusion, and inconsistent naming, pagination or error shapes across endpoints. Check that schemas are validated at boundaries.",
+      "anchors": {
+        "1–3": "Untyped or loosely typed; surprising contracts.",
+        "4–6": "Partial typing; frequent escape hatches.",
+        "7–8": "Strong contracts; few justified escape hatches.",
+        "9–10": "Strict mode passes; domain types model the problem; schemas are the source of truth and are checked automatically."
+      }
+    },
+    {
+      "id": "B5",
+      "name": "Flexibility & Extensibility",
+      "pillar": "B",
+      "applies_when": null,
+      "measures": "Likely changes can be made without invasive edits. Things that vary are config rather than code; extension points (plugins, hooks, strategies, adapters) exist *where there is real demand*; no hard-coded assumptions that limit growth (single tenant, one currency or locale, one region, one storage backend); feature flags where they help.",
+      "not_this": "Speculative over-engineering is penalized under Leanness (B6). Flexibility should be earned by likely change, not imagined change.",
+      "assess": "Write 3 realistic change requests for this project (e.g. \"add a second payment provider\", \"support a new file format\", \"add a locale\"). For each, estimate the blast radius: files and modules touched, and the risk involved.",
+      "anchors": {
+        "1–3": "Every change ripples through the codebase.",
+        "4–6": "Some changes are localized; others need shotgun surgery.",
+        "7–8": "Most likely changes touch 1–3 places.",
+        "9–10": "Likely changes are additive and localized, with no unused extension points."
+      }
+    },
+    {
+      "id": "B6",
+      "name": "Leanness",
+      "pillar": "B",
+      "applies_when": null,
+      "measures": "No more code, dependencies, configuration or runtime weight than the job needs. Covers dead code, unused exports and files, unused or redundant dependencies, speculative abstractions and layers, reinventing what the standard library already provides, oversized bundles, binaries or images, slow startup, and a bloated configuration surface.",
+      "not_this": "Duplication and complexity (C2). Removing needed features is **not** leanness (anti-gaming).",
+      "assess": "Run unused-code and unused-dependency tools (`knip`, `ts-prune`, `depcheck`, `vulture`, `cargo-udeps`, `deadcode`...). Measure bundle, image or binary size and startup time. Count abstraction layers per request path. Compare code size per feature to comparable tools.",
+      "anchors": {
+        "1–3": "Heavy bloat; large dead areas; dependency sprawl.",
+        "4–6": "Noticeable dead code, unused dependencies or needless layers.",
+        "7–8": "Tight, with a few leftovers.",
+        "9–10": "Every file, dependency and abstraction earns its place; size and dead code are checked in CI."
+      }
+    },
+    {
+      "id": "C1",
+      "name": "Readability & Clarity",
+      "pillar": "C",
+      "applies_when": null,
+      "measures": "How quickly a competent newcomer understands the code: intent-revealing names, small functions, shallow nesting, clear control flow, no magic numbers, comments that explain *why*, no cleverness for its own sake.",
+      "not_this": "Codebase-level navigability (B3). Style uniformity (C3).",
+      "assess": "Read core modules cold. Note functions over about 50 lines, nesting of 4+ levels, cryptic names and misleading comments.",
+      "anchors": {
+        "1–3": "Cryptic.",
+        "4–6": "Readable with effort.",
+        "7–8": "Generally clear.",
+        "9–10": "Reads like well-written prose."
+      }
+    },
+    {
+      "id": "C2",
+      "name": "Maintainability & Complexity",
+      "pillar": "C",
+      "applies_when": null,
+      "measures": "How cheap and safe changes are at the code level: duplication, cyclomatic and cognitive complexity, change amplification, TODO/FIXME debt, stale feature flags, and hotspots (high churn × high complexity).",
+      "not_this": "Dead code and bloat (B6). Architectural coupling (B1, B2).",
+      "assess": "Run complexity and duplication tools (`radon`, `lizard`, `jscpd`, `gocyclo`...). Use `git log` to find churn hotspots and cross-reference them with complexity. Count and sample TODOs.",
+      "anchors": {
+        "1–3": "Widespread copy-paste; extreme complexity.",
+        "4–6": "Several complexity hotspots; noticeable duplication.",
+        "7–8": "Complexity confined to a few justified places.",
+        "9–10": "Small, focused units; complexity thresholds enforced in tooling."
+      }
+    },
+    {
+      "id": "C3",
+      "name": "Consistency & Idiomatic Code",
+      "pillar": "C",
+      "applies_when": null,
+      "measures": "Uniform conventions across the codebase (naming, error patterns, formatting, file shape) and idiomatic use of the language and framework, rather than patterns carried over from somewhere else.",
+      "not_this": "Use of the ecosystem's *tooling* (E4).",
+      "assess": "Compare modules from different eras or authors. Run the formatter in check mode. Note non-idiomatic constructs and hand-rolled standard features.",
+      "anchors": {
+        "1–3": "Every file looks different.",
+        "4–6": "Pockets of divergence.",
+        "7–8": "Consistent and idiomatic.",
+        "9–10": "Looks written by one expert; conventions enforced by tooling."
+      }
+    },
+    {
+      "id": "C4",
+      "name": "Test Suite Quality",
+      "pillar": "C",
+      "applies_when": null,
+      "measures": "Whether the tests would actually catch regressions: meaningful assertions; the right mix of unit, integration, contract and end-to-end tests; property or fuzz tests where valuable; determinism and speed; coverage of critical and failure paths.",
+      "not_this": "Whether the code is correct (A1). Tests are evidence for A1, not a substitute for it.",
+      "assess": "Run the suite with coverage. Read a sample of tests for assertion quality. Find flakiness sources (sleeps, real network calls, shared state, order dependence). Mentally mutate core logic, or run a mutation-testing tool: do tests fail?",
+      "anchors": {
+        "1–3": "No tests, or useless ones.",
+        "4–6": "Some value; big gaps; heavy mocking.",
+        "7–8": "Critical paths well tested; roughly 70%+ branch coverage on core logic; deterministic.",
+        "9–10": "Tests read as a specification; failure paths covered; mutations caught; gated in CI."
+      },
+      "caps": [
+        {
+          "id": "C4-cap-1",
+          "when": "Tests not run in CI",
+          "max": 7
+        },
+        {
+          "id": "C4-cap-2",
+          "when": "Coverage inflated by assertion-free tests",
+          "max": 4
+        }
+      ]
+    },
+    {
+      "id": "D1",
+      "name": "Feature Completeness",
+      "pillar": "D",
+      "applies_when": null,
+      "measures": "Every feature the project claims or exposes (README, docs, CLI help, routes, UI, config options) is fully implemented and works end to end, with parity across surfaces (e.g. the CLI and the API both support it). No stubs, placeholder UI, dead buttons, `NotImplementedError` or half-wired flags.",
+      "not_this": "Features that are *missing* but expected (D2).",
+      "assess": "Build a **feature inventory** from your recon list and give each feature a status: `complete`, `partial`, `stub`, `broken` or `undocumented`. Exercise each one, or as many as practical.",
+      "anchors": {
+        "1–3": "Most claimed features broken or stubbed.",
+        "4–6": "Core features work; several partial.",
+        "7–8": "Nearly everything complete; minor rough edges.",
+        "9–10": "Everything claimed works end to end, matches the docs, and is covered by tests."
+      },
+      "caps": [
+        {
+          "id": "D1-cap-1",
+          "when": "Any advertised core feature that is missing or broken",
+          "max": 5
+        }
+      ]
+    },
+    {
+      "id": "D2",
+      "name": "Gap Coverage",
+      "pillar": "D",
+      "applies_when": null,
+      "measures": "Absence of gaps. A gap is something the project's purpose clearly needs, or that users of this kind of software would reasonably expect, but that is missing. Examples: an auth system without password reset, a CLI without `--help` or meaningful exit codes, an API without pagination or rate-limit handling, a data tool without export, a destructive action without confirm or undo, a service without health checks, a missing platform the project says it supports.",
+      "not_this": "Unfinished *existing* features (D1). A wishlist; feature creep is not rewarded.",
+      "assess": "Compare against the stated requirements, the domain's norms and 1–3 peer tools. Build a **gap register**. Mark each gap with a severity (`critical`, `major`, `minor`) and a necessity (`must-have` or `nice-to-have`) relative to the project's purpose.",
+      "anchors": {
+        "1–3": "Missing essentials that make it unfit for purpose.",
+        "4–6": "Several major gaps.",
+        "7–8": "Only minor or nice-to-have gaps.",
+        "9–10": "Nothing a reasonable user would miss; scope boundaries are documented."
+      },
+      "caps": [
+        {
+          "id": "D2-cap-1",
+          "when": "Any critical gap",
+          "max": 4
+        }
+      ]
+    },
+    {
+      "id": "D3",
+      "name": "Practicality",
+      "pillar": "D",
+      "applies_when": null,
+      "measures": "Pragmatic fitness for purpose: Technology choices suit the team, scale and budget (no Kubernetes cluster for a nightly cron job, no hand-written ORM where a standard one works). It works with realistic data volumes, real network conditions and real user workflows, not just demo data. Trade-offs are made consciously. Operating cost and effort are proportional to the value delivered. No gold-plating, and no purity that gets in the way of delivering value.",
+      "not_this": "Code-level leanness (B6). Architecture quality as such (B1).",
+      "assess": "Ask: \"Would an experienced team adopt and run this as-is? What would they rip out or bolt on in the first week?\" Test with realistic inputs where possible.",
+      "anchors": {
+        "1–3": "Impractical: wrong tools, or only works in a demo.",
+        "4–6": "Usable but awkward or over-built in places.",
+        "7–8": "Sensible, grounded choices.",
+        "9–10": "Every choice clearly serves the real use case, and the trade-offs are documented."
+      }
+    },
+    {
+      "id": "D4",
+      "name": "Intuitiveness",
+      "pillar": "D",
+      "applies_when": null,
+      "measures": "Least surprise, for end users *and* developers. Sensible defaults; names that match the domain's vocabulary; consistent behavior across similar operations; discoverability (help text, completions, clear flags, resources and menus); error messages that say what to do next; no hidden modes, ordering traps or surprising side effects; it behaves the way users of similar tools expect.",
+      "not_this": "Onboarding and time-to-first-success (E1). Docs content (E2).",
+      "assess": "Do 3–5 common tasks as a first-time user without reading the source. Log every surprise, guess and dead end.",
+      "anchors": {
+        "1–3": "Confusing; users must read the source.",
+        "4–6": "Learnable, with friction and several gotchas.",
+        "7–8": "Mostly obvious.",
+        "9–10": "Users succeed on the first try and the behavior feels inevitable."
+      }
+    },
+    {
+      "id": "E1",
+      "name": "Adopter Friendliness",
+      "pillar": "E",
+      "applies_when": null,
+      "measures": "Time-to-first-success for someone *adopting* the project (end user, integrator, library consumer, new operator). Covers: Installing through standard channels. A quickstart that actually works. Runnable examples. Zero-config or sensible defaults. A clear license. A supported-versions or compatibility matrix. Upgrade and migration guides. Issue and support paths. Low integration friction with common stacks. No lock-in surprises.",
+      "not_this": "The contributor experience (E3). Docs accuracy in general (E2).",
+      "assess": "From a clean environment, follow the quickstart literally. Count the steps, minutes and stumbles to the first meaningful result.",
+      "anchors": {
+        "1–3": "Can't get started without help from the author.",
+        "4–6": "Gets working after real effort.",
+        "7–8": "Smooth start within minutes.",
+        "9–10": "Delightful; examples cover the main use cases, and the quickstart is tested in CI."
+      },
+      "caps": [
+        {
+          "id": "E1-cap-1",
+          "when": "Quickstart fails",
+          "max": 4
+        },
+        {
+          "id": "E1-cap-2",
+          "when": "No license in a distributed or open project",
+          "max": 5
+        }
+      ]
+    },
+    {
+      "id": "E2",
+      "name": "Documentation",
+      "pillar": "E",
+      "applies_when": null,
+      "measures": "Quality and accuracy of the documentation at every layer: README (purpose, setup, usage, configuration), API reference, architecture overview, decision records, runbooks, changelog, and inline comments explaining *why*. Above all, docs must match the code.",
+      "not_this": "The onboarding experience (E1). Agent-specific instructions (X6).",
+      "assess": "Spot-check documented behavior against the code. Check coverage of public APIs and config options. Look for stale sections.",
+      "anchors": {
+        "1–3": "Missing or misleading.",
+        "4–6": "Basic, with gaps and stale parts.",
+        "7–8": "Accurate and covers the essentials.",
+        "9–10": "Complete and layered; versioned with the code and verified (doc tests, examples run in CI, generated references)."
+      },
+      "caps": [
+        {
+          "id": "E2-cap-1",
+          "when": "Wrong setup instructions",
+          "max": 5
+        }
+      ]
+    },
+    {
+      "id": "E3",
+      "name": "Developer Experience & Inner Loop",
+      "pillar": "E",
+      "applies_when": null,
+      "measures": "How productive a *contributor* is day to day: One-command dev setup. Fast edit-build-test cycle, with hot reload where relevant. Easy single-test runs. Local environment that matches production (compose file, devcontainer, Nix...), plus seed data. A working debugger. Discoverable task scripts (`make`, `just`, npm scripts). A contribution guide. Fast CI feedback.",
+      "not_this": "The outsider-adopter experience (E1). Choice of standard toolchain (E4).",
+      "assess": "Measure time from clone to passing tests, time to run one test, incremental build time, and how many undocumented steps you hit.",
+      "anchors": {
+        "1–3": "Painful setup; slow loops.",
+        "4–6": "Workable with tribal knowledge.",
+        "7–8": "Quick setup; fast loops.",
+        "9–10": "Productive within an hour of cloning; inner loop measured in seconds."
+      }
+    },
+    {
+      "id": "E4",
+      "name": "Native Tooling & Ecosystem Fit",
+      "pillar": "E",
+      "applies_when": null,
+      "measures": "The project uses its ecosystem's standard tools and conventions rather than bespoke ones: The native package manager and manifest (`pyproject.toml`, `package.json`, `Cargo.toml`, `go.mod`, Gradle/Maven...). The standard test runner, formatter and linter. The conventional project layout. Built-in language features and the standard library over custom scripts. Publishing in native formats (wheel, crate, npm package, OCI image). Working IDE and language-server integration. No sprawl of shell scripts that reinvent what the toolchain already does.",
+      "not_this": "Code-level idiom (C3).",
+      "assess": "Inventory the build, test, lint, format, release and task-running tools. Flag each custom tool where a standard exists, and check whether a documented reason is given.",
+      "anchors": {
+        "1–3": "A homegrown toolchain that fights the ecosystem.",
+        "4–6": "Mixed; several bespoke pieces.",
+        "7–8": "Standard tools used throughout.",
+        "9–10": "Feels native; any ecosystem developer is productive immediately with tools they already know."
+      },
+      "caps": [
+        {
+          "id": "E4-cap-1",
+          "when": "A custom build or test harness where a standard exists, with no documented reason",
+          "max": 6
+        }
+      ]
+    },
+    {
+      "id": "F1",
+      "name": "Ease of Deployability",
+      "pillar": "F",
+      "applies_when": null,
+      "measures": "The path from merged code to running in an environment: Automated or one-command deploy. A packaged, immutable artifact (container image or package). Infrastructure as code. Configuration externalized and validated at startup. Proper secrets management. Parity between environments. Health and readiness checks. Migrations integrated into the deploy. Zero-downtime deploys and rollback where relevant. A documented runbook. For libraries and CLIs, \"deploy\" means release and publish, and installing the published artifact.",
+      "not_this": "CI checks and gates (F2). Whether operations are safe to repeat (A4).",
+      "assess": "Follow the deploy or release process on paper, or for real if possible. Count manual steps. Find hard-coded environment values. Check for a rollback path.",
+      "anchors": {
+        "1–3": "Deploying needs the author and code edits.",
+        "4–6": "Scripted but fragile; manual steps.",
+        "7–8": "Automated and repeatable; documented.",
+        "9–10": "Push-button or continuous; a new environment needs no code changes; rollback is fast and tested."
+      },
+      "caps": [
+        {
+          "id": "F1-cap-1",
+          "when": "Manual, undocumented deploy steps",
+          "max": 4
+        },
+        {
+          "id": "F1-cap-2",
+          "when": "No rollback path for a production service",
+          "max": 6
+        }
+      ]
+    },
+    {
+      "id": "F2",
+      "name": "Build, CI/CD & Automation",
+      "pillar": "F",
+      "applies_when": null,
+      "measures": "Reproducible builds; automated format, lint, type and test checks; CI that blocks merges on failure; caching and speed; automated releases and versioning; pre-commit hooks.",
+      "not_this": "Which tools are used (E4). Deploy mechanics (F1).",
+      "assess": "Inspect the CI config. Which checks run, and do they block merges? Measure CI duration if visible.",
+      "anchors": {
+        "1–3": "No CI.",
+        "4–6": "CI runs but doesn't block merges.",
+        "7–8": "Full gating.",
+        "9–10": "Fast, cached, comprehensive pipeline; releases fully automated."
+      }
+    },
+    {
+      "id": "F3",
+      "name": "Observability & Debuggability",
+      "pillar": "F",
+      "applies_when": null,
+      "measures": "You can tell what the system is doing and diagnose problems without attaching a debugger. Structured, leveled logs; correlation or request IDs; metrics; tracing where relevant; health endpoints; actionable error output; and no secrets or PII in telemetry. For a CLI: clear errors, verbose and debug modes, meaningful exit codes.",
+      "assess": "Pick a realistic failure in a core flow. Would the logs and metrics be enough to diagnose it?",
+      "anchors": {
+        "1–3": "Failures are opaque.",
+        "4–6": "Some logging; inconsistent.",
+        "7–8": "Structured logs with context, plus key metrics.",
+        "9–10": "Any production issue can be diagnosed from telemetry alone; signals are documented, and alerting exists where relevant."
+      }
+    },
+    {
+      "id": "F4",
+      "name": "Performance, Efficiency & Scalability",
+      "pillar": "F",
+      "applies_when": null,
+      "measures": "Appropriate algorithms and data structures; efficient I/O (no N+1 queries; batching and streaming); sensible memory and CPU use; caching where justified; no blocking calls in async code; no unbounded growth; graceful behavior at 10× expected load; optimization based on measurement.",
+      "assess": "Review the busiest code paths. Look for queries inside loops, whole datasets loaded into memory, missing indexes and quadratic loops over large inputs. Run benchmarks or profilers if they exist.",
+      "anchors": {
+        "1–3": "Will fail at expected scale.",
+        "4–6": "OK now; clear inefficiencies.",
+        "7–8": "Efficient busy paths; no known scaling cliffs.",
+        "9–10": "Performance budgets defined and guarded by benchmarks or load tests in CI, without hurting clarity."
+      }
+    },
+    {
+      "id": "F5",
+      "name": "Portability",
+      "pillar": "F",
+      "applies_when": null,
+      "measures": "Runs correctly across every operating system, CPU architecture, runtime version, browser or cloud the project claims to support. No hard-coded absolute paths, path-separator or shell assumptions, locale, timezone or encoding assumptions, or machine-specific config. The supported matrix is declared *and* tested.",
+      "assess": "Search for absolute paths, `/` vs `\\` handling, shelling out to platform-specific tools, and dependence on the system timezone or locale. Check whether CI covers the claimed matrix.",
+      "anchors": {
+        "1–3": "Works only on the author's machine.",
+        "4–6": "Works on one platform; others break.",
+        "7–8": "Works on the claimed platforms, partly tested.",
+        "9–10": "The full declared matrix is tested in CI."
+      },
+      "caps": [
+        {
+          "id": "F5-cap-1",
+          "when": "Machine-specific assumptions in core paths",
+          "max": 4
+        }
+      ]
+    },
+    {
+      "id": "F6",
+      "name": "Dependency Health & Longevity",
+      "pillar": "F",
+      "applies_when": null,
+      "measures": "Dependencies are pinned and locked, maintained, minimal and license-compatible, and the project resists bit rot: runtime and framework versions are within their support windows, no deprecated APIs, the toolchain is pinned, and updates are automated.",
+      "not_this": "*Reachable* vulnerabilities (A2). *Unused* dependencies (B6).",
+      "assess": "Inspect manifests and lockfiles. Run outdated and audit checks. Check end-of-life dates for the runtime and major frameworks. Grep for deprecation warnings in build and test output.",
+      "anchors": {
+        "1–3": "Unpinned, abandoned or end-of-life.",
+        "4–6": "Locked but stale.",
+        "7–8": "Current and pinned.",
+        "9–10": "Automated updates (Renovate, Dependabot) with audit gates; no deprecations; would still build cleanly a year from now."
+      }
+    },
+    {
+      "id": "X1",
+      "name": "Accessibility, UX & Internationalization",
+      "pillar": "X",
+      "applies_when": "UI code",
+      "measures": "Semantic markup; keyboard navigation; focus management; correct ARIA; color contrast; screen-reader labels; responsive layout; loading, empty and error states; text externalized for translation; locale-aware formatting; right-to-left readiness where relevant.",
+      "assess": "Run axe or Lighthouse, then do a keyboard-only pass through core flows.",
+      "caps": [
+        {
+          "id": "X1-cap-1",
+          "when": "Core flows not keyboard-operable",
+          "max": 4
+        }
+      ]
+    },
+    {
+      "id": "X2",
+      "name": "Public API Stability & Upgradeability",
+      "pillar": "X",
+      "applies_when": "libraries, SDKs, public APIs",
+      "measures": "Semantic versioning, a changelog, a deprecation policy with warnings, backward-compatibility tests, a minimal public surface, a clear split between public and internal code, and migration guides for breaking changes.",
+      "caps": [
+        {
+          "id": "X2-cap-1",
+          "when": "Breaking changes shipped in minor or patch releases",
+          "max": 4
+        }
+      ]
+    },
+    {
+      "id": "X3",
+      "name": "Concurrency Safety",
+      "pillar": "X",
+      "applies_when": "concurrent, parallel or async code",
+      "measures": "Shared state is protected; no races, deadlocks or unawaited promises; no blocking the event loop; cancellation is propagated; parallelism is bounded. Race detectors or stress tests are used (`go test -race`, TSan, loom...).",
+      "caps": [
+        {
+          "id": "X3-cap-1",
+          "when": "A demonstrable data race on shared mutable state",
+          "max": 3
+        }
+      ]
+    },
+    {
+      "id": "X4",
+      "name": "Cost Efficiency",
+      "pillar": "X",
+      "applies_when": "code that runs on paid infrastructure or APIs",
+      "measures": "Resources are right-sized; autoscaling and scale-to-zero where sensible; no runaway loops calling paid APIs; caching of expensive calls; storage lifecycle policies; resources tagged and costs visible; budget alerts."
+    },
+    {
+      "id": "X5",
+      "name": "Compliance & Licensing",
+      "pillar": "X",
+      "applies_when": "regulated data, or distributed software",
+      "measures": "Dependency licenses are compatible; an SBOM can be generated; audit logs exist for sensitive actions; data residency and retention controls; controls required by any applicable regimes (GDPR, HIPAA, SOC 2, PCI...) are present and documented."
+    },
+    {
+      "id": "X6",
+      "name": "Agent-Readiness",
+      "pillar": "X",
+      "applies_when": "graded by default in this workflow, because agents will maintain the code",
+      "measures": "An AI coding agent can work on this codebase safely and productively: An `AGENTS.md`, `CLAUDE.md` or equivalent with exact build, test, lint and run commands. Fast, scoped, deterministic verification commands. Conventions and module boundaries written down. No tribal knowledge needed to make a correct change. Generated and protected files clearly marked. Clear signals of success and failure (exit codes, machine-readable output).",
+      "assess": "Could an agent with no prior context make a correct, verified change from the repo alone?"
+    }
+  ]
+}

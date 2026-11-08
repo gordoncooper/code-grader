@@ -100,6 +100,9 @@ $K render check BASELINE PR_REPORT                               # the PR-check 
 $K render log improve-log.json --report REPORT --guard CMP      # the improver's log, with the guard's table
 $K guard snapshot CODE --from-report REPORT [--check NAME=CMD]  # improvers: the code's checks before any change
 $K guard compare CODE [--explain KEY=REASON]                    # …and after: exit 2 if anything got worse
+$K rubric A3                                                     # one benchmark's rubric (or a pillar: B); --json for data
+$K order new --project orders-api --role grade [--commit SHA]    # a work order: the request behind a run (order list, order close)
+$K mcp                                                          # every command as an MCP tool, on stdin/stdout
 $K validate --project orders-api [--publish]                     # schema, config and rule checks (latest report); --publish: safe to commit?
 $K verify-evidence --project orders-api --repo CODE_DIR_OR_ZIP   # every quoted line exists
 $K rollup   --project orders-api [--write]                       # gates, maturity, targets, ranked priorities
@@ -109,6 +112,8 @@ $K calibrate report.json expected.json                           # grader drift 
 $K redact report.json [--in-place]                               # withhold sensitive findings and hidden-check details
 $K migrate --project orders-api [--reports] [--run --push --open github]   # move a project to this suite version, in one pull request
 ```
+
+**For agents without a shell:** `gradekit mcp` serves every command as a tool over the Model Context Protocol (stdio), with input schemas made from the commands' own arguments. Each tool returns the `--json` envelope below; its `cwd` argument sets the folder it runs in. Add it to an MCP client as a stdio server, e.g. `{"command": "python3", "args": ["SUITE_DIR/tools/gradekit.py", "mcp"]}`. The tools can run the code's checks (`guard`), git (`deliver --run`) and the doctor's probes, so approve them as you would those commands.
 
 **For agents and scripts:** add `--json` to any command to get exactly one JSON object on stdout: `{"ok", "exit_code", "command", "result", "text"}`, plus `"error"` when the command failed. `result` holds the command's data (validation errors, the rollup, a diff, the path written…) and `text` holds what it would have printed.
 
@@ -140,8 +145,8 @@ code-grading-suite/
 ├── TUNING.md               customizing weights, gates, zones, targets
 ├── DEPLOY.md               hosting the website
 ├── CHANGELOG.md
-├── prompts/                grader, reviewer, improver, pr-review
-├── rubric/                 one file per pillar, catalog.json, weights.md
+├── prompts/                cards/ (one page per role), grader, reviewer, improver, pr-review, rules.json
+├── rubric/                 one file per pillar, catalog.json, rubric.json, weights.md
 ├── config/                 defaults.toml, project.example.toml
 ├── schema/                 report.schema.json
 ├── tools/

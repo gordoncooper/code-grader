@@ -41,6 +41,26 @@ Major release, in progress: a beta for agents first, then the pages for people. 
 - The grader and PR-check prompts, the glossary (*noticed finding*) and the Review page (status filter; evidence without line numbers) follow suit.
 - A public copy keeps each withheld finding's fingerprint, computed from the full report before `redact` withheld its evidence. Editing the public copy never overwrites it.
 
+**Operating cards, and the rubric one benchmark at a time**
+- **Each role has a one-page card** in `prompts/cards/` (grader, pr-check, improver, reviewer): the run as `gradekit` commands, what the tools enforce for you, and the rules only an agent can follow. `AGENT.md` and **Start a run** now send agents to their card. The full prompts stay as the reference for details, and for working without Python.
+- **The word budget is checked:** a card and the largest benchmark entry fit in 3,000 words (the grader's: about 1,300, down from 11,000 for the prompt and the rubric).
+- **`gradekit rubric A3`** prints one benchmark: what it measures, what it isn't, how to assess it, the anchors and the caps. `gradekit rubric B` prints a pillar, and `--json` gives data. `rubric/rubric.json` holds the whole rubric as data, generated from the rubric files.
+- **No rule was lost in the move:** `prompts/rules.json` lists every hard rule in the prompts with what keeps it, either the `gradekit` check that enforces it or the card that states it. A test fails if either goes missing.
+
+**`gradekit mcp`, for agents without a shell**
+- An MCP server on stdin/stdout (JSON-RPC 2.0, standard library only). Every command is a tool, with an input schema made from its arguments, so the server and the command line can't drift apart.
+- Calls run in-process with `--json` and return the envelope. `cwd` sets the folder a tool runs in. Bad arguments, unknown tools and a missing folder come back as error results, never crashes.
+- `gradekit mcp --list` shows the tools.
+
+**Work orders**
+- **A work order is the request behind a run:** a role (grade, review, improve or prcheck), a commit or change, a delivery, who asked, and notes. `gradekit order new --project NAME --role grade` writes `projects/NAME/orders/<date>-<role>-<n>.json` and prints the ID to give the agent.
+- **The report that answers it closes it:** it records the ID with `report new --work-order ID`, as `run.work_order`. `order list` shows open orders (`--all` shows every one, with the answering report), and `order close` closes one by hand.
+- **Checks:**
+  - `report check` and `gradekit ci` warn when a report names an order the project doesn't have;
+  - `gradekit ci` checks order files as settings: they must be well formed, and only `status` and `closed` may change later;
+  - `projects/index.json` lists each project's open orders;
+  - `schema/work-order.schema.json` documents the format.
+
 **Enforced score limits**
 - **The rubric's caps are data.** Each cap now has an ID in the rubric, e.g. "Quickstart fails → max 4 (`E1-cap-1`)". `rubric/catalog.json` lists every benchmark's caps, and a test keeps the two the same.
 - **A finding can carry the cap it triggers:** `report finding add … --cap E1-cap-1` (or `finding update --cap`). The cap holds while that finding is open, and lifts when it's fixed or accepted. A cap with no single finding behind it goes on the benchmark (`report score … --cap E1-cap-1`). D2's "any critical gap" applies by itself.
