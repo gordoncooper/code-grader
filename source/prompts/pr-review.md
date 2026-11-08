@@ -78,4 +78,4 @@ Regressions: none | <...>
 Decisions needed: none | <decision questions>
 ```
 
-No hidden-check details. Report only the aggregate pass rate and whether it changed. Deliver as described under Inputs.
+No hidden-check details. Report only the aggregate pass rate and whether it changed. Sensitive findings (grader Part 1, rule 6) are named by ID, benchmark, effective severity and zone only, with "details withheld": PR comments are often public. Give their details to whoever started you, privately, in your final message. Findings the baseline report withholds stay withheld: carry them forward as they are. Deliver as described under Inputs.

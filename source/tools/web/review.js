@@ -354,11 +354,18 @@
     if (!d) return null;
     return h("span", { class: "badge " + (d.status === "approved" ? "ok" : d.status === "declined" ? "bad" : "warn") }, d.status);
   }
+  function withheldBadge(f) {
+    if (!f || !f.sensitive) return null;
+    var withheld = (f.evidence || []).every(function (e) { return e.type === "withheld"; });
+    return withheld ? h("span", { class: "badge", title: "Security details are kept out of the public report" }, "details withheld")
+                    : h("span", { class: "badge warn", title: "Its details must be withheld before this report goes in a public repo" }, "sensitive");
+  }
   function section(title, sub) { return h("div", { style: "margin:26px 0 10px" }, h("h2", { style: "font-family:var(--serif);font-size:1.3rem;margin:0" }, title), sub ? h("p", { class: "hint", style: "margin:4px 0 0;color:var(--muted);font-size:.9rem" }, sub) : null); }
   function evidenceList(evs) {
     return h("ul", { style: "margin:4px 0;padding-left:18px" }, (evs || []).map(function (e) {
       if (e.type === "code") return h("li", null, h("code", null, e.file + ":" + e.lines), " ", e.note || "", e.quote ? h("pre", { style: "margin:4px 0;font-size:.78rem;white-space:pre-wrap" }, e.quote) : null);
       if (e.type === "command") return h("li", null, h("code", null, e.command), " ", e.note || "", h("pre", { style: "margin:4px 0;font-size:.78rem;white-space:pre-wrap" }, e.excerpt));
+      if (e.type === "withheld") return h("li", null, h("span", { class: "badge" }, "details withheld"), " ", e.note || "");
       return h("li", null, "Searched for ", h("b", null, e.searched), " (", e.method, ") ", e.note || "");
     }));
   }
@@ -372,6 +379,9 @@
       R.consensus.unstable.length ? "Runs disagreed on " + R.consensus.unstable.join(", ") + ". " : "Runs agreed. ", "Download it as report.json under More → Downloads, and add it to the report's folder."));
     if ((R.report.integrity_flags || []).length) banners.appendChild(h("div", { class: "banner bad" }, h("b", null, "Integrity flag: "), "the grader found text in the repo trying to influence grading. Maturity is capped. See More."));
     if (c.validation.errors.length) banners.appendChild(h("div", { class: "banner bad" }, h("b", null, "This report has " + c.validation.errors.length + " error(s). "), "Treat its numbers with caution; usually the fix is to re-run the grader. Details under More."));
+    var pub = c.publish || { problems: [] };
+    if (pub.public && pub.problems.length) banners.appendChild(h("div", { class: "banner bad" }, h("b", null, "Not safe to commit to a public grading repo: "),
+      pub.problems.join("; ") + ". Use the public copy under More → Downloads, or run ", h("code", null, "gradekit redact --in-place"), "."));
     if (!R.project) banners.appendChild(h("div", { class: "banner warn" }, "No project.toml loaded, so the report is checked against suite defaults. Load the whole project, or add project.toml, to check the config properly."));
     else if (!c.config_hash_match) banners.appendChild(h("div", { class: "banner warn" }, "This report was graded with a different config than the project.toml you loaded (weights, gates or zones changed since). Scores still stand; overall and maturity are recomputed with your current config."));
     renderOverview(); renderDecisions(); renderPriorities(); renderScorecard(); renderFindings(); renderCompare(); renderMore();
@@ -559,7 +569,7 @@
       b.finding_ids.forEach(function (id) {
         var f = findings[id], z = fz[id] || {};
         if (!f) return;
-        body.appendChild(h("div", { style: "margin:6px 0" }, h("b", null, id + " "), sevBadge(z.effective_severity || f.severity), " ", zoneBadge(z.criticality), " ", h("span", { class: "badge" }, f.status), " ", f.title, evidenceList(f.evidence)));
+        body.appendChild(h("div", { style: "margin:6px 0" }, h("b", null, id + " "), sevBadge(z.effective_severity || f.severity), " ", zoneBadge(z.criticality), " ", h("span", { class: "badge" }, f.status), " ", f.title, " ", withheldBadge(f), evidenceList(f.evidence)));
       });
     }
     if ((b.path_to_target || []).length) {
@@ -599,7 +609,7 @@
         h("tbody", null, rows.map(function (x) {
           var z = fz[x.id] || {};
           return h("tr", null, h("td", null, h("code", null, x.id)), h("td", null, sevBadge(z.effective_severity || x.severity), z.effective_severity && z.effective_severity !== x.severity ? h("div", { class: "kbd-note" }, "was " + x.severity) : null),
-            h("td", null, zoneBadge(z.criticality), z.zone ? h("div", { class: "kbd-note" }, z.zone) : null), h("td", null, x.status), h("td", null, x.title, x.disposition ? h("div", { class: "kbd-note" }, "Accepted: " + x.disposition) : null));
+            h("td", null, zoneBadge(z.criticality), z.zone ? h("div", { class: "kbd-note" }, z.zone) : null), h("td", null, x.status), h("td", null, x.title, " ", withheldBadge(x), x.disposition ? h("div", { class: "kbd-note" }, "Accepted: " + x.disposition) : null));
         }))) : h("div", { class: "empty" }, "No findings match these filters."));
     }
     draw();
@@ -639,12 +649,25 @@
     function addDl(label, name, obj) { var b = h("button", { type: "button", class: "btn" }, label); b.addEventListener("click", function () { UI.download(name, JSON.stringify(obj, null, 2) + "\n", "application/json"); }); dl.appendChild(b); }
     if (R.consensus) addDl("Download consensus as report.json", "report.json", R.consensus.report);
     var priv = r.holdout && Array.isArray(r.holdout.private_details) && r.holdout.private_details.length;
-    if (priv) {
-      var red = h("button", { type: "button", class: "btn" }, "Download a copy without hidden-check details");
-      red.addEventListener("click", async function () { var x = await GK.call("redact", { report: r }); UI.download("report.json", JSON.stringify(x.report, null, 2) + "\n", "application/json"); });
+    var unsafe = ((c.publish || {}).problems || []).length > 0;
+    var leakBox = h("div");
+    if (priv || unsafe) {
+      var red = h("button", { type: "button", class: "btn" }, "Download a copy safe to publish");
+      red.addEventListener("click", async function () {
+        var x = await GK.call("redact", { report: r });
+        UI.clear(leakBox);
+        if (x.leaks.length) {
+          leakBox.appendChild(h("div", { class: "banner bad" }, h("b", null, "Not downloaded: "), "withheld details still appear elsewhere in the report. Reword these places in general terms, then try again.",
+            h("ul", null, x.leaks.map(function (l) { return h("li", null, l); }))));
+          return;
+        }
+        UI.download("report.json", JSON.stringify(x.report, null, 2) + "\n", "application/json");
+      });
       dl.appendChild(red);
     }
-    if (dl.firstChild) box.appendChild(h("div", { class: "card" }, h("h2", null, "Downloads"), priv ? h("div", { class: "banner warn" }, "This report still contains per-check hidden-check results. Don't commit it to the repo; use the copy without them.") : null, dl));
+    if (dl.firstChild) box.appendChild(h("div", { class: "card" }, h("h2", null, "Downloads"),
+      priv || unsafe ? h("div", { class: "banner warn" }, "This report still contains " + (priv ? "per-check hidden-check results" : "") + (priv && unsafe ? " and " : "") +
+        (unsafe ? "the details of sensitive findings" : "") + ". Don't commit it to a public repo; use the copy safe to publish, and keep this one private.") : null, dl, leakBox));
     if (R.consensus) {
       box.appendChild(section("Consensus across runs", "Median score per benchmark. Spreads over 1 point mean the rubric wording for that benchmark may be too vague."));
       box.appendChild(h("div", { class: "card" }, h("table", null, h("thead", null, h("tr", null, ["ID", "Scores by run", "Median", "Spread"].map(function (t) { return h("th", null, t); }))),

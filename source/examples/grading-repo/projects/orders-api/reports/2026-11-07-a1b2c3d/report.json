@@ -145,21 +145,21 @@
     {
       "id": "A2-001",
       "benchmark_id": "A2",
-      "title": "No input validation on charge amount",
+      "title": "Security & Privacy issue (details withheld)",
       "severity": "major",
       "status": "open",
       "first_seen_commit": "9f8e7d6",
       "evidence": [
         {
-          "type": "code",
-          "file": "src/payments/api.py",
-          "lines": "5",
-          "quote": "result = gateway.charge(request.json[\"amount\"])",
-          "note": "amount passed to gateway unchecked; negative or string values accepted"
+          "type": "withheld",
+          "note": "Details withheld from the public report; whoever ran the grade has the private copy."
         }
       ],
       "disposition": null,
-      "disposition_concern": null
+      "sensitive": true,
+      "paths": [
+        "src/payments/api.py"
+      ]
     },
     {
       "id": "A3-001",
@@ -1660,7 +1660,7 @@
     "run": true,
     "checks_run": 4,
     "pass_rate": 0.5,
-    "private_details": "[not used in this example]"
+    "private_details": "[redacted]"
   },
   "rollup": {
     "computed_by": "gradekit.py",
@@ -2381,5 +2381,11 @@
   ],
   "limitations": [
     "Example report for the bundled sample repo; scores are illustrative."
-  ]
+  ],
+  "publishing": {
+    "redacted": true,
+    "withheld": [
+      "A2-001"
+    ]
+  }
 }

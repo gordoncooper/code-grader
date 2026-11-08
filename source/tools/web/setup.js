@@ -2,7 +2,7 @@
 (function () {
   "use strict";
   var h = UI.h, $ = UI.$, $$ = UI.$$;
-  var KNOWN = ["project", "answers", "zones", "targets", "weights", "gates", "review"];
+  var KNOWN = ["project", "answers", "zones", "targets", "weights", "gates", "review", "publishing"];
   var info = null;          // questions, presets, catalog… from gradekit
   var lastCfg = null;       // effective config from the last build
   var lastToml = "";
@@ -12,7 +12,7 @@
   function blank() {
     return { project: { name: "", preset: "default" }, answers: {}, zones: [],
              targets: { mode: "proportional", overrides: {} }, weights: { overrides: {} },
-             gates: { extra: [] }, review: {} };
+             gates: { extra: [] }, review: {}, publishing: {} };
   }
   function benchmarkName(id) {
     var b = info && info.catalog.benchmarks.find(function (x) { return x.id === id; });
@@ -173,6 +173,7 @@
     $("#t-level-wrap").hidden = mode.indexOf("level:") !== 0;
     if (mode.indexOf("level:") === 0) $("#t-level").value = mode.split(":")[1];
     $("#agent-decisions").checked = !!(state.review && state.review.allow_agent_decisions);
+    $("#private-repo").checked = !!(state.publishing && state.publishing.public === false);
     showPath();
   }
 
@@ -198,6 +199,9 @@
     if (!(d.gates.extra || []).length) delete d.gates.extra;
     if (!Object.keys(d.gates).length) delete d.gates;
     if (!d.review || !d.review.allow_agent_decisions) delete d.review;
+    d.publishing = d.publishing || {};
+    if (d.publishing.public !== false) delete d.publishing.public;
+    if (!Object.keys(d.publishing).length) delete d.publishing;
     Object.keys(extras).forEach(function (k) { d[k] = extras[k]; });
     return d;
   }
@@ -285,6 +289,7 @@
       fresh.weights = Object.assign({ overrides: {} }, d.weights || {});
       fresh.gates = Object.assign({ extra: [] }, d.gates || {});
       fresh.review = d.review || {};
+      fresh.publishing = d.publishing || {};
       extras = {};
       Object.keys(d).forEach(function (k) { if (KNOWN.indexOf(k) < 0) extras[k] = d[k]; });
       state = fresh;
@@ -345,6 +350,7 @@
     });
     $("#t-level").addEventListener("change", function () { state.targets.mode = "level:" + $("#t-level").value; refresh(); });
     $("#agent-decisions").addEventListener("change", function (e) { state.review = state.review || {}; state.review.allow_agent_decisions = e.target.checked; refresh(); });
+    $("#private-repo").addEventListener("change", function (e) { state.publishing = state.publishing || {}; if (e.target.checked) state.publishing.public = false; else delete state.publishing.public; refresh(); });
     $("#org-toml").addEventListener("input", UI.debounce(async function () { await loadInfo(); renderAll(); refresh(); }, 600));
     $("#dl-toml").addEventListener("click", function () { if (lastToml) UI.download("project.toml", lastToml); });
     $("#copy-toml").addEventListener("click", function () { if (lastToml) UI.copyText(lastToml); });

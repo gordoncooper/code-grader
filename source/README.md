@@ -56,7 +56,8 @@ Repeat from step 1. Optionally, use three graders for milestone audits; the Revi
 1. **Graders are independent.** Use a fresh session every time, ideally a different model from the improver, and never the session that did the improving.
 2. **Graders run sandboxed.** They run the repo's own scripts, so give them a disposable environment with no production credentials.
 3. **People own the project files** (`project.toml`, `decisions.json`, `dispositions.json`). Graders only add report folders, by PR; they never push to the grading repo's default branch. An agent reviewer may append decisions only if `[review] allow_agent_decisions = true`.
-4. **Trust `gradekit`'s numbers.** Weights, gates, effective severities, pillar scores, the overall score, targets, maturity and priorities always come from `gradekit`, never from the grader's own arithmetic.
+4. **Keep security details out of public reports.** A grading repo is treated as public. Graders mark findings that would help an attacker as sensitive, and `gradekit redact --in-place` withholds their details from the committed report without changing any score. The full report, `report.private.json`, is never committed. Set `[publishing] public = false` if only trusted people can read the grading repo ([TUNING.md](TUNING.md)).
+5. **Trust `gradekit`'s numbers.** Weights, gates, effective severities, pillar scores, the overall score, targets, maturity and priorities always come from `gradekit`, never from the grader's own arithmetic.
 
 ## Key concepts
 
@@ -82,13 +83,13 @@ K="python3 SUITE_DIR/tools/gradekit.py"
 $K init --project orders-api --code-repo URL --preset service   # create projects/orders-api/
 $K resolve  --project orders-api [--explain A4]                 # weights, gates, zones (and why)
 $K presets                                                       # compare presets side by side
-$K validate --project orders-api                                 # schema, config and rule checks (latest report)
+$K validate --project orders-api [--publish]                     # schema, config and rule checks (latest report); --publish: safe to commit?
 $K verify-evidence --project orders-api --repo CODE_DIR_OR_ZIP   # every quoted line exists
 $K rollup   --project orders-api [--write]                       # gates, maturity, targets, ranked priorities
 $K diff     --project orders-api [--fail-on-regression]          # latest vs previous report
 $K stability projects/orders-api/reports/<folder>/runs/run-*.json --project orders-api --out projects/orders-api/reports/<folder>/report.json
 $K calibrate report.json expected.json                           # grader drift check
-$K redact report.json                                            # strip hidden-check details
+$K redact report.json [--in-place]                               # withhold sensitive findings and hidden-check details
 ```
 
 Try it on the bundled example grading repo:
