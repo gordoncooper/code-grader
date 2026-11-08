@@ -142,6 +142,7 @@ code-grading-suite/
 ├── tools/
 │   ├── gradekit.py         the engine (CLI + the browser API)
 │   ├── build_web.py        builds the website
+│   ├── vendor_pyodide.py   puts the Python runtime inside a built website (no CDN)
 │   └── web/                website sources (pages, styles, scripts)
 ├── ci/                     the grading check for grading repos (GitHub Actions, GitLab CI, any host)
 ├── calibration/            checking graders against known scores

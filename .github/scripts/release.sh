@@ -78,7 +78,16 @@ bare_zip="$dist/code-grading-suite-$tag.zip"
 web_zip="$dist/code-grading-suite-web-$tag.zip"
 (cd "$dist/stage" && zip -qrX "$bare_zip" code-grading-suite -x '*/__pycache__/*' '*.pyc' '*.DS_Store')
 (cd "$bundle/web" && zip -qrX "$web_zip" . -x '*/__pycache__/*' '*.pyc' '*.DS_Store')
-(cd "$dist" && sha256sum "$(basename "$bare_zip")" "$(basename "$web_zip")" > SHA256SUMS)
+# The website with Pyodide included, for hosts that can't load it from the CDN (needs the network,
+# once, here). Versions before the tool existed don't get one.
+pyo_zip=""
+if [ -f "$bundle/bare/tools/vendor_pyodide.py" ]; then
+  pyo_zip="$dist/code-grading-suite-web-pyodide-$tag.zip"
+  cp -r "$bundle/web" "$dist/web-pyodide"
+  python3 "$bundle/bare/tools/vendor_pyodide.py" "$dist/web-pyodide"
+  (cd "$dist/web-pyodide" && sha256sum -c --quiet SHA256SUMS && zip -qrX "$pyo_zip" . -x '*/__pycache__/*' '*.pyc' '*.DS_Store')
+fi
+(cd "$dist" && sha256sum "$(basename "$bare_zip")" "$(basename "$web_zip")" ${pyo_zip:+"$(basename "$pyo_zip")"} > SHA256SUMS)
 
 # The pull request that brought this version in, if there is one.
 pr=""
@@ -100,6 +109,9 @@ notes="$dist/notes.md"
   echo "|---|---|"
   echo "| \`code-grading-suite-$tag.zip\` | The bare kit: prompts, rubric, config, schema, \`gradekit.py\`, docs |"
   echo "| \`code-grading-suite-web-$tag.zip\` | The built website, ready for any static web server (checksums in \`SHA256SUMS\`) |"
+  if [ -n "$pyo_zip" ]; then
+    echo "| \`code-grading-suite-web-pyodide-$tag.zip\` | The same website with its Python runtime (Pyodide) included, for hosts that can't reach a CDN or allow only their own origin |"
+  fi
   echo
   echo "These are \`bundle/bare/\` and \`bundle/web/\` at this tag. The bare kit leaves out the website builder."
   echo
@@ -121,7 +133,7 @@ latest=false
 
 if [ -n "${STAGE_DIR:-}" ]; then
   mkdir -p "$STAGE_DIR"
-  cp "$bare_zip" "$web_zip" "$dist/SHA256SUMS" "$notes" "$STAGE_DIR/"
+  cp "$bare_zip" "$web_zip" ${pyo_zip:+"$pyo_zip"} "$dist/SHA256SUMS" "$notes" "$STAGE_DIR/"
   printf 'tag=%s\ntarget=%s\nlatest=%s\n' "$tag" "$target" "$latest" > "$STAGE_DIR/release.env"
   echo "tag=$tag"
   echo "::notice::Staged $tag in $STAGE_DIR"
@@ -131,12 +143,12 @@ fi
 if [ -n "${DRY_RUN:-}" ]; then
   echo "--- would run: gh release create $tag --target $target --title $tag --latest=$latest"
   echo "--- notes:"; cat "$notes"
-  echo "--- assets:"; ls -l "$bare_zip" "$web_zip"
+  echo "--- assets:"; ls -l "$bare_zip" "$web_zip" ${pyo_zip:+"$pyo_zip"}
   unzip -l "$bare_zip" | tail -1; unzip -l "$web_zip" | tail -1
   exit 0
 fi
 
-gh release create "$tag" "$bare_zip" "$web_zip" "$dist/SHA256SUMS" \
+gh release create "$tag" "$bare_zip" "$web_zip" ${pyo_zip:+"$pyo_zip"} "$dist/SHA256SUMS" \
   --repo "$repo" --target "$target" --title "$tag" \
   --notes-file "$notes" --latest="$latest"
 echo "::notice::Released $tag (latest: $latest)"

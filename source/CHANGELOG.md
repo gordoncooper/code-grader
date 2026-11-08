@@ -62,6 +62,7 @@ Minor release: tools that let agents run the whole cycle without custom scripts,
   - no forms or plugins.
 
   `.htaccess` also sends it as a header, with `frame-ancestors 'none'`.
+- **A website with Pyodide included.** Each release adds `code-grading-suite-web-pyodide-vX.Y.Z.zip`: the website with its Python runtime and packages in `pyodide/`. It loads nothing from a CDN, so it works on air-gapped networks and on hosts that allow only their own origin. The new `tools/vendor_pyodide.py` does the same to any built or deployed site. It checks every file against the pins and Pyodide's lock file, switches the pages over, and updates `manifest.json` and `SHA256SUMS`. Relative Pyodide addresses in `engine-config.js` now resolve from the page.
 - **Signed releases:** every release has `SHA256SUMS`, and its zips carry signed build provenance (Sigstore, keyless). The release notes show how to check both.
 - **New tests:**
   - every page carries the policy, and every page and state works under it with no violations;
