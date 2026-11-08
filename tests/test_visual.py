@@ -84,7 +84,7 @@ def compare(actual: Path, baseline: Path, diff: Path) -> float:
     if a.size != b.size:
         return 1.0
     d = ImageChops.difference(a, b).convert("L").point(lambda v: 255 if v > 24 else 0)
-    changed = sum(1 for v in d.getdata() if v)
+    changed = d.histogram()[255]   # the mask is 0 or 255
     if changed:
         d.save(diff)
     return changed / (a.size[0] * a.size[1])
