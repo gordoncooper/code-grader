@@ -24,7 +24,8 @@
   "properties": {
     "suite_version": {
       "type": "string",
-      "pattern": "^4\\.\\d+\\.\\d+$"
+      "pattern": "^[45]\\.\\d+\\.\\d+$",
+      "description": "The kit version that wrote the report. 5.x reads 4.x reports unchanged."
     },
     "mode": {
       "enum": [
@@ -135,6 +136,10 @@
             "string",
             "null"
           ]
+        },
+        "scoring_version": {
+          "type": "string",
+          "description": "The scoring rules the report was graded under (suite_version in config/defaults.toml). Reports are compared for regressions only within one scoring major. Absent before 5.0, where the report's suite_version says it."
         }
       }
     },

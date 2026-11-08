@@ -67,7 +67,9 @@ def test_scoring_version_is_separate_from_kit_version(gk):
     catalog = json.loads((SRC / "rubric" / "catalog.json").read_text())
     info = call(gk, "info", {})
     assert info["suite_version"] == catalog["suite_version"]
-    assert info["scoring_version"].split(".")[0] == catalog["suite_version"].split(".")[0]
+    # 5.0 changes the report format and workflow, not the scoring rules: fingerprints and comparisons carry over from 4.x
+    assert info["scoring_version"] == "4.2.0"
+    assert catalog["suite_version"].split(".")[0] in gk.READABLE_REPORT_MAJORS
 
 
 def test_generated_project_toml_names_its_folder(gk):

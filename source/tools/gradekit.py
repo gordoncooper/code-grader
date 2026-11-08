@@ -137,6 +137,38 @@ def major(version) -> str:
     return str(version).split(".")[0]
 
 
+# Three versions, each with its own job:
+# - the kit version (rubric/catalog.json): prompts, tools and report format, e.g. 5.0.0. Projects pin its major.
+# - the scoring version (suite_version in config/defaults.toml): the rules that move scores. It's in every config
+#   fingerprint, and only reports with the same scoring major are compared for regressions. 5.0 keeps 4.2.0.
+# - the report's own suite_version: the kit that wrote it. This kit reads reports from these majors:
+READABLE_REPORT_MAJORS = ("4", "5")
+
+
+def kit_version() -> str:
+    return load_catalog()["suite_version"]
+
+
+def scoring_version_of(report: dict) -> str:
+    """The scoring rules a report was graded under: recorded since 5.0; before that the kit version said it."""
+    return str((report.get("config") or {}).get("scoring_version") or report.get("suite_version") or "0")
+
+
+def suite_pin(cfg: dict) -> str | None:
+    v = (cfg.get("project") or {}).get("suite")
+    return None if v in (None, "") else str(v).strip()
+
+
+def pin_problem(cfg: dict) -> str | None:
+    """A project pinned to another major can't get a report from this kit: the rules would change mid-cycle."""
+    pin = suite_pin(cfg)
+    if pin and pin != major(kit_version()):
+        return (f"this project is pinned to suite {pin} (`suite = \"{pin}\"` in project.toml), but this kit is {kit_version()}. "
+                f"Use a {pin}.x kit (the suite website's /v{pin}/ path, or a v{pin}.x release), or move the project to "
+                f"{major(kit_version())}.x by changing the pin")
+    return None
+
+
 def level_num(level: str) -> int:
     return int(str(level).lstrip("L"))
 
@@ -229,10 +261,15 @@ def resolve_layers(layers: list[tuple[str, dict]], component: str | None = None,
     errors: list[str] = []
     warnings: list[str] = []
 
-    if major(merged.get("suite_version", "0")) != major(catalog["suite_version"]):
-        errors.append(f"config suite_version {merged.get('suite_version')} does not match suite {catalog['suite_version']}")
+    scoring = load_toml(DEFAULTS_PATH).get("suite_version", "0")
+    if major(merged.get("suite_version", "0")) != major(scoring):
+        errors.append(f"config sets scoring version {merged.get('suite_version')}, but this kit scores with {scoring} "
+                      "(suite_version belongs to config/defaults.toml; remove it from your config)")
 
     project = merged.get("project", {}) or {}
+    pin = project.get("suite")
+    if pin not in (None, "") and not re.fullmatch(r"\d+", str(pin).strip()):
+        errors.append(f"project.suite is the suite's major version, e.g. \"{major(catalog['suite_version'])}\"; got {pin!r}")
     comp = None
     if component:
         comps = {c.get("name"): c for c in merged.get("components", []) or []}
@@ -605,8 +642,9 @@ def validate_report(report: dict, cfg: dict, catalog: dict) -> tuple[list[str], 
     if not isinstance(report.get("benchmarks"), list):
         return errors, warnings
 
-    if major(report.get("suite_version", "0")) != major(catalog["suite_version"]):
-        errors.append(f"suite_version {report.get('suite_version')} does not match suite {catalog['suite_version']}")
+    if major(report.get("suite_version", "0")) not in READABLE_REPORT_MAJORS:
+        errors.append(f"suite_version {report.get('suite_version')}: this kit ({catalog['suite_version']}) reads reports from suite "
+                      f"{' and '.join(m + '.x' for m in READABLE_REPORT_MAJORS)}; re-grade the project with this kit")
     rc = report.get("config", {}) or {}
     if rc.get("hash") != cfg["hash"]:
         errors.append(f"report was graded with config {rc.get('hash')} but checked against {cfg['hash']} "
@@ -1256,14 +1294,15 @@ def cmd_stability(args) -> int:
 
 def compute_diff(old: dict, new: dict, cfg_old: dict, cfg_new: dict) -> dict:
     regressions, notes = [], []
-    same_major = major(old.get("suite_version", "0")) == major(new.get("suite_version", "0"))
+    same_major = major(scoring_version_of(old)) == major(scoring_version_of(new))
     oh, nh = (old.get("config") or {}).get("hash"), (new.get("config") or {}).get("hash")
     if oh != nh:
         notes.append(f"reports used different configs ({oh} → {nh}); weights may differ, so overall and maturity "
                      "changes can come from re-weighting, not code changes")
     r_old, r_new = compute_rollup(old, cfg_old), compute_rollup(new, cfg_new)
     if not same_major:
-        notes.append("suite major versions differ; score deltas are not comparable and are not used for regressions")
+        notes.append(f"scoring versions differ ({scoring_version_of(old)} → {scoring_version_of(new)}); score deltas are not "
+                     "comparable and are not used for regressions")
     ob, nb = benchmarks_by_id(old), benchmarks_by_id(new)
     changes = []
     for bid in [b["id"] for b in load_catalog()["benchmarks"]]:
@@ -1762,8 +1801,9 @@ def render_project_toml(data: dict, defaults: dict | None = None, path: str = "p
              "code_repo": "where the code lives (informational)",
              "path": "monorepos: the subfolder this project covers",
              "maturity_target": "prototype | internal tool | production | public open source",
-             "out_of_scope": "paths the grader skips, e.g. \"vendor/**\""}
-    order = ["name", "description", "code_repo", "path", "preset", "languages", "users", "maturity_target", "scope", "out_of_scope"]
+             "out_of_scope": "paths the grader skips, e.g. \"vendor/**\"",
+             "suite": "the suite's major version for this project; tools won't write its reports with another"}
+    order = ["name", "description", "code_repo", "path", "preset", "suite", "languages", "users", "maturity_target", "scope", "out_of_scope"]
     out.append("[project]")
     keys = [k for k in order if k in proj] + [k for k in proj if k not in order]
     width = max([len(k) for k in keys] + [15])
@@ -1970,7 +2010,8 @@ def cmd_init(args) -> int:
         proj["code_repo"] = args.code_repo
     if args.path:
         proj["path"] = args.path
-    proj.update({"preset": args.preset, "languages": "<e.g. Python 3.12, FastAPI, Postgres>", "users": "<who uses it>",
+    proj.update({"preset": args.preset, "suite": major(load_catalog()["suite_version"]),
+                 "languages": "<e.g. Python 3.12, FastAPI, Postgres>", "users": "<who uses it>",
                  "maturity_target": "<choose one>", "scope": "<stated scope or link to requirements>", "out_of_scope": []})
     data = {"project": proj, "answers": answers}
     if args.project:
@@ -2219,6 +2260,8 @@ def cmd_report_new(args) -> int:
         die(f"--run takes N/COUNT, e.g. 2/3; got '{args.run}'")
     run_index, run_count = int(m.group(1)), int(m.group(2))
     cfg = load_config(args, quiet=True)
+    if pin_problem(cfg):
+        die(pin_problem(cfg))
     pdir = project_dir_from_args(args)
     commit = args.commit.strip()
     now = utc_now()
@@ -2245,7 +2288,7 @@ def cmd_report_new(args) -> int:
         "component": ({"name": cfg["component"]["name"], "path": cfg["component"].get("path"), "weight": cfg["component"].get("weight", 1)}
                       if cfg.get("component") else None),
         "config": {"hash": cfg["hash"], "preset": cfg["preset"], "source": " + ".join(cfg["sources"][1:]) or None,
-                   "component": (cfg.get("component") or {}).get("name")},
+                   "component": (cfg.get("component") or {}).get("name"), "scoring_version": cfg["suite_version"]},
         "commands_run": [], "scope_examined": "", "metrics": {}, "feature_inventory": [], "gap_register": [],
         "findings": [], "benchmarks": [blank_benchmark(c, cfg) for c in catalog["benchmarks"]], "integrity_flags": [],
         "holdout": {"run": False, "checks_run": None, "pass_rate": None, "private_details": None},
@@ -2646,7 +2689,7 @@ def carry_report(baseline: dict, read_lines, cfg: dict, commit: str, mode: str, 
     r["suite_version"] = load_catalog()["suite_version"]
     r["mode"] = mode
     r["run"] = {**(baseline.get("run") or {}), "commit": commit, "base_commit": base_commit, "date": utc_now()}
-    r["config"] = {**(baseline.get("config") or {}), "hash": cfg["hash"], "preset": cfg["preset"]}
+    r["config"] = {**(baseline.get("config") or {}), "hash": cfg["hash"], "preset": cfg["preset"], "scoring_version": cfg["suite_version"]}
     r["top_priorities"] = []
     r["commands_run"] = []
     r["integrity_flags"] = []
@@ -2702,6 +2745,8 @@ def cmd_carry(args) -> int:
         die("--mode pr needs --base-commit (the pull request's base)")
     args.report = args.baseline
     cfg = authoring_config(args, baseline)
+    if pin_problem(cfg):
+        die(pin_problem(cfg))
     read = repo_reader(args.repo)
     changed = list(args.changed or [])
     notes = []
@@ -2897,6 +2942,13 @@ def doctor_checks(args) -> list[dict]:
             warn = cfg.get("warnings", [])
             out.append(_check("config", "warn" if warn else "ok",
                               f"{cfg['hash']} · preset {cfg['preset']}" + (f" · {len(warn)} warning(s): {'; '.join(warn)}" if warn else "")))
+            pin, kit = suite_pin(cfg), major(catalog["suite_version"])
+            if pin is None:
+                out.append(_check("suite pin", "warn", "project.toml doesn't pin a suite version",
+                                  f"add `suite = \"{kit}\"` under [project], so a new major version can't change the rules mid-cycle"))
+            else:
+                out.append(_check("suite pin", "fail" if pin_problem(cfg) else "ok",
+                                  pin_problem(cfg) or f"pinned to {pin}; this kit is {catalog['suite_version']}"))
         except GradekitError as exc:
             out.append(_check("config", "fail", str(exc), "fix project.toml; `gradekit resolve` shows the details"))
             cfg = None
@@ -3423,6 +3475,10 @@ def ci_check(root: Path, base: str, head: str, changes: list[tuple[str, str]], s
                 report = load_json(rpath)
                 cfg = load_config(argparse.Namespace(project_dir=str(pdir), config=None, component=None), report, quiet=True)
                 errors, warns = validate_report(report, cfg, load_catalog())
+                pin = suite_pin(cfg)
+                if pin and major(report.get("suite_version", "0")) != pin:
+                    problems.append(f"the project is pinned to suite {pin}, but this report was made with suite {report.get('suite_version')}: "
+                                    f"grade it with a {pin}.x kit, or change the pin in project.toml first (a settings change of its own)")
                 problems += [f"report: {e}" for e in errors]
                 warnings += [f"report: {w}" for w in cfg.get("warnings", []) + warns if "run `gradekit redact" not in w]
                 if (cfg.get("publishing") or PUBLISHING_DEFAULTS).get("public"):

@@ -1,11 +1,30 @@
 # Changelog
 
 Versioning rules for the suite itself:
-- **Major:** any change that can move scores, i.e. new or removed benchmarks, changed anchors, caps, weights, targets or maturity rules. Scores from different major versions are **not comparable**. `gradekit diff` won't treat their deltas as regressions.
+- **Major:** a change that can break existing setups: the report format, the prompts' workflow, or the scoring rules. Each project pins the major it uses (`suite = "5"` in `project.toml`).
+- **Scoring version:** separate from the kit version, it changes only with rules that can move scores, i.e. new or removed benchmarks, changed anchors, caps, weights, targets or maturity rules. It's `suite_version` in `config/defaults.toml`, part of every config fingerprint. Scores from different scoring majors are **not comparable**, and `gradekit diff` won't treat their deltas as regressions.
 - **Minor:** clarified wording that shouldn't move scores, new optional fields, new tool commands. Re-run calibration to confirm.
 - **Patch:** typos, formatting, documentation.
 
 After any major or minor change, re-run calibration (`calibration/README.md`) before trusting new scores.
+
+## 5.0.0 (unreleased)
+Major release, in progress: a beta for agents first, then the pages for people. The 35 benchmarks, their anchors and the scoring version (4.2.0) don't change, so config fingerprints stay the same and scores stay comparable with 4.x.
+
+**Versions and pins**
+- **Three versions, each with its own job:**
+  - the **kit version** (5.0.0): prompts, tools and report format;
+  - the **scoring version** (still 4.2.0): the rules that move scores;
+  - each report's `suite_version`: the kit that wrote it.
+
+  New reports also record their scoring version (`config.scoring_version`). `gradekit diff` compares reports for regressions whenever their scoring majors match, so a PR check of a 5.0 report against a 4.x baseline still fails on a dropped score.
+- **5.x reads 4.x reports unchanged.** `validate`, `rollup`, `diff`, the index and the Review page accept reports from 4.x and 5.x. Reports from older majors are refused, with a note to re-grade.
+- **Projects pin their major:** `suite = "5"` under `[project]` in `project.toml`.
+  - `init` and the Set up page write the pin for new projects. A project loaded into the Set up page keeps its own pin, or none.
+  - `report new` and `carry` refuse to write a report for a project pinned to another major, and say which kit to use.
+  - `doctor` warns when a project isn't pinned, and fails when the pin doesn't match the kit.
+  - `gradekit ci` needs changes on a report PR whose report was made by another major than the pin.
+  - A project without a pin works as before.
 
 ## 4.3.0
 Minor release: tools that let agents run the whole cycle without custom scripts, and safer publishing. No scoring changes; config fingerprints and existing reports stay valid. Tested by running the whole cycle on a real repository (dbader/schedule) with `gradekit` commands only: it reproduced the 4.2.2 grade exactly.

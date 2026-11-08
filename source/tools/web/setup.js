@@ -10,7 +10,7 @@
   var extras = {};          // dispositions, decisions, components and anything else we don't edit
 
   function blank() {
-    return { project: { name: "", preset: "default" }, answers: {}, zones: [],
+    return { project: { name: "", preset: "default", _new: true }, answers: {}, zones: [],
              targets: { mode: "proportional", overrides: {} }, weights: { overrides: {} },
              gates: { extra: [] }, review: {}, publishing: {} };
   }
@@ -186,6 +186,8 @@
     var d = JSON.parse(JSON.stringify(state));
     var proj = d.project;
     delete proj._autoName;
+    if (proj._new && !proj.suite && info) proj.suite = String(info.suite_version).split(".")[0];   // new projects pin this major
+    delete proj._new;
     if (proj.name) proj.name = slugName(proj.name);
     Object.keys(proj).forEach(function (k) { if (proj[k] === "" || (Array.isArray(proj[k]) && !proj[k].length && k !== "out_of_scope")) delete proj[k]; });
     if (!proj.name) proj.name = "my-project";
@@ -283,6 +285,7 @@
       var d = res.project;
       var fresh = blank();
       fresh.project = Object.assign(fresh.project, d.project || {});
+      delete fresh.project._new;   // a loaded project keeps its own pin (or none): saving it again never re-pins it
       fresh.answers = d.answers || {};
       fresh.zones = d.zones || [];
       fresh.targets = Object.assign({ mode: "proportional", overrides: {} }, d.targets || {});
