@@ -2742,6 +2742,9 @@ def cmd_report_check(args) -> int:
     report, cfg = load_for_edit(args)
     normalize_report(report, cfg)
     errors, warnings = validate_report(report, cfg, load_catalog())
+    note = work_order_note(project_dir_for_report(args.report), report)
+    if note:
+        warnings.append(note)
     todo = report_todo(report)
     todo_ids = {t.split(" ", 1)[0] for t in todo}
     # A blank benchmark fails several rules at once; the to-do list says it once.
@@ -3743,6 +3746,125 @@ def check_migration(root: Path, mb: str, changes: list[tuple[str, str]]) -> dict
             "reports": sum(1 for _, p in reports if p.endswith("/report.json"))}
 
 
+
+# =========================================================================== work orders
+# A work order is the request behind a run: who asked for what (grade, review, improve or check a pull
+# request), on which commit or change, delivered how. It lives in projects/NAME/orders/<id>.json. The report
+# that answers it records its ID in run.work_order, which closes it; people can also close one by hand.
+
+ORDERS_DIR = "orders"
+ORDER_ROLES = ("grade", "review", "improve", "prcheck")
+ORDER_FILE = re.compile(r"orders/(\d{4}-\d{2}-\d{2}-(?:grade|review|improve|prcheck)-\d+)\.json")
+
+
+def load_orders(pdir: Path) -> list[dict]:
+    out = []
+    for f in sorted((pdir / ORDERS_DIR).glob("*.json")) if (pdir / ORDERS_DIR).is_dir() else []:
+        try:
+            o = load_json(f)
+        except GradekitError:
+            continue
+        if isinstance(o, dict):
+            out.append(o)
+    return out
+
+
+def answered_orders(pdir: Path) -> dict:
+    """{work order ID: report folder} for every report that records its work order."""
+    out = {}
+    for folder in report_folders(pdir):
+        for f in [folder / "report.json", *sorted((folder / "runs").glob("*.json"))]:
+            try:
+                wo = ((load_json(f).get("run") or {}).get("work_order")) if f.exists() else None
+            except GradekitError:
+                wo = None
+            if wo:
+                out.setdefault(str(wo), folder.name)
+    return out
+
+
+def order_status(order: dict, answered: dict) -> str:
+    if order.get("status") in ("done", "cancelled"):
+        return order["status"]
+    return "done" if order.get("id") in answered else "open"
+
+
+def order_problems(order: dict, name: str | None = None) -> list[str]:
+    p = []
+    oid = str(order.get("id") or "")
+    if not ORDER_FILE.fullmatch(f"orders/{oid}.json"):
+        p.append(f"id {oid!r} should look like 2026-11-08-grade-1")
+    if name and name != f"{oid}.json":
+        p.append(f"the file is {name}, but its id is {oid}")
+    if order.get("role") not in ORDER_ROLES:
+        p.append(f"role {order.get('role')!r} should be one of {', '.join(ORDER_ROLES)}")
+    if order.get("status", "open") not in ("open", "done", "cancelled"):
+        p.append(f"status {order.get('status')!r} should be open, done or cancelled")
+    if not re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", str(order.get("created") or "")):
+        p.append("created should be a UTC timestamp")
+    return p
+
+
+def work_order_note(pdir: Path | None, report: dict) -> str | None:
+    wo = (report.get("run") or {}).get("work_order")
+    if not wo or pdir is None:
+        return None
+    if not (pdir / ORDERS_DIR / f"{wo}.json").exists():
+        return f"run.work_order {wo}: there's no {ORDERS_DIR}/{wo}.json in the project (a typo, or an order from somewhere else)"
+    return None
+
+
+def cmd_order_new(args) -> int:
+    pdir = project_dir_from_args(args)
+    if pdir is None or not (pdir / PROJECT_FILE).exists():
+        die("give --project NAME (or --project-dir) of a project with a project.toml")
+    now = utc_now()
+    n = 1 + max([int(m.group(1)) for f in (pdir / ORDERS_DIR).glob(f"{now[:10]}-{args.role}-*.json")
+                 if (m := re.search(r"-(\d+)\.json$", f.name))] or [0]) if (pdir / ORDERS_DIR).is_dir() else 1
+    oid = f"{now[:10]}-{args.role}-{n}"
+    order = {"id": oid, "project": pdir.name, "role": args.role, "status": "open", "created": now, "requested_by": args.by,
+             "commit": args.commit, "base_commit": args.base_commit, "change": args.change, "delivery": args.delivery,
+             "budget": args.budget, "notes": args.note}
+    order = {k: v for k, v in order.items() if v is not None}
+    out = pdir / ORDERS_DIR / f"{oid}.json"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    write_json(out, order)
+    emit(args, {"order": order, "written": str(out)},
+         f"wrote {out}\nGive the agent its ID (\"Work order: {oid}\"); its report records it with `--work-order {oid}`, which closes the order.")
+    return 0
+
+
+def cmd_order_list(args) -> int:
+    root = Path(args.grading_repo or ".")
+    pdirs = [project_dir_from_args(args)] if (args.project or args.project_dir) else (
+        [d for d in sorted((root / "projects").iterdir()) if (d / PROJECT_FILE).exists()] if (root / "projects").is_dir() else [])
+    rows = []
+    for pdir in pdirs:
+        answered = answered_orders(pdir)
+        for o in load_orders(pdir):
+            st = order_status(o, answered)
+            if args.all or st == "open":
+                rows.append({**o, "status": st, "report": answered.get(o.get("id"))})
+    lines = [f"{r['id']}  {r['status']:<9} {r.get('project', '')}  {r['role']}" + (f"  → {r['report']}" if r.get("report") else "")
+             + (f"  ({r['notes']})" if r.get("notes") else "") for r in rows]
+    emit(args, {"orders": rows}, "\n".join(lines) or ("no work orders" if args.all else "no open work orders"))
+    return 0
+
+
+def cmd_order_close(args) -> int:
+    pdir = project_dir_from_args(args)
+    if pdir is None:
+        die("give --project NAME (or --project-dir)")
+    f = pdir / ORDERS_DIR / f"{args.id}.json"
+    if not f.exists():
+        die(f"no work order {args.id} in {pdir / ORDERS_DIR}")
+    o = load_json(f)
+    o["status"] = args.status
+    o["closed"] = {"date": utc_now(), "by": args.by, **({"note": args.note} if args.note else {})}
+    write_json(f, o)
+    emit(args, {"order": o}, f"{args.id}: {args.status}")
+    return 0
+
 # =========================================================================== index (grading repos)
 # projects/index.json: one file with every project's latest score, maturity, history and the
 # decisions waiting, for dashboards and the Review page. Derived from the reports, so it's
@@ -3802,7 +3924,10 @@ def build_index(root: Path) -> dict:
                            if p.get("requires_human_decision") and (p.get("decision") or {}).get("status") == "pending"]
             except GradekitError as exc:
                 entry["problems"].append(f"{h['folder']}: {exc}")
-        entry.update({"latest": latest, "pending_decisions": pending,
+        answered = answered_orders(pdir)
+        open_orders = [{"id": o.get("id"), "role": o.get("role"), "created": o.get("created"), "requested_by": o.get("requested_by")}
+                       for o in load_orders(pdir) if order_status(o, answered) == "open"]
+        entry.update({"latest": latest, "pending_decisions": pending, "open_orders": open_orders,
                       "history": [{k: v for k, v in h.items() if k != "_report"} for h in history]})
         projects.append(entry)
     return {"_about": INDEX_ABOUT, "suite_version": load_catalog()["suite_version"], "projects": projects}
@@ -3871,7 +3996,7 @@ def classify_change(changes: list[tuple[str, str]]) -> dict:
                 problems.append(f"{path}: a report folder holds only report.json, report.md and runs/*.json")
             elif status != "A":
                 problems.append(f"{path} is {'deleted' if status == 'D' else 'changed'}: reports are never edited after they're committed")
-        elif parts[0] == "projects" and len(parts) >= 3 and "/".join(parts[2:]) in SETTINGS_FILES:
+        elif parts[0] == "projects" and len(parts) >= 3 and ("/".join(parts[2:]) in SETTINGS_FILES or ORDER_FILE.fullmatch("/".join(parts[2:]))):
             settings.setdefault(parts[1], []).append((status, "/".join(parts[2:])))
         elif path in ROOT_SETTINGS:
             settings.setdefault("", []).append((status, path))
@@ -3965,6 +4090,9 @@ def ci_check(root: Path, base: str, head: str, changes: list[tuple[str, str]], s
                 report = load_json(rpath)
                 cfg = load_config(argparse.Namespace(project_dir=str(pdir), config=None, component=None), report, quiet=True)
                 errors, warns = validate_report(report, cfg, load_catalog())
+                note = work_order_note(pdir, report)
+                if note:
+                    warnings.append(note)
                 pin = suite_pin(cfg)
                 if pin and major(report.get("suite_version", "0")) != pin:
                     problems.append(f"the project is pinned to suite {pin}, but this report was made with suite {report.get('suite_version')}: "
@@ -4013,6 +4141,27 @@ def ci_check(root: Path, base: str, head: str, changes: list[tuple[str, str]], s
                 path = f"projects/{proj}/{name}" if proj else name
                 if status == "D" and name in (PROJECT_FILE, DECISIONS_FILE, DISPOSITIONS_FILE, "org.toml"):
                     problems.append(f"{path} is deleted")
+                    continue
+                if ORDER_FILE.fullmatch(name):
+                    if status == "D":
+                        problems.append(f"{path} is deleted: close a work order instead (`gradekit order close`)")
+                        continue
+                    try:
+                        order = json.loads((root / path).read_text(encoding="utf-8"))
+                    except json.JSONDecodeError as exc:
+                        problems.append(f"{path}: {exc}")
+                        continue
+                    problems += [f"{path}: {p}" for p in order_problems(order, name.split("/")[-1])]
+                    before = file_at(root, mb, path)
+                    if before is not None:
+                        try:
+                            old = json.loads(before)
+                        except json.JSONDecodeError:
+                            old = {}
+                        changed = {k for k in set(old) | set(order) if old.get(k) != order.get(k)} - {"status", "closed"}
+                        if changed:
+                            problems.append(f"{path}: a work order only changes when it's closed (status, closed); this changes "
+                                            + ", ".join(sorted(changed)))
                     continue
                 if name in (DECISIONS_FILE, DISPOSITIONS_FILE):
                     key = "decisions" if name == DECISIONS_FILE else "dispositions"
@@ -5196,6 +5345,266 @@ def render_guard(cmp: dict) -> list[str]:
     return out
 
 
+
+# =========================================================================== rubric, one benchmark at a time
+# The rubric files (rubric/A-…F-…, X-conditional.md) are the source. `gradekit rubric A3` prints one benchmark,
+# so a grader loads only what it's grading; rubric/rubric.json is the same as data (a test keeps it current).
+
+RUBRIC_FIELDS = {"Measures": "measures", "Not this": "not_this", "Assess": "assess", "Anchors": "anchors", "Caps": "caps"}
+
+
+def parse_rubric(catalog: dict | None = None) -> dict:
+    catalog = catalog or load_catalog()
+    caps = catalog_caps(catalog)
+    pillars, benches = {}, []
+    for pid, p in catalog["pillars"].items():
+        path = SUITE_DIR / p["rubric"]
+        lines = path.read_text(encoding="utf-8").splitlines()
+        question = next((ln.strip().strip("*") for ln in lines if ln.startswith("*") and ln.endswith("*")), None)
+        pillars[pid] = {"name": p["name"], "question": question, "file": p["rubric"]}
+        cur, key = None, None
+        for ln in lines:
+            m = re.match(r"## ([A-FX]\d)\. (.+?)(?: \(\*(.+)\*\))?\s*$", ln)
+            if m:
+                cur = {"id": m.group(1), "name": m.group(2), "pillar": pid, "applies_when": m.group(3)}
+                benches.append(cur)
+                key = None
+                continue
+            if cur is None:
+                continue
+            m = re.match(r"- \*\*(.+?):\*\*\s*(.*)$", ln)
+            if m and m.group(1) in RUBRIC_FIELDS:
+                key = RUBRIC_FIELDS[m.group(1)]
+                if key == "anchors":
+                    cur["anchors"] = {}
+                elif key == "caps":
+                    cur["caps"] = [{k: c[k] for k in ("id", "when", "max")} for c in caps.values() if c["benchmark"] == cur["id"]]
+                else:
+                    cur[key] = m.group(2).strip()
+                continue
+            m = re.match(r"\s+- \*\*(\d+(?:–\d+)?):\*\*\s*(.*)$", ln)
+            if m and key == "anchors":
+                cur["anchors"][m.group(1)] = m.group(2).strip()
+                continue
+            m = re.match(r"\s+- (.+)$", ln)
+            if m and key in ("measures", "not_this", "assess"):   # sub-points, e.g. A4's idempotence and determinism
+                cur[key] = (cur.get(key, "") + " " + re.sub(r"\*\*(.+?)\*\*", r"\1", m.group(1).strip())).strip()
+    return {"_about": "Generated from the rubric files by `gradekit rubric --json --out rubric/rubric.json`. Don't edit.",
+            "suite_version": catalog["suite_version"], "pillars": pillars, "benchmarks": benches}
+
+
+def rubric_text(b: dict, pillar: dict) -> str:
+    out = [f"{b['id']}. {b['name']}" + (f" (only for {b['applies_when']})" if b.get("applies_when") else "")
+           + f"  [pillar {b['pillar']}: {pillar['name']}]"]
+    for key, label in (("measures", "Measures"), ("not_this", "Not this"), ("assess", "Assess")):
+        if b.get(key):
+            out.append(f"{label}: {b[key]}")
+    if b.get("anchors"):
+        out.append("Anchors: " + "  ".join(f"{k}: {v}" for k, v in b["anchors"].items()))
+    else:
+        out.append("Anchors: the general score scale (prompts/grader.md, Part 3)")
+    if b.get("caps"):
+        out.append("Caps: " + "  ".join(f"{c['id']}: {c['when']} → max {c['max']}" for c in b["caps"]))
+    return "\n".join(out)
+
+
+def cmd_rubric(args) -> int:
+    data = parse_rubric()
+    want = [w.upper() for w in args.ids or []]
+    picked = [b for b in data["benchmarks"] if not want or b["id"] in want or b["pillar"] in want]
+    unknown = [w for w in want if w not in {b["id"] for b in data["benchmarks"]} and w not in data["pillars"]]
+    if unknown:
+        die(f"unknown benchmark or pillar: {', '.join(unknown)} (benchmarks look like A3; pillars are {', '.join(data['pillars'])})")
+    if args.json:
+        pass
+    if args.out:
+        if want:
+            die("--out writes the whole rubric; leave out the IDs")
+        Path(args.out).write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        emit(args, {"written": args.out, "benchmarks": len(data["benchmarks"])}, f"wrote {args.out}")
+        return 0
+    emit(args, {"pillars": data["pillars"], "benchmarks": picked}, "\n\n".join(rubric_text(b, data["pillars"][b["pillar"]]) for b in picked))
+    return 0
+
+
+
+# =========================================================================== MCP server (agents without a shell)
+# `gradekit mcp` speaks the Model Context Protocol over stdin/stdout (JSON-RPC 2.0, one message per line). Its tools
+# are the command line's own commands, with input schemas made from their arguments, so the two never drift apart.
+# Each call runs the command in-process with --json and returns the usual envelope.
+
+MCP_PROTOCOLS = ("2025-06-18", "2025-03-26", "2024-11-05")
+MCP_SKIP = {("mcp",)}
+
+
+def mcp_tools(ap=None) -> list[dict]:
+    ap = ap or build_parser()
+    tools = []
+    for leaf in leaf_parsers(ap):
+        words = tuple(leaf.prog.split()[1:])
+        if not words or words in MCP_SKIP:
+            continue
+        props, required, order = {}, [], []
+        for a in leaf._actions:
+            if isinstance(a, (argparse._HelpAction, argparse._SubParsersAction)) or a.dest in ("json", "help"):
+                continue
+            if isinstance(a, (argparse._StoreTrueAction, argparse._StoreFalseAction)):
+                schema = {"type": "boolean"}
+            elif isinstance(a, argparse._AppendAction) or a.nargs in ("+", "*"):
+                schema = {"type": "array", "items": {"type": "string"}}
+            elif a.type is int:
+                schema = {"type": "integer"}
+            elif a.type is float:
+                schema = {"type": "number"}
+            else:
+                schema = {"type": "string"}
+            if a.choices is not None and schema["type"] in ("string", "integer"):
+                schema["enum"] = [c for c in a.choices]
+            if a.help and a.help != argparse.SUPPRESS:
+                schema["description"] = a.help % {"default": a.default} if "%(" in a.help else a.help
+            props[a.dest] = schema
+            order.append(a.dest)
+            if not a.option_strings and a.nargs not in ("?", "*"):
+                required.append(a.dest)
+            elif a.required:
+                required.append(a.dest)
+        props["cwd"] = {"type": "string", "description": "folder to run in (default: the server's), e.g. the grading repo root"}
+        tools.append({"name": "_".join(words).replace("-", "_"), "description": leaf.description or leaf_help(ap, words) or " ".join(words),
+                      "inputSchema": {"type": "object", "properties": props, "required": required, "additionalProperties": False},
+                      "_words": words, "_order": order})
+    return tools
+
+
+def leaf_help(ap, words) -> str | None:
+    parser = ap
+    help_ = None
+    for w in words:
+        sub = next((a for a in parser._actions if isinstance(a, argparse._SubParsersAction)), None)
+        if sub is None or w not in sub.choices:
+            return help_
+        help_ = next((c.help for c in sub._choices_actions if c.dest == w), help_)
+        parser = sub.choices[w]
+    return help_
+
+
+def mcp_argv(tool: dict, leaf, arguments: dict) -> list[str]:
+    """Command-line arguments for a tool call: positionals in order, then the options."""
+    by_dest = {a.dest: a for a in leaf._actions}
+    unknown = sorted(set(arguments) - set(tool["inputSchema"]["properties"]))
+    if unknown:
+        die(f"unknown argument(s) for {tool['name']}: {', '.join(unknown)}")
+    argv = list(tool["_words"])
+    for dest in tool["_order"]:
+        a = by_dest[dest]
+        if dest not in arguments or arguments[dest] is None:
+            continue
+        v = arguments[dest]
+        if not a.option_strings:
+            argv += [str(x) for x in v] if isinstance(v, list) else [str(v)]
+            continue
+        flag = a.option_strings[-1] if a.option_strings[-1].startswith("--") else a.option_strings[0]
+        if isinstance(a, (argparse._StoreTrueAction, argparse._StoreFalseAction)):
+            if bool(v) == isinstance(a, argparse._StoreTrueAction):
+                argv.append(flag)
+        elif isinstance(a, argparse._AppendAction):
+            for x in v if isinstance(v, list) else [v]:
+                argv += [flag, str(x)]
+        elif a.nargs in ("+", "*"):
+            argv += [flag] + [str(x) for x in (v if isinstance(v, list) else [v])]
+        else:
+            argv += [flag, str(v)]
+    return argv
+
+
+def mcp_call(name: str, arguments: dict, tools: dict, leaves: dict) -> dict:
+    tool = tools.get(name)
+    if tool is None:
+        return {"content": [{"type": "text", "text": f"unknown tool {name}"}], "isError": True}
+    arguments = dict(arguments or {})
+    cwd = arguments.pop("cwd", None)
+    try:
+        argv = mcp_argv(tool, leaves[tool["_words"]], arguments) + ["--json"]
+    except GradekitError as e:
+        return {"content": [{"type": "text", "text": str(e)}], "isError": True}
+    buf, err = io.StringIO(), io.StringIO()
+    here = os.getcwd()
+    try:
+        if cwd:
+            os.chdir(cwd)
+        with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(err):
+            try:
+                main(argv)
+            except SystemExit as e:   # bad arguments: argparse exits with its usage message
+                env = {"ok": False, "exit_code": e.code if isinstance(e.code, int) else 64, "command": " ".join(tool["_words"]),
+                       "result": None, "text": "", "error": err.getvalue().strip()}
+                return {"content": [{"type": "text", "text": json.dumps(env, ensure_ascii=False)}], "structuredContent": env, "isError": True}
+    except OSError as e:
+        return {"content": [{"type": "text", "text": f"can't run in {cwd}: {e}"}], "isError": True}
+    finally:
+        os.chdir(here)
+    try:
+        env = json.loads(buf.getvalue())
+    except json.JSONDecodeError:
+        env = {"ok": False, "exit_code": 1, "command": " ".join(tool["_words"]), "result": None, "text": buf.getvalue(),
+               "error": err.getvalue().strip() or "no JSON output"}
+    return {"content": [{"type": "text", "text": json.dumps(env, ensure_ascii=False)}], "structuredContent": env,
+            "isError": not env.get("ok", False)}
+
+
+def mcp_handle(msg: dict, state: dict) -> dict | None:
+    """One JSON-RPC message in, its response out (None for notifications)."""
+    mid, method, params = msg.get("id"), msg.get("method"), msg.get("params") or {}
+
+    def ok(result):
+        return {"jsonrpc": "2.0", "id": mid, "result": result}
+
+    def fail(code, message):
+        return {"jsonrpc": "2.0", "id": mid, "error": {"code": code, "message": message}}
+
+    if mid is None:
+        return None   # notifications/initialized and the like
+    if method == "initialize":
+        want = params.get("protocolVersion")
+        return ok({"protocolVersion": want if want in MCP_PROTOCOLS else MCP_PROTOCOLS[0],
+                   "capabilities": {"tools": {"listChanged": False}},
+                   "serverInfo": {"name": "gradekit", "version": kit_version()},
+                   "instructions": "The Code Grading Suite's gradekit commands as tools. Start with the card for your role "
+                                   "(prompts/cards/ in the kit) and `rubric` for one benchmark at a time. Every tool returns "
+                                   "{ok, exit_code, command, result, text}; `cwd` sets the folder a tool runs in."})
+    if method == "ping":
+        return ok({})
+    if method == "tools/list":
+        return ok({"tools": [{k: v for k, v in t.items() if not k.startswith("_")} for t in state["tools"].values()]})
+    if method == "tools/call":
+        return ok(mcp_call(params.get("name"), params.get("arguments") or {}, state["tools"], state["leaves"]))
+    return fail(-32601, f"method not found: {method}")
+
+
+def cmd_mcp(args) -> int:
+    ap = build_parser()
+    tools = mcp_tools(ap)
+    if args.list:
+        emit(args, {"tools": [t["name"] for t in tools]}, "\n".join(f"{t['name']}: {t['description']}" for t in tools))
+        return 0
+    state = {"tools": {t["name"]: t for t in tools}, "leaves": {tuple(p.prog.split()[1:]): p for p in leaf_parsers(ap)}}
+    out = sys.stdout
+    for line in sys.stdin:
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            msg = json.loads(line)
+        except json.JSONDecodeError as e:
+            resp = {"jsonrpc": "2.0", "id": None, "error": {"code": -32700, "message": f"parse error: {e}"}}
+        else:
+            resp = mcp_handle(msg, state) if isinstance(msg, dict) else {"jsonrpc": "2.0", "id": None,
+                                                                         "error": {"code": -32600, "message": "invalid request"}}
+        if resp is not None:
+            out.write(json.dumps(resp, ensure_ascii=False) + "\n")
+            out.flush()
+    return 0
+
+
 # =========================================================================== web API (used by the website via Pyodide)
 
 def _web_layers(p: dict) -> list[tuple[str, dict]]:
@@ -5463,7 +5872,7 @@ def web_api(name: str, payload: dict) -> dict:
 
 # =========================================================================== main
 
-def main(argv=None) -> int:
+def build_parser() -> argparse.ArgumentParser:
     ap = CliParser(prog="gradekit", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
 
@@ -5808,6 +6217,40 @@ def main(argv=None) -> int:
     p.set_defaults(fn=cmd_index)
 
     # ------------------------------------------------------------ glossary
+    p = sub.add_parser("order", help="work orders: the request behind a run (new, list, close)")
+    osub = p.add_subparsers(dest="order_cmd", required=True, metavar="STEP")
+    q = osub.add_parser("new", help="write projects/NAME/orders/<id>.json, and print the ID to give the agent")
+    with_config(q)
+    q.add_argument("--role", required=True, choices=ORDER_ROLES)
+    q.add_argument("--commit", help="the commit to grade or check")
+    q.add_argument("--base-commit", help="prcheck: the change's base commit")
+    q.add_argument("--change", metavar="URL", help="prcheck: the pull request")
+    q.add_argument("--delivery", help="how the agent hands back its work, e.g. pr")
+    q.add_argument("--budget", help="improve: how much to do, e.g. \"tier 0 and 1\"")
+    q.add_argument("--by", help="who asked")
+    q.add_argument("--note", help="anything else the agent should know")
+    q.set_defaults(fn=cmd_order_new)
+    q = osub.add_parser("list", help="open work orders (with --all, every one), for a project or the whole grading repo")
+    with_config(q)
+    q.add_argument("--all", action="store_true")
+    q.set_defaults(fn=cmd_order_list)
+    q = osub.add_parser("close", help="mark a work order done or cancelled (a report that records its ID closes it by itself)")
+    with_config(q)
+    q.add_argument("id")
+    q.add_argument("--status", choices=["done", "cancelled"], default="done")
+    q.add_argument("--by")
+    q.add_argument("--note")
+    q.set_defaults(fn=cmd_order_close)
+
+    p = sub.add_parser("mcp", help="run as an MCP server on stdin/stdout: every command becomes a tool, for agents without a shell")
+    p.add_argument("--list", action="store_true", help="print the tools it offers, and exit")
+    p.set_defaults(fn=cmd_mcp)
+
+    p = sub.add_parser("rubric", help="the rubric for one benchmark or pillar (e.g. A3, or B), as text or --json")
+    p.add_argument("ids", nargs="*", metavar="ID", help="benchmarks (A3) or pillars (B); none: all")
+    p.add_argument("--out", metavar="FILE", help="write the whole rubric as JSON (rubric/rubric.json)")
+    p.set_defaults(fn=cmd_rubric)
+
     p = sub.add_parser("glossary", help="the suite's terms and what they mean (one, or all)")
     p.add_argument("term", nargs="*", help="a term to look up, e.g. gate or effective severity")
     p.add_argument("--markdown", action="store_true", help="the whole glossary as GLOSSARY.md")
@@ -5879,6 +6322,11 @@ def main(argv=None) -> int:
         leaf.add_argument("--json", action="store_true",
                           help="print one JSON object instead: {ok, exit_code, command, result, text}")
 
+    return ap
+
+
+def main(argv=None) -> int:
+    ap = build_parser()
     args = ap.parse_args(argv)
     if not getattr(args, "json", False):
         return run_command(ap, args)
@@ -5899,7 +6347,8 @@ def main(argv=None) -> int:
 
 def command_name(args) -> str:
     return " ".join(x for x in (args.cmd, getattr(args, "report_cmd", None), getattr(args, "finding_cmd", None),
-                                 getattr(args, "render_cmd", None), getattr(args, "guard_cmd", None)) if x)
+                                 getattr(args, "render_cmd", None), getattr(args, "guard_cmd", None),
+                                 getattr(args, "order_cmd", None)) if x)
 
 
 def run_command(ap, args, raise_errors: bool = False) -> int:

@@ -11,10 +11,10 @@
   });
 
   var ROLES = {
-    grade:   { title: "Grade the code", who: "GRADER", desc: "A full, read-only audit. Adds one dated report folder for the project.", file: "prompts/grader.md" },
-    review:  { title: "Review a report", who: "REPORT REVIEWER", desc: "An agent checks a grader's report and prepares the decision questions. People can use the Review page instead.", file: "prompts/reviewer.md" },
-    improve: { title: "Improve the code", who: "IMPROVER", desc: "Works down the report's ranked priorities and stops at each benchmark's target.", file: "prompts/improver.md" },
-    prcheck: { title: "Check a pull request", who: "PR CHECKER", desc: "Re-grades only what a code change touches and returns PASS or FAIL.", file: "prompts/pr-review.md" }
+    grade:   { title: "Grade the code", who: "GRADER", desc: "A full, read-only audit. Adds one dated report folder for the project.", file: "prompts/cards/grader.md" },
+    review:  { title: "Review a report", who: "REPORT REVIEWER", desc: "An agent checks a grader's report and prepares the decision questions. People can use the Review page instead.", file: "prompts/cards/reviewer.md" },
+    improve: { title: "Improve the code", who: "IMPROVER", desc: "Works down the report's ranked priorities and stops at each benchmark's target.", file: "prompts/cards/improver.md" },
+    prcheck: { title: "Check a pull request", who: "PR CHECKER", desc: "Re-grades only what a code change touches and returns PASS or FAIL.", file: "prompts/cards/pr-check.md" }
   };
   // [title, description, permissions]
   var DELIVERY = {

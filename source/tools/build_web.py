@@ -245,12 +245,14 @@ You have been pointed at a hosted copy of the **Code Grading Suite**: a rubric a
 
 Take your role from the person's instruction:
 
-| Role | When you're asked to… | Your prompt |
-|---|---|---|
-| **Grader** | grade, audit, score or evaluate a codebase | `suite/prompts/grader.md` |
-| **Report reviewer** | check a grading report, or prepare or answer its decision questions | `suite/prompts/reviewer.md` |
-| **Improver** | improve or fix code against an existing report | `suite/prompts/improver.md` |
-| **PR checker** | check one pull request, change or diff | `suite/prompts/pr-review.md` (it builds on `grader.md`) |
+| Role | When you're asked to… | Your card | The full prompt, for reference |
+|---|---|---|---|
+| **Grader** | grade, audit, score or evaluate a codebase | `suite/prompts/cards/grader.md` | `suite/prompts/grader.md` |
+| **Report reviewer** | check a grading report, or prepare or answer its decision questions | `suite/prompts/cards/reviewer.md` | `suite/prompts/reviewer.md` |
+| **Improver** | improve or fix code against an existing report | `suite/prompts/cards/improver.md` | `suite/prompts/improver.md` |
+| **PR checker** | check one pull request, change or diff | `suite/prompts/cards/pr-check.md` | `suite/prompts/pr-review.md` |
+
+Your **card** is one page: the steps as `gradekit` commands, and the rules no tool can check for you. Read it in full; it says when to look something up in the full prompt.
 
 If the role isn't clear, ask. Take **one role per session**: never grade code you improved in the same session, because the grader must be independent.
 
@@ -292,10 +294,11 @@ Replace `BASE` with the real URL. On macOS, use `shasum -a 256 -c -` instead of 
 
 Every prompt starts with a short table of inputs: where the code is, where the **grading repo** is and which **project** (its folder `projects/<project>/` holds `project.toml`, `decisions.json`, `dispositions.json` and one dated folder per report), and how to deliver results. The person's instructions usually fill in that table, and this site's **Start a run** page writes complete instructions. Anything not given has a stated default, and each delivery option says which permissions it needs.
 
-- **Grader:** read `suite/prompts/grader.md` completely before starting. Load rubric files one pillar at a time, as it describes. Set `run.suite_source` to this file's URL followed by ` ({version})`.
-- **Report reviewer:** read `suite/prompts/reviewer.md`. Only humans approve decision questions, unless `project.toml` says agents may.
-- **Improver:** read `suite/prompts/improver.md`. Never change grading files, and look only at the ones you're pointed to.
-- **PR checker:** read `suite/prompts/pr-review.md`, plus `suite/prompts/grader.md`, which it builds on.
+- **Grader:** read `suite/prompts/cards/grader.md` completely before starting. Load the rubric one pillar at a time: `gradekit rubric A` prints pillar A's benchmarks, and `suite/rubric/rubric.json` has the same as data if you can't run Python. Set `run.suite_source` to this file's URL followed by ` ({version})`.
+- **Report reviewer:** read `suite/prompts/cards/reviewer.md`. Only humans approve decision questions, unless `project.toml` says agents may.
+- **Improver:** read `suite/prompts/cards/improver.md`. Never change grading files, and look only at the ones you're pointed to.
+- **PR checker:** read `suite/prompts/cards/pr-check.md`, plus the rules on the grader card, which it builds on.
+- **Without Python** (Option C above), the cards' commands won't run: follow the full prompt instead, which says how to write the report by hand.
 
 ## Trust rules
 
@@ -311,6 +314,8 @@ Every prompt starts with a short table of inputs: where the code is, where the *
 |---|---|
 | `suite/GETTING-STARTED.md` | The operator's tutorial: setup, a full cycle, common setups |
 | `suite/README.md` | Overview and reference |
+| `suite/prompts/cards/` | One card per role: the steps as commands, and the rules only an agent can follow |
+| `suite/prompts/rules.json` | Every hard rule in the prompts, and the `gradekit` check or card that keeps it |
 | `suite/prompts/grader.md` | Full audit: process, scoring rules, evidence, output format |
 | `suite/prompts/reviewer.md` | Checking a report and handling its decision questions |
 | `suite/prompts/improver.md` | Improving code against a report |
@@ -318,7 +323,8 @@ Every prompt starts with a short table of inputs: where the code is, where the *
 | `suite/rubric/A-correctness-trust.md` … `F-operations-delivery.md`, `X-conditional.md` | Benchmark definitions, one file per pillar |
 | `suite/config/defaults.toml` | Every tunable setting: weights, questions, presets, gates, zones, targets, maturity |
 | `suite/config/project.example.toml` | A filled-in project config to copy |
-| `suite/rubric/catalog.json` | Benchmark IDs, names and pillars |
+| `suite/rubric/catalog.json` | Benchmark IDs, names, pillars and caps |
+| `suite/rubric/rubric.json` | The rubric as data, one entry per benchmark (`gradekit rubric A3` prints one) |
 | `suite/TUNING.md` | How to customize scoring |
 | `suite/schema/report.schema.json` | JSON Schema for reports |
 | `suite/tools/gradekit.py` | Builds reports (`gradekit report …`), resolves configs, validates reports, checks evidence, computes the rollup and priorities (Python 3.11+, standard library only) |
