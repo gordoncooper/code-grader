@@ -91,7 +91,7 @@ def carried(tmp_path, changed_repo, *extra):
     repo, base, head = changed_repo
     out = tmp_path / "pr.json"
     res = json.loads(gk("carry", NEW, "--repo", repo, "--commit", head, "--base-commit", base, "--out", out,
-                        "--allow-withheld", "--json", *extra).stdout)
+                        "--allow-withheld", "--json", *extra).stdout)["result"]
     return res, json.loads(out.read_text())
 
 
@@ -137,7 +137,7 @@ def test_full_carry_makes_the_next_report_folder(tmp_path, changed_repo):
     grading = tmp_path / "grading"
     shutil.copytree(EXAMPLE, grading)
     src = grading / "projects" / "orders-api" / "reports" / "2026-11-07-a1b2c3d" / "report.json"
-    res = json.loads(gk("carry", src, "--mode", "full", "--repo", repo, "--commit", head, "--allow-withheld", "--json", cwd=grading).stdout)
+    res = json.loads(gk("carry", src, "--mode", "full", "--repo", repo, "--commit", head, "--allow-withheld", "--json", cwd=grading).stdout)["result"]
     assert res["report"].endswith(f"-{head[:7]}/report.json")
     r = json.loads((grading / res["report"]).read_text() if not os.path.isabs(res["report"]) else open(res["report"]).read())
     assert all(b["score"] is None and not b["carried_forward"] for b in r["benchmarks"])
@@ -157,7 +157,7 @@ def test_a_pr_check_from_carry_to_comment(tmp_path, changed_repo):
         if not b["carried_forward"] and b["applicability"] != "not_applicable":
             gk("report", "score", pr, b["id"], "--score", base[b["id"]]["score"], "--confidence", "medium", "--project", "orders-api")
     gk("report", "ran", pr, "--command-text", "pytest -q", "--summary", "1 passed", "--project", "orders-api")
-    done = json.loads(gk("report", "check", pr, "--repo", repo, "--project", "orders-api", "--write", "--json").stdout)
+    done = json.loads(gk("report", "check", pr, "--repo", repo, "--project", "orders-api", "--write", "--json").stdout)["result"]
     assert done["status"] == "ready", done
     d = gk("diff", NEW, pr, "--project", "orders-api", "--fail-on-regression")
     assert "verdict: PASS" in d.stdout, d.stdout
@@ -185,7 +185,7 @@ def renamed(tmp_path, mapping):
 def test_match_finds_reworded_findings_and_applies_clear_ones(tmp_path):
     p = renamed(tmp_path, {"A3-001": ("A3-007", "Errors from stock reservation are swallowed silently"),
                            "D1-001": ("D1-004", "Export to XLSX is advertised in the README but missing")})
-    res = json.loads(gk("report", "match", p, "--baseline", NEW, "--project", "orders-api", "--apply", "--json").stdout)
+    res = json.loads(gk("report", "match", p, "--baseline", NEW, "--project", "orders-api", "--apply", "--json").stdout)["result"]
     pairs = {m["new"]: m["old"] for m in res["matches"]}
     assert pairs == {"A3-007": "A3-001", "D1-004": "D1-001"}
     r = json.loads(p.read_text())

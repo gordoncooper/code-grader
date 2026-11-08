@@ -172,8 +172,12 @@ def test_redact_in_place_then_validate_publish(tmp_path):
     report.write_text(json.dumps(full_report(), indent=2))
     args = ["--project-dir", str(PROJECT)]
     assert run("validate", str(report), "--publish", *args).returncode == 1
-    r = run("redact", str(report), "--in-place")
+    r = run("redact", str(report), "--in-place", "--json")
     assert r.returncode == 0, r.stdout + r.stderr
+    env = json.loads(r.stdout)
+    assert env["result"]["written"] == {"public": str(report), "private": str(folder / "report.private.json")}
+    assert env["result"]["withheld"] == sorted(SENSITIVE)
+    r.stdout = env["text"]
     private = folder / "report.private.json"
     assert json.loads(private.read_text()) == full_report()
     assert "A3-001" in r.stdout

@@ -160,7 +160,7 @@ If you wrote findings without starting from the previous report, `report match $
    python3 SUITE_DIR/tools/gradekit.py report check report.json --repo CODE_CHECKOUT --project-dir PROJECT_DIR --write
    ```
 
-   It runs the same checks as `validate`, `verify-evidence` and `rollup`, which still work on their own.
+   It runs the same checks as `validate`, `verify-evidence` and `rollup`, which still work on their own. Add `--json` to any `gradekit` command for one JSON object (`ok`, `exit_code`, `result`, `text`) instead of text.
 
    **Never hand-compute pillar scores, the overall score, gates, effective severities, targets, priorities or the maturity level.** Use what `rollup` writes. If you can't run the tool, leave `rollup` null; the orchestrator will run it.
 
@@ -176,7 +176,7 @@ If you wrote findings without starting from the previous report, `report match $
    ```
    python3 SUITE_DIR/tools/gradekit.py render report report.json --project-dir PROJECT_DIR      # writes report.md beside it
    python3 SUITE_DIR/tools/gradekit.py render pr report.json --project-dir PROJECT_DIR --json \
-       [--site SUITE_SITE --grading-repo-url GRADING_REPO_URL]                                   # {branch, title, body}
+       [--site SUITE_SITE --grading-repo-url GRADING_REPO_URL]                                   # result: {branch, title, body}
    ```
 
    Both withhold sensitive findings in a public grading repo. Without Python, write `report.md` yourself following Part 10B.

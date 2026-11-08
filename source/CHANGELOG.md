@@ -36,6 +36,12 @@ Minor release: tools that let agents run the whole cycle without custom scripts,
 - New optional report fields: `summary` (set with `report set summary`) and each benchmark's one-line `rationale` (`report score --rationale`).
 - The prompts use these commands. The example reports' `report.md` files are now rendered.
 
+**JSON output and exit codes for every command**
+- Every command takes `--json` and prints exactly one JSON object: `{ok, exit_code, command, result, text}`, plus `error` on failure. `result` is the command's data (validation errors and warnings, the rollup, the diff, citation results, the resolved config, written paths…), and `text` is what it would have printed, so agents never parse text.
+- One exit-code table for every command: 0 ok, 1 failed or error, 2 regression, 3 unstable runs, 4 calibration failed, 5 report not finished, 64 bad arguments. Bad arguments used to exit 2, the same code as a `diff` regression.
+- The `report` and `render` commands' JSON now uses the same envelope (their data is in `result`).
+- `gradekit` no longer changes the SIGPIPE handling of a Python process that imports it; only the command line does.
+
 **Safe publishing for public grading repos**
 - Graders mark findings whose details would help an attacker (an exploitable vulnerability, a leaked secret) with `"sensitive": true`.
 - `gradekit redact --in-place` splits a report into a public `report.json` and a full `report.private.json`, which is never committed (`gradekit init` adds `*.private.json` to the grading repo's `.gitignore`). In the public report, a sensitive finding keeps its ID, benchmark, severity, status and the files it concerns, so scores, gates, zones and priorities are exactly the same; its title, quotes and commands, and the wording of the actions and decision questions that fix it, are withheld. `redact` refuses to write anything while withheld text still appears elsewhere in the report, and says where.

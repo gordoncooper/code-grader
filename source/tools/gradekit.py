@@ -38,14 +38,20 @@ effective-config JSON produced by `resolve --out`.
 The website runs this same file in the browser (Pyodide) through web_api().
 
 Python 3.11+ (uses tomllib); standard library only. Uses `jsonschema` when installed.
-Exit codes: 0 ok, 1 invalid/failed check, 2 regression (diff --fail-on-regression),
-3 unstable runs (stability --strict), 4 calibration failed, 5 report not finished (report check).
+Every command takes --json: one JSON object on stdout, {ok, exit_code, command, result, text}
+(with "error" when it failed), so agents never parse text.
+
+Exit codes: 0 ok, 1 invalid/failed check/error, 2 regression (diff --fail-on-regression),
+3 unstable runs (stability --strict), 4 calibration failed, 5 report not finished (report check),
+64 bad arguments.
 """
 from __future__ import annotations
 
 import argparse
+import contextlib
 import copy
 import hashlib
+import io
 import json
 import re
 import statistics
@@ -746,6 +752,7 @@ def cmd_validate(args) -> int:
     for e in errors:
         print(f"ERROR:   {e}")
     print(f"\n{len(errors)} error(s), {len(warnings)} warning(s)")
+    args._result = {"valid": not errors, "errors": errors, "warnings": cfg.get("warnings", []) + warnings, "config_hash": cfg["hash"]}
     return 1 if errors else 0
 
 
@@ -849,6 +856,7 @@ def cmd_verify_evidence(args) -> int:
     print(f"\ncode citations checked: {res['checked']}, failed: {len(res['failures'])}, "
           f"skipped (carried forward): {res['skipped_carried_forward']}; command: {res['command']}, "
           f"absence: {res['absence']} (not machine-checkable)" + (f"; withheld: {res['withheld']}" if res["withheld"] else ""))
+    args._result = res
     return 1 if res["failures"] else 0
 
 
@@ -1134,10 +1142,12 @@ def cmd_rollup(args) -> int:
         print(f"warning: report config hash {report['config']['hash']} ≠ {cfg['hash']}; scoring with the latter")
     roll = apply_rollup(report, cfg)
     print_rollup(roll)
+    out = None
     if args.write or args.out:
         out = args.out or args.report
         write_json(out, report)
         print(f"\nwrote rollup to {out}")
+    args._result = {"rollup": roll, "written": out}
     return 1 if roll["weight_issues"] else 0
 
 
@@ -1221,6 +1231,8 @@ def cmd_stability(args) -> int:
     if args.out:
         write_json(args.out, res["report"])
         print(f"wrote consensus report to {args.out}")
+    args._result = {"rows": res["rows"], "unstable": res["unstable"], "overall_by_run": res["overall_by_run"], "notes": res["notes"],
+                    "consensus_overall": roll["overall_score"], "consensus_level": roll["maturity"]["current_level"], "written": args.out}
     return 3 if (args.strict and res["unstable"]) else 0
 
 
@@ -1340,6 +1352,7 @@ def cmd_diff(args) -> int:
         for r in d["regressions"]:
             print(f"  - {r}")
     print(f"\nverdict: {d['verdict']}")
+    args._result = d
     return 2 if (args.fail_on_regression and d["regressions"]) else 0
 
 
@@ -1375,6 +1388,8 @@ def cmd_calibrate(args) -> int:
     print(f"\nwithin tolerance: {pct:.0f}% (need ≥ {crit['within_tolerance_pct']}%)  MAE: {mae:.2f} (need ≤ {crit['mae_max']})  "
           f"bias: {bias:+.2f} ({'grader runs generous' if bias > 0.25 else 'grader runs harsh' if bias < -0.25 else 'no clear bias'})")
     print("calibration: PASS" if ok else "calibration: FAIL")
+    args._result = {"pass": ok, "within_tolerance_pct": round(pct, 1), "mae": round(mae, 3), "bias": round(bias, 3),
+                    "compared": total, "applicability_mismatches": mism, "criteria": crit}
     return 0 if ok else 4
 
 
@@ -1528,18 +1543,22 @@ def cmd_redact(args) -> int:
         for leak in leaks:
             print(f"LEAK: {leak}")
         print("\nnothing written. Reword those places generically (or name only the finding ID) and run redact again.")
+        args._result = {"leaks": leaks, "written": []}
         return 1
     withheld = public["publishing"]["withheld"]
     if args.in_place:
         priv = private_path(args.report)
         write_json(priv, report)
         write_json(args.report, public)
+        written = {"public": args.report, "private": priv}
         print(f"wrote the full report to {priv}\nwrote the public report to {args.report}")
         print(f"keep {Path(priv).name} out of the repo (grading repos ignore *.private.json); hand it to whoever fixes the code.")
     else:
         out = args.out or re.sub(r"\.json$", "", args.report) + ".shared.json"
         write_json(out, public)
         print(f"wrote redacted report to {out}")
+        written = {"public": out}
+    args._result = {"leaks": [], "withheld": withheld, "written": written}
     print(f"withheld {len(withheld)} sensitive finding(s)" + (f": {', '.join(withheld)}" if withheld else ""))
     return 0
 
@@ -1565,10 +1584,12 @@ def cmd_rollup_repo(args) -> int:
         print(f"{x['component']:<20} {str(x['preset']):<14} {x['weight']:>6} {str(x['overall']):>7} {x['level']}{fg}")
     print(f"\nrepo overall (component-weighted): {overall}")
     print(f"repo maturity (lowest component): {lowest['level']}  ← limited by '{lowest['component']}'")
+    summary = {"computed_by": "gradekit.py rollup-repo", "overall_score": overall,
+               "maturity": lowest["level"], "limited_by": lowest["component"], "components": rows}
     if args.out:
-        write_json(args.out, {"computed_by": "gradekit.py rollup-repo", "overall_score": overall,
-                              "maturity": lowest["level"], "limited_by": lowest["component"], "components": rows})
+        write_json(args.out, summary)
         print(f"wrote {args.out}")
+    args._result = {**summary, "written": args.out}
     return 0
 
 
@@ -1593,6 +1614,8 @@ def cmd_resolve(args) -> int:
         print(f"  final weight           {w['weight']}")
         if bid in cfg["gates"]["benchmarks"]:
             print(f"  GATE because: {', '.join(cfg['gates']['why'][bid])}")
+        args._result = {"benchmark": bid, **w, "gate": bid in cfg["gates"]["benchmarks"],
+                        "gate_why": cfg["gates"]["why"].get(bid, [])}
         return 0
     comp = f" · component {cfg['component']['name']}" if cfg.get("component") else ""
     print(f"Effective config {cfg['hash']} · preset {cfg['preset']}{comp}")
@@ -1624,6 +1647,7 @@ def cmd_resolve(args) -> int:
     if args.out:
         write_json(args.out, cfg)
         print(f"\nwrote {args.out}")
+    args._result = {"config": cfg, "written": args.out}
     return 0
 
 
@@ -1659,6 +1683,8 @@ def cmd_presets(args) -> int:
                 cells.append(f"{str(w) + ('g' if bid in cfgs[n]['gates']['benchmarks'] else ' '):>9}")
             print(f"{bid:<4} {defaults['weights']['base'][bid]:>4} " + " ".join(cells))
         print("\n(g = gate)")
+    args._result = {"presets": names, "weights": {n: {b["id"]: cfgs[n]["weights"][b["id"]]["weight"] for b in catalog["benchmarks"]} for n in names},
+                    "gates": {n: cfgs[n]["gates"]["benchmarks"] for n in names}}
     return 0
 
 
@@ -1933,6 +1959,7 @@ def cmd_init(args) -> int:
                               encoding="utf-8")
             print(f"{'updated' if lines else 'wrote'} {ignore}")
     print(f"next: edit {out}, then run: gradekit resolve " + (f"--project {name}" if pdir else f"--config {out}"))
+    args._result = {"project": name, "project_toml": str(out), "project_dir": str(pdir) if pdir else None}
     return 0
 
 
@@ -2118,9 +2145,9 @@ def finding_or_die(report: dict, fid: str) -> dict:
 
 
 def emit(args, result: dict, text: str) -> None:
-    if getattr(args, "json", False):
-        print(json.dumps(result, indent=2, ensure_ascii=False))
-    elif text:
+    """Every command's output: text for people; with --json, main() wraps `result` in the envelope."""
+    args._result = result
+    if text:
         print(text)
 
 
@@ -2189,6 +2216,7 @@ def save_edit(args, report: dict, cfg: dict) -> None:
 
 def cmd_report_cite(args) -> int:
     ev = cite(args.spec, repo_reader(args.repo), args.note)
+    args._result = ev
     print(json.dumps(ev, indent=None if args.compact else 2, ensure_ascii=False))
     return 0
 
@@ -3055,12 +3083,11 @@ def render_out(args, text: str, default_path: Path | None) -> None:
     dest = args.out or (str(default_path) if default_path and not args.stdout else None)
     if dest and dest != "-":
         Path(dest).write_text(text, encoding="utf-8")
-        if getattr(args, "json", False):
-            print(json.dumps({"written": dest}))
-        else:
-            print(f"wrote {dest}")
+        args._result = {"written": dest, "markdown": text}
+        print(f"wrote {dest}")
     else:
-        print(json.dumps({"markdown": text}, ensure_ascii=False) if getattr(args, "json", False) else text, end="" if not getattr(args, "json", False) else "\n")
+        args._result = {"written": None, "markdown": text}
+        print(text, end="")
 
 
 def cmd_render_report(args) -> int:
@@ -3076,10 +3103,8 @@ def cmd_render_pr(args) -> int:
     cfg = authoring_config(args, report)
     folder = Path(args.report).resolve().parent.name if Path(args.report).name == "report.json" else None
     pr = render_report_pr(report, cfg, args.site, args.grading_repo_url, args.branch, folder)
-    if args.json:
-        print(json.dumps(pr, indent=2, ensure_ascii=False))
-    else:
-        print(f"{pr['title']}\n\n{pr['body']}", end="")
+    args._result = pr
+    print(f"{pr['title']}\n\n{pr['body']}", end="")
     return 0
 
 
@@ -3287,12 +3312,7 @@ def web_api(name: str, payload: dict) -> dict:
 # =========================================================================== main
 
 def main(argv=None) -> int:
-    try:  # behave like a normal CLI when piped into `head` etc.
-        import signal
-        signal.signal(signal.SIGPIPE, signal.SIG_DFL)
-    except (AttributeError, ValueError):
-        pass
-    ap = argparse.ArgumentParser(prog="gradekit", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap = CliParser(prog="gradekit", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
 
     def with_config(p):
@@ -3389,7 +3409,6 @@ def main(argv=None) -> int:
 
     def report_arg(q):
         q.add_argument("report", help="the report JSON being written")
-        q.add_argument("--json", action="store_true", help="print the result as JSON")
         with_config(q)
 
     def evidence_args(q, cite_help="FILE:LINE or FILE:START-END; the quote is copied from the file (repeatable)"):
@@ -3411,7 +3430,6 @@ def main(argv=None) -> int:
     q.add_argument("--suite-source", default="local", help="where the suite came from, e.g. the AGENT.md URL and version")
     q.add_argument("--out", metavar="FILE", help="write here instead of projects/NAME/reports/<date>-<commit>/report.json")
     q.add_argument("--force", action="store_true", help="overwrite an existing report")
-    q.add_argument("--json", action="store_true", help="print the result as JSON")
     q.set_defaults(fn=cmd_report_new)
 
     q = rsub.add_parser("cite", help="print an evidence object for FILE:LINES with the exact quote")
@@ -3553,7 +3571,6 @@ def main(argv=None) -> int:
     p.add_argument("--out", metavar="FILE", help="where to write (required in pr mode; full mode defaults to a new report folder)")
     p.add_argument("--force", action="store_true")
     p.add_argument("--allow-withheld", action="store_true", help="carry from a public copy anyway")
-    p.add_argument("--json", action="store_true", help="print the result as JSON")
     with_config(p)
     p.set_defaults(fn=cmd_carry)
 
@@ -3564,7 +3581,6 @@ def main(argv=None) -> int:
     def render_dest(q, default_note):
         q.add_argument("--out", metavar="FILE", help=f"where to write ('-' for stdout; default: {default_note})")
         q.add_argument("--stdout", action="store_true", help="print instead of writing the default file")
-        q.add_argument("--json", action="store_true", help="print the result as JSON")
 
     q = rsub.add_parser("report", help="report.md from report.json (sensitive findings withheld in public grading repos)")
     q.add_argument("report")
@@ -3577,7 +3593,6 @@ def main(argv=None) -> int:
     q.add_argument("--site", metavar="URL", help="the suite website, for a link to its Review page")
     q.add_argument("--grading-repo-url", metavar="URL", help="the grading repo (e.g. https://github.com/acme/grading), for that link")
     q.add_argument("--branch", help="default: report/<project>/<date>-<commit>")
-    q.add_argument("--json", action="store_true", help="print {branch, title, body} as JSON")
     with_config(q)
     q.set_defaults(fn=cmd_render_pr)
 
@@ -3595,7 +3610,34 @@ def main(argv=None) -> int:
     with_config(q)
     q.set_defaults(fn=cmd_render_log)
 
+    for leaf in leaf_parsers(ap):
+        leaf.add_argument("--json", action="store_true",
+                          help="print one JSON object instead: {ok, exit_code, command, result, text}")
+
     args = ap.parse_args(argv)
+    if not getattr(args, "json", False):
+        return run_command(ap, args)
+    buf = io.StringIO()
+    error = None
+    with contextlib.redirect_stdout(buf):
+        try:
+            rc = run_command(ap, args, raise_errors=True)
+        except GradekitError as e:
+            rc, error = 1, str(e)
+    out = {"ok": rc == 0, "exit_code": rc, "command": command_name(args), "result": getattr(args, "_result", None),
+           "text": buf.getvalue()}
+    if error:
+        out["error"] = error
+    print(json.dumps(out, indent=2, ensure_ascii=False))
+    return rc
+
+
+def command_name(args) -> str:
+    return " ".join(x for x in (args.cmd, getattr(args, "report_cmd", None), getattr(args, "finding_cmd", None),
+                                 getattr(args, "render_cmd", None)) if x)
+
+
+def run_command(ap, args, raise_errors: bool = False) -> int:
     if args.cmd in ("validate", "rollup", "verify-evidence", "redact") and args.report is None:
         pdir = project_dir_from_args(args)
         found = report_folders(pdir) if pdir else []
@@ -3618,9 +3660,34 @@ def main(argv=None) -> int:
     try:
         return args.fn(args)
     except GradekitError as e:
+        if raise_errors:
+            raise
         print(f"error: {e}", file=sys.stderr)
         return 1
 
 
+EXIT_USAGE = 64   # bad arguments (BSD sysexits EX_USAGE), so it never looks like diff's "regression" (2)
+
+
+class CliParser(argparse.ArgumentParser):
+    def error(self, message):
+        self.print_usage(sys.stderr)
+        self.exit(EXIT_USAGE, f"{self.prog}: error: {message}\n")
+
+
+def leaf_parsers(parser):
+    subs = [a for a in parser._actions if isinstance(a, argparse._SubParsersAction)]
+    if not subs:
+        yield parser
+    for a in subs:
+        for sp in dict.fromkeys(a.choices.values()):
+            yield from leaf_parsers(sp)
+
+
 if __name__ == "__main__":
+    try:  # behave like a normal CLI when piped into `head` etc. (only as a script: never change a host process)
+        import signal
+        signal.signal(signal.SIGPIPE, signal.SIG_DFL)
+    except (AttributeError, ValueError):
+        pass
     sys.exit(main())

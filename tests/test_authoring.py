@@ -31,7 +31,7 @@ def gk(*args, cwd, ok=True):
 
 
 def start(repo, *extra):
-    out = json.loads(gk("report", "new", "--project", "orders-api", "--commit", "b2c3d4e5f6", "--grader", "t", "--json", *extra, cwd=repo).stdout)
+    out = json.loads(gk("report", "new", "--project", "orders-api", "--commit", "b2c3d4e5f6", "--grader", "t", "--json", *extra, cwd=repo).stdout)["result"]
     return out["report"]
 
 
@@ -90,7 +90,7 @@ def test_cite_rejects_bad_citations(spec, message):
 def test_findings_get_fresh_ids_and_verified_evidence(repo):
     rel = start(repo)
     out = json.loads(gk("report", "finding", "add", rel, "--benchmark", "a2", "--title", "Amount unchecked", "--severity", "major",
-                        "--cite", "src/payments/api.py:5", "--repo", CODE, "--note", "negative amounts", "--sensitive", "--json", cwd=repo).stdout)
+                        "--cite", "src/payments/api.py:5", "--repo", CODE, "--note", "negative amounts", "--sensitive", "--json", cwd=repo).stdout)["result"]
     assert out["id"] == "A2-003", "A2-001 and A2-002 exist in earlier reports"
     gk("report", "finding", "add", rel, "--benchmark", "F2", "--title", "No CI", "--severity", "critical",
        "--absence", "CI config", "--method", "ls -a", cwd=repo)
@@ -163,7 +163,7 @@ def test_a_whole_report_without_writing_json(repo):
     rel = start(repo)
     first = gk("report", "check", rel, "--json", cwd=repo, ok=False)
     assert first.returncode == 5
-    assert json.loads(first.stdout)["status"] == "incomplete" and len(json.loads(first.stdout)["todo"]) == 38
+    assert json.loads(first.stdout)["result"]["status"] == "incomplete" and len(json.loads(first.stdout)["result"]["todo"]) == 38
 
     gk("report", "finding", "add", rel, "--benchmark", "C4", "--title", "One test", "--severity", "critical",
        "--command", "pytest -q", "--excerpt", "1 passed", cwd=repo)
@@ -176,7 +176,7 @@ def test_a_whole_report_without_writing_json(repo):
     gk("report", "ran", rel, "--command-text", "pytest -q", "--exit-code", "0", "--summary", "1 passed", cwd=repo)
     gk("report", "set", rel, "limitations", "None", "--append", cwd=repo)
 
-    done = json.loads(gk("report", "check", rel, "--repo", CODE, "--json", "--write", cwd=repo).stdout)
+    done = json.loads(gk("report", "check", rel, "--repo", CODE, "--json", "--write", cwd=repo).stdout)["result"]
     assert done["status"] == "ready" and done["errors"] == [] and done["todo"] == []
     assert done["evidence"]["checked"] == 1 and done["evidence"]["failures"] == []
     r = load(repo, rel)
