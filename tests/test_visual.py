@@ -67,7 +67,8 @@ SHOTS = [("home", home, 1280), ("docs", docs, 1280), ("setup", setup_filled, 128
          ("review-decisions", review_tab("decisions"), 1280), ("review-overview-phone", review_tab("overview"), 390),
          ("setup-phone", setup_filled, 390)]
 # Things that change on their own: the kit version, build date, download size, engine status, timings.
-MASK = [".ver", ".engine-pill", "[data-built]", ".dl-meta", "#pv-hash", ".built", "time"]
+MASK = [".ver", ".engine-pill", "[data-built]", ".dl-meta", "#pv-hash", ".built", "time",
+        ".files", ".hash", "footer.site"]   # the home page's download sizes and checksums, and the build date
 FREEZE = """() => { const s = document.createElement('style');
   s.textContent = '*,*::before,*::after{animation:none!important;transition:none!important;caret-color:transparent!important}'
     + '.topbar{position:static!important}.toast{display:none!important}';
