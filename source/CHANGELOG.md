@@ -19,6 +19,14 @@ Minor release: tools that let agents run the whole cycle without custom scripts,
   - Every `report` command takes `--json`.
 - The grader prompt shows the commands. Hand-written reports still work.
 
+**Carrying a report forward with `gradekit carry`**
+- `carry LAST_REPORT --repo CODE --commit SHA` starts the next report from the last one. Every finding keeps its ID, and every code citation moves to where that code is now. Citations whose lines changed or disappeared are listed, so each one is re-checked rather than silently going stale. Quotes that are part of a line work too.
+- **PR mode** (the default, with `--base-commit`): untouched benchmarks are marked `carried_forward`, and the touched ones are cleared for re-grading. The touched benchmarks are suggested from the changed files, which come from git when `--repo` is a checkout: the benchmarks whose evidence cites a changed file, the ones every code change re-grades, and the gates when a hot-zone file changed. `--touched` adds more.
+- **Full mode** (`--mode full`): every score is cleared for a fresh grade, but findings and their IDs carry over. The new report folder is made for you.
+- `report match REPORT --baseline LAST_REPORT` suggests which earlier finding each newly written finding is, comparing benchmark, files, quoted code and wording. `--apply` renames the clear matches back to their earlier IDs.
+- `report score` now clears `carried_forward` on the benchmark it scores.
+- The grader and PR-check prompts use these commands, so a PR check no longer needs custom scripts.
+
 **Markdown made from the data with `gradekit render`**
 - `render report` writes `report.md` from `report.json`, with the same sections every time: summary, gates and maturity, scorecard by pillar, applicability notes, top priorities, decisions, metrics, findings, feature inventory, gap register, per-benchmark detail, flags and limitations.
 - `render pr` gives the grading pull request's branch, title and body, with the decision checklist and a link to the Review page.

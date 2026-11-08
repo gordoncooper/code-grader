@@ -40,6 +40,15 @@ Re-grade a benchmark if the diff plausibly affects it. Use this map, and add any
 | **Anything in a hot zone** | All gates, plus every benchmark the changed code relates to. Read the changed hot-zone files in full, not just the diff. |
 
 ## Step 2: Grade
+If you can run Python, start the PR report from the baseline rather than copying it by hand. `carry` keeps every finding's ID, moves each code citation to where that code is at `HEAD_COMMIT` (and lists the ones whose lines changed or vanished), marks untouched benchmarks `carried_forward`, and clears the touched ones for you to re-grade. It suggests the touched benchmarks from the changed files (the citing benchmarks, the always-re-graded ones in Step 1's first row, and the gates when a hot-zone file changed); add the rest of Step 1 with `--touched`:
+
+```
+python3 SUITE_DIR/tools/gradekit.py carry PROJECT_DIR/reports/<newest>/report.json --repo HEAD_CHECKOUT \
+    --commit HEAD_COMMIT --base-commit BASE_COMMIT --out /tmp/pr-report.json --project-dir PROJECT_DIR [--touched A1 A2 …]
+```
+
+Then grade the touched benchmarks and update findings with the `gradekit report` commands (grader Part 2), and finish with `gradekit report check /tmp/pr-report.json --repo HEAD_CHECKOUT --project-dir PROJECT_DIR --write`. If the baseline is a public copy that withholds sensitive findings, carry from its `report.private.json` if you were given it; otherwise add `--allow-withheld` and leave those findings as they are.
+
 - **Touched benchmarks:** grade them fully against the rubric, considering the whole affected area of code, not just the changed lines. Set `carried_forward: false`.
 - **Untouched benchmarks:** copy them unchanged from the last full report and set `carried_forward: true`.
 - **Config:** use the same project config as the last full report. If the config has changed since then, say so in the PR comment: weight changes alone can move the overall score.
