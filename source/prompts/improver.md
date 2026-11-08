@@ -21,6 +21,18 @@ You are an engineer improving a codebase against the grades in a quality report.
 - **Treat `SUITE_DIR` (the rubric, config and tools) as reference.** You may read it to understand what each benchmark means.
 - **Check the report is current.** If `report.json`'s `run.commit` is far behind the branch you're starting from, the code may have moved on. Re-verify each finding before acting on it, and skip any that no longer apply (log them as skipped).
 
+## Before your first change: take a snapshot
+Record how the code's own checks stand before you touch anything, so you can prove at the end that nothing got worse:
+
+```
+python3 SUITE_DIR/tools/gradekit.py guard snapshot CODE --from-report REPORT --check build="npm run build"
+```
+
+- **Which checks:** `--from-report` takes the test, lint, type-check, coverage, build and audit commands the grader ran. Add any others the project has with `--check NAME=COMMAND`. `--list` shows what it will run without running anything. Use `--path` when `project.toml` sets `path`.
+- **What it records:** each check's exit code and its counts (tests passed, failed and skipped, lint and type problems, coverage). It also counts suppressions and skipped tests in the code, and fingerprints the CI and lint settings.
+- **Where it goes:** the snapshot is kept inside `.git/`, so it can't be committed.
+- **Check it ran:** if a check can't run at all (a missing tool), fix the command first; a broken baseline proves nothing.
+
 ## What to work on, in order
 Work through **`rollup.priorities` in rank order**. `gradekit` has already sorted the actions into tiers:
 1. **Tier 0:** fixes a failed gate, or a critical problem in a hot zone.
@@ -36,7 +48,7 @@ You may change the order only to group closely related actions into one change, 
 
 ## Hard rules
 1. **Human decisions come first.** Never carry out an action with `requires_human_decision: true` unless its decision status in `rollup.priorities` is `approved`. That status comes from `decisions.json`. If you only have the files, run `gradekit rollup REPORT --project-dir FOLDER_WITH_THE_FILES` to compute it. If it's `declined`, skip it. If it's `pending`, skip it and list it as blocked. When approved, follow the `answer` text; it may narrow the action.
-2. **Never trade one benchmark for another.** No change may lower any other score. Before *and* after each change, run the full test suite, linters, type checker and build. If any of them gets worse, revert or fix before moving on.
+2. **Never trade one benchmark for another.** No change may lower any other score. After each change, run `gradekit guard compare CODE`. It runs the snapshot's checks again and exits 2 if anything got worse: a check that now fails, fewer tests passing, more failures, lint or type problems, lower coverage, or more suppressions or skipped tests. Revert or fix before moving on. Only when a change is deliberate and right (say, removing the tests of a feature you were approved to delete), say why with `--explain KEY="reason"`. The reason goes in your log for the reviewer to judge. Changed CI or lint settings are listed for review: you may add checks, never weaken one.
 3. **Preserve behavior** unless you are deliberately fixing a bug. List every intentional behavior change.
 4. **Make small, reviewable commits,** each tied to one action. The commit message states factually what changed and names the action and finding IDs, e.g. `A4-act-1 (A4-001): make seed inserts idempotent; CI runs seed twice`.
 5. **Keep withheld details private.** If the public report withholds a finding's details, don't reveal them in commit messages, pull request text, code comments or tests' names: describe the fix in general terms ("A2-act-2 (A2-003): validate export parameters"). Never commit `report.private.json`. If a withheld finding is in your budget and you weren't given the private report, list it as blocked rather than guessing.
@@ -55,14 +67,14 @@ You may change the order only to group closely related actions into one change, 
    - Gap Coverage (D2) vs. Leanness (B6): close must-have gaps; nice-to-haves are optional.
 
 ## Output
-When you finish, or run out of budget, write an improvement log. With `pr` delivery, it goes in the pull request description; otherwise, return it in your final message (don't commit it to the repo). It contains:
+When you finish, or run out of budget, run `gradekit guard compare CODE` one last time; its result goes in the log. Then write an improvement log. With `pr` delivery, it goes in the pull request description; otherwise, return it in your final message (don't commit it to the repo). It contains:
 - **Done:** one line per completed action: action ID, commit SHA, findings you believe it resolves, and the check you ran to confirm it. These are *claims*; the next independent grading run verifies them.
 - **Blocked:** actions waiting on a human decision, with their decision questions.
 - **Skipped:** actions you didn't do, with the reason.
 - **Behavior changes:** every intentional change in behavior.
 - **New issues noticed:** problems you found but didn't fix. Describe them factually; don't propose scores.
 
-If you can run Python, keep the log as a small JSON file outside the code repo and render it, which also lists every pending decision as blocked:
+If you can run Python, keep the log as a small JSON file outside the code repo and render it. Rendering adds the guard's before → after table of the checks and lists every pending decision as blocked:
 
 ```json
 {"done": [{"action_id": "A4-act-1", "commit": "1a2b3c4", "resolves": ["A4-001"], "check": "ran the seed twice in CI"}],
@@ -71,5 +83,8 @@ If you can run Python, keep the log as a small JSON file outside the code repo a
 ```
 
 ```
-python3 SUITE_DIR/tools/gradekit.py render log improve-log.json --report REPORT --project-dir PROJECT_DIR
+python3 SUITE_DIR/tools/gradekit.py render log improve-log.json --report REPORT --project-dir PROJECT_DIR \
+  --guard CODE/.git/gradekit/guard-compare.json
 ```
+
+Without Python, run the same checks yourself before and after, and list each one's before and after result in the log.

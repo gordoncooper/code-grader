@@ -242,6 +242,10 @@
           "definition": "Something that got worse: a score that dropped, a finding that came back, or a new critical finding."
         },
         {
+          "term": "guard",
+          "definition": "The improver's before-and-after record of the code's own checks (tests, linters, type checker, build) and of its suppressions and skipped tests. `guard compare` fails if any got worse."
+        },
+        {
           "term": "consensus",
           "definition": "The report made from three independent graders: the median score of each benchmark, with the ones they disagree on flagged."
         },
