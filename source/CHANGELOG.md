@@ -36,6 +36,15 @@ Minor release: tools that let agents run the whole cycle without custom scripts,
 - New optional report fields: `summary` (set with `report set summary`) and each benchmark's one-line `rationale` (`report score --rationale`).
 - The prompts use these commands. The example reports' `report.md` files are now rendered.
 
+**A preflight with `gradekit doctor`**
+- `doctor` checks, before a run starts, everything the run will need, so a missing permission shows up in seconds rather than after an hour of grading:
+  - Python 3.11+, the kit itself, jsonschema (optional) and a writable temp folder;
+  - the project's config, `decisions.json` and `dispositions.json`, a writable reports folder, and whether to start with `carry` or `report new`;
+  - the code (`--repo`).
+- `--delivery pr` adds git, a committer identity, reading the remote and its default branch, and permission to push (a dry run, so nothing is pushed). `--open github|gitlab` adds `gh` or `glab` sign-in.
+- `--site URL` checks that the suite website is reachable from the sandbox, that it serves this kit's version, and that the kit's files match the website's copy.
+- Each problem comes with its fix. Exit 1 if anything fails. The grader and PR-check prompts run it first.
+
 **Handing reports back with `gradekit deliver`**
 - `deliver REPORT --delivery pr|save|return` does what the grader prompt's delivery table says, for any host. Every delivery starts the same way:
   - it refuses an unfinished or invalid report (exit 5 or 1, with the list);

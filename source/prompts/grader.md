@@ -56,8 +56,15 @@ You produce **one new report folder**: `PROJECT_DIR/reports/<YYYY-MM-DD>-<short-
 
 **Never change anything else.** That includes the code, `project.toml`, `decisions.json`, `dispositions.json`, earlier reports and CI configuration.
 
-### Resolve the config first
-Run this before anything else:
+### Check your setup, then resolve the config
+First, check that this run can finish: Python, the kit, the config, the code, and what your delivery needs (for `pr`: git, a committer identity, and permission to push branches). It takes seconds, and it means a missing permission is found now rather than after the grading:
+
+```
+python3 SUITE_DIR/tools/gradekit.py doctor --project-dir PROJECT_DIR --repo CODE_CHECKOUT --delivery DELIVERY \
+    [--open github|gitlab] [--site SUITE_SITE]
+```
+
+Fix anything marked `FAIL` (each comes with the fix), or tell whoever started you what's missing and stop. If you can't fix a `pr` delivery problem, say so and use `return` instead. Then resolve the config:
 
 ```
 python3 SUITE_DIR/tools/gradekit.py resolve --project-dir PROJECT_DIR --out /tmp/effective.json
