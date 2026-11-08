@@ -30,7 +30,7 @@
   function clear(el) { while (el && el.firstChild) el.removeChild(el.firstChild); return el; }
 
   function toast(msg) {
-    var t = $(".toast") || document.body.appendChild(h("div", { class: "toast", role: "status" }));
+    var t = $(".toast") || ($("main") || document.body).appendChild(h("div", { class: "toast", role: "status" }));
     t.textContent = msg; t.classList.add("show");
     clearTimeout(toast.t); toast.t = setTimeout(function () { t.classList.remove("show"); }, 1800);
   }
@@ -79,24 +79,54 @@
       "Check your connection, or self-host the runtime (see ", h("a", { href: new URL("docs/DEPLOY.html#self-hosting-the-python-runtime", GK.site).href }, "Hosting guide"), ").");
   }
 
-  // Drop zone: calls onFiles(FileList) for drops and picks.
+  // Drop zone: calls onFiles(FileList) for drops and picks. Keyboard and screen-reader users get the
+  // real button inside it ([data-choose]); a click anywhere else in the zone does the same for the mouse.
   function dropZone(el, input, onFiles) {
     ["dragenter", "dragover"].forEach(function (ev) { el.addEventListener(ev, function (e) { e.preventDefault(); el.classList.add("over"); }); });
     ["dragleave", "drop"].forEach(function (ev) { el.addEventListener(ev, function (e) { e.preventDefault(); el.classList.remove("over"); }); });
     el.addEventListener("drop", function (e) { if (e.dataTransfer && e.dataTransfer.files.length) onFiles(Array.prototype.slice.call(e.dataTransfer.files)); });
-    el.addEventListener("click", function (e) { if (e.target.tagName !== "A" && e.target.tagName !== "BUTTON") input.click(); });
-    el.addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); input.click(); } });
+    el.addEventListener("click", function (e) { if (e.target.tagName !== "A" && (e.target.tagName !== "BUTTON" || e.target.hasAttribute("data-choose"))) input.click(); });
     input.addEventListener("change", function () { var list = Array.prototype.slice.call(input.files); input.value = ""; if (list.length) onFiles(list); });
   }
 
-  // Tabs: buttons with data-tab="id" switch panels with id="panel-id".
+  // Tabs (the WAI-ARIA tabs pattern): buttons with data-tab="id" switch panels with id="panel-id".
+  // One tab is in the tab order; arrow keys, Home and End move between tabs.
+  function tabKeys(container, getButtons) {
+    container.setAttribute("role", "tablist");
+    container.addEventListener("keydown", function (e) {
+      var btns = getButtons().filter(function (b) { return !b.hidden; });
+      var i = btns.indexOf(document.activeElement);
+      if (i < 0) return;
+      var j = e.key === "ArrowRight" || e.key === "ArrowDown" ? (i + 1) % btns.length
+            : e.key === "ArrowLeft" || e.key === "ArrowUp" ? (i - 1 + btns.length) % btns.length
+            : e.key === "Home" ? 0 : e.key === "End" ? btns.length - 1 : -1;
+      if (j < 0) return;
+      e.preventDefault();
+      btns[j].focus();
+      btns[j].click();
+    });
+  }
   function tabs(container, onChange) {
     var btns = $$("button[data-tab]", container);
+    var uid = container.id || "tabs";
+    btns.forEach(function (b) {
+      var p = document.getElementById("panel-" + b.dataset.tab);
+      b.setAttribute("role", "tab");
+      b.id = b.id || uid + "-" + b.dataset.tab;
+      if (p) { b.setAttribute("aria-controls", p.id); p.setAttribute("role", "tabpanel"); p.setAttribute("aria-labelledby", b.id); p.tabIndex = 0; }
+      b.addEventListener("click", function () { select(b.dataset.tab); });
+    });
     function select(id) {
-      btns.forEach(function (b) { var on = b.dataset.tab === id; b.setAttribute("aria-selected", on); var p = document.getElementById("panel-" + b.dataset.tab); if (p) p.hidden = !on; });
+      btns.forEach(function (b) {
+        var on = b.dataset.tab === id;
+        b.setAttribute("aria-selected", on);
+        b.tabIndex = on ? 0 : -1;
+        var p = document.getElementById("panel-" + b.dataset.tab);
+        if (p) p.hidden = !on;
+      });
       if (onChange) onChange(id);
     }
-    btns.forEach(function (b) { b.setAttribute("role", "tab"); b.addEventListener("click", function () { select(b.dataset.tab); }); });
+    tabKeys(container, function () { return btns; });
     return { select: select };
   }
 
@@ -105,5 +135,5 @@
     return String(text == null ? "" : text).split(/`([^`]+)`/).map(function (part, i) { return i % 2 ? h("code", null, part) : part; });
   }
   window.UI = { h: h, $: $, $$: $$, inline: inline, clear: clear, toast: toast, copyText: copyText, download: download, readFile: readFile,
-                store: store, debounce: debounce, bindEnginePill: bindEnginePill, engineHelp: engineHelp, dropZone: dropZone, tabs: tabs };
+                store: store, debounce: debounce, bindEnginePill: bindEnginePill, engineHelp: engineHelp, dropZone: dropZone, tabs: tabs, tabKeys: tabKeys };
 })();

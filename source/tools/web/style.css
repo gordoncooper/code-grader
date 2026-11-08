@@ -95,7 +95,7 @@ section.block>p.sub{color:var(--muted);margin:0 0 22px;max-width:46em}
 .steps li{counter-increment:s;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px 14px 52px;position:relative;font-size:.9rem}
 .steps li::before{content:counter(s);position:absolute;left:14px;top:13px;width:26px;height:26px;border-radius:50%;background:var(--accent);color:var(--accent-ink);font:700 .8rem/26px var(--sans);text-align:center}
 .steps b{display:block;margin-bottom:2px}
-.pillars{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
+.pillars{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(300px,100%),1fr));gap:14px}
 .pillar{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px}
 .pillar h3{margin:0 0 8px;font-size:1rem;display:flex;gap:10px;align-items:baseline}
 .pillar h3 a{color:var(--ink);text-decoration:none}
@@ -105,7 +105,9 @@ section.block>p.sub{color:var(--muted);margin:0 0 22px;max-width:46em}
 .pillar li{display:flex;gap:8px;padding:3px 0;border-top:1px dashed var(--line)}
 .pillar li:first-child{border-top:0}
 .pillar li code{background:none!important;border:0!important;padding:0!important;color:var(--muted);min-width:24px}
-.files{display:table}
+.files{display:table;table-layout:fixed;width:100%}
+.files td,.files th{overflow-wrap:anywhere}
+.files td:first-child{width:38%}
 .trio{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:16px}
 .trio p{margin:0;font-size:.9rem;color:var(--muted)}
 .row-btns{display:flex;flex-wrap:wrap;gap:8px}
@@ -119,7 +121,9 @@ footer.site{border-top:1px solid var(--line);margin-top:64px;padding:22px 24px;c
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 @media (max-width:900px){
   .layout{grid-template-columns:minmax(0,1fr)}
-  .sidebar{display:none;position:fixed;inset:53px 0 0 0;height:auto;background:var(--bg);z-index:4;border-right:0}
+  .sidebar{display:none;position:fixed;inset:88px 0 0 0;height:auto;background:var(--bg);z-index:4;border-right:0}
+  .topbar{flex-wrap:wrap;row-gap:4px}
+  .topbar nav.main{order:3;flex-basis:100%;margin-left:-10px;overflow-x:auto;white-space:nowrap}
   body.nav-open .sidebar{display:block}
   .menu-btn{display:inline-block}
   main.doc{padding:24px 20px 60px}
@@ -294,4 +298,14 @@ details.advanced>summary{cursor:pointer;font-weight:600;font-size:.9rem;color:va
 .tool-card p{margin:0;color:var(--muted);font-size:.9rem}
 .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
 @media (max-width:980px){.two-col,.two-col.even{grid-template-columns:minmax(0,1fr)}.sticky{position:static}.tool-cards{grid-template-columns:1fr}}
-@media (max-width:700px){.q{grid-template-columns:1fr}.grid2{grid-template-columns:1fr}.zone-row{grid-template-columns:1fr 32px}.zone-row .why{grid-column:1/2}.pbar{grid-template-columns:120px 1fr 34px}.bench>button{grid-template-columns:40px minmax(0,1fr) 40px 18px}.bench>button .barcell{display:none}.filerow{grid-template-columns:1fr 32px}.filerow select{grid-column:1/2}.topbar{flex-wrap:wrap;row-gap:4px}.topbar nav.main{order:3;flex-basis:100%;margin-left:-10px;overflow-x:auto;white-space:nowrap}.sidebar{inset:88px 0 0 0}}
+@media (max-width:700px){.q{grid-template-columns:1fr}.grid2{grid-template-columns:1fr}.zone-row{grid-template-columns:1fr 32px}.zone-row .why{grid-column:1/2}.pbar{grid-template-columns:120px 1fr 34px}.bench>button{grid-template-columns:40px minmax(0,1fr) 40px 18px}.bench>button .barcell{display:none}.filerow{grid-template-columns:1fr 32px}.filerow select{grid-column:1/2}}
+
+/* accessibility */
+.skip{position:absolute;left:-9999px;top:8px;z-index:100;background:var(--ink);color:#fff;padding:8px 14px;border-radius:8px;font-weight:600}
+.skip:focus{left:12px}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.tabs button:focus-visible{outline-offset:-2px}
+[role=tabpanel]:focus-visible,.out-pre:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+@media (prefers-reduced-motion: reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
+summary{min-height:24px;display:list-item;padding:3px 0}
+.btn{min-height:24px}

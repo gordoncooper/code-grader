@@ -53,6 +53,22 @@ Minor release: tools that let agents run the whole cycle without custom scripts,
   - `fetch-kit.py`, which downloads the kit from your suite website and refuses it unless it matches the published checksum.
 - `gradekit init --ci github|gitlab --site URL` installs the check. It never overwrites an existing `.gitlab-ci.yml`.
 
+**Accessibility**
+- Every page now passes axe-core's WCAG 2.2 AA and best-practice rules, at desktop and phone width, in every state tested: each Review tab with a report loaded, Setup filled in, Start a run with three graders, and every docs page. Fixed along the way:
+  - **Tabs** follow the ARIA tabs pattern: a tab list, tab panels, one tab in the Tab order, and arrow keys, Home and End to move between tabs.
+  - **Landmarks:** each page has a `main` landmark and a "Skip to content" link, and status messages are announced.
+  - **Drop zones** have a real "choose files" button inside, instead of a whole box posing as one.
+  - **Scrolling content:** code blocks, generated output and tables that scroll sideways can be reached and scrolled with the keyboard.
+  - **Focus outlines** show on every control.
+  - **Tap targets** are at least 24×24 px, a WCAG 2.2 requirement (summaries, small buttons).
+  - **Motion** is reduced for people who ask for it.
+- **Narrow screens:** the home page no longer scrolls sideways at 320 px, and the top bar wraps its links from 900 px down instead of overflowing at tablet width.
+- **New tests:**
+  - axe-core on every page and state;
+  - keyboard checks: every control reachable with Tab and showing focus, the skip link, tabs, choosing files;
+  - layout checks at 320, 390, 768 and 1280 px: no sideways scrolling, no tiny, overlapping or cut-off controls;
+  - screenshot comparison, which CI runs against baselines it makes and keeps itself.
+
 **`projects/index.json`**
 - `gradekit index` writes one file listing every project in a grading repo. For each project it has the description and preset, the latest full report (score, maturity, next level, failed gates, open findings by effective severity), the decisions still waiting, and the history of every report. Dashboards and the Review page read it. It's derived from the reports and settings with no timestamps of its own, so `index --check` tells whether it's current. Its format is in `schema/index.schema.json`.
 - **The CI templates rebuild it** when reports or decisions land on the default branch:

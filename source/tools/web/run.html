@@ -59,8 +59,8 @@
     <aside class="sticky">
       <div class="card">
         <h2 style="font-size:1.1rem">Your prompt</h2>
-        <nav class="tabs" id="prompt-tabs" style="margin:4px 0 10px" hidden></nav>
-        <pre id="prompt-out" class="out-pre" style="white-space:pre-wrap"></pre>
+        <div class="tabs" id="prompt-tabs" style="margin:4px 0 10px" aria-label="Prompt for each run" hidden></div>
+        <pre id="prompt-out" class="out-pre" style="white-space:pre-wrap" tabindex="0" role="region" aria-label="Prompt to give the agent"></pre>
         <div class="row-btns" style="margin-top:10px"><button class="btn primary" type="button" id="copy-prompt">Copy prompt</button></div>
         <h3 style="font-size:.95rem;margin:20px 0 4px">Then</h3>
         <ol class="steps-mini" id="next-steps"></ol>
