@@ -75,19 +75,37 @@ Open the site's landing page. It shows ready-to-copy instructions for the grader
 
 ## Self-hosting the Python runtime
 
-The **Set up a project** and **Review a report** pages run the suite's own `gradekit.py` in the browser using [Pyodide](https://pyodide.org) (Python compiled to WebAssembly). By default, Pyodide is loaded from the jsDelivr CDN the first time a page needs it: about 10 MB, cached afterwards. Your files are never uploaded; only the runtime is downloaded.
+The **Set up a project** and **Review a report** pages run the suite's own `gradekit.py` in the browser using [Pyodide](https://pyodide.org) (Python compiled to WebAssembly). By default, Pyodide is loaded from the jsDelivr CDN the first time a page needs it: about 12 MB, cached afterwards. Your files are never uploaded; only the runtime is downloaded.
+
+**Every runtime file is checked before it runs.** `assets/engine-config.js` pins the SHA-384 hash of each Pyodide core file: the loader, the WebAssembly, the standard library and the lock file. The browser refuses any file that doesn't match, and packages are checked against the lock file. A compromised or changed CDN can't run code on these pages; the pill says *Engine unavailable* and why. The suite's own files (`suite/tools/gradekit.py` and the rest) are checked against this site's `manifest.json` in the same way, so a half-finished deploy is caught too.
 
 To avoid the CDN (for an air-gapped network, a strict content-security policy, or just to remove the dependency):
 
 1. Download the Pyodide release named in `assets/engine-config.js` from the Pyodide GitHub releases page. The "core" archive is enough to run everything. **Review a report** also uses Pyodide's `jsonschema` package (and its dependencies) for the full report-format check; it's in the full archive. Without it, the page still checks every scoring rule and notes that the structural schema check was skipped.
 2. Unpack it into a folder on your server, e.g. `/grading/pyodide/`.
-3. Edit `assets/engine-config.js` and set `pyodideIndexURL` to that folder, e.g. `"../pyodide/"` or `"/grading/pyodide/"`.
+3. Edit `assets/engine-config.js` and set `pyodideIndexURL` to that folder, e.g. `"../pyodide/"` or `"/grading/pyodide/"`. Keep the same Pyodide version: the pinned hashes still apply. A different version needs its own `pyodideIntegrity` hashes (`openssl dgst -sha384 -binary FILE | base64` for each file).
+4. Keep it on the same server as the site. The pages' content-security policy (below) allows scripts only from the site itself and `cdn.jsdelivr.net`.
 
 Serve `.wasm` files as `application/wasm` (most servers already do).
 
 **First visit after deploying:** open **Set up a project** and check that the pill in the top-right corner says *Engine ready*. If it says *Engine unavailable*, the message on the page explains why: usually the CDN is blocked, or the page was opened as a local file instead of from a server.
 
 ## Security notes
+
+- **Content-security policy.** Every page carries a strict policy in a `<meta>` tag, so it works on any host:
+  - **scripts:** only from the site and `cdn.jsdelivr.net`, never inline, and nothing may `eval`. Pyodide only needs to compile WebAssembly (`'wasm-unsafe-eval'`);
+  - **connections:** only to the site, jsDelivr and GitHub (the Review page reads public grading repos);
+  - **forms and plugins:** none.
+
+  The `.htaccess` file sends the same policy as a header, plus `frame-ancestors 'none'` so other sites can't frame the pages. On other hosts, send it as a header if you can (for example, Netlify's `_headers` file or a CloudFront response-headers policy). If you load Pyodide or reports from somewhere else, add that origin to `script-src` and `connect-src` in both places.
+- **Check what you deploy.** Each release lists its files' checksums in `SHA256SUMS`, and the zips carry signed build provenance. Check them before you deploy:
+
+  ```bash
+  sha256sum -c SHA256SUMS --ignore-missing
+  gh attestation verify code-grading-suite-web-vX.Y.Z.zip --repo OWNER/REPO   # the repo you download releases from
+  ```
+
+  The built site also has its own `SHA256SUMS` and `manifest.json` for every file.
 
 - **Serve it from a server you control, over HTTPS.** Agents treat this site as their instructions. Anyone who can change these files can change how your code is graded.
 - **Keep the site and the grading repo separate.** The site holds only the suite. Project settings, decisions and reports belong in your grading repo.

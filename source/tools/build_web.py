@@ -140,6 +140,14 @@ def add_heading_ids(body: str) -> tuple[str, list[tuple[int, str, str]]]:
 # --------------------------------------------------------------------------- templates
 
 WEB_SRC = KIT / "tools" / "web"
+# Content-Security-Policy for every page. Scripts come only from this site and the pinned Pyodide on
+# jsDelivr ('wasm-unsafe-eval' lets Pyodide compile its WebAssembly; nothing else may eval). Pages may
+# talk to this site, jsDelivr (Pyodide's files) and GitHub (the Review page reads public grading repos).
+# Kept in a <meta> tag so it works on any host; DEPLOY.md shows the same policy as a header.
+CSP = ("default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'wasm-unsafe-eval'; "
+       "connect-src 'self' https://cdn.jsdelivr.net https://api.github.com https://raw.githubusercontent.com; "
+       "img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self'; object-src 'none'; "
+       "base-uri 'self'; form-action 'none'; worker-src 'self' blob:")
 ASSETS = ["style.css", "site.js", "common.js", "engine.js", "engine-config.js", "setup.js", "run.js", "review.js", "favicon.svg"]
 APP_PAGES = [  # (slug, title, nav key, scripts)
     ("setup", "Set up a project", "setup", ["engine-config.js", "engine.js", "glossary.js", "common.js", "setup.js"]),
@@ -162,6 +170,8 @@ def page(title: str, body: str, depth: int, version: str, sidebar: str = "", act
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="{CSP}">
+<meta name="referrer" content="strict-origin-when-cross-origin">
 <title>{html.escape(title)} · Code Grading Suite</title>
 <meta name="description" content="A rubric, prompts and browser tools for AI coding agents to grade codebases from 1 to 10 on 35 benchmarks and improve them.">
 <link rel="stylesheet" href="{up}assets/style.css">
