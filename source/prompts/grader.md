@@ -111,7 +111,7 @@ Work in phases. If your context is limited, run Phase 4 one pillar per pass, car
 
 ```
 $K report new --project-dir PROJECT_DIR --commit COMMIT --grader NAME --model MODEL [--session ID] [--work-order ID]   # prints the report's path
-$K report finding add $R --benchmark A3 --title "..." --severity major --cite src/x.py:40-44 --repo CODE --note "..."
+$K report finding add $R --benchmark A3 --title "..." --severity major --cite src/x.py:40-44 --repo CODE --note "..." [--cap A3-cap-1]
 $K report finding add $R --benchmark F2 --title "No CI" --severity critical --absence "CI config" --method "ls -a; …"
 $K report finding add $R --benchmark C4 --title "..." --severity major --command "pytest -q" --excerpt @out.txt
 $K report score $R A3 --score 5 --confidence medium --rationale "one line: why 5" --why "what changed since the last report"
@@ -227,8 +227,14 @@ If you wrote findings without starting from the previous report, `report match $
   - **Applicability depends on the project's purpose, not its current quality.** "We don't do that yet" is a low score, not `limited` or `not_applicable`. Never downgrade applicability to avoid a low score.
 - **Weight concerns.** If a config weight looks wrong for this codebase, keep it, and add a `weight_note` with the weight you'd recommend and which answer or override would produce it. The person running the suite decides whether to change it.
 - **Gates.** The benchmarks listed under `gates` in `effective.json` are non-negotiable: a gate at or below the hard floor caps the overall score, whatever the other scores are. Grade gates with extra care and `high` confidence where possible. A gate should almost never be `limited` or `not_applicable`; if you think one is, explain why in detail.
-- **Caps override everything.** If a rubric cap applies, the score cannot exceed it. List it in `caps_applied`.
+- **Limits override everything, and `gradekit` enforces them.** Each benchmark's score can't exceed its limit; `report score` refuses a score above it and says why, and `validate` fails one. The limit is the lowest of:
+  - **Rubric caps.** Each has an ID in the rubric, e.g. "Quickstart fails → max 4 (`E1-cap-1`)". Put the cap on the finding that triggers it (`report finding add … --cap E1-cap-1`): it holds while that finding is open and lifts when it's fixed. A cap with no single finding behind it goes on the benchmark (`report score … --cap E1-cap-1`). D2's "any critical gap" applies by itself.
+  - **An open effective-critical finding** in the benchmark: max 5.
+  - **No strengths** (positive evidence): max 8. **No enforcement** evidence: max 9.
+
+  `rollup.limits` lists every benchmark held below 10, and why.
 - **A 10 requires enforcement.** If quality depends on someone remembering (no CI gate, lint rule, test or automated check), the maximum is 9. A 10 must list `enforcement` evidence.
+- **4.x reports** (format 4, and reports migrated from 4.x) aren't held to the critical-finding limit; it's a warning there, as it was.
 - **One root cause, one primary home.** Each finding belongs to the benchmark it most directly affects. Reference it from another benchmark only if it independently damages that one too. The rubric's "Not this" lines define the boundaries.
 - **Stack neutrality.** Don't reward or punish a language, framework or style for its own sake.
 
@@ -410,7 +416,7 @@ Write `report.json` matching `schema/report.schema.json`. Abbreviated example:
   "feature_inventory": [{"feature": "CSV export", "source": "README", "status": "partial", "evidence": [{"type": "code", "file": "src/export.py", "lines": "40", "quote": "raise NotImplementedError(\"xlsx\")", "note": "xlsx advertised but unimplemented"}]}],
   "gap_register": [{"id": "GAP-001", "gap": "No pagination on GET /orders", "severity": "major", "necessity": "must-have", "status": "open", "rationale": "Unbounded response; peers paginate", "benchmark_ids": ["D2"]}],
   "findings": [
-    {"id": "A4-001", "benchmark_id": "A4", "title": "Seed script not re-runnable", "severity": "major", "status": "open", "first_seen_commit": "9f8e7d6",
+    {"id": "A4-001", "benchmark_id": "A4", "title": "Seed script not re-runnable", "severity": "major", "status": "open", "first_seen_commit": "9f8e7d6", "cap": "A4-cap-2",
      "evidence": [{"type": "code", "file": "scripts/seed.sql", "lines": "12", "quote": "INSERT INTO plans (id, name) VALUES (1, 'free');", "note": "second run fails with duplicate key"}],
      "disposition": null, "disposition_concern": null},
     {"id": "A2-002", "benchmark_id": "A2", "title": "No rate limiting on login", "severity": "major", "status": "new", "first_seen_commit": "a1b2c3d",
@@ -423,7 +429,7 @@ Write `report.json` matching `schema/report.schema.json`. Abbreviated example:
      "applicability": "full", "applicability_reason": null,
      "config_weight": 3, "weight": 3, "weight_note": null,
      "score": 5, "confidence": "high", "carried_forward": false,
-     "caps_applied": ["Setup or migration fails on a second run → max 5"],
+     "caps_applied": [],
      "finding_ids": ["A4-001"],
      "strengths": [{"note": "Payment POST uses idempotency keys", "evidence": [{"type": "code", "file": "src/payments/api.py", "lines": "88", "quote": "key = request.headers[\"Idempotency-Key\"]", "note": ""}]}],
      "enforcement": [],

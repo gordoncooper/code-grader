@@ -24,7 +24,7 @@
   - **4–6:** Scripted but fragile; manual steps.
   - **7–8:** Automated and repeatable; documented.
   - **9–10:** Push-button or continuous; a new environment needs no code changes; rollback is fast and tested.
-- **Caps:** Manual, undocumented deploy steps → max 4. No rollback path for a production service → max 6.
+- **Caps:** Manual, undocumented deploy steps → max 4 (`F1-cap-1`). No rollback path for a production service → max 6 (`F1-cap-2`).
 
 ## F2. Build, CI/CD & Automation
 - **Measures:** Reproducible builds; automated format, lint, type and test checks; CI that blocks merges on failure; caching and speed; automated releases and versioning; pre-commit hooks.
@@ -62,7 +62,7 @@
   - **4–6:** Works on one platform; others break.
   - **7–8:** Works on the claimed platforms, partly tested.
   - **9–10:** The full declared matrix is tested in CI.
-- **Caps:** Machine-specific assumptions in core paths → max 4.
+- **Caps:** Machine-specific assumptions in core paths → max 4 (`F5-cap-1`).
 
 ## F6. Dependency Health & Longevity
 - **Measures:** Dependencies are pinned and locked, maintained, minimal and license-compatible, and the project resists bit rot: runtime and framework versions are within their support windows, no deprecated APIs, the toolchain is pinned, and updates are automated.

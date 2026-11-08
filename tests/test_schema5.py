@@ -189,7 +189,7 @@ def test_report_md_says_who_graded(gk, repo):
 def test_a_public_copy_keeps_its_fingerprints_valid(gk, repo):
     """redact withholds a sensitive finding's evidence; its fingerprint, computed from the full report, stays."""
     rel = start(repo, "--model", "m")
-    subprocess.run(KIT + ["report", "finding", "add", rel, "--benchmark", "A2", "--title", "Amount unchecked", "--severity", "major",
+    subprocess.run(KIT + ["report", "finding", "add", rel, "--benchmark", "A2", "--title", "Amount unchecked", "--severity", "minor",
                           "--sensitive", "--cite", "src/payments/api.py:5", "--repo", CODE], cwd=repo, env=ENV, check=True, capture_output=True)
     finish(repo, rel)
     subprocess.run(KIT + ["report", "check", rel, "--write"], cwd=repo, env=ENV, check=True, capture_output=True)

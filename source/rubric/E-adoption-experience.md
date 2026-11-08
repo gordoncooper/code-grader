@@ -23,7 +23,7 @@
   - **4–6:** Gets working after real effort.
   - **7–8:** Smooth start within minutes.
   - **9–10:** Delightful; examples cover the main use cases, and the quickstart is tested in CI.
-- **Caps:** Quickstart fails → max 4. No license in a distributed or open project → max 5.
+- **Caps:** Quickstart fails → max 4 (`E1-cap-1`). No license in a distributed or open project → max 5 (`E1-cap-2`).
 
 ## E2. Documentation
 - **Measures:** Quality and accuracy of the documentation at every layer: README (purpose, setup, usage, configuration), API reference, architecture overview, decision records, runbooks, changelog, and inline comments explaining *why*. Above all, docs must match the code.
@@ -34,7 +34,7 @@
   - **4–6:** Basic, with gaps and stale parts.
   - **7–8:** Accurate and covers the essentials.
   - **9–10:** Complete and layered; versioned with the code and verified (doc tests, examples run in CI, generated references).
-- **Caps:** Wrong setup instructions → max 5.
+- **Caps:** Wrong setup instructions → max 5 (`E2-cap-1`).
 
 ## E3. Developer Experience & Inner Loop
 - **Measures:** How productive a *contributor* is day to day:
@@ -70,4 +70,4 @@
   - **4–6:** Mixed; several bespoke pieces.
   - **7–8:** Standard tools used throughout.
   - **9–10:** Feels native; any ecosystem developer is productive immediately with tools they already know.
-- **Caps:** A custom build or test harness where a standard exists, with no documented reason → max 6.
+- **Caps:** A custom build or test harness where a standard exists, with no documented reason → max 6 (`E4-cap-1`).

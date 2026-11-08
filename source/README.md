@@ -65,6 +65,7 @@ Repeat from step 1. Optionally, use three graders for milestone audits; the Revi
 - **Gates.** Correctness and Security always, plus whatever the answers add. A gate at or below 3 caps the overall score at 4.0: an average can't make up for a security hole.
 - **Zones.** Hot code (money, auth, data writes) counts more than cold code (scripts, examples). Findings are one severity higher in hot zones and one lower in cold, and hot-zone work is ranked first.
 - **Applicability.** Every benchmark is classified `full`, `limited` (counts at weight 1) or `not_applicable` (excluded), each with a reason. The decision is based on the project's purpose, never on current quality.
+- **Limits.** Each benchmark's score is held to a limit that `gradekit` computes: a rubric cap such as "Quickstart fails → max 4 (`E1-cap-1`)" (put on the finding that triggers it, so it lifts when that's fixed), an open critical finding (max 5), no strengths (max 8), no enforcement (max 9). A score above its limit is refused.
 - **Targets.** `proportional` (default: 10 / 9 / 8 by weight), `maximal` or `level:L3`, plus per-benchmark overrides. Improvers stop at the target.
 - **Maturity ladder.** L0 Not viable → L1 Prototype → L2 Usable → L3 Production-ready → L4 Exemplary. Each report names the exact blockers.
 - **Decisions.** Fixes that change behavior or public interfaces carry a yes/no question. Improvers skip them until an entry in `decisions.json` approves them. Entries are only ever appended, and the newest answer wins.

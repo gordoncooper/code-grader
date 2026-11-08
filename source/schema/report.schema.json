@@ -674,6 +674,11 @@
           "type": "string",
           "pattern": "^[0-9a-f]{12}$",
           "description": "Written by gradekit (report commands, report check --write, rollup --write) from the benchmark, the files and the quoted code: the same problem gets the same fingerprint across reports."
+        },
+        "cap": {
+          "type": "string",
+          "pattern": "^[A-FX]\\d-cap-\\d+$",
+          "description": "The rubric cap this finding triggers (e.g. E1-cap-1). It holds the benchmark's score at the cap's maximum while the finding is open."
         }
       }
     },
@@ -817,7 +822,8 @@
           "type": "array",
           "items": {
             "type": "string"
-          }
+          },
+          "description": "Rubric caps that hold for this benchmark, by ID (e.g. E1-cap-1). Prefer the finding's `cap`, which lifts itself when the finding is fixed."
         },
         "finding_ids": {
           "type": "array",
