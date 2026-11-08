@@ -1,6 +1,6 @@
 # Grader card
 
-You audit a codebase and score it 1–10 on every benchmark. Other agents will change the code to raise your scores, so grade accurately, the same way every run, and in a way that's hard to game. **Read this card in full.** `prompts/grader.md` is the reference for anything it doesn't cover: delivery details, monorepos, every metric's name, and writing the report by hand without Python.
+You audit a codebase and score it 1–10 on every benchmark. Other agents will change the code to raise your scores, so grade accurately, the same way every run, and in a way that's hard to game. **Read this card in full.** `prompts/grader.md` is the reference for anything it doesn't cover: delivery details, monorepos (Part 9: `report new --component NAME`), every metric's name, and writing the report by hand without Python.
 
 **Terms** mean what `GLOSSARY.md` says (`gradekit glossary TERM`). `K="python3 SUITE_DIR/tools/gradekit.py"`, `CODE` is the code checkout, `PROJECT_DIR` is `projects/<project>/` in the grading repo, and `R` is the report path that `report new` prints.
 
@@ -19,8 +19,9 @@ You audit a codebase and score it 1–10 on every benchmark. Other agents will c
    - **Score it:** `report score $R A3 --score N --confidence high|medium|low --rationale "one line"`. Use `--why "…"` when the score changed from the last report.
    - **Plan the path to target:** `report action $R A3 --action "…" --resolves A3-001 --new-score N --effort S`, plus `--decision "question?"` when a person must decide.
    - **Read every hot zone in full.** Score mainly on hot and normal code.
-6. **Reconcile with the last report.** Mark findings that are gone `fixed` (`finding update ID --status fixed --replace-evidence --cite …`). Give every changed score a reason. If you wrote findings fresh, `report match $R --baseline LAST --apply` restores their old IDs.
-7. **Finish.** Fix what each step reports, until it's clean:
+6. **Answer every open dispute** that `report check` lists: `report finding answer $R ID --uphold|--withdraw --note "…"`. Re-check the code, then judge it on the evidence. Withdraw only a finding that was wrong.
+7. **Reconcile with the last report.** Mark findings that are gone `fixed` (`finding update ID --status fixed --replace-evidence --cite …`). Give every changed score a reason. If you wrote findings fresh, `report match $R --baseline LAST --apply` restores their old IDs.
+8. **Finish.** Fix what each step reports, until it's clean:
    - `report set $R summary "…"`, then `$K report check $R --repo CODE --project-dir PROJECT_DIR`. Repeat until it says `ready`, then run it again with `--write`.
    - `$K redact $R --in-place`. Hand `report.private.json` over privately, if `redact` made one, labeled **private: don't commit**.
    - `$K deliver $R --project-dir PROJECT_DIR --repo CODE --delivery pr --run --push [--open github|gitlab]`.

@@ -492,6 +492,30 @@
     "summary": {
       "type": "string",
       "description": "3–5 sentences: overall health, biggest risks and strengths. Shown at the top of report.md and the grading pull request"
+    },
+    "repo_rollup": {
+      "type": "object",
+      "description": "A monorepo's repo-wide result, stored in its report.json by `gradekit rollup-repo FOLDER --write`: overall weighted by component weight, maturity the lowest component's.",
+      "properties": {
+        "computed_by": {
+          "type": "string"
+        },
+        "overall_score": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "maturity": {
+          "type": "string"
+        },
+        "limited_by": {
+          "type": "string"
+        },
+        "components": {
+          "type": "array"
+        }
+      }
     }
   },
   "$defs": {
@@ -630,9 +654,10 @@
             "open",
             "fixed",
             "regressed",
-            "accepted"
+            "accepted",
+            "withdrawn"
           ],
-          "description": "new: first recorded in this report and caused by the graded code (in a PR check: by the change). noticed: already there before, first recorded now; it's open but never fails a PR check. open: still there. fixed, regressed (fixed before, back again), accepted (a disposition covers it)."
+          "description": "new: first recorded in this report and caused by the graded code (in a PR check: by the change). noticed: already there before, first recorded now; it's open but never fails a PR check. open: still there. fixed, regressed (fixed before, back again), accepted (a disposition covers it). withdrawn: a grader agreed with a dispute that the finding was wrong; it counts nowhere."
         },
         "first_seen_commit": {
           "type": [
@@ -679,6 +704,36 @@
           "type": "string",
           "pattern": "^[A-FX]\\d-cap-\\d+$",
           "description": "The rubric cap this finding triggers (e.g. E1-cap-1). It holds the benchmark's score at the cap's maximum while the finding is open."
+        },
+        "dispute": {
+          "type": "object",
+          "required": [
+            "answer",
+            "note",
+            "disputed_on"
+          ],
+          "description": "A grader's answer to a dispute in disputes.json (`report finding answer`).",
+          "properties": {
+            "answer": {
+              "enum": [
+                "upheld",
+                "withdrawn"
+              ]
+            },
+            "note": {
+              "type": "string"
+            },
+            "disputed_on": {
+              "type": "string",
+              "description": "the dispute's date, which links the answer to it"
+            },
+            "by": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
         }
       }
     },

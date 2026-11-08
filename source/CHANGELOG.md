@@ -41,6 +41,25 @@ Major release, in progress: a beta for agents first, then the pages for people. 
 - The grader and PR-check prompts, the glossary (*noticed finding*) and the Review page (status filter; evidence without line numbers) follow suit.
 - A public copy keeps each withheld finding's fingerprint, computed from the full report before `redact` withheld its evidence. Editing the public copy never overwrites it.
 
+**Monorepo components in every tool**
+- **One report per component:** `report new --component NAME` writes `components/NAME.json` in the report folder, with its component's config. `--component repo` writes the repo report (`report.json`). Each marks the benchmarks graded elsewhere as `not_applicable` for you: the components skip what the repo shares (B3, E3, E4, F2, F6, X6), and the repo report skips the rest.
+- **The repo-wide result:** `rollup-repo FOLDER --write` stores it in `report.json` as `repo_rollup`. The overall score is weighted by component weight, and maturity is the lowest component's.
+- **The tools that handle reports know components:**
+  - `deliver` redacts and renders every component report;
+  - `gradekit ci` validates each with its component's config and checks that `repo_rollup` matches;
+  - the index shows the repo-wide score and each component's.
+
+**Finding disputes**
+- **People dispute a finding:** `gradekit dispute add A3-002 --project NAME --reason "…" --by NAME` appends to `projects/NAME/disputes.json`, which is append-only like `decisions.json` (`gradekit ci` checks it). `dispute list` shows open disputes.
+- **The next grader must answer:** `report check` lists each open dispute on a finding in the report as a to-do. `report finding answer REPORT ID --uphold --note "…"` keeps the finding. `--withdraw` gives it the new status `withdrawn`, which counts nowhere: not open, not fixed. The answer records which dispute it answers, which closes that dispute.
+- `diff` notes withdrawn findings, the index lists open disputes, and the glossary adds *dispute* and *withdrawn finding*.
+
+**The calibration program**
+- **Golden repos:** `calibration/golden/NAME/` holds a frozen commit's expected scores, its `project.toml` and one file per independent grader run (`gradekit calibration add-run`).
+- **`gradekit calibration run`** scores every run against its golden's expected scores and measures the spread across runs. It writes `calibration/results.json` and publishes `calibration/RESULTS.md`. A golden repo passes with at least 3 runs, all passing, and no benchmark spreading more than allowed.
+- **No scoring change ships unmeasured:** the results carry a fingerprint of the scoring rules (the scoring version, the rubric, the caps and the limits). The kit's tests fail when the rules change without the results being regenerated.
+- **The first golden repo is dbader/schedule at 82a43db,** with provisional expected scores from the 4.3 release gate and one run. It needs two more independent runs, and a person's review of the expected scores, before the 5.0 gate.
+
 **Operating cards, and the rubric one benchmark at a time**
 - **Each role has a one-page card** in `prompts/cards/` (grader, pr-check, improver, reviewer): the run as `gradekit` commands, what the tools enforce for you, and the rules only an agent can follow. `AGENT.md` and **Start a run** now send agents to their card. The full prompts stay as the reference for details, and for working without Python.
 - **The word budget is checked:** a card and the largest benchmark entry fit in 3,000 words (the grader's: about 1,300, down from 11,000 for the prompt and the rubric).

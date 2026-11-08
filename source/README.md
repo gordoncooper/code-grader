@@ -103,6 +103,10 @@ $K guard compare CODE [--explain KEY=REASON]                    # …and after: 
 $K rubric A3                                                     # one benchmark's rubric (or a pillar: B); --json for data
 $K order new --project orders-api --role grade [--commit SHA]    # a work order: the request behind a run (order list, order close)
 $K mcp                                                          # every command as an MCP tool, on stdin/stdout
+$K dispute add A3-002 --project orders-api --reason "…" --by NAME   # people: a finding is wrong (the next grader answers it)
+$K report new --project orders-api --commit SHA --component api   # monorepos: one report per component (and --component repo)
+$K rollup-repo projects/orders-api/reports/<folder> --write      # monorepos: the repo-wide result, stored in report.json
+$K calibration run [--check]                                     # the calibration program: golden repos, spread, results
 $K validate --project orders-api [--publish]                     # schema, config and rule checks (latest report); --publish: safe to commit?
 $K verify-evidence --project orders-api --repo CODE_DIR_OR_ZIP   # every quoted line exists
 $K rollup   --project orders-api [--write]                       # gates, maturity, targets, ranked priorities

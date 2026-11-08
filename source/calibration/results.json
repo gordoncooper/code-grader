@@ -1,0 +1,35 @@
+{
+  "_about": "Written by `gradekit calibration run`. Don't edit: a kit test checks it matches the golden runs and the current scoring rules.",
+  "scoring_version": "4.2.0",
+  "scoring_fingerprint": "4509331bdfd929ed",
+  "min_runs": 3,
+  "pass": false,
+  "goldens": [
+    {
+      "name": "schedule",
+      "reference": "dbader/schedule @ 82a43db (Release 1.2.2), graded with project.toml beside this file",
+      "set_by": "the 4.3 release gate's grade (one grader, 2026-11-08), provisional until a person reviews it",
+      "runs": [
+        {
+          "run": "run-1",
+          "model": null,
+          "graded": "2026-11-08T14:10:21Z",
+          "pass": true,
+          "within_tolerance_pct": 100.0,
+          "mae": 0.0,
+          "bias": 0.0,
+          "applicability_mismatches": []
+        }
+      ],
+      "runs_needed": 3,
+      "max_spread": 1,
+      "spread": {
+        "largest": null,
+        "mean": null,
+        "unstable": []
+      },
+      "pass": false,
+      "status": "needs more runs"
+    }
+  ]
+}

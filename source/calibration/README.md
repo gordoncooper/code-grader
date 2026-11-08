@@ -42,6 +42,22 @@ The grader **passes** when, for every reference repo:
 
 The output also reports **bias**: whether the grader runs generous or harsh on average.
 
+## The calibration program (5.0)
+
+The suite's own calibration lives in `golden/`: one folder per golden repo, each with `expected.json` (the frozen commit and the expected scores), the `project.toml` to grade it with, and `runs/`, one file per independent grader run.
+
+```bash
+# a grader grades the golden commit as usual (prompts/cards/grader.md, with the golden's project.toml), then:
+python3 tools/gradekit.py calibration add-run calibration/golden/schedule REPORT.json --note "model, session"
+python3 tools/gradekit.py calibration run          # writes calibration/results.json and RESULTS.md
+```
+
+`calibration run` scores every run against its golden's expected scores (the same test as `calibrate`), and measures the **spread** across runs. A golden repo passes with at least 3 runs (`--min-runs`), every run passing, and no benchmark spreading more than its `criteria.max_spread` (default 1). The program passes when every golden repo does. [`RESULTS.md`](RESULTS.md) publishes the result.
+
+**No scoring change ships unmeasured.** The results record a fingerprint of the scoring rules: the scoring version, every benchmark's rubric and anchors, its caps, and the limits. The kit's tests fail when the rules change and the results haven't been regenerated (`calibration run --check`), so whoever changes the rules must re-run calibration and show its result in the same pull request.
+
+Runs must be independent: a fresh session for each, which hasn't seen the expected scores or the other runs. The first golden repo, `schedule`, has provisional expected scores from the 4.3 release gate's grade, which a person should review. Its one run so far is that grade, which matches by construction.
+
 ## When calibration fails
 - **One benchmark keeps missing:** its anchors are ambiguous. Tighten the wording, or add a concrete example to that benchmark's anchors, then bump the suite's minor version.
 - **Consistent bias in one direction:** add a line to `prompts/grader.md` naming the bias, e.g. "Graders tend to over-score E2; a 7 requires architecture docs, not just a README." Or try a different grader model.
