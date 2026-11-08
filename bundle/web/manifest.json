@@ -5,7 +5,7 @@
   "entry_point": "AGENT.md",
   "download": {
     "path": "downloads/code-grading-suite-4.2.2.zip",
-    "sha256": "29c687eb054193d586c1951a720a1948a33d60d8e3134b01d2d4b4d74855ca03"
+    "sha256": "e2ebebd8d9914410f399943aaa8ec609fa4b172eae595a7cf13c3af75bc7c362"
   },
   "renderer": "markdown-it-py",
   "files": [
@@ -17,7 +17,7 @@
     {
       "path": "AGENT.md",
       "bytes": 6119,
-      "sha256": "ed9e9208646f17d3349e47594b315463d44ba0e6a5429740f5292a254791c1f8"
+      "sha256": "b75aa9d85a8d69f4070122518b295635826d9991e833d9c60604ed15b84c4d90"
     },
     {
       "path": "app/review.html",
@@ -82,7 +82,7 @@
     {
       "path": "docs/AGENT.html",
       "bytes": 12529,
-      "sha256": "bec59e68dace15ca0afa48a1536374e96a398e89d735e7a4b1157a1e704d2183"
+      "sha256": "da6c46aefb3735753cae9d6ce98d9caacc83598cb168f3f38becd6c64eeca11b"
     },
     {
       "path": "docs/CHANGELOG.html",
@@ -191,13 +191,13 @@
     },
     {
       "path": "downloads/code-grading-suite-4.2.2.zip",
-      "bytes": 189210,
-      "sha256": "29c687eb054193d586c1951a720a1948a33d60d8e3134b01d2d4b4d74855ca03"
+      "bytes": 189774,
+      "sha256": "e2ebebd8d9914410f399943aaa8ec609fa4b172eae595a7cf13c3af75bc7c362"
     },
     {
       "path": "index.html",
       "bytes": 11259,
-      "sha256": "3b917ee6f3cc6383f58c15de385aee790a7c872ea520f29e1fee16f0b087c8da"
+      "sha256": "cb01e0815147b9f8f9ce8a421969c9cc23f4490b5ac08e7b9938daf4b67a7a28"
     },
     {
       "path": "llms.txt",
