@@ -18,7 +18,23 @@ This regenerates everything from the kit, including checksums. The builder needs
 
 Copy the *contents* of the built folder to a directory on your server, for example `/var/www/grading/` so it is served at `https://your-server/grading/`. Any path works because every link in the site is relative.
 
-**Recommended: one directory per version.** Deploy to `/grading/v4.3.0/` and point agents at that exact URL. An improvement loop that runs for weeks then can't have its rubric change underneath it. To also offer a "latest" URL, copy (or symlink) the newest version to `/grading/latest/`.
+**Recommended: one directory per major version.** Each project pins the major it uses (`suite = "5"` in its `project.toml`), so serve each major at its own path and point agents at that path. An improvement loop that runs for weeks then can't have its rules change underneath it. A minor or patch release replaces its major's directory. The suite's own site does it like this:
+
+```
+/grading/              the newest version (optional: a copy of the newest major)
+/grading/v5/           the newest 5.x
+/grading/v4/           the newest 4.x
+/grading/versions.json and one in each vN/ directory
+```
+
+`versions.json` lists the versions, newest first, with paths relative to the file. With it, the pages show a version menu, **Start a run** writes prompts that point at the page's own major (`…/v5/AGENT.md`), and `AGENT.md` sends agents to the project's pinned major. Every built site ships a `versions.json` that lists only itself, so a single version needs nothing. To host several, replace the one beside each copy's `index.html`. It isn't in `SHA256SUMS`, because it describes your host rather than the kit:
+
+```json
+{"latest": "5.0.0",
+ "versions": [{"major": "5", "version": "5.0.0", "path": "v5/"}, {"major": "4", "version": "4.3.0", "path": "v4/"}]}
+```
+
+In `/grading/v4/versions.json` the paths are `../v5/` and `../v4/`. On GitHub Pages, this repo's *Publish website* workflow builds the whole layout from the release tags (`.github/scripts/site_versions.py`).
 
 ## 3. Make sure file types are served correctly
 
@@ -60,7 +76,7 @@ cd web && python3 -m http.server 8000
 ## 4. Check it
 
 ```bash
-BASE=https://your-server/grading/v4.3.0
+BASE=https://your-server/grading/v5
 curl -sI "$BASE/AGENT.md" | grep -i content-type     # expect text/markdown; charset=utf-8
 curl -s  "$BASE/SHA256SUMS" -o SHA256SUMS
 curl -s  "$BASE/downloads/code-grading-suite-4.3.0.zip" -o code-grading-suite-4.3.0.zip
@@ -71,7 +87,7 @@ sha256sum -c SHA256SUMS --ignore-missing              # expect: OK
 
 Open the site's landing page. It shows ready-to-copy instructions for the grader, improver and pull-request roles, with your server's URL already filled in. For example:
 
-> Grade the code in this repository using the Code Grading Suite at https://your-server/grading/v4.3.0/AGENT.md. Act as the **grader**. …
+> Grade the code in this repository using the Code Grading Suite at https://your-server/grading/v5/AGENT.md. Act as the **grader**. …
 
 ## Self-hosting the Python runtime
 

@@ -33,6 +33,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 KIT = Path(__file__).resolve().parent.parent
+VERSIONS_FILE = "versions.json"
+VERSIONS_ABOUT = ("The versions of the Code Grading Suite this site hosts, newest first. `path` is relative to this file. "
+                  "Projects pin a major version (suite = \"N\" in project.toml); use that major's path.")
 EXCLUDE_DIRS = {"__pycache__", ".git", ".mypy_cache", ".pytest_cache", "node_modules"}
 EXCLUDE_FILES = {".DS_Store", "Thumbs.db"}
 EXCLUDE_SUFFIXES = {".pyc", ".pyo"}
@@ -251,7 +254,15 @@ Take your role from the person's instruction:
 
 If the role isn't clear, ask. Take **one role per session**: never grade code you improved in the same session, because the grader must be independent.
 
-## 2. Put a copy of the suite on disk (`SUITE_DIR`)
+## 2. Use the project's version of the suite
+
+Each project pins the suite's major version it uses: `suite = "N"` under `[project]` in its `project.toml`, in the grading repo. If the pin's number differs from this file's first number ({version}), **don't use this copy**. Use version N instead:
+- if `BASE/versions.json` exists, it lists the versions this site hosts: load `AGENT.md` from the `path` given for major N (relative to `versions.json`) and start again there;
+- otherwise, ask the person for a copy of version N.
+
+`gradekit` refuses to write a report for a project pinned to another major. A project without a pin can use any version; `gradekit doctor` suggests adding one.
+
+## 3. Put a copy of the suite on disk (`SUITE_DIR`)
 
 The prompts expect the suite in a local directory, `SUITE_DIR`, so the tools can run. **It must be outside the repository you're working on.**
 
@@ -277,7 +288,7 @@ Replace `BASE` with the real URL. On macOS, use `shasum -a 256 -c -` instead of 
 
 **If a checksum doesn't match, stop and tell the person.** The copy may have been altered in transit or on the server.
 
-## 3. Read your prompt in full, then follow it
+## 4. Read your prompt in full, then follow it
 
 Every prompt starts with a short table of inputs: where the code is, where the **grading repo** is and which **project** (its folder `projects/<project>/` holds `project.toml`, `decisions.json`, `dispositions.json` and one dated folder per report), and how to deliver results. The person's instructions usually fill in that table, and this site's **Start a run** page writes complete instructions. Anything not given has a stated default, and each delivery option says which permissions it needs.
 
@@ -554,7 +565,7 @@ def main(argv=None) -> int:
     # manifest + checksums (last, over everything else)
     entries = []
     for p in sorted(out.rglob("*")):
-        if p.is_file() and p.name not in ("manifest.json", "SHA256SUMS"):
+        if p.is_file() and p.name not in ("manifest.json", "SHA256SUMS", VERSIONS_FILE):
             rel = p.relative_to(out).as_posix()
             entries.append({"path": rel, "bytes": p.stat().st_size, "sha256": sha256(p)})
     manifest = {
@@ -568,6 +579,12 @@ def main(argv=None) -> int:
     }
     write(out / "manifest.json", json.dumps(manifest, indent=2) + "\n")
     write(out / "SHA256SUMS", "".join(f"{e['sha256']}  {e['path']}\n" for e in entries))
+    # The versions this host serves. A built site lists only itself; a host with several majors replaces it
+    # (GitHub Pages: .github/scripts/site_versions.py; elsewhere: DEPLOY.md). It describes the host, not the
+    # kit, so it's written after the checksums and isn't in them.
+    write(out / VERSIONS_FILE, json.dumps({"_about": VERSIONS_ABOUT, "latest": version,
+                                           "versions": [{"major": version.split(".")[0], "version": version, "path": "./"}]},
+                                          indent=2) + "\n")
 
     print(f"built Code Grading Suite v{version} → {out}")
     print(f"  {len(files)} kit files, {len(flat)} rendered docs, {len(entries)} files in manifest (renderer: {renderer_name})")

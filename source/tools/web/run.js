@@ -3,6 +3,12 @@
   "use strict";
   var h = UI.h, $ = UI.$, $$ = UI.$$;
   var SITE = new URL("../", document.currentScript.src).href;
+  // On a site with several versions, prompts point at this major's own path (e.g. …/v5/), which keeps its rules
+  // when a newer major becomes the site's root.
+  var AGENT_BASE = SITE;
+  if (window.SiteVersions) SiteVersions.then(function (v) {
+    if (v && v.current && v.url(v.current) !== AGENT_BASE) { AGENT_BASE = v.url(v.current); if (typeof update === "function") update(); }
+  });
 
   var ROLES = {
     grade:   { title: "Grade the code", who: "GRADER", desc: "A full, read-only audit. Adds one dated report folder for the project.", file: "prompts/grader.md" },
@@ -195,7 +201,7 @@
   function suiteLines() {
     if (s.suite === "path") return ["Suite: the Code Grading Suite at " + (s.suiteLoc || "<path to the suite>") + ". Use that folder as SUITE_DIR.",
                                     "Read " + ROLES[s.role].file + " in it completely, then follow it exactly."];
-    return ["Suite: open " + SITE + "AGENT.md and follow it to download and verify the Code Grading Suite.",
+    return ["Suite: open " + AGENT_BASE + "AGENT.md and follow it to download and verify the Code Grading Suite.",
             "Then read suite/" + ROLES[s.role].file + " completely and follow it exactly."];
   }
   function codeLine() {

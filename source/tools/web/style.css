@@ -28,6 +28,14 @@ hr{border:0;border-top:1px solid var(--line);margin:2.2em 0}
 .brand{white-space:nowrap;font-family:var(--serif);font-weight:700;font-size:1.1rem;color:var(--ink);text-decoration:none;letter-spacing:.01em}
 .brand span{color:var(--accent)}
 .ver{font:600 .72rem var(--mono);color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:2px 8px}
+.ver-menu{position:relative}
+.ver-menu>summary.ver{list-style:none;cursor:pointer;display:inline-flex;align-items:center;min-height:24px}
+.ver-menu>summary.ver::-webkit-details-marker{display:none}
+.ver-menu>summary.ver::after{content:"▾";margin-left:4px}
+.ver-menu>ul{position:absolute;z-index:20;top:calc(100% + 6px);left:0;margin:0;padding:6px;list-style:none;min-width:12rem;background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:0 6px 24px rgba(0,0,0,.18)}
+.ver-menu>ul a{display:block;padding:6px 10px;border-radius:6px;font:600 .8rem var(--mono);color:var(--ink);text-decoration:none;min-height:24px}
+.ver-menu>ul a:hover,.ver-menu>ul a:focus-visible{background:var(--soft)}
+.ver-menu>ul a[aria-current]{color:var(--muted)}
 .topbar .spacer{flex:1}
 .topbar a.top{font-size:.88rem;color:var(--muted);text-decoration:none}
 .topbar a.top:hover{color:var(--accent)}
@@ -131,7 +139,7 @@ footer.site{border-top:1px solid var(--line);margin-top:64px;padding:22px 24px;c
   .roles,.trio{grid-template-columns:1fr}
   .toc ul{columns:1}
 }
-@media (max-width:600px){.topbar{gap:10px;padding:10px 14px}.topbar .ver,.topbar a.top.opt{display:none}}
+@media (max-width:600px){.topbar{gap:10px;padding:10px 14px}.topbar .ver,.topbar .ver-menu,.topbar a.top.opt{display:none}}
 @media print{.topbar,.sidebar,.pager,.docbar{display:none}.layout{display:block}main.doc{padding:0}}
 /* ===================================================================== app pages */
 .topbar nav.main{display:flex;gap:4px;margin-left:8px}
