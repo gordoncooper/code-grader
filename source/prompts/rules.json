@@ -37,7 +37,7 @@
     {"id": "hidden-checks", "role": "grader", "rule": "Hidden checks only when told, and never described in the shared report", "card": "grader", "says": "Hidden checks:** run them only if you were told to"},
     {"id": "sensitive", "role": "grader", "rule": "Mark findings whose details would help an attacker; never write a real secret", "card": "grader", "says": "never write a real secret anywhere"},
     {"id": "anchors-not-curve", "role": "grader", "rule": "Whole integers, against the anchors, not a curve", "card": "grader", "says": "Judge with the anchors, not a curve."},
-    {"id": "intrinsic-severity", "role": "grader", "rule": "Severity is intrinsic; gradekit applies zones", "card": "grader", "says": "Severity is intrinsic."},
+    {"id": "severity-is-consequence", "role": "grader", "rule": "Severity is judged by consequence where the code runs; zones don't shift it", "card": "grader", "says": "Severity is consequence, where the code runs."},
     {"id": "one-home", "role": "grader", "rule": "One root cause, one primary home", "card": "grader", "says": "One root cause, one primary home."},
     {"id": "noticed", "role": "grader", "rule": "Problems the previous report missed are noticed, not new", "card": "grader", "says": "is `noticed`"},
     {"id": "no-estimates", "role": "grader", "rule": "Never estimate a metric", "card": "grader", "says": "Never estimate a metric."},

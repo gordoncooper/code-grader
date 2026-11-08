@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""gradekit: companion tool for the Code Grading Suite (v4).
+"""gradekit: companion tool for the Code Grading Suite (v5).
 
 Never trust a grader's arithmetic or citations; check them.
 
@@ -77,6 +77,8 @@ except ModuleNotFoundError:  # pragma: no cover
 SUITE_DIR = Path(__file__).resolve().parent.parent
 CATALOG_PATH = SUITE_DIR / "rubric" / "catalog.json"
 DEFAULTS_PATH = SUITE_DIR / "config" / "defaults.toml"
+# Earlier scoring rules, kept so reports graded under them validate and recompute as they were graded.
+SCORING_RULES = {"4": SUITE_DIR / "config" / "scoring" / "4.2.0.toml"}
 SCHEMA_PATH = SUITE_DIR / "schema" / "report.schema.json"          # format 5: what this kit writes
 SCHEMA4_PATH = SUITE_DIR / "schema" / "report-4.schema.json"       # format 4: suite 4.x reports, still read
 REPORT_FORMAT = 5
@@ -149,7 +151,8 @@ def major(version) -> str:
 # Three versions, each with its own job:
 # - the kit version (rubric/catalog.json): prompts, tools and report format, e.g. 5.0.0. Projects pin its major.
 # - the scoring version (suite_version in config/defaults.toml): the rules that move scores. It's in every config
-#   fingerprint, and only reports with the same scoring major are compared for regressions. 5.0 keeps 4.2.0.
+#   fingerprint, and only reports with the same scoring major are compared for regressions. 5.0.0 changed what
+#   severity means (see config/defaults.toml, ZONES); a 4.x report is resolved with the 4.x rules (SCORING_RULES).
 # - the report's own suite_version: the kit that wrote it. This kit reads reports from these majors:
 READABLE_REPORT_MAJORS = ("4", "5")
 
@@ -292,25 +295,35 @@ def config_hash(cfg: dict) -> str:
 
 
 def resolve_config(paths: list[str], component: str | None = None, preset_fallback: str | None = None,
-                   component_required: bool = True, decisions: list | None = None, dispositions: list | None = None) -> dict:
+                   component_required: bool = True, decisions: list | None = None, dispositions: list | None = None,
+                   scoring: str | None = None) -> dict:
     return resolve_layers([(str(p), load_toml(p)) for p in paths], component, preset_fallback, component_required,
-                          decisions, dispositions)
+                          decisions, dispositions, scoring)
+
+
+def defaults_for(scoring: str | None) -> Path:
+    """The defaults to resolve with: this kit's, or the earlier rules a report was graded under."""
+    if scoring and major(scoring) != major(load_toml(DEFAULTS_PATH).get("suite_version", "0")):
+        return SCORING_RULES.get(major(scoring), DEFAULTS_PATH)
+    return DEFAULTS_PATH
 
 
 def resolve_layers(layers: list[tuple[str, dict]], component: str | None = None, preset_fallback: str | None = None,
-                   component_required: bool = True, decisions: list | None = None, dispositions: list | None = None) -> dict:
+                   component_required: bool = True, decisions: list | None = None, dispositions: list | None = None,
+                   scoring: str | None = None) -> dict:
     catalog = load_catalog()
     ids = [b["id"] for b in catalog["benchmarks"]]
     names = {b["id"]: b["name"] for b in catalog["benchmarks"]}
-    merged = load_toml(DEFAULTS_PATH)
-    sources = [str(DEFAULTS_PATH.relative_to(SUITE_DIR))]
+    rules = defaults_for(scoring)   # this kit's defaults, or the earlier rules a report was graded under
+    merged = load_toml(rules)
+    sources = [str(rules.relative_to(SUITE_DIR))]
     for name, data in layers:
         merged = deep_merge(merged, data)
         sources.append(name)
     errors: list[str] = []
     warnings: list[str] = []
 
-    scoring = load_toml(DEFAULTS_PATH).get("suite_version", "0")
+    scoring = load_toml(rules).get("suite_version", "0")
     if major(merged.get("suite_version", "0")) != major(scoring):
         errors.append(f"config sets scoring version {merged.get('suite_version')}, but this kit scores with {scoring} "
                       "(suite_version belongs to config/defaults.toml; remove it from your config)")
@@ -421,6 +434,12 @@ def resolve_layers(layers: list[tuple[str, dict]], component: str | None = None,
             errors.append(f"gates: unknown benchmark '{bid}'")
 
     zs = merged.get("zone_settings", {})
+    legacy = rules != DEFAULTS_PATH
+    if not legacy:
+        moved = [k for k in ("severity_shift", "never_downgrade") if k in zs]
+        if moved:
+            warnings.append(f"zone_settings.{' and '.join(moved)} no longer apply: since scoring 5.0, graders judge severity where the "
+                            "code runs, and hot zones raise the bar for maturity instead (remove the setting)")
     zones = list((comp or {}).get("zones", []) or []) + list(merged.get("zones", []) or [])
     for z in zones:
         if z.get("criticality") not in HEAT:
@@ -478,8 +497,9 @@ def resolve_layers(layers: list[tuple[str, dict]], component: str | None = None,
         "gates": {"benchmarks": sorted(gate_why), "why": gate_why,
                   "hard_floor": gcfg.get("hard_floor", 3), "overall_cap": gcfg.get("overall_cap", 4.0)},
         "zones": {"list": zones, "default": zs.get("default", "normal"),
-                  "severity_shift": zs.get("severity_shift", {"hot": 1, "normal": 0, "cold": -1}),
-                  "never_downgrade": zs.get("never_downgrade", ["A2"]),
+                  # 4.x rules only: graders judged severity "as if normal" and the zone shifted it. Since 5.0 it's judged in place.
+                  **({"severity_shift": zs.get("severity_shift", {"hot": 1, "normal": 0, "cold": -1}),
+                      "never_downgrade": zs.get("never_downgrade", ["A2"])} if legacy else {}),
                   "priority_multiplier": zs.get("priority_multiplier", {"hot": 2.0, "normal": 1.0, "cold": 0.5})},
         "targets": targets,
         "maturity": merged.get("maturity", {}),
@@ -595,7 +615,7 @@ def load_config(args, report: dict | None = None, quiet: bool = False) -> dict:
     elif not paths and not quiet:
         print(f"note: no project found (use --project NAME or --config FILE); using suite defaults with preset '{fallback or 'default'}'")
     return resolve_config(paths, component=comp, preset_fallback=fallback, component_required=required,
-                          decisions=decisions, dispositions=dispositions)
+                          decisions=decisions, dispositions=dispositions, scoring=scoring_version_of(report) if report else None)
 
 
 # =========================================================================== zones & severity
@@ -651,11 +671,13 @@ def finding_zone(finding: dict, cfg: dict) -> tuple[str | None, str]:
 
 
 def effective_severity(finding: dict, criticality: str, cfg: dict) -> str:
+    """The severity the rules use. Since scoring 5.0 that's the grader's severity, judged where the code runs; under
+    the 4.x rules a zone shifted it (hot one up, cold one down)."""
     sev = finding.get("severity", "minor")
-    if sev not in SEVERITIES:
+    if sev not in SEVERITIES or "severity_shift" not in cfg["zones"]:
         return sev
     shift = int(cfg["zones"]["severity_shift"].get(criticality, 0))
-    if shift < 0 and finding.get("benchmark_id") in cfg["zones"]["never_downgrade"]:
+    if shift < 0 and finding.get("benchmark_id") in cfg["zones"].get("never_downgrade", []):
         shift = 0
     idx = max(0, min(len(SEVERITIES) - 1, SEVERITIES.index(sev) + shift))
     return SEVERITIES[idx]
@@ -749,6 +771,9 @@ def validate_report(report: dict, cfg: dict, catalog: dict) -> tuple[list[str], 
                 errors.append(f"finding {fid}: unknown cap {f['cap']} (the rubric lists each benchmark's caps)")
             elif c["benchmark"] != f.get("benchmark_id"):
                 errors.append(f"finding {fid}: cap {f['cap']} belongs to {c['benchmark']}, not {f.get('benchmark_id')}")
+            elif "severity_shift" not in cfg["zones"] and f.get("severity") not in CAP_SEVERITIES and f.get("status") in OPEN_STATUSES:
+                warnings.append(f"finding {fid}: cap {f['cap']} doesn't hold on a {f.get('severity')} finding (a cap needs one that's "
+                                "major or worse); raise its severity, or remove the cap")
 
     gates = set(cfg["gates"]["benchmarks"])
     referenced: set[str] = set()
@@ -810,6 +835,9 @@ def validate_report(report: dict, cfg: dict, catalog: dict) -> tuple[list[str], 
             for fid in act.get("resolves", []):
                 if fid not in findings and not fid.startswith("GAP-"):
                     errors.append(f"{aid}: resolves unknown finding {fid}")
+                elif fid in findings and findings[fid].get("benchmark_id") not in (None, bid):
+                    warnings.append(f"{aid}: resolves {fid}, which is {findings[fid].get('benchmark_id')}'s; its fix belongs on "
+                                    f"{findings[fid].get('benchmark_id')}'s path, or the ranking counts it twice")
             if act.get("requires_human_decision") and not (act.get("decision_question") or "").strip():
                 errors.append(f"{aid}: requires_human_decision needs a decision_question")
             if isinstance(score, int) and isinstance(act.get("expected_new_score"), int) and act["expected_new_score"] < score:
@@ -1049,6 +1077,7 @@ def weighted(items) -> float | None:
 # Each benchmark's highest allowed score, and why. In format-5 reports a score above it is an error.
 
 CRITICAL_MAX, NO_STRENGTH_MAX, NO_ENFORCEMENT_MAX = 5, 8, 9
+CAP_SEVERITIES = ("major", "critical")   # a rubric cap on a finding holds only while the finding is at least major
 AUTO_CAPS = {"D2-cap-1": "open critical gap"}   # caps whose condition is in the report's own data
 
 
@@ -1077,6 +1106,7 @@ def score_limits(report: dict, cfg: dict, fz: dict | None = None, catalog: dict 
     fz = fz if fz is not None else analyze_findings(report, cfg)
     open_ = [f for f in report.get("findings", []) if f.get("status") in OPEN_STATUSES]
     critical_gaps = [g for g in report.get("gap_register", []) if g.get("status") in OPEN_STATUSES and g.get("severity") == "critical"]
+    shifted = "severity_shift" in cfg["zones"]   # 4.x rules
     out = {}
     for b in report.get("benchmarks", []):
         bid = b.get("id")
@@ -1097,6 +1127,9 @@ def score_limits(report: dict, cfg: dict, fz: dict | None = None, catalog: dict 
                 why.append({"kind": "cap", "max": c["max"], "why": (f"{c['id']}: " if c["id"] else "") + c["when"]})
         for f in open_:
             c = caps.get(f.get("cap") or "")
+            sev = fz.get(f.get("id"), {}).get("effective_severity", f.get("severity"))
+            if not shifted and sev not in CAP_SEVERITIES:   # since scoring 5.0, a minor finding can't hold a hard cap
+                continue
             if c and c["benchmark"] == bid:
                 why.append({"kind": "cap", "max": c["max"], "why": f"{c['id']}: {c['when']} ({f.get('id')})"})
         for cid, cond in AUTO_CAPS.items():
@@ -1593,6 +1626,8 @@ def cmd_diff(args) -> int:
     if args.old_config:
         ns = argparse.Namespace(config=args.old_config, component=getattr(args, "component", None))
         cfg_old = load_config(ns, old, quiet=True)
+    elif major(scoring_version_of(old)) != major(scoring_version_of(new)):
+        cfg_old = load_config(args, old, quiet=True)   # each report under the rules it was graded with
     else:
         cfg_old = cfg_new
     d = compute_diff(old, new, cfg_old, cfg_new)
@@ -1811,6 +1846,9 @@ def same_but_marked(public: dict, report: dict) -> bool:
 def cmd_redact(args) -> int:
     report = load_json(args.report)
     if (report.get("publishing") or {}).get("redacted"):
+        if not (report["publishing"].get("withheld") or []) and not Path(private_path(args.report)).exists():
+            emit(args, {"leaks": [], "withheld": [], "written": {}}, f"{args.report} is already redacted, and withholds nothing: nothing to do")
+            return 0
         die(f"{args.report} is already redacted" + (f"; the full report is {private_path(args.report)}" if args.in_place else ""))
     public, leaks = redact_report(report)
     if leaks:
@@ -2445,15 +2483,21 @@ def cite(spec: str, read_lines, note: str | None = None) -> dict:
     if end > len(lines):
         die(f"{rel} has {len(lines)} lines; cited {start}-{end}")
     if not "".join(lines[start - 1:end]).strip():
-        die(f"{rel}:{start}-{end} is blank; cite the lines that show the problem")
+        near = next((n for d in range(1, 4) for n in (start - d, end + d) if 1 <= n <= len(lines) and lines[n - 1].strip()), None)
+        die(f"{rel}:{start}-{end} is blank; cite the lines that show the problem" + (f" (line {near} has text)" if near else ""))
+    asked = (start, end)
     while not lines[start - 1].strip():   # a blank line at either end is an off-by-one: cite only the lines with text
         start += 1
     while not lines[end - 1].strip():
         end -= 1
     if end - start + 1 > MAX_QUOTE_LINES:
         die(f"{rel}:{start}-{end} is {end - start + 1} lines; a quote is 1–{MAX_QUOTE_LINES} lines. Cite the lines that "
-            f"show it, and give several --cite for several places")
+            f"show it (e.g. {rel}:{start}-{start + MAX_QUOTE_LINES - 1}), and give --cite again for another place")
+    if (start, end) != asked:
+        print(f"note: {rel}:{asked[0]}-{asked[1]} has blank lines at its ends; cited {rel}:{start}-{end}", file=sys.stderr)
     quote = "\n".join(lines[start - 1:end])
+    first = quote.strip().splitlines()[0].strip()
+    print(f"cited {rel}:{start}{'' if start == end else f'-{end}'}: {first[:70]}{'…' if len(first) > 70 or start != end else ''}", file=sys.stderr)
     ev = {"type": "code", "file": rel, "lines": str(start) if start == end else f"{start}-{end}", "quote": quote}
     if note:
         ev["note"] = note
@@ -2483,8 +2527,13 @@ def evidence_from_args(args, required: bool = False) -> list[dict]:
         out += [cite(c, read, note) for c in cites]
     if getattr(args, "command", None):
         excerpt = read_text_arg(getattr(args, "excerpt", None))
+        if getattr(args, "no_output", False):
+            if (excerpt or "").strip():
+                die("give --excerpt or --no-output, not both")
+            excerpt = "(no output)"
         if not (excerpt or "").strip():
-            die("--command needs --excerpt (the relevant output; '@file' or '-' for stdin)")
+            die("--command needs --excerpt (the relevant output, copied; '@file' or '-' for stdin), or --no-output "
+                "for a command that printed nothing (say what happened, e.g. the exit code or a timeout, in --note)")
         out.append({"type": "command", "command": args.command, "excerpt": excerpt.strip("\n"), **({"note": note} if note else {})})
     if getattr(args, "absence", None):
         if not getattr(args, "method", None):
@@ -2659,20 +2708,23 @@ def cmd_finding_add(args) -> int:
     if args.sensitive:
         f["sensitive"] = True
     if args.cap:
-        f["cap"] = finding_cap_or_die(args.cap, bid, report)
+        f["cap"] = finding_cap_or_die(args.cap, bid, report, args.severity)
     report["findings"].append(f)
     save_edit(args, report, cfg)
     emit(args, {"id": fid, "finding": f}, f"added {fid} ({args.severity}): {args.title}")
     return 0
 
 
-def finding_cap_or_die(cap: str, bid: str, report: dict) -> str:
+def finding_cap_or_die(cap: str, bid: str, report: dict, severity: str | None = None) -> str:
     caps = catalog_caps()
     if report_format(report) < 5:
         die("--cap on a finding needs a format-5 report (suite 5.x); in this 4.x report, use `report score --cap`")
     if cap not in caps or caps[cap]["benchmark"] != bid:
         mine = "; ".join(f"{k}: {c['when']} → max {c['max']}" for k, c in caps.items() if c["benchmark"] == bid)
         die(f"{cap}: not one of {bid}'s caps ({mine or 'it has none'})")
+    if severity is not None and severity not in CAP_SEVERITIES:
+        die(f"{cap}: a rubric cap holds only on a finding that's major or worse. If this {severity} finding really triggers it, "
+            "its consequence is bigger than minor; otherwise leave the cap off")
     return cap
 
 
@@ -2693,7 +2745,7 @@ def cmd_finding_update(args) -> int:
         f["paths"] = list(dict.fromkeys(list(f.get("paths", []) or []) + [repo_relative(p) for p in args.paths]))
     if args.cap is not None:
         if args.cap:
-            f["cap"] = finding_cap_or_die(args.cap, f.get("benchmark_id"), report)
+            f["cap"] = finding_cap_or_die(args.cap, f.get("benchmark_id"), report, f.get("severity"))
         else:
             f.pop("cap", None)
     new_ev = evidence_from_args(args)
@@ -2754,6 +2806,10 @@ def cmd_report_score(args) -> int:
     msg = f"{b['id']} {b['name']}: " + ("not applicable" if b["score"] is None else f"{b['score']} ({b['confidence']} confidence)")
     if b.get("target") is not None:
         msg += f", target {b['target']}"
+    pending = [w for w in (score_limits(report, cfg).get(b["id"]) or {"why": []})["why"]
+               if w["kind"] in ("strengths", "enforcement") and isinstance(b.get("score"), int) and b["score"] > w["max"]]
+    for w in pending:   # checked at `report check`, since graders add strengths after scoring
+        msg += f"\nnote: {b['id']} needs {'a strength' if w['kind'] == 'strengths' else 'enforcement'} for a score above {w['max']} ({w['why']})"
     emit(args, {"benchmark": b}, msg)
     return 0
 
@@ -2827,7 +2883,7 @@ def earlier_report_ids(report_path) -> set[str]:
 
 
 EDIT_REF_HELP = ("what to change: a strength or enforcement item as BENCHMARK/strength/N or BENCHMARK/enforcement/N "
-                 "(N as `report show` numbers them), an action ID (A3-act-2), a gap ID (GAP-003), feature/N, or, for "
+                 "(N as `report show` numbers them), an action ID (A3-act-2), a gap ID (GAP-003), command/N, feature/N, or, for "
                  "remove, a finding ID")
 
 
@@ -2842,6 +2898,12 @@ def edit_target(report: dict, ref: str) -> dict:
         if not 1 <= n <= len(items):
             die(f"{b['id']} has {len(items)} {kind} item(s); `report show $R {b['id']}` lists them")
         return {"kind": kind, "items": items, "index": n - 1, "item": items[n - 1], "benchmark": b}
+    m = re.fullmatch(r"commands?/(\d+)", ref.strip())
+    if m:
+        items, n = report["commands_run"], int(m.group(1))
+        if not 1 <= n <= len(items):
+            die(f"the report has {len(items)} command(s); `report show $R commands` lists them")
+        return {"kind": "command", "items": items, "index": n - 1, "item": items[n - 1], "benchmark": None}
     m = re.fullmatch(r"features?/(\d+)", ref.strip())
     if m:
         items, n = report["feature_inventory"], int(m.group(1))
@@ -2866,6 +2928,14 @@ def show_lines(report: dict, what: str | None) -> list[str]:
     if what and what.lower() in ("feature", "features"):
         return [f"feature/{i} {f.get('feature')} ({f.get('status')}){': ' + ev_text(f.get('evidence')) if f.get('evidence') else ''}"
                 for i, f in enumerate(report["feature_inventory"], 1)] or ["no features yet"]
+    if what and what.lower() in ("metric", "metrics"):
+        notes = report.get("metrics_notes") or {}
+        keys = list(dict.fromkeys(list((report.get("metrics") or {}).keys()) + list(notes.keys())))
+        return [f"metrics.{k} = {json.dumps((report.get('metrics') or {}).get(k))}" + (f"  (metrics_notes.{k}: {notes[k]})" if k in notes else "")
+                for k in keys] or ["no metrics yet: `report set REPORT metrics.KEY VALUE` (prompts/grader.md lists the keys)"]
+    if what and what.lower() in ("command", "commands"):
+        return [f"{i}. `{c.get('command')}` → {c.get('exit_code')}: {c.get('result_summary')}" + (f" (in {c['workdir']})" if c.get("workdir") else "")
+                for i, c in enumerate(report.get("commands_run") or [], 1)] or ["no commands recorded yet"]
     if what and what.lower() in ("gap", "gaps"):
         return [f"{g['id']} {g.get('severity')} {g.get('necessity')} ({g.get('status')}): {g.get('gap')}"
                 for g in report["gap_register"]] or ["no gaps yet"]
@@ -2885,7 +2955,9 @@ def show_lines(report: dict, what: str | None) -> list[str]:
         for a in b["path_to_target"]:
             extra = (" optional" if a.get("optional") else "") + (f" resolves {', '.join(a['resolves'])}" if a.get("resolves") else "")
             out.append(f"  {a['id']} → {a.get('expected_new_score')} (effort {a.get('effort')}{extra}): {a.get('action')}")
-    return out or ["nothing recorded yet"]
+    if not what:
+        out.append("(also: `report show REPORT features|gaps|metrics|commands`)")
+    return out
 
 
 def cmd_report_show(args) -> int:
@@ -2903,7 +2975,9 @@ def cmd_report_update(args) -> int:
                "action": {"action", "new_score", "effort", "resolves", "decision", "optional", "why_first"},
                "gap": {"gap", "severity", "necessity", "status", "rationale", "benchmarks"}}
     if kind not in allowed:
-        die(f"{args.ref} is a {kind}: " + ("use `report finding update`" if kind == "finding" else "give the feature again with `report feature`"))
+        die(f"{args.ref} is a {kind}: " + {"finding": "use `report finding update`",
+                                             "feature": "give the feature again with `report feature`",
+                                             "command": "remove it (`report remove`) and record it again with `report ran`"}[kind])
     new_ev = evidence_from_args(args)
     given = {k for k in ("text", "action", "new_score", "effort", "resolves", "decision", "optional", "why_first", "gap", "severity",
                          "necessity", "status", "rationale", "benchmarks") if getattr(args, k) is not None}
@@ -2947,6 +3021,8 @@ def cmd_report_update(args) -> int:
             else:
                 item.pop("why_first", None)
         changed = sorted(given)
+        if args.optional is not None:
+            changed = [c if c != "optional" else ("optional" if args.optional else "no longer optional") for c in changed]
     else:
         for key in ("gap", "severity", "necessity", "status", "rationale"):
             if getattr(args, key) is not None:
@@ -2979,7 +3055,7 @@ def cmd_report_remove(args) -> int:
                     a["resolves"] = [x for x in a["resolves"] if x != item["id"]]
                     notes.append(f"{a['id']} no longer resolves it")
     save_edit(args, report, cfg)
-    later = " (later items are renumbered: `report show` lists them)" if kind in ("strength", "enforcement", "feature") else ""
+    later = " (later items are renumbered: `report show` lists them)" if kind in ("strength", "enforcement", "feature", "command") else ""
     emit(args, {"ref": args.ref, "kind": kind, "removed": item, "notes": notes},
          f"removed {args.ref}{later}" + "".join(f"\n  note: {n}" for n in notes))
     return 0
@@ -3017,6 +3093,10 @@ def cmd_report_flag(args) -> int:
 def cmd_report_ran(args) -> int:
     report, cfg = load_for_edit(args)
     entry = {"command": args.command_text, "exit_code": args.exit_code, "result_summary": args.summary}
+    if args.workdir:
+        entry["workdir"] = args.workdir
+    if args.env:
+        entry["env"] = args.env
     report["commands_run"].append(entry)
     save_edit(args, report, cfg)
     emit(args, {"command": entry}, f"recorded `{args.command_text}`")
@@ -3032,22 +3112,27 @@ def cmd_report_set(args) -> int:
     parts = args.key.split(".")
     if parts[0] not in SETTABLE:
         die(f"`report set` covers {', '.join(SETTABLE)}; use the other report commands for findings, scores and evidence")
+    raw = read_text_arg(args.value)
     try:
-        value = json.loads(args.value)
+        value = json.loads(raw)
     except json.JSONDecodeError:
-        value = args.value
+        value = raw
     node = report
     for p in parts[:-1]:
         node = node.setdefault(p, {})
         if not isinstance(node, dict):
             die(f"{args.key}: {p} is not an object")
     last = parts[-1]
+    if parts[0] == "metrics" and len(parts) == 2 and not (value is None or isinstance(value, (bool, int, float))):
+        die(f"{args.key}: a metric is a number, true/false or null (got {args.value!r}); put words in metrics_notes.{last}")
     if args.append:
         node.setdefault(last, [])
         if not isinstance(node[last], list):
             die(f"{args.key} is not a list")
         node[last].append(value)
     else:
+        if isinstance(node.get(last), list) and not isinstance(value, list):
+            die(f"{args.key} is a list: add to it with --append, or give the whole list as JSON ('[\"…\"]')")
         node[last] = value
     save_edit(args, report, cfg)
     emit(args, {"key": args.key, "value": node[last]}, f"set {args.key}")
@@ -3064,7 +3149,7 @@ def report_todo(report: dict, pdir: Path | None = None) -> list[str]:
     if not str(report.get("scope_examined") or "").strip():
         todo.append("say what you examined: `report set REPORT scope_examined \"...\"`")
     if not report.get("commands_run"):
-        todo.append("record the commands you ran: `report ran REPORT --command-text CMD --summary TEXT`")
+        todo.append("record the commands you ran: `report ran REPORT --command CMD --summary TEXT`")
     if not report.get("limitations"):
         todo.append("list limitations (or 'None'): `report set REPORT limitations \"...\" --append`")
     if not str(report.get("summary") or "").strip():
@@ -3533,7 +3618,8 @@ def doctor_checks(args) -> list[dict]:
             pin, kit = suite_pin(cfg), major(catalog["suite_version"])
             if pin is None:
                 out.append(_check("suite pin", "warn", "project.toml doesn't pin a suite version",
-                                  f"add `suite = \"{kit}\"` under [project], so a new major version can't change the rules mid-cycle"))
+                                  f"the project's owner should add `suite = \"{kit}\"` under [project] (graders don't change it), "
+                                  "so a new major version can't change the rules mid-cycle"))
             else:
                 out.append(_check("suite pin", "fail" if pin_problem(cfg) else "ok",
                                   pin_problem(cfg) or f"pinned to {pin}; this kit is {catalog['suite_version']}"))
@@ -3572,10 +3658,10 @@ def doctor_checks(args) -> list[dict]:
             if hot and hot["share"] > HOT_SHARE_WARN:
                 out.append(_check("hot zones", "warn",
                                   f"hot zones cover {round(hot['share'] * 100)}% of the code's lines ({', '.join(hot['files'][:3])}"
-                                  f"{' …' if len(hot['files']) > 3 else ''}). Every finding there counts one severity higher, so "
-                                  "scores turn on each major-or-minor call",
-                                  "keep hot zones to the code where a bug costs more (project.toml [[zones]]); judge severity "
-                                  "as if the code were normal, and never lower it to get under a limit"))
+                                  f"{' …' if len(hot['files']) > 3 else ''}). A zone that covers everything can't say where problems "
+                                  "cost more, and L3 allows no major findings in it",
+                                  "ask the project's owner to keep hot zones to the code where a bug costs more (money, access, "
+                                  "important data) in project.toml [[zones]]"))
         else:
             out.append(_check("code repo", "fail", f"not found: {repo}", "pass the code checkout (or a zip of it) with --repo"))
 
@@ -4336,7 +4422,7 @@ def scoring_fingerprint() -> str:
     rub = parse_rubric()
     body = {"scoring_version": load_toml(DEFAULTS_PATH).get("suite_version"),
             "benchmarks": [{k: b.get(k) for k in ("id", "measures", "not_this", "assess", "anchors", "caps")} for b in rub["benchmarks"]],
-            "limits": [CRITICAL_MAX, NO_STRENGTH_MAX, NO_ENFORCEMENT_MAX, sorted(AUTO_CAPS)]}
+            "limits": [CRITICAL_MAX, NO_STRENGTH_MAX, NO_ENFORCEMENT_MAX, sorted(AUTO_CAPS), list(CAP_SEVERITIES)]}
     return hashlib.sha256(json.dumps(body, sort_keys=True, ensure_ascii=False).encode()).hexdigest()[:16]
 
 
@@ -5125,6 +5211,12 @@ def provenance_line(run: dict) -> str:
     return "*" + " · ".join(parts) + "*"
 
 
+def blocker_text(x: dict) -> str:
+    """One maturity blocker for people: what it requires, and which benchmark or findings are short of it."""
+    who = x.get("benchmark_id") or ", ".join(x.get("finding_ids") or [])
+    return f"{x['requirement']} ({who + ' ' if who else ''}now {dash(x.get('current'))})"
+
+
 def render_report_md(report: dict, cfg: dict, catalog: dict | None = None) -> str:
     catalog = catalog or load_catalog()
     report = public_view(report, cfg)
@@ -5157,7 +5249,7 @@ def render_report_md(report: dict, cfg: dict, catalog: dict | None = None) -> st
     if mat.get("level_before_integrity_cap"):
         out += [f"Maturity is capped at {mat['current_level']} by an integrity flag (it would be {mat['level_before_integrity_cap']}).", ""]
     if mat.get("next_level"):
-        blockers = "; ".join(f"{x['requirement']} (now {dash(x.get('current'))})" for x in mat.get("blockers", []))
+        blockers = "; ".join(blocker_text(x) for x in mat.get("blockers", []))
         out += [f"Blocking {mat['next_level']}: {blockers or 'nothing'}", ""]
 
     out += ["## Scorecard", "", "Gates are marked ★. Weight is the weight used, after applicability.", "",
@@ -5203,11 +5295,13 @@ def render_report_md(report: dict, cfg: dict, catalog: dict | None = None) -> st
 
     out += ["## Findings", ""]
     if findings:
-        out += ["| ID | Severity → effective | Zone | Status | Title |", "|---|---|---|---|---|"]
+        shifted = "severity_shift" in cfg["zones"]   # 4.x rules: the zone shifted severity, so show both
+        out += ["| ID | Severity → effective | Zone | Status | Title |" if shifted else "| ID | Severity | Zone | Status | Title |",
+                "|---|---|---|---|---|"]
         for f in findings:
             z = fz.get(f.get("id"), {})
-            out.append(f"| {f.get('id')} | {f.get('severity')} → {z.get('effective_severity', f.get('severity'))} | "
-                       f"{z.get('criticality', '')} | {f.get('status')} | {md_cell(f.get('title'))} |")
+            sev = f"{f.get('severity')} → {z.get('effective_severity', f.get('severity'))}" if shifted else str(f.get("severity"))
+            out.append(f"| {f.get('id')} | {sev} | {z.get('criticality', '')} | {f.get('status')} | {md_cell(f.get('title'))} |")
         for status, label in (("fixed", "Fixed since the last report"), ("regressed", "Regressed (fixed before, back again)")):
             ids = [f["id"] for f in findings if f.get("status") == status]
             if ids:
@@ -5299,7 +5393,7 @@ def render_report_pr(report: dict, cfg: dict, site: str | None = None, grading_r
         body += ["", report["summary"].strip()]
     body += ["", "**Gates**", ""]
     body += [f"- {g['benchmark_id']}: {dash(g['score'])} — {g['status']}" for g in roll["gates"]]
-    blockers = "; ".join(f"{x['requirement']} (now {dash(x.get('current'))})" for x in mat.get("blockers", []))
+    blockers = "; ".join(blocker_text(x) for x in mat.get("blockers", []))
     if mat.get("next_level"):
         body += ["", f"Blocking {mat['next_level']}: {blockers or 'nothing'}"]
     body += ["", "**Decisions needed**", ""] + decisions_block(roll)
@@ -6125,7 +6219,7 @@ def parse_rubric(catalog: dict | None = None) -> dict:
 
 
 def rubric_text(b: dict, pillar: dict) -> str:
-    out = [f"{b['id']}. {b['name']}" + (f" (only for {b['applies_when']})" if b.get("applies_when") else "")
+    out = [f"{b['id']}. {b['name']}" + (f" ({b['applies_when']})" if str(b.get("applies_when", "")).startswith("graded") else f" (only for {b['applies_when']})" if b.get("applies_when") else "")
            + f"  [pillar {b['pillar']}: {pillar['name']}]"]
     for key, label in (("measures", "Measures"), ("not_this", "Not this"), ("assess", "Assess")):
         if b.get(key):
@@ -6357,7 +6451,7 @@ def _web_cfg(p: dict, report: dict | None = None) -> tuple[dict, str]:
     decisions = p.get("decisions") if isinstance(p.get("decisions"), list) else parse_list_text(p.get("decisions_json"), "decisions", "decisions.json")
     dispositions = p.get("dispositions") if isinstance(p.get("dispositions"), list) else parse_list_text(p.get("dispositions_json"), "dispositions", "dispositions.json")
     cfg = resolve_layers(layers, component=comp, preset_fallback=fallback, component_required=False,
-                         decisions=decisions, dispositions=dispositions)
+                         decisions=decisions, dispositions=dispositions, scoring=scoring_version_of(report) if report else None)
     source = " + ".join(n for n, _ in layers) if layers else f"suite defaults (preset '{cfg['preset']}' from the report)"
     return cfg, source
 
@@ -6717,7 +6811,8 @@ def build_parser() -> argparse.ArgumentParser:
         q.add_argument("--cite", action="append", metavar="FILE:LINES", help=cite_help)
         q.add_argument("--repo", metavar="DIR_OR_ZIP", help="the code checkout (or a zip of it) that --cite reads")
         q.add_argument("--command", metavar="CMD", help="evidence from a command you ran…")
-        q.add_argument("--excerpt", metavar="TEXT", help="…and the relevant part of its output ('@file' or '-' for stdin)")
+        q.add_argument("--excerpt", metavar="TEXT", help="…and the relevant part of its output, copied ('@file' or '-' for stdin)")
+        q.add_argument("--no-output", action="store_true", help="…or: it printed nothing (say what happened in --note)")
         q.add_argument("--absence", metavar="WHAT", help="evidence that something is missing: what you looked for…")
         q.add_argument("--method", metavar="HOW", help="…and how you searched")
         q.add_argument("--note", help="note on each evidence item added by this command")
@@ -6825,12 +6920,13 @@ def build_parser() -> argparse.ArgumentParser:
 
     q = rsub.add_parser("show", help="list a report's strengths, enforcement, findings and actions, numbered for update and remove")
     q.add_argument("report", help="the report JSON")
-    q.add_argument("what", nargs="?", metavar="ID|features|gaps", help="one benchmark, the features or the gaps (default: every benchmark with records)")
+    q.add_argument("what", nargs="?", metavar="ID|features|gaps|metrics|commands",
+                   help="one benchmark, or the features, gaps, metrics or commands (default: every benchmark with records)")
     q.set_defaults(fn=cmd_report_show)
 
     q = rsub.add_parser("update", help="change a strength, enforcement item, action or gap (findings: `report finding update`)")
     report_arg(q)
-    q.add_argument("ref", metavar="REF", help=EDIT_REF_HELP.replace(", or, for remove, a finding ID", ""))
+    q.add_argument("ref", metavar="REF", help=EDIT_REF_HELP.replace(", command/N, feature/N, or, for remove, a finding ID", ""))
     q.add_argument("--text", help="strength or enforcement: the new text")
     evidence_args(q)
     q.add_argument("--replace-evidence", action="store_true", help="strength or enforcement: replace its evidence instead of adding to it")
@@ -6886,6 +6982,8 @@ def build_parser() -> argparse.ArgumentParser:
                    help="exactly what you ran, so others (and `guard snapshot --from-report`) can run it again; notes go in --summary")
     q.add_argument("--exit-code", type=int)
     q.add_argument("--summary", required=True)
+    q.add_argument("--workdir", metavar="DIR", help="where it ran, if not the code checkout (e.g. 'a copy of CODE')")
+    q.add_argument("--env", metavar="TEXT", help="what it ran with, e.g. 'Python 3.13 venv with requirements-dev.txt'")
     q.set_defaults(fn=cmd_report_ran)
 
     q = rsub.add_parser("set", help=f"set a field: {', '.join(SETTABLE)} (dotted keys, e.g. metrics.line_coverage_pct)")

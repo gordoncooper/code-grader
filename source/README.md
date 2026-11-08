@@ -57,13 +57,13 @@ Repeat from step 1. Optionally, use three graders for milestone audits; the Revi
 2. **Graders run sandboxed.** They run the repo's own scripts, so give them a disposable environment with no production credentials.
 3. **People own the project files** (`project.toml`, `decisions.json`, `dispositions.json`). Graders only add report folders, by PR; they never push to the grading repo's default branch. An agent reviewer may append decisions only if `[review] allow_agent_decisions = true`.
 4. **Keep security details out of public reports.** A grading repo is treated as public. Graders mark findings that would help an attacker as sensitive, and `gradekit redact --in-place` withholds their details from the committed report without changing any score. The full report, `report.private.json`, is never committed. Set `[publishing] public = false` if only trusted people can read the grading repo ([TUNING.md](TUNING.md)).
-5. **Trust `gradekit`'s numbers.** Weights, gates, effective severities, pillar scores, the overall score, targets, maturity and priorities always come from `gradekit`, never from the grader's own arithmetic.
+5. **Trust `gradekit`'s numbers.** Weights, gates, pillar scores, the overall score, targets, maturity and priorities always come from `gradekit`, never from the grader's own arithmetic.
 
 ## Key concepts
 
 - **Weights.** Each benchmark counts 1 (minor) to 3 (critical). Weights start from base values and move with the project's answers to eight questions, e.g. "handles money" raises Security, Idempotence and Durability.
 - **Gates.** Correctness and Security always, plus whatever the answers add. A gate at or below 3 caps the overall score at 4.0: an average can't make up for a security hole.
-- **Zones.** Hot code (money, auth, data writes) counts more than cold code (scripts, examples). Findings are one severity higher in hot zones and one lower in cold, and hot-zone work is ranked first.
+- **Zones.** Hot code (money, auth, data writes) is held to a higher bar than cold code (scripts, examples): graders read it in full, its fixes rank first, and production-ready (L3) allows no major finding in it. Zones don't change a finding's severity; graders judge that by its consequence where the code runs.
 - **Applicability.** Every benchmark is classified `full`, `limited` (counts at weight 1) or `not_applicable` (excluded), each with a reason. The decision is based on the project's purpose, never on current quality.
 - **Limits.** Each benchmark's score is held to a limit that `gradekit` computes: a rubric cap such as "Quickstart fails → max 4 (`E1-cap-1`)" (put on the finding that triggers it, so it lifts when that's fixed), an open critical finding (max 5), no strengths (max 8), no enforcement (max 9). A score above its limit is refused.
 - **Targets.** `proportional` (default: 10 / 9 / 8 by weight), `maximal` or `level:L3`, plus per-benchmark overrides. Improvers stop at the target.

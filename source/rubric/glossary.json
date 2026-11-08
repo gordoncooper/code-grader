@@ -94,15 +94,15 @@
         },
         {
           "term": "severity",
-          "definition": "How bad a finding is: critical, major or minor, as the grader judged it."
+          "definition": "How bad a finding is, by what happens when it bites, where the code runs: critical (serious harm with no reasonable workaround: data lost, money or access wrong, secrets exposed, the core feature down), major (a real defect with a workaround or a limited reach) or minor (little happens)."
         },
         {
           "term": "effective severity",
-          "definition": "A finding's severity after its zone: one level higher in a hot zone, one lower in a cold zone (never lower for security findings). It decides priorities."
+          "definition": "Under the scoring rules before 5.0, a finding's severity after its zone: one level higher in a hot zone, one lower in a cold one. Since 5.0 the grader judges severity where the code runs, so it's the same as the severity."
         },
         {
           "term": "zone",
-          "definition": "A part of the code marked hot (problems there count more: money, access, important data), normal, or cold (count less: scripts, examples). The first matching zone wins.",
+          "definition": "A part of the code marked hot (problems there cost more: money, access, important data), normal, or cold (cost less: scripts, examples). Hot zones are read in full, ranked first, and held to a higher bar for maturity. The first matching zone wins.",
           "avoid": [
             "critical code",
             "criticality zone",

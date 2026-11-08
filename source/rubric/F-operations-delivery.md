@@ -38,7 +38,7 @@
 
 ## F3. Observability & Debuggability
 - **Measures:** You can tell what the system is doing and diagnose problems without attaching a debugger. Structured, leveled logs; correlation or request IDs; metrics; tracing where relevant; health endpoints; actionable error output; and no secrets or PII in telemetry. For a CLI: clear errors, verbose and debug modes, meaningful exit codes.
-- **Assess:** Pick a realistic failure in a core flow. Would the logs and metrics be enough to diagnose it?
+- **Assess:** Pick a realistic failure in a core flow. Would the logs and metrics be enough to diagnose it? For a library, which has no telemetry of its own, F3 is `limited`: grade its error messages and exceptions, and whether it logs through the host's logging, with levels.
 - **Anchors:**
   - **1–3:** Failures are opaque.
   - **4–6:** Some logging; inconsistent.

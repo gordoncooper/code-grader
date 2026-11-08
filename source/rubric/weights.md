@@ -139,8 +139,8 @@ A weighted average lets strengths make up for weaknesses: great docs could "pay 
 
 The project config maps paths to zones: **hot** (money, auth, data writes), **normal**, or **cold** (scripts, examples, internal tooling). A file takes the first zone whose pattern matches; a finding takes the hottest zone among the files it cites.
 
-- **Effective severity.** Graders record each finding's *intrinsic* severity. `gradekit` shifts it by zone: one level up in hot zones, one level down in cold zones. Security findings are never downgraded.
-- **Maturity.** Levels limit open findings by effective severity and zone. For example, L2 allows no critical findings in hot zones.
+- **Severity.** Zones don't change it. Graders judge each finding's severity by its consequence where the code runs, so a wrong result in payment code is worse than the same mistake in a script, and a style nit is minor anywhere. (Before scoring 5.0, `gradekit` shifted severity by zone instead.)
+- **Maturity.** Hot zones are held to a higher bar: L2 allows no critical findings in them, and L3 no major ones.
 - **Priorities.** Work in hot zones is ranked higher (×2 by default; cold ×0.5).
 - **Grading.** Graders read hot zones in full and weigh them most when scoring.
 
@@ -162,12 +162,12 @@ A `limited` benchmark never targets above 8. Per-benchmark overrides beat the mo
 
 ## 6. Maturity ladder
 
-| Level | Name | Requirements (all must hold; findings counted at effective severity) |
+| Level | Name | Requirements (all must hold) |
 |---|---|---|
 | L0 | Not viable | Any gate at or below the hard floor, or L1 not met |
 | L1 | Prototype | overall ≥ 5.0; every gate ≥ 4 |
 | L2 | Usable / Beta | overall ≥ 6.5; every gate ≥ 6; no benchmark < 4; no critical gaps; no open critical findings in hot zones |
-| L3 | Production-ready | overall ≥ 8.0; every gate ≥ 8; no benchmark < 6; no critical gaps; no major must-have gaps; no open critical findings; hidden-check pass rate ≥ 80% (if run) |
+| L3 | Production-ready | overall ≥ 8.0; every gate ≥ 8; no benchmark < 6; no critical gaps; no major must-have gaps; no open critical findings; no open major findings in hot zones; hidden-check pass rate ≥ 80% (if run) |
 | L4 | Exemplary | overall ≥ 9.3; every gate ≥ 9; no benchmark < 8; no critical gaps; no major must-have gaps; no open critical findings; no open major findings; every 10 backed by enforcement; hidden-check pass rate ≥ 95% (if run) |
 
 Any **integrity flag** (an attempt to influence the grader) caps maturity at L1 for that run.
@@ -178,7 +178,7 @@ Any **integrity flag** (an attempt to influence the grader) caps maturity at L1 
 
 | Tier | Contains |
 |---|---|
-| 0 | Fixes a failed gate, or an effective-critical finding in a hot zone |
+| 0 | Fixes a failed gate, or a critical finding in a hot zone |
 | 1 | Unblocks the next maturity level |
 | 2 | Everything else below target |
 | 3 | Optional (benchmark already at target) |

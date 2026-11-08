@@ -23,7 +23,7 @@ You re-grade only what one pull request (or one `BASE_COMMIT..HEAD_COMMIT` chang
 7. **The verdict:** `$K diff BASELINE /tmp/pr-report.json --project-dir PROJECT_DIR --fail-on-regression`. Exit code 2 means **FAIL**. It fails on:
    - a dropped score;
    - a newly failed gate;
-   - a `new` effective-critical or effective-major finding;
+   - a `new` critical or major finding;
    - any `regressed` finding;
    - a gaming or integrity flag;
    - a lower maturity level.

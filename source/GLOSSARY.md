@@ -40,11 +40,11 @@ Generated from `rubric/glossary.json` by `gradekit glossary --markdown`. Edit th
 
 **withdrawn finding**: A finding a grader agreed was wrong after a dispute. It stays in the report for the record, but counts nowhere.
 
-**severity**: How bad a finding is: critical, major or minor, as the grader judged it.
+**severity**: How bad a finding is, by what happens when it bites, where the code runs: critical (serious harm with no reasonable workaround: data lost, money or access wrong, secrets exposed, the core feature down), major (a real defect with a workaround or a limited reach) or minor (little happens).
 
-**effective severity**: A finding's severity after its zone: one level higher in a hot zone, one lower in a cold zone (never lower for security findings). It decides priorities.
+**effective severity**: Under the scoring rules before 5.0, a finding's severity after its zone: one level higher in a hot zone, one lower in a cold one. Since 5.0 the grader judges severity where the code runs, so it's the same as the severity.
 
-**zone**: A part of the code marked hot (problems there count more: money, access, important data), normal, or cold (count less: scripts, examples). The first matching zone wins. *Not:* critical code, criticality zone, hot path.
+**zone**: A part of the code marked hot (problems there cost more: money, access, important data), normal, or cold (cost less: scripts, examples). Hot zones are read in full, ranked first, and held to a higher bar for maturity. The first matching zone wins. *Not:* critical code, criticality zone, hot path.
 
 **evidence**: What a claim rests on: a code citation (file, lines and exact quote), a command and its output, or an absence (what was searched for and how).
 

@@ -16,7 +16,7 @@ An early baseline: a committed API key, almost no tests and a thin README.
 | A4 Idempotence & Determinism | 5 | passed (data_sensitivity=financial) |
 | A5 Durability & Recoverability | 4 | passed (data_sensitivity=financial) |
 
-Blocking L1: gate above 3 (now 3); overall ≥ 5.0 (now 4.0); gate ≥ 4 (now 3)
+Blocking L1: gate above 3 (A2 now 3); overall ≥ 5.0 (now 4.0); gate ≥ 4 (A2 now 3)
 
 ## Scorecard
 

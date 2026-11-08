@@ -9,15 +9,15 @@ Versioning rules for the suite itself:
 After any major or minor change, re-run calibration (`calibration/README.md`) before trusting new scores.
 
 ## 5.0.0 (unreleased)
-Major release, in progress: a beta for agents first, then the pages for people. The 35 benchmarks, their anchors and the scoring version (4.2.0) don't change, so config fingerprints stay the same and scores stay comparable with 4.x.
+Major release, in progress: a beta for agents first, then the pages for people. The 35 benchmarks and their anchors don't change. Severity does: graders now judge it by consequence where the code runs, and zones no longer shift it. That is a new scoring version (5.0.0), so config fingerprints change and score changes against a 4.x report aren't regressions. A 4.x report still validates and recomputes under the rules it was graded with.
 
 **Versions and pins**
 - **Three versions, each with its own job:**
   - the **kit version** (5.0.0): prompts, tools and report format;
-  - the **scoring version** (still 4.2.0): the rules that move scores;
+  - the **scoring version** (5.0.0, up from 4.2.0): the rules that move scores;
   - each report's `suite_version`: the kit that wrote it.
 
-  New reports also record their scoring version (`config.scoring_version`). `gradekit diff` compares reports for regressions whenever their scoring majors match, so a PR check of a 5.0 report against a 4.x baseline still fails on a dropped score.
+  New reports also record their scoring version (`config.scoring_version`). `gradekit diff` compares reports for regressions whenever their scoring majors match. Across majors it lists the changes as notes, so a project's first 5.0 grade should be a full one.
 - **5.x reads 4.x reports unchanged.** `validate`, `rollup`, `diff`, the index and the Review page accept reports from 4.x and 5.x. Reports from older majors are refused, with a note to re-grade.
 - **Projects pin their major:** `suite = "5"` under `[project]` in `project.toml`.
   - `init` and the Set up page write the pin for new projects. A project loaded into the Set up page keeps its own pin, or none.
@@ -59,7 +59,7 @@ Major release, in progress: a beta for agents first, then the pages for people. 
 - **`gradekit calibration run`** scores every run against its golden's expected scores and measures the spread across runs. It writes `calibration/results.json` and publishes `calibration/RESULTS.md`. A golden repo passes with at least 3 runs, all passing, and no benchmark spreading more than allowed.
 - **No scoring change ships unmeasured:** the results carry a fingerprint of the scoring rules (the scoring version, the rubric, the caps and the limits). The kit's tests fail when the rules change without the results being regenerated.
 - **Only runs under the current rules count:** `add-run` records the rules' fingerprint with each run. After a rule change, `calibration run` lists the older runs as earlier runs, and they don't count toward a pass or the spread.
-- **The first golden repo is dbader/schedule at 82a43db,** with expected scores from the 4.3 release gate's grade. Two independent 5.0 runs both came to 6.8 (L1) and disagreed with it on two benchmarks. A1 changes from 8 to 5: an open critical finding (a zero interval hangs the scheduler) holds it at 5 under the enforced limits. E2 changes from 5 to 7: both runs found only minor documentation problems. The runs also split on whether A5 applies to a library that stores nothing, so A5's Assess line now says: `not_applicable` when nothing must outlive the process, and `limited` when a little does. That wording change makes the first three runs earlier runs. Three fresh runs on the clarified rubric (6.7, 6.9 and 6.7, all L1) each fall within tolerance. Calibration doesn't pass yet for two reasons. One run marks X3 not applicable. E2 spreads by 2 because one run filed the broken contributor setup under E2, where its cap applies, while the other two used E3. Both point at wording to clarify.
+- **The first golden repo is dbader/schedule at 82a43db,** with expected scores from the 4.3 release gate's grade. Two independent 5.0 runs both came to 6.8 (L1) and disagreed with it on two benchmarks. A1 changes from 8 to 5: an open critical finding (a zero interval hangs the scheduler) holds it at 5 under the enforced limits. E2 changes from 5 to 7: both runs found only minor documentation problems. The runs also split on whether A5 applies to a library that stores nothing, so A5's Assess line now says: `not_applicable` when nothing must outlive the process, and `limited` when a little does. That wording change makes the first three runs earlier runs. Three fresh runs on the clarified rubric (6.7, 6.9 and 6.7, all L1) each fall within tolerance. Calibration doesn't pass yet for two reasons. One run marks X3 not applicable. E2 spreads by 2 because one run filed the broken contributor setup under E2, where its cap applies, while the other two used E3. Both point at wording to clarify. On scoring 5.0, three more runs all gave A1 7, matching the key that was set before they ran, and all reached L2 (6.6–6.9). Two passed. E2 spread again because a minor finding held its cap, and caps now need a major finding.
 
 **Operating cards, and the rubric one benchmark at a time**
 - **Each role has a one-page card** in `prompts/cards/` (grader, pr-check, improver, reviewer): the run as `gradekit` commands, what the tools enforce for you, and the rules only an agent can follow. `AGENT.md` and **Start a run** now send agents to their card. The full prompts stay as the reference for details, and for working without Python.
@@ -86,7 +86,20 @@ Major release, in progress: a beta for agents first, then the pages for people. 
 - **A finding can carry the cap it triggers:** `report finding add … --cap E1-cap-1` (or `finding update --cap`). The cap holds while that finding is open, and lifts when it's fixed or accepted. A cap with no single finding behind it goes on the benchmark (`report score … --cap E1-cap-1`). D2's "any critical gap" applies by itself.
 - **Every benchmark gets a computed limit:** the lowest of its caps, max 5 with an open effective-critical finding, max 8 without strengths and max 9 without enforcement. `rollup.limits` lists every benchmark held below 10, and why.
 - **Format-5 reports are held to their limits.** `report score` refuses a score above one and says why, and `validate` (with `report check` and `gradekit ci`) fails it. `report.md` shows each benchmark's limit. 4.x reports, and reports migrated from 4.x, keep warnings, as before.
-- The scoring rules don't change; they're enforced now. The scoring version stays 4.2.0.
+- The limits themselves didn't change; they're enforced now.
+
+**Severity is consequence; zones raise the bar (scoring 5.0.0)**
+- **Severity has a definition now.** Graders judge `critical`, `major` and `minor` by what happens when a problem bites, where the code runs. `prompts/grader.md` Part 4 gives each a definition and examples, and the grader card gives the short form.
+  - `critical`: serious harm with no reasonable workaround.
+  - `major`: a real defect with a workaround or a limited reach.
+  - `minor`: little happens.
+  - Style and naming are minor anywhere.
+- **Zones no longer shift severity.** Before, a grader judged a finding "as if the code were normal", and the tool moved it a level up in hot zones and down in cold ones. One major-or-minor call then moved a score by 2–3 points (an open critical finding holds a benchmark at 5), and when a zone covered most of the code it moved every benchmark. Now the grader judges consequence in place. A wrong total in payment code is critical on its own merits, and a style nit there stays minor.
+- **Hot zones raise the bar instead:** L2 still allows no critical findings in them, and **L3 now also allows no major findings in them**. Hot-zone work still ranks first, and graders still read hot zones in full.
+- **The scoring version is 5.0.0,** so config fingerprints change. A 4.x report is resolved with the 4.x rules, which ship as `config/scoring/4.2.0.toml`, so it validates and recomputes exactly as it was graded. Its `report.md` still shows severity → effective.
+- **A rubric cap needs a finding that's major or worse.** A minor problem no longer puts a hard limit on a score. Before, a wrong install line for a secondary channel held E2 at 5 for two graders. `finding add --cap` refuses a minor finding, and `validate` warns when a capped finding is later lowered to minor.
+- A project that still sets `zone_settings.severity_shift` or `never_downgrade` gets a warning; the settings no longer apply. `doctor`'s hot-zone warning now says why a zone covering everything is a problem: it can't say where problems cost more, and L3 allows no major findings in it.
+- The glossary, `rubric/weights.md`, the PR-check prompt and card, and report.md (one Severity column) follow suit.
 
 **Moving a project to 5.x with `gradekit migrate`**
 - `gradekit migrate --project NAME` sets the pin (`suite = "5"`), changing only that line of `project.toml`. With `--reports`, it also upgrades the project's 4.x reports to format 5:
@@ -123,6 +136,31 @@ Major release, in progress: a beta for agents first, then the pages for people. 
   - `doctor` warns when hot zones cover most of the code (over half its lines, tests left out), where every major-or-minor call moves scores by 2–3 points;
   - `--out` creates its folder, and a stray argument is reported with the command's own usage.
 - **The grader card** adds the time for `--started`, the delivery you were asked for (not always `pr`), `--run N/COUNT`, running tools in a copy so CODE stays clean, the 1–3 line quote and copied command excerpts, the correcting commands, and never lowering a severity to get under a limit.
+- **From the second round of grader runs:**
+  - `cite` prints the line it quoted, so a cite of the wrong line is caught at once. It also says when it trimmed blank lines. When a quote is too long, it suggests a 3-line range; when a line is blank, it points to the nearest line with text.
+  - Command evidence takes `--no-output` for a command that printed nothing.
+  - `report ran` takes `--workdir` and `--env`, so a command run in a copy of the code can be run again.
+  - `report show` lists metrics and commands too.
+  - `report set metrics.X` refuses anything but a number, true/false or null.
+  - `report update --not-optional` says "no longer optional".
+  - `redact` on a report that's already redacted and withholds nothing does nothing, instead of failing.
+  - `validate` warns when an action resolves another benchmark's finding, which would count its fix twice in the ranking.
+  - The grader card takes the scratch folder (`SCRATCH`) and the delivery (`DELIVERY`) as values, instead of `/tmp` and `pr`, and shows `deliver` for `save`.
+  - The metrics table says which linter counts, how to count unrated advisories, and that `setup_second_run_passes` is `null` without setup scripts.
+  - `doctor`'s pin warning says the project's owner should add the pin.
+  - The X6 heading prints correctly.
+  - From the third round:
+    - `report remove command/N` removes a wrongly recorded command.
+    - `report set` refuses to turn a list (such as `limitations`) into text, and takes `@file` (for example, all the metrics at once).
+    - `report score` notes when a score needs a strength or enforcement it doesn't have yet.
+    - Maturity blockers name their benchmark in `report.md`.
+    - The card exports `TMPDIR=SCRATCH`, so `doctor` checks the scratch folder.
+    - The card says everything in a first report is `new`.
+- **Rubric wording, from where graders split:**
+  - X3 is `limited` for code that's often called from threads or async code even though it isn't concurrent itself.
+  - A broken contributor setup is E3, even when the fault is in its docs. `E2-cap-1` is for instructions users follow.
+  - A quickstart that needs something the documented install doesn't provide fails as written (`E1-cap-1`).
+  - F3 is `limited` for a library, which has no telemetry of its own.
 - **One version on every label:** the prompts, rubric and README say v5.0.0, and a test keeps them in step with the kit. A new `project.toml` says which kit created it, so an older one doesn't read as a mismatch.
 
 **One component system for the pages (U1)**
