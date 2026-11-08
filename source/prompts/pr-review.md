@@ -67,7 +67,14 @@ The PR **fails** if any of these hold:
 Otherwise it **passes**. A pass with no score gains is normal; most changes should simply not make anything worse.
 
 ## Step 4: PR comment (`pr-comment.md`)
-Keep it short:
+Make it from the two reports rather than writing it; it withholds sensitive findings:
+
+```
+python3 SUITE_DIR/tools/gradekit.py render check PROJECT_DIR/reports/<newest>/report.json /tmp/pr-report.json \
+    --project-dir PROJECT_DIR --out pr-comment.md
+```
+
+Without Python, keep it short and in this shape:
 
 ```
 **Quality check: PASS | FAIL**

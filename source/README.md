@@ -86,6 +86,10 @@ $K presets                                                       # compare prese
 $K report new --project orders-api --commit SHA                   # graders: start a report (weights and targets filled in)
 $K report finding add REPORT --benchmark A3 --cite src/x.py:40 --repo CODE …   # quotes copied from the code; see `report --help`
 $K report check REPORT --repo CODE [--write]                     # what's missing or wrong; --write stores the rollup
+$K render report REPORT                                          # report.md from report.json
+$K render pr REPORT [--json]                                     # the grading pull request's branch, title and body
+$K render check BASELINE PR_REPORT                               # the PR-check comment
+$K render log improve-log.json --report REPORT                   # the improver's log
 $K validate --project orders-api [--publish]                     # schema, config and rule checks (latest report); --publish: safe to commit?
 $K verify-evidence --project orders-api --repo CODE_DIR_OR_ZIP   # every quoted line exists
 $K rollup   --project orders-api [--write]                       # gates, maturity, targets, ranked priorities

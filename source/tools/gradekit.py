@@ -25,6 +25,7 @@ Writing a report (graders):
   report score     Score a benchmark, or mark it limited / not applicable.
   report strength | enforcement | action | gap | feature | flag | ran | set
   report check     List what's missing or wrong; --write stores the rollup when it's complete.
+  render           Markdown from data: report.md, the PR title and body, the PR-check comment, the improvement log.
 
 Projects: in a grading repo, pass --project NAME (folder projects/NAME/) and commands find the
 project's settings, decisions, accepted findings and latest report themselves; `diff` compares
@@ -2264,6 +2265,8 @@ def cmd_report_score(args) -> int:
             die(f"{b['id']} needs --score and --confidence")
     if args.why is not None:
         b["change_explanation"] = args.why or None
+    if args.rationale is not None:
+        b["rationale"] = args.rationale or None
     if args.weight_note is not None:
         b["weight_note"] = args.weight_note or None
     for key, vals in (("caps_applied", args.cap), ("gaming_flags", args.gaming_flag)):
@@ -2354,7 +2357,7 @@ def cmd_report_ran(args) -> int:
     return 0
 
 
-SETTABLE = ("scope_examined", "project_context_inferred", "metrics", "metrics_notes", "limitations", "holdout",
+SETTABLE = ("summary", "scope_examined", "project_context_inferred", "metrics", "metrics_notes", "limitations", "holdout",
             "top_priorities", "run")
 
 
@@ -2435,6 +2438,365 @@ def cmd_report_check(args) -> int:
     lines.append(f"\n{status}: {len(errors)} error(s), {len(result['warnings'])} warning(s), {len(todo)} to do")
     emit(args, result, "\n".join(lines))
     return 1 if errors else EXIT_INCOMPLETE if todo else 0
+
+
+
+# =========================================================================== render
+# Markdown made from report data, so every report, pull request, PR check and improvement log
+# has the same layout and no hand-copied numbers. Public text never carries withheld details.
+
+def md_cell(text) -> str:
+    return str("" if text is None else text).replace("|", "\\|").replace("\n", " ").strip()
+
+
+def dash(v) -> str:
+    if v is None:
+        return "–"
+    if isinstance(v, bool):
+        return "yes" if v else "no"
+    if isinstance(v, float) and v.is_integer() and abs(v) >= 10:
+        return str(int(v))
+    return str(v)
+
+
+def report_label(report: dict) -> tuple[str, str, str]:
+    run = report.get("run") or {}
+    project = run.get("project") or (report.get("component") or {}).get("name") or "project"
+    commit = str(run.get("commit") or "?")[:7]
+    return project, commit, str(run.get("date") or "")[:10]
+
+
+def public_view(report: dict, cfg: dict) -> dict:
+    """The report as it may be shown publicly: sensitive findings withheld unless the repo is private."""
+    if not (cfg.get("publishing") or PUBLISHING_DEFAULTS).get("public") or (report.get("publishing") or {}).get("redacted"):
+        return report
+    public, leaks = redact_report(report)
+    if leaks:
+        die("withheld text still appears elsewhere in the report; fix these first (or run `gradekit redact`):\n  "
+            + "\n  ".join(leaks))
+    return public
+
+
+def rendering_rollup(report: dict, cfg: dict) -> dict:
+    roll = compute_rollup(report, cfg)
+    if roll["weight_issues"]:
+        die("weights don't match the config; run `gradekit report check` first:\n  " + "\n  ".join(roll["weight_issues"]))
+    return roll
+
+
+def evidence_line(ev: dict) -> str:
+    t = ev.get("type")
+    note = f": {ev['note']}" if ev.get("note") else ""
+    if t == "code":
+        return f"`{ev.get('file')}:{ev.get('lines')}`{note}"
+    if t == "command":
+        return f"ran `{ev.get('command')}`{note}"
+    if t == "absence":
+        return f"searched for {ev.get('searched')} ({ev.get('method')}){note}"
+    return "details withheld"
+
+
+def decisions_block(roll: dict) -> list[str]:
+    pending = [p for p in roll["priorities"] if p.get("requires_human_decision") and (p.get("decision") or {}).get("status") == "pending"]
+    if not pending:
+        return ["None."]
+    return [f"- [ ] **{p['action_id']}:** {p.get('decision_question')}" for p in pending]
+
+
+def render_report_md(report: dict, cfg: dict, catalog: dict | None = None) -> str:
+    catalog = catalog or load_catalog()
+    report = public_view(report, cfg)
+    roll = rendering_rollup(report, cfg)
+    project, commit, date = report_label(report)
+    by_id = benchmarks_by_id(report)
+    fz = roll["finding_zones"]
+    gates = {g["benchmark_id"]: g for g in roll["gates"]}
+    mat = roll["maturity"]
+    findings = report.get("findings", [])
+    out = [f"# Grading report: {project} @ {commit} ({date})", ""]
+    if report.get("mode") == "pr":
+        out += [f"*Pull-request check against base `{str((report.get('run') or {}).get('base_commit') or '?')[:7]}`. "
+                f"Untouched benchmarks are carried forward from the last full report.*", ""]
+
+    out += ["## Summary", "", f"Overall **{dash(roll['overall_score'])}**"
+            + (" (capped by a failed gate)" if roll["overall_cap_applied"] else "")
+            + f", maturity **{mat['current_level']}**" + (f" (next: {mat['next_level']})" if mat.get("next_level") else "") + "."]
+    if str(report.get("summary") or "").strip():
+        out += ["", report["summary"].strip()]
+    out.append("")
+
+    out += ["## Gates and maturity", "", "| Gate | Score | Status |", "|---|:-:|---|"]
+    for g in roll["gates"]:
+        b = by_id.get(g["benchmark_id"], {})
+        out.append(f"| {g['benchmark_id']} {md_cell(b.get('name'))} | {dash(g['score'])} | {g['status']} ({', '.join(g['why'])}) |")
+    out.append("")
+    if mat.get("level_before_integrity_cap"):
+        out += [f"Maturity is capped at {mat['current_level']} by an integrity flag (it would be {mat['level_before_integrity_cap']}).", ""]
+    if mat.get("next_level"):
+        blockers = "; ".join(f"{x['requirement']} (now {dash(x.get('current'))})" for x in mat.get("blockers", []))
+        out += [f"Blocking {mat['next_level']}: {blockers or 'nothing'}", ""]
+
+    out += ["## Scorecard", "", "Gates are marked ★. Weight is the weight used, after applicability.", "",
+            "| ID | Benchmark | Score | Target | Weight | Confidence | Applicability | Notes |", "|---|---|:-:|:-:|:-:|---|---|---|"]
+    for pillar in PILLARS:
+        rows = [b for b in report["benchmarks"] if b.get("pillar") == pillar]
+        if not rows:
+            continue
+        for b in rows:
+            why = b.get("rationale") or b.get("change_explanation") or b.get("applicability_reason") or ""
+            out.append(f"| {b['id']}{' ★' if b['id'] in gates else ''} | {md_cell(b.get('name'))} | {dash(b.get('score'))} | "
+                       f"{dash(roll['targets'].get(b['id']))} | {b.get('weight')} | {dash(b.get('confidence'))} | "
+                       f"{b.get('applicability')} | {md_cell(why)} |")
+        pname = catalog.get("pillars", {}).get(pillar, {})
+        pname = pname.get("name") if isinstance(pname, dict) else pname
+        out.append(f"| | **{pillar}{(' ' + md_cell(pname)) if pname else ''}** | **{dash(roll['pillar_scores'].get(pillar))}** | | | | | |")
+    out += [f"| | **Overall** | **{dash(roll['overall_score'])}** | | | | | |", ""]
+
+    app = roll.get("applicability", {})
+    notes = [f"- **{bid}** limited: {by_id[bid].get('applicability_reason')}" for bid in app.get("limited", [])]
+    notes += [f"- **{bid}** not applicable: {by_id[bid].get('applicability_reason')}" for bid in app.get("not_applicable", [])]
+    notes += [f"- **{bid}** weight note: {n}" for bid, n in (app.get("weight_notes") or {}).items()]
+    out += ["## Applicability and weight notes", ""] + (notes or ["Every benchmark fully applies, and no weight looked wrong."]) + [""]
+
+    top = roll["priorities"][:10]
+    out += ["## Top priorities", ""]
+    for i, p in enumerate(top, 1):
+        dec = p.get("decision") or {}
+        tag = ""
+        if p.get("requires_human_decision"):
+            tag = f" — **decision {dec.get('status', 'pending')}:** {p.get('decision_question')}"
+        out.append(f"{i}. **{p['action_id']}** (tier {p['tier']}, {p['zone']} zone, +{p['gain']}, effort {p['effort']}): {p.get('action')}{tag}")
+    out += (["No actions."] if not top else []) + [""]
+
+    out += ["## Decisions needed", ""] + decisions_block(roll)
+    out += ["", "Answer in `decisions.json` (the suite website's *Review a report* page writes it for you).", ""]
+
+    metrics = report.get("metrics") or {}
+    if metrics:
+        mn = report.get("metrics_notes") or {}
+        out += ["## Metrics", "", "| Metric | Value | Note |", "|---|---|---|"]
+        out += [f"| {k} | {dash(v)} | {md_cell(mn.get(k))} |" for k, v in metrics.items()] + [""]
+
+    out += ["## Findings", ""]
+    if findings:
+        out += ["| ID | Severity → effective | Zone | Status | Title |", "|---|---|---|---|---|"]
+        for f in findings:
+            z = fz.get(f.get("id"), {})
+            out.append(f"| {f.get('id')} | {f.get('severity')} → {z.get('effective_severity', f.get('severity'))} | "
+                       f"{z.get('criticality', '')} | {f.get('status')} | {md_cell(f.get('title'))} |")
+        for status, label in (("fixed", "Fixed since the last report"), ("regressed", "Regressed (fixed before, back again)")):
+            ids = [f["id"] for f in findings if f.get("status") == status]
+            if ids:
+                out += ["", f"{label}: {', '.join(ids)}."]
+    else:
+        out.append("None.")
+    out.append("")
+
+    feats = report.get("feature_inventory") or []
+    gaps = report.get("gap_register") or []
+    if feats:
+        out += ["## Feature inventory", "", "| Feature | Claimed in | Status |", "|---|---|---|"]
+        out += [f"| {md_cell(x.get('feature'))} | {md_cell(x.get('source'))} | {x.get('status')} |" for x in feats] + [""]
+    if gaps:
+        out += ["## Gap register", "", "| ID | Gap | Severity | Necessity | Status | Benchmarks |", "|---|---|---|---|---|---|"]
+        out += [f"| {g.get('id')} | {md_cell(g.get('gap'))} | {g.get('severity')} | {g.get('necessity')} | {g.get('status')} | "
+                f"{', '.join(g.get('benchmark_ids', []))} |" for g in gaps] + [""]
+
+    out += ["## Benchmark detail", ""]
+    fmap = {f.get("id"): f for f in findings}
+    for b in report["benchmarks"]:
+        if b.get("applicability") == "not_applicable":
+            continue
+        out.append(f"### {b['id']} {b.get('name')}: {dash(b.get('score'))} (target {dash(roll['targets'].get(b['id']))})")
+        out.append("")
+        if b.get("carried_forward"):
+            out += ["Carried forward from the last full report.", ""]
+        for label, text in (("Why", b.get("rationale")), ("Change", b.get("change_explanation"))):
+            if text:
+                out += [f"{label}: {text}", ""]
+        for s in b.get("strengths", []):
+            out.append(f"- Strength: {s.get('note')} ({'; '.join(evidence_line(e) for e in s.get('evidence', []))})")
+        for fid in b.get("finding_ids", []):
+            f = fmap.get(fid, {})
+            evs = [evidence_line(e) for e in f.get("evidence", []) if e.get("type") != "withheld"]
+            out.append(f"- Finding {fid} ({f.get('severity')}, {f.get('status')}): {f.get('title')}" + (f" ({'; '.join(evs)})" if evs else ""))
+        for e in b.get("enforcement", []):
+            out.append(f"- Enforced by: {evidence_line(e)}")
+        for c in b.get("caps_applied", []):
+            out.append(f"- Cap applied: {c}")
+        for a in b.get("path_to_target", []):
+            out.append(f"- Next: **{a['id']}** → {a.get('expected_new_score')} (effort {a.get('effort')}): {a.get('action')}"
+                       + (" *(needs a decision)*" if a.get("requires_human_decision") else ""))
+        out.append("")
+
+    flags = report.get("integrity_flags") or []
+    gaming = [(b["id"], g) for b in report["benchmarks"] for g in b.get("gaming_flags", [])]
+    if flags or gaming:
+        out += ["## Integrity and gaming flags", ""]
+        out += [f"- Integrity: {f.get('description')} ({'; '.join(evidence_line(e) for e in f.get('evidence', []))})" for f in flags]
+        out += [f"- Gaming ({bid}): {g}" for bid, g in gaming] + [""]
+
+    out += ["## Limitations", ""]
+    out += [f"- {x}" for x in report.get("limitations") or []] or ["- None recorded."]
+    h = report.get("holdout") or {}
+    if h.get("run"):
+        out.append(f"- Hidden checks: {h.get('checks_run')} run, {h.get('pass_rate', 0):.0%} passed.")
+    out += ["", f"<sub>Rendered by gradekit from report.json (suite {report.get('suite_version')}, config {roll['config_hash']}).</sub>", ""]
+    return "\n".join(out)
+
+
+def review_link(site: str | None, grading_repo: str | None, project: str, ref: str) -> str | None:
+    if not (site and grading_repo):
+        return None
+    from urllib.parse import quote
+    return f"{site.rstrip('/')}/app/review.html?repo={quote(grading_repo, safe='/:')}&project={quote(project)}&ref={quote(ref, safe='/')}"
+
+
+def render_report_pr(report: dict, cfg: dict, site: str | None = None, grading_repo: str | None = None,
+                     branch: str | None = None, folder: str | None = None) -> dict:
+    report = public_view(report, cfg)
+    roll = rendering_rollup(report, cfg)
+    project, commit, date = report_label(report)
+    folder = folder or f"{date}-{commit}"
+    branch = branch or f"report/{project}/{folder}"
+    mat = roll["maturity"]
+    title = f"Report: {project} {date} — {dash(roll['overall_score'])} ({mat['current_level']})"
+    body = [f"Grading report for **{project}** at `{commit}`: overall **{dash(roll['overall_score'])}**"
+            + (" (capped by a failed gate)" if roll["overall_cap_applied"] else "")
+            + f", maturity **{mat['current_level']}**" + (f" (next: {mat['next_level']})." if mat.get("next_level") else ".")]
+    if str(report.get("summary") or "").strip():
+        body += ["", report["summary"].strip()]
+    body += ["", "**Gates**", ""]
+    body += [f"- {g['benchmark_id']}: {dash(g['score'])} — {g['status']}" for g in roll["gates"]]
+    blockers = "; ".join(f"{x['requirement']} (now {dash(x.get('current'))})" for x in mat.get("blockers", []))
+    if mat.get("next_level"):
+        body += ["", f"Blocking {mat['next_level']}: {blockers or 'nothing'}"]
+    body += ["", "**Decisions needed**", ""] + decisions_block(roll)
+    link = review_link(site, grading_repo, project, branch)
+    if link:
+        body += ["", f"[Review this report and answer the decisions]({link})"]
+    body += ["", f"Files: `projects/{project}/reports/{folder}/` (report.json, report.md)."]
+    return {"title": title, "body": "\n".join(body) + "\n", "branch": branch}
+
+
+def render_check_comment(diff: dict, new: dict, cfg: dict) -> str:
+    """The PR-check comment (pr-review.md step 4). Sensitive findings are always withheld: PR comments are often public."""
+    sens = sensitive_ids(new)
+    names = {b["id"]: b["name"] for b in load_catalog()["benchmarks"]}
+
+    def title(f):
+        return f"{names.get(f['id'].split('-')[0], '')} issue (details withheld)" if f["id"] in sens else f["title"]
+
+    applicable = [b for b in new.get("benchmarks", []) if b.get("applicability") != "not_applicable"]
+    regraded = [b["id"] for b in applicable if not b.get("carried_forward")]
+    fixed_by = {}
+    for f in diff["findings"]["fixed"]:
+        fixed_by.setdefault(f["id"].split("-")[0], []).append(f["id"])
+    changes = [f"{c['id']} {dash(c['old'])} → {dash(c['new'])}" + (f" ({', '.join(fixed_by[c['id']])} fixed)" if c["id"] in fixed_by else "")
+               for c in diff["score_changes"]]
+    fresh = [f for f in diff["findings"]["new"] if not f.get("pre_existing")]
+    pre = [f for f in diff["findings"]["new"] if f.get("pre_existing")]
+    roll = compute_rollup(new, cfg)
+    pending = [p for p in roll["priorities"] if p.get("requires_human_decision") and (p.get("decision") or {}).get("status") == "pending"]
+    lines = [f"**Quality check: {diff['verdict']}**",
+             ("Re-graded: every applicable benchmark (full report)" if len(regraded) == len(applicable) else
+              f"Re-graded: {', '.join(regraded) or 'none'} (others carried forward)"),
+             f"Changes: {' · '.join(changes) or 'none'}",
+             f"Overall: {dash(diff['overall']['old'])} → {dash(diff['overall']['new'])} · Maturity: {diff['maturity']['old']} → {diff['maturity']['new']}",
+             "New findings: " + ("; ".join(f"{f['id']}: {title(f)}, {f['effective_severity']}, {f['zone']} zone" for f in fresh) or "none"),
+             "Regressions: " + ("; ".join(r if not any(i in r for i in sens) else r.split(":")[0] + ": details withheld" for r in diff["regressions"]) or "none")]
+    if pre:
+        lines.append("Already there before this change: " + "; ".join(f"{f['id']}: {title(f)}" for f in pre))
+    if diff.get("holdout"):
+        lines.append(f"Hidden checks: {diff['holdout']['old']:.0%} → {diff['holdout']['new']:.0%}")
+    lines.append("Decisions needed: " + ("; ".join(f"{p['action_id']}: {p.get('decision_question')}" for p in pending) or "none"))
+    lines += [f"Note: {n}" for n in diff["notes"] if not any(i in n for i in sens)]
+    return "\n".join(lines) + "\n"
+
+
+LOG_KEYS = {"done": ("action_id", "commit", "resolves", "check"), "blocked": ("action_id", "question"),
+            "skipped": ("action_id", "reason"), "behavior_changes": None, "new_issues": None}
+
+
+def render_improve_log(log: dict, report: dict | None = None, cfg: dict | None = None) -> str:
+    for key in log:
+        if key not in LOG_KEYS and key != "notes":
+            die(f"improvement log: unknown section '{key}' (known: {', '.join(LOG_KEYS)}, notes)")
+    blocked = list(log.get("blocked") or [])
+    skipped = list(log.get("skipped") or [])
+    if report is not None and cfg is not None:
+        listed = {x.get("action_id") for x in (log.get("done") or []) + blocked + skipped}
+        for p in compute_rollup(report, cfg)["priorities"]:
+            st = (p.get("decision") or {}).get("status")
+            if p.get("requires_human_decision") and p["action_id"] not in listed:
+                if st == "pending":
+                    blocked.append({"action_id": p["action_id"], "question": p.get("decision_question")})
+                elif st == "declined":
+                    skipped.append({"action_id": p["action_id"], "reason": "decision declined"})
+    out = ["## Improvement log", ""]
+    if log.get("notes"):
+        out += [str(log["notes"]).strip(), ""]
+    out += ["**Done** (claims; the next independent grading verifies them)", ""]
+    out += [f"- **{d.get('action_id')}** in `{str(d.get('commit') or '?')[:10]}`" + (f", resolves {', '.join(d.get('resolves') or [])}" if d.get("resolves") else "")
+            + (f". Checked with: {d['check']}" if d.get("check") else "") for d in log.get("done") or []] or ["- Nothing yet."]
+    out += ["", "**Blocked** (waiting on a decision)", ""]
+    out += [f"- **{b.get('action_id')}:** {b.get('question')}" for b in blocked] or ["- None."]
+    out += ["", "**Skipped**", ""]
+    out += [f"- **{s.get('action_id')}:** {s.get('reason')}" for s in skipped] or ["- None."]
+    for key, label in (("behavior_changes", "Behavior changes"), ("new_issues", "New issues noticed")):
+        out += ["", f"**{label}**", ""] + ([f"- {x}" for x in log.get(key) or []] or ["- None."])
+    return "\n".join(out) + "\n"
+
+
+def render_out(args, text: str, default_path: Path | None) -> None:
+    dest = args.out or (str(default_path) if default_path and not args.stdout else None)
+    if dest and dest != "-":
+        Path(dest).write_text(text, encoding="utf-8")
+        if getattr(args, "json", False):
+            print(json.dumps({"written": dest}))
+        else:
+            print(f"wrote {dest}")
+    else:
+        print(json.dumps({"markdown": text}, ensure_ascii=False) if getattr(args, "json", False) else text, end="" if not getattr(args, "json", False) else "\n")
+
+
+def cmd_render_report(args) -> int:
+    report = load_json(args.report)
+    cfg = authoring_config(args, report)
+    text = render_report_md(report, cfg)
+    render_out(args, text, Path(re.sub(r"\.json$", "", args.report) + ".md"))
+    return 0
+
+
+def cmd_render_pr(args) -> int:
+    report = load_json(args.report)
+    cfg = authoring_config(args, report)
+    folder = Path(args.report).resolve().parent.name if Path(args.report).name == "report.json" else None
+    pr = render_report_pr(report, cfg, args.site, args.grading_repo_url, args.branch, folder)
+    if args.json:
+        print(json.dumps(pr, indent=2, ensure_ascii=False))
+    else:
+        print(f"{pr['title']}\n\n{pr['body']}", end="")
+    return 0
+
+
+def cmd_render_check(args) -> int:
+    old, new = load_json(args.old), load_json(args.new)
+    args.report = args.new
+    cfg = authoring_config(args, new)
+    text = render_check_comment(compute_diff(old, new, cfg, cfg), new, cfg)
+    render_out(args, text, None)
+    return 0
+
+
+def cmd_render_log(args) -> int:
+    log = load_json(args.log)
+    report, cfg = None, None
+    if args.report:
+        report = load_json(args.report)
+        cfg = authoring_config(args, report)
+    render_out(args, render_improve_log(log, report, cfg), None)
+    return 0
 
 
 
@@ -2792,6 +3154,7 @@ def main(argv=None) -> int:
     q.add_argument("--confidence", choices=CONFIDENCE)
     q.add_argument("--applicability", choices=["full", "limited", "not_applicable"])
     q.add_argument("--reason", help="why it's limited or not applicable (the project's purpose, not its quality)")
+    q.add_argument("--rationale", help="one line: why this score (shown in the scorecard)")
     q.add_argument("--why", help="what changed since the previous report")
     q.add_argument("--weight-note", help="if the configured weight looks wrong for this code, say why")
     q.add_argument("--cap", action="append", help="a cap you applied (repeatable)")
@@ -2866,6 +3229,44 @@ def main(argv=None) -> int:
     q.add_argument("--tolerance", type=int, default=2)
     q.add_argument("--write", action="store_true", help="store the rollup and the finish time")
     q.set_defaults(fn=cmd_report_check)
+
+    # ------------------------------------------------------------ render
+    p = sub.add_parser("render", help="markdown from report data: report.md, PR title/body, PR-check comment, improvement log")
+    rsub = p.add_subparsers(dest="render_cmd", required=True, metavar="WHAT")
+
+    def render_dest(q, default_note):
+        q.add_argument("--out", metavar="FILE", help=f"where to write ('-' for stdout; default: {default_note})")
+        q.add_argument("--stdout", action="store_true", help="print instead of writing the default file")
+        q.add_argument("--json", action="store_true", help="print the result as JSON")
+
+    q = rsub.add_parser("report", help="report.md from report.json (sensitive findings withheld in public grading repos)")
+    q.add_argument("report")
+    render_dest(q, "beside the report, e.g. report.md")
+    with_config(q)
+    q.set_defaults(fn=cmd_render_report)
+
+    q = rsub.add_parser("pr", help="the grading pull request: branch, title and body (title on the first line)")
+    q.add_argument("report")
+    q.add_argument("--site", metavar="URL", help="the suite website, for a link to its Review page")
+    q.add_argument("--grading-repo-url", metavar="URL", help="the grading repo (e.g. https://github.com/acme/grading), for that link")
+    q.add_argument("--branch", help="default: report/<project>/<date>-<commit>")
+    q.add_argument("--json", action="store_true", help="print {branch, title, body} as JSON")
+    with_config(q)
+    q.set_defaults(fn=cmd_render_pr)
+
+    q = rsub.add_parser("check", help="the PR-check comment, comparing the baseline report with the PR report")
+    q.add_argument("old", help="baseline report (newest merged report)")
+    q.add_argument("new", help="the PR report (mode pr)")
+    render_dest(q, "stdout")
+    with_config(q)
+    q.set_defaults(fn=cmd_render_check)
+
+    q = rsub.add_parser("log", help="the improver's log, from a small JSON file (see prompts/improver.md)")
+    q.add_argument("log", help="improve-log.json")
+    q.add_argument("--report", help="the report worked from: adds pending decisions as blocked and declined ones as skipped")
+    render_dest(q, "stdout")
+    with_config(q)
+    q.set_defaults(fn=cmd_render_log)
 
     args = ap.parse_args(argv)
     if args.cmd in ("validate", "rollup", "verify-evidence", "redact") and args.report is None:

@@ -19,6 +19,15 @@ Minor release: tools that let agents run the whole cycle without custom scripts,
   - Every `report` command takes `--json`.
 - The grader prompt shows the commands. Hand-written reports still work.
 
+**Markdown made from the data with `gradekit render`**
+- `render report` writes `report.md` from `report.json`, with the same sections every time: summary, gates and maturity, scorecard by pillar, applicability notes, top priorities, decisions, metrics, findings, feature inventory, gap register, per-benchmark detail, flags and limitations.
+- `render pr` gives the grading pull request's branch, title and body, with the decision checklist and a link to the Review page.
+- `render check` gives the PR-check comment from the baseline and PR reports.
+- `render log` gives the improver's log from a small JSON file, listing pending decisions as blocked by itself.
+- Public text never carries withheld details. In a public grading repo, `render report` and `render pr` withhold sensitive findings even before `redact` has run, and PR-check comments always do.
+- New optional report fields: `summary` (set with `report set summary`) and each benchmark's one-line `rationale` (`report score --rationale`).
+- The prompts use these commands. The example reports' `report.md` files are now rendered.
+
 **Safe publishing for public grading repos**
 - Graders mark findings whose details would help an attacker (an exploitable vulnerability, a leaked secret) with `"sensitive": true`.
 - `gradekit redact --in-place` splits a report into a public `report.json` and a full `report.private.json`, which is never committed (`gradekit init` adds `*.private.json` to the grading repo's `.gitignore`). In the public report, a sensitive finding keeps its ID, benchmark, severity, status and the files it concerns, so scores, gates, zones and priorities are exactly the same; its title, quotes and commands, and the wording of the actions and decision questions that fix it, are withheld. `redact` refuses to write anything while withheld text still appears elsewhere in the report, and says where.

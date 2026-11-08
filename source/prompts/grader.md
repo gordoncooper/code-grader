@@ -106,10 +106,11 @@ $K report new --project-dir PROJECT_DIR --commit COMMIT --grader NAME        # p
 $K report finding add $R --benchmark A3 --title "..." --severity major --cite src/x.py:40-44 --repo CODE --note "..."
 $K report finding add $R --benchmark F2 --title "No CI" --severity critical --absence "CI config" --method "ls -a; …"
 $K report finding add $R --benchmark C4 --title "..." --severity major --command "pytest -q" --excerpt @out.txt
-$K report score $R A3 --score 5 --confidence medium --why "what changed since the last report"
+$K report score $R A3 --score 5 --confidence medium --rationale "one line: why 5" --why "what changed since the last report"
 $K report score $R X1 --applicability not_applicable --reason "HTTP API with no user interface"
 $K report strength $R A1 --text "..." --cite src/y.py:10 --repo CODE
 $K report action $R A3 --action "..." --resolves A3-004 --new-score 7 --effort S [--decision "question?"]
+$K report set $R summary "3–5 sentences: overall health, biggest risks and strengths"
 $K report gap | feature | flag | ran | set …                                   # the rest; see --help
 $K report check $R --repo CODE                                                 # lists what's missing or wrong
 ```
@@ -163,7 +164,15 @@ To keep a finding from the previous report, pass its ID with `finding add --id A
    python3 SUITE_DIR/tools/gradekit.py validate report.json --config /tmp/effective.json --project-dir PROJECT_DIR --publish
    ```
 
-   Write `report.md` from the public `report.json`.
+   Then make `report.md` and, for `pr` delivery, the pull request's title and body from the data. Don't write them by hand:
+
+   ```
+   python3 SUITE_DIR/tools/gradekit.py render report report.json --project-dir PROJECT_DIR      # writes report.md beside it
+   python3 SUITE_DIR/tools/gradekit.py render pr report.json --project-dir PROJECT_DIR --json \
+       [--site SUITE_SITE --grading-repo-url GRADING_REPO_URL]                                   # {branch, title, body}
+   ```
+
+   Both withhold sensitive findings in a public grading repo. Without Python, write `report.md` yourself following Part 10B.
 8. **Report and deliver.** Produce the outputs in Part 10 and deliver them as described in Part 0.
 
 ---
@@ -400,6 +409,8 @@ Write `report.json` matching `schema/report.schema.json`. Abbreviated example:
 Include **every** benchmark from `rubric/catalog.json` (all 29 core and all 6 conditional) exactly once, using `not_applicable` where needed.
 
 ### B. Human-readable report (`report.md`)
+`gradekit render report` produces this from `report.json`, using its `summary` and each benchmark's `rationale`. Only write it by hand if you can't run Python, with these sections:
+
 1. **Summary** (3–5 sentences): overall health, maturity level, biggest risks, biggest strengths.
 2. **Scorecard:** grouped by pillar, with score, target, applicability, weight used, confidence and a one-line justification for each benchmark. Mark gates. Pillar and overall scores at the bottom, taken from `rollup`.
 3. **Applicability and weight callouts:** every `limited` or `not_applicable` benchmark with its reason, and every `weight_note`. If nothing was downgraded, say so.

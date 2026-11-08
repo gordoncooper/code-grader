@@ -725,7 +725,8 @@
       "carried_forward": false,
       "caps_applied": [],
       "finding_ids": [
-        "A2-001"
+        "A2-001",
+        "A2-002"
       ],
       "strengths": [],
       "enforcement": [],
@@ -2387,5 +2388,6 @@
     "withheld": [
       "A2-001"
     ]
-  }
+  },
+  "summary": "The committed API key is gone and the first tests exist. The biggest risks now are a silently swallowed stock-reservation error in a hot zone, no CI, and an order insert that isn't transactional."
 }
