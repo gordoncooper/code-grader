@@ -10,10 +10,10 @@
   <div id="engine-error"></div>
 
   <section class="card" id="load-card">
-    <nav class="tabs" id="load-tabs" style="margin-top:0">
+    <div class="tabs" id="load-tabs" style="margin-top:0" aria-label="Where the report comes from">
       <button type="button" data-tab="repo">From the grading repo</button>
       <button type="button" data-tab="files">Open files</button>
-    </nav>
+    </div>
     <div class="panel" id="panel-repo">
       <div class="grid2">
         <div class="field"><label for="gh-repo">Grading repo</label><input type="text" id="gh-repo" placeholder="owner/grading, or its github.com URL (a report PR's URL works too)"></div>
@@ -27,8 +27,8 @@
       <div id="gh-status"></div>
     </div>
     <div class="panel" id="panel-files" hidden>
-      <div class="drop" id="drop" tabindex="0" role="button" aria-label="Choose files">
-        <b>Drop files, a project folder, or a .zip here</b> or click to choose files<br>
+      <div class="drop" id="drop">
+        <b>Drop files, a project folder, or a .zip here</b>, or <button type="button" class="link" data-choose>choose files</button><br>
         <small>A project folder (or a zip of the grading repo) brings everything at once. Loose files work too: a <code>report.json</code> plus, optionally, <code>project.toml</code>, <code>decisions.json</code>, <code>dispositions.json</code>, an older report to compare, extra run files, and a zip of the code (to check citations).</small>
       </div>
       <input type="file" id="file-input" multiple hidden accept=".json,.toml,.zip,application/json,application/zip,text/plain">
@@ -52,7 +52,7 @@
       </div>
     </div>
     <div id="result-banners" style="margin-top:18px"></div>
-    <nav class="tabs" id="result-tabs" aria-label="Report sections">
+    <div class="tabs" id="result-tabs" aria-label="Report sections">
       <button type="button" data-tab="overview">Overview</button>
       <button type="button" data-tab="decisions">Decisions <span class="count" id="dec-count" hidden></span></button>
       <button type="button" data-tab="priorities">Priorities</button>
@@ -60,7 +60,7 @@
       <button type="button" data-tab="findings">Findings</button>
       <button type="button" data-tab="compare">Compare</button>
       <button type="button" data-tab="more">More</button>
-    </nav>
+    </div>
     <div class="panel" id="panel-overview"></div>
     <div class="panel" id="panel-decisions" hidden></div>
     <div class="panel" id="panel-priorities" hidden></div>

@@ -9,6 +9,11 @@ on:
     branches: [main]
     paths: ["source/**", "tests/**", ".github/scripts/**", ".github/workflows/tests.yml"]
   workflow_dispatch:
+    inputs:
+      update_visual:
+        description: "Remake the screenshot baselines (tests/visual) and commit them to this branch"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -36,8 +41,15 @@ jobs:
   website:
     name: website (Chromium)
     runs-on: ubuntu-latest
+    permissions:
+      contents: write   # only to commit new screenshot baselines (tests/visual) to this branch
+    env:
+      UPDATE_VISUAL: ${{ inputs.update_visual && '1' || '' }}
     steps:
       - uses: actions/checkout@v5
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+          ref: ${{ github.event.pull_request.head.ref || github.ref }}
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -47,3 +59,20 @@ jobs:
         run: python -m pytest tests -m "browser and not network" -q -p no:cacheprovider
       - name: Plain static host with the real Pyodide engine
         run: python -m pytest tests -m network -q -p no:cacheprovider
+      - name: Keep the screenshots of a failed comparison
+        if: failure() && hashFiles('tests/visual/out/*.png') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: visual-diff
+          path: tests/visual/out/
+      - name: Commit new screenshot baselines
+        # The first run on CI's platform (or a run with update_visual) makes the baselines; later runs compare.
+        if: always() && hashFiles('tests/visual/out/NEW_BASELINES') != '' && (github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository)
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tests/visual/*.png tests/visual/baselines.json
+          git diff --cached --quiet && exit 0
+          git commit -m "Screenshot baselines for $(python3 -c 'import json;m=json.load(open("tests/visual/baselines.json"));print(m["platform"], "/", m["browser"])')"
+          git pull --rebase --quiet || true
+          git push

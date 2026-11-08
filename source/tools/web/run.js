@@ -186,11 +186,14 @@
     var multi = s.role === "grade" && s.runs === "3";
     tabsEl.hidden = !multi;
     UI.clear(tabsEl);
+    var refocus = tabsEl.contains(document.activeElement);
     if (multi) [1, 2, 3].forEach(function (n) {
-      var b = h("button", { type: "button", "aria-selected": String(n === promptTab) }, "Run " + n);
+      var b = h("button", { type: "button", role: "tab", "aria-selected": String(n === promptTab), "aria-controls": "prompt-out",
+                            tabindex: n === promptTab ? "0" : "-1" }, "Run " + n);
       b.addEventListener("click", function () { promptTab = n; update(); });
       tabsEl.appendChild(b);
     });
+    if (multi && refocus) tabsEl.querySelector("[aria-selected=true]").focus();
     $("#prompt-out").textContent = buildPrompt(multi ? promptTab : 1);
     $("#code-loc").placeholder = s.code === "url" ? "https://github.com/acme/orders-api" : (s.where === "local" ? "~/code/orders-api" : "/workspace/orders-api");
     $("#gdir-loc").placeholder = s.gdir === "repo" ? "https://github.com/acme/grading" : "~/grading/projects/orders-api";
@@ -210,6 +213,7 @@
   }
 
   document.addEventListener("DOMContentLoaded", function () {
+    UI.tabKeys($("#prompt-tabs"), function () { return $$("#prompt-tabs button"); });
     renderRoles();
     bindSeg("where", "where", function () { s.delivery = null; renderDelivery(); });
     bindSeg("code", "code", function () { s.delivery = null; renderDelivery(); });

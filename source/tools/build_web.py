@@ -152,6 +152,8 @@ NAV = [("start", "Get started", "docs/GETTING-STARTED.html"), ("setup", "Set up"
 
 def page(title: str, body: str, depth: int, version: str, sidebar: str = "", active: str = "", scripts=()) -> str:
     up = "../" * depth
+    # Code blocks can scroll sideways on a phone; make them reachable with the keyboard.
+    body = re.sub(r"<pre(?![^>]*tabindex)(?=[\s>])", '<pre tabindex="0"', body)
     current = ' class="active" aria-current="page"'
     nav = "".join(f'<a href="{up}{href}"{current if key == active else ""}>{label}</a>' for key, label, href in NAV)
     script_tags = "".join(f'<script src="{up}assets/{s}"></script>\n' for s in scripts)
@@ -167,6 +169,7 @@ def page(title: str, body: str, depth: int, version: str, sidebar: str = "", act
 <link rel="alternate" type="text/markdown" href="{up}AGENT.md" title="Agent entry point">
 </head>
 <body>
+<a class="skip" href="#main">Skip to content</a>
 <header class="topbar">
   {"<button class='menu-btn' type='button'>Menu</button>" if sidebar else ""}
   <a class="brand" href="{up}index.html">Code <span>Grading</span> Suite</a>
@@ -176,7 +179,7 @@ def page(title: str, body: str, depth: int, version: str, sidebar: str = "", act
   <a class="top opt" href="{up}AGENT.md">AGENT.md</a>
   <a class="top opt" href="{up}downloads/code-grading-suite-{version}.zip">Download</a>
 </header>
-{body}
+{body if "<main" in body else '<main id="main">' + body + "</main>"}
 <script src="{up}assets/site.js"></script>
 {script_tags}</body>
 </html>
@@ -525,7 +528,7 @@ def main(argv=None) -> int:
         if i < len(flat) - 1:
             ns, nt = flat[i + 1]
             next_link = f'<a href="{up}docs/{doc_html_path(ns)}" style="margin-left:auto;text-align:right"><small>Next</small>{html.escape(nt)}</a>'
-        content = (f'<div class="layout">{sidebar_html(src, depth)}<main class="doc">{bar}{toc_html}{body_html}'
+        content = (f'<div class="layout">{sidebar_html(src, depth)}<main class="doc" id="main">{bar}{toc_html}{body_html}'
                    f'<nav class="pager">{prev_link}{next_link}</nav></main></div>')
         active = "start" if src == "GETTING-STARTED.md" else "docs"
         write(out / "docs" / rel_html, page(title, content, depth, version, sidebar="yes", active=active))
