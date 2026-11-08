@@ -55,6 +55,11 @@ def finish(grading, rel, score):
     cli("report", "set", rel, "scope_examined", "all", cwd=grading)
     cli("report", "ran", rel, "--command", "pytest", "--exit-code", "0", "--summary", "ok", cwd=grading)
     cli("report", "set", rel, "limitations", '["None"]', cwd=grading)
+    cli("report", "set", rel, "summary", "Even across the board.", cwd=grading)
+    for b in json.loads((grading / rel).read_text())["benchmarks"]:   # a path for each benchmark below target
+        if isinstance(b["score"], int) and isinstance(b["target"], int) and b["score"] < b["target"]:
+            cli("report", "action", rel, b["id"], "--action", "Raise it to the target", "--new-score", str(b["target"]),
+                "--effort", "M", cwd=grading)
     cli("report", "check", rel, "--write", cwd=grading)
 
 

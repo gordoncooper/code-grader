@@ -558,6 +558,13 @@
     if ((b.caps_applied || []).length) body.appendChild(h("p", null, h("b", null, "Capped: "), b.caps_applied.join("; ")));
     if ((b.gaming_flags || []).length) body.appendChild(h("div", { class: "banner bad" }, h("b", null, "Gaming flags: "), b.gaming_flags.join("; ")));
     if ((b.strengths || []).length) { body.appendChild(h("h4", null, "Strengths")); b.strengths.forEach(function (s) { body.appendChild(h("div", null, s.note, evidenceList(s.evidence))); }); }
+    if ((b.enforcement || []).length) {
+      body.appendChild(h("h4", null, "Enforced by"));
+      b.enforcement.forEach(function (e) {   // format 5: {note, evidence}; format 4: a bare evidence object
+        var item = e && e.type ? { note: e.note || "", evidence: [e] } : e;
+        body.appendChild(h("div", null, item.note, evidenceList(item.evidence)));
+      });
+    }
     if ((b.finding_ids || []).length) {
       body.appendChild(h("h4", null, "Findings"));
       b.finding_ids.forEach(function (id) {

@@ -1,4 +1,4 @@
-# Code Grading Suite v4.3.0: Grader Prompt
+# Code Grading Suite v5.0.0: Grader Prompt
 
 You are a senior staff engineer doing a rigorous, evidence-based quality audit of a codebase. Grade it from **1 to 10** on every benchmark in this suite. Your scores will be used as **improvement targets**: other agents will change the code to raise them. Your grading must therefore be accurate, consistent from run to run, and hard to game.
 
@@ -110,17 +110,21 @@ Work in phases. If your context is limited, run Phase 4 one pillar per pass, car
 **Write the report with `gradekit report` if you can run Python.** It fills in every benchmark with its weight and target, copies quotes from the code so they always verify, and picks finding IDs, so you only record judgments. `K="python3 SUITE_DIR/tools/gradekit.py"`, `R` is the path `report new` prints, and `--repo` is the code checkout:
 
 ```
-$K report new --project-dir PROJECT_DIR --commit COMMIT --grader NAME --model MODEL [--session ID] [--work-order ID]   # prints the report's path
+$K report new --project-dir PROJECT_DIR --commit COMMIT --grader NAME --model MODEL [--started UTC_TIME] [--session ID] [--work-order ID] [--run N/COUNT]   # prints the report's path
 $K report finding add $R --benchmark A3 --title "..." --severity major --cite src/x.py:40-44 --repo CODE --note "..." [--cap A3-cap-1]
 $K report finding add $R --benchmark F2 --title "No CI" --severity critical --absence "CI config" --method "ls -a; …"
 $K report finding add $R --benchmark C4 --title "..." --severity major --command "pytest -q" --excerpt @out.txt
 $K report score $R A3 --score 5 --confidence medium --rationale "one line: why 5" --why "what changed since the last report"
 $K report score $R X1 --applicability not_applicable --reason "HTTP API with no user interface"
 $K report strength $R A1 --text "..." --cite src/y.py:10 --repo CODE
-$K report action $R A3 --action "..." --resolves A3-004 --new-score 7 --effort S [--decision "question?"]
+$K report enforcement $R A1 --text "CI runs mypy --strict on every PR" --cite .github/workflows/ci.yml:30 --repo CODE
+$K report action $R A3 --action "..." --resolves A3-004 --new-score 7 --effort S [--decision "question?"] [--why-first "..."]
 $K report set $R summary "3–5 sentences: overall health, biggest risks and strengths"
 $K report ran $R --command "pytest -q --cov=src" --exit-code 0 --summary "412 passed; 61% branch coverage"
 $K report gap | feature | flag | set …                                         # the rest; see --help
+$K report show $R A3                                                           # numbered records, for update and remove
+$K report update $R A3/strength/2 --text "..." | A3-act-1 --new-score 8 | GAP-002 --severity minor
+$K report remove $R A3/enforcement/1 | A3-act-2 | A3-005                        # a finding or gap only if no earlier report has it
 $K report check $R --repo CODE                                                 # lists what's missing or wrong
 ```
 
@@ -233,7 +237,7 @@ If you wrote findings without starting from the previous report, `report match $
   - **No strengths** (positive evidence): max 8. **No enforcement** evidence: max 9.
 
   `rollup.limits` lists every benchmark held below 10, and why.
-- **A 10 requires enforcement.** If quality depends on someone remembering (no CI gate, lint rule, test or automated check), the maximum is 9. A 10 must list `enforcement` evidence.
+- **A 10 requires enforcement.** If quality depends on someone remembering (no CI gate, lint rule, test or automated check), the maximum is 9. A 10 must list `enforcement`: each item is shaped like a strength, `{"note": "CI runs mypy --strict on every PR", "evidence": [...]}` (`gradekit report enforcement ID --text WHAT --cite …`).
 - **4.x reports** (format 4, and reports migrated from 4.x) aren't held to the critical-finding limit; it's a warning there, as it was.
 - **One root cause, one primary home.** Each finding belongs to the benchmark it most directly affects. Reference it from another benchmark only if it independently damages that one too. The rubric's "Not this" lines define the boundaries.
 - **Stack neutrality.** Don't reward or punish a language, framework or style for its own sake.
@@ -274,7 +278,7 @@ Every finding, strength and enforcement claim needs at least one evidence object
 {"type": "absence", "searched": "rate limiting on /api/login", "method": "grep -rn 'limit' src/api; read src/api/auth.py fully", "note": "no rate limit or lockout found"}
 ```
 
-- **`quote` must be copied exactly** from the cited lines: 1–3 lines, no paraphrasing or ellipses. `file` is relative to the repo root. `gradekit verify-evidence` checks every code quote against the repo, and a mismatch makes the report invalid.
+- **`quote` must be copied exactly** from the cited lines: 1–3 lines, no paraphrasing or ellipses (`gradekit` refuses a longer quote and trims blank lines at either end). `file` is relative to the repo root. `gradekit verify-evidence` checks every code quote against the repo, and a mismatch makes the report invalid.
 - **The quote is the anchor; `lines` is optional.** With `lines`, the quote must be within two lines of them; without, anywhere in the file. `report cite` writes both, which lets the Review page link to the exact lines.
 - `excerpt` must be copied exactly from the command output.
 - Use `absence` evidence to show that something is missing (no tests, no backups, no timeouts), saying what you searched and how.
@@ -385,7 +389,7 @@ If a benchmark is already at or above its target, `path_to_target` may be empty.
 - **Tier 2:** everything else below target.
 - **Tier 3:** optional.
 
-Within each tier, actions are ordered by weight × points gained × zone multiplier ÷ effort. Your job is to make each action's `resolves`, `expected_new_score` and `effort` accurate, so the ranking is right. Copy the first ten of `rollup.priorities` into `top_priorities`, adding a one-line `why_first` to each.
+Within each tier, actions are ordered by weight × points gained × zone multiplier ÷ effort. Your job is to make each action's `resolves`, `expected_new_score` and `effort` accurate, so the ranking is right. `expected_new_score` is the benchmark's score once the action is done *with the benchmark's earlier actions*, so each action is credited only with the points it adds. `gradekit report check --write` copies the first ten of `rollup.priorities` into `top_priorities`; give an action its one-line `why_first` with `report action … --why-first` (or `report update ID --why-first`), or the line says why its tier comes first. Without gradekit, copy them by hand, each with a `why_first`.
 
 ---
 

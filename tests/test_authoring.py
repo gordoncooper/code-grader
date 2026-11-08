@@ -163,7 +163,7 @@ def test_a_whole_report_without_writing_json(repo):
     rel = start(repo)
     first = gk("report", "check", rel, "--json", cwd=repo, ok=False)
     assert first.returncode == 5
-    assert json.loads(first.stdout)["result"]["status"] == "incomplete" and len(json.loads(first.stdout)["result"]["todo"]) == 38
+    assert json.loads(first.stdout)["result"]["status"] == "incomplete" and len(json.loads(first.stdout)["result"]["todo"]) == 39
 
     gk("report", "finding", "add", rel, "--benchmark", "C4", "--title", "One test", "--severity", "critical",
        "--command", "pytest -q", "--excerpt", "1 passed", cwd=repo)
@@ -175,6 +175,12 @@ def test_a_whole_report_without_writing_json(repo):
     gk("report", "set", rel, "scope_examined", "src/ and scripts/", cwd=repo)
     gk("report", "ran", rel, "--command-text", "pytest -q", "--exit-code", "0", "--summary", "1 passed", cwd=repo)
     gk("report", "set", rel, "limitations", "None", "--append", cwd=repo)
+    gk("report", "set", rel, "summary", "Small and readable; one thin test.", cwd=repo)
+    left = json.loads(gk("report", "check", rel, "--json", cwd=repo, ok=False).stdout)["result"]["todo"]
+    below = [t.split(":", 1)[0] for t in left if "below its target" in t]
+    assert below and len(below) == len(left), left   # 5.0 gate: a below-target benchmark needs its path planned
+    for bid in below:
+        gk("report", "action", rel, bid, "--action", "Raise it to the target", "--new-score", "8", "--effort", "M", cwd=repo)
 
     done = json.loads(gk("report", "check", rel, "--repo", CODE, "--json", "--write", cwd=repo).stdout)["result"]
     assert done["status"] == "ready" and done["errors"] == [] and done["todo"] == []

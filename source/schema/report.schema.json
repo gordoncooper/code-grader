@@ -763,6 +763,7 @@
           }
         },
         "expected_new_score": {
+          "description": "The benchmark's expected score once this action is done, counting its earlier actions in path_to_target as done too",
           "type": "integer",
           "minimum": 1,
           "maximum": 10
@@ -785,6 +786,10 @@
         },
         "optional": {
           "type": "boolean"
+        },
+        "why_first": {
+          "type": "string",
+          "description": "One line for top_priorities on why this comes first; `report check --write` copies it there"
         }
       }
     },
@@ -910,8 +915,25 @@
         },
         "enforcement": {
           "type": "array",
+          "description": "What enforces the benchmark's quality (a CI gate, lint rule, test), shaped like strengths. Format 4 stored bare evidence objects; `gradekit migrate` wraps them.",
           "items": {
-            "$ref": "#/$defs/evidence"
+            "type": "object",
+            "required": [
+              "note",
+              "evidence"
+            ],
+            "properties": {
+              "note": {
+                "type": "string"
+              },
+              "evidence": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "$ref": "#/$defs/evidence"
+                }
+              }
+            }
           }
         },
         "gaming_flags": {

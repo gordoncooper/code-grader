@@ -69,19 +69,7 @@ def leaf_commands():
     import argparse
     sys.path.insert(0, str(SRC / "tools"))
     import gradekit
-    built = {}
-    orig = gradekit.CliParser.parse_args
-
-    def grab(self, argv=None, namespace=None):
-        built["ap"] = self
-        raise _Stop()
-    gradekit.CliParser.parse_args = grab
-    try:
-        gradekit.main([])
-    except _Stop:
-        pass
-    finally:
-        gradekit.CliParser.parse_args = orig
+    built = {"ap": gradekit.build_parser()}
 
     def walk(parser, prefix):
         subs = [a for a in parser._actions if isinstance(a, argparse._SubParsersAction)]
