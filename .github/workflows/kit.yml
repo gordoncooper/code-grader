@@ -1,0 +1,69 @@
+# Keeps bundle/ generated from source/ (the kit's single source of truth).
+# Pull requests: smoke-test the kit, and when a release needs it, rebuild bundle/ and commit it to the PR branch.
+# main: check that bundle/ matches source/.
+# See .github/scripts/bundles.py for the rules.
+name: Kit
+
+on:
+  pull_request:
+    paths: ["source/**", "bundle/**", ".github/scripts/bundles.py", ".github/scripts/requirements-build.txt", ".github/workflows/kit.yml"]
+  push:
+    branches: [main]
+    paths: ["source/**", "bundle/**", ".github/scripts/bundles.py", ".github/scripts/requirements-build.txt", ".github/workflows/kit.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: kit-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  bundles:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # On a pull request from this repo, check out the branch itself so a rebuilt bundle can be pushed to it.
+          repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+          ref: ${{ github.event.pull_request.head.ref || github.ref }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install build tools
+        run: pip install -r .github/scripts/requirements-build.txt
+
+      - name: Show state
+        run: python .github/scripts/bundles.py status
+
+      - name: Smoke-test the kit
+        run: python .github/scripts/bundles.py smoke
+
+      - name: Rebuild bundles if needed (pull requests)
+        id: sync
+        if: github.event_name == 'pull_request'
+        run: python .github/scripts/bundles.py sync --write
+
+      - name: Commit rebuilt bundles to the pull request
+        if: steps.sync.outputs.changed == 'true'
+        env:
+          SAME_REPO: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+          VERSION: ${{ steps.sync.outputs.version }}
+        run: |
+          if [ "$SAME_REPO" != "true" ]; then
+            echo "::error::bundle/ needs rebuilding, but this pull request comes from a fork. A maintainer can rebuild it with: python3 .github/scripts/bundles.py sync --write"
+            exit 1
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add bundle
+          git commit -m "Build bundle/ from source/ (v$VERSION)"
+          git push
+          echo "::notice::Rebuilt bundle/ for v$VERSION and pushed it to this pull request."
+
+      - name: Check bundles match source (main)
+        if: github.event_name != 'pull_request'
+        run: python .github/scripts/bundles.py sync --check

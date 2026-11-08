@@ -1,0 +1,138 @@
+<div class="app">
+  <header class="app-head">
+    <div>
+      <div class="eyebrow">Tool 1 of 3</div>
+      <h1>Set up a project</h1>
+      <p class="lede">Describe your project once. You get one file, <code>project.toml</code>, that every grading run reads. It decides which benchmarks matter most, which ones are non-negotiable, and which code is critical.</p>
+    </div>
+    <span class="engine-pill" id="engine-pill">Starting…</span>
+  </header>
+  <div id="engine-error"></div>
+
+  <div class="two-col">
+    <div id="setup-form">
+      <section class="card">
+        <h2><span class="num">1</span>Start</h2>
+        <div class="seg" role="radiogroup" aria-label="Start from">
+          <label><input type="radio" name="start" value="new" checked><span>New project</span></label>
+          <label><input type="radio" name="start" value="edit"><span>Edit an existing project.toml</span></label>
+        </div>
+        <div id="load-existing" hidden style="margin-top:14px">
+          <div class="drop" id="toml-drop" tabindex="0" role="button" aria-label="Choose a project.toml file"><b>Drop your project.toml here</b> or click to choose it</div>
+          <input type="file" id="toml-file" accept=".toml,text/plain" hidden>
+          <div class="field" style="margin-top:10px"><label for="toml-paste">…or paste it</label><textarea id="toml-paste" rows="5" placeholder="[project]&#10;name = &quot;my-project&quot;&#10;…"></textarea></div>
+          <div class="row-btns"><button class="btn primary" type="button" id="toml-load">Load into the form</button><span class="kbd-note">Comments aren't kept. Accepted findings, decisions and components are.</span></div>
+        </div>
+        <details class="advanced" style="margin-top:14px"><summary>Organization rules (optional)</summary>
+          <p class="hint">If your organization keeps house rules in an <code>org.toml</code>, paste it here so this preview matches what graders will use. It isn't copied into project.toml.</p>
+          <textarea id="org-toml" rows="4" placeholder="[weights.base]&#10;E2 = 3"></textarea>
+        </details>
+      </section>
+
+      <section class="card">
+        <h2><span class="num">2</span>About the project</h2>
+        <p class="hint">Graders read this to understand what "good" means for your code. Short is fine.</p>
+        <div class="grid2">
+          <div class="field"><label for="f-code">Code repository</label><input type="text" id="f-code" data-proj="code_repo" placeholder="https://github.com/acme/orders-api"></div>
+          <div class="field"><label for="f-name">Project name</label><input type="text" id="f-name" data-proj="name" placeholder="orders-api"><small>Its folder in the grading repo: <code id="proj-path">projects/…/</code></small></div>
+        </div>
+        <div class="grid2">
+          <div class="field"><label for="f-path">Subfolder (monorepos, optional)</label><input type="text" id="f-path" data-proj="path" placeholder="apps/web"><small>Grade only this part of the repo.</small></div>
+          <div class="field"><label for="f-target">Maturity target</label>
+            <select id="f-target" data-proj="maturity_target">
+              <option value="">Not set</option><option>prototype</option><option>internal tool</option><option>production</option><option>public open source</option>
+            </select></div>
+        </div>
+        <div class="field"><label for="f-desc">What it is</label><input type="text" id="f-desc" data-proj="description" placeholder="REST API that takes orders and payments for the web shop"></div>
+        <div class="grid2">
+          <div class="field"><label for="f-lang">Languages and frameworks</label><input type="text" id="f-lang" data-proj="languages" placeholder="Python 3.12, FastAPI, Postgres"></div>
+          <div class="field"><label for="f-users">Who uses it</label><input type="text" id="f-users" data-proj="users" placeholder="The web shop and the sales dashboard"></div>
+        </div>
+        <div class="field"><label for="f-scope">Scope or requirements</label><input type="text" id="f-scope" data-proj="scope" placeholder="Create, list and cancel orders; idempotent payments (see docs/requirements.md)"><small>Graders compare features against this.</small></div>
+        <div class="field"><label for="f-oos">Out of scope</label><textarea id="f-oos" rows="2" placeholder="vendor/**&#10;src/generated/**"></textarea><small>Paths the grader skips, one per line.</small></div>
+      </section>
+
+      <section class="card">
+        <h2><span class="num">3</span>Pick a starting point</h2>
+        <p class="hint">A preset fills in typical answers below. You can change any of them afterwards.</p>
+        <div class="choices" id="presets"></div>
+      </section>
+
+      <section class="card">
+        <h2><span class="num">4</span>Answer eight questions</h2>
+        <p class="hint">Each answer nudges specific weights up or down, and some make a benchmark a <b>gate</b> (non-negotiable). The chips show what each answer does.</p>
+        <div id="questions"></div>
+      </section>
+
+      <section class="card">
+        <h2><span class="num">5</span>Mark critical code</h2>
+        <p class="hint"><b>Hot</b> zones (money, auth, data writes) count more: problems there are one severity higher, and fixes rank first. <b>Cold</b> zones (scripts, examples) count less. Everything else is normal. The first matching zone wins, so put specific ones first.</p>
+        <div id="zones"></div>
+        <div class="row-btns" style="margin-top:10px">
+          <button class="btn" type="button" id="add-hot">+ Hot zone</button>
+          <button class="btn" type="button" id="add-cold">+ Cold zone</button>
+        </div>
+        <div class="field" style="margin-top:16px"><label for="zone-test">Test a path</label>
+          <div class="row-btns"><input type="text" id="zone-test" placeholder="src/payments/stripe.py" style="flex:1;min-width:200px"><span id="zone-test-out" class="kbd-note"></span></div>
+          <small>Patterns: <code>**</code> matches any number of folders, <code>*</code> matches within one folder, and a trailing <code>/</code> means everything under it.</small></div>
+      </section>
+
+      <section class="card">
+        <h2><span class="num">6</span>Targets and fine-tuning</h2>
+        <p class="hint">Targets tell improving agents where to stop. Most projects can leave this as it is.</p>
+        <div class="grid2">
+          <div class="field"><label for="t-mode">Target</label>
+            <select id="t-mode">
+              <option value="proportional">Proportional: 10 / 9 / 8 by weight (recommended)</option>
+              <option value="maximal">Maximal: 10 everywhere</option>
+              <option value="level">Just enough for a maturity level</option>
+            </select></div>
+          <div class="field" id="t-level-wrap" hidden><label for="t-level">Level</label>
+            <select id="t-level"><option value="L2">L2 Usable / Beta</option><option value="L3" selected>L3 Production-ready</option><option value="L4">L4 Exemplary</option></select></div>
+        </div>
+        <details class="advanced"><summary>Advanced: overrides, extra gates, agent decisions</summary>
+          <div class="field" style="margin-top:12px"><span class="label">Weight overrides</span><small>Only when an answer can't express it. Each needs a reason.</small><div id="w-overrides"></div><div><button class="btn" type="button" id="add-wover">+ Weight override</button></div></div>
+          <div class="field"><span class="label">Target overrides</span><div id="t-overrides"></div><div><button class="btn" type="button" id="add-tover">+ Target override</button></div></div>
+          <div class="field"><label for="extra-gate">Extra gates</label><small>Make more benchmarks non-negotiable for this project.</small><div class="row-btns"><select id="extra-gate" style="max-width:320px"></select></div><div id="extra-gates" class="effects" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px"></div></div>
+          <label style="display:flex;gap:8px;align-items:center;font-size:.9rem"><input type="checkbox" id="agent-decisions"> Let agent reviewers approve decision questions (default: humans only)</label>
+        </details>
+      </section>
+
+      <section class="card" id="output">
+        <h2><span class="num">7</span>Your file</h2>
+        <div id="build-status"></div>
+        <pre class="out-pre" id="toml-out" aria-label="Generated project.toml">Loading…</pre>
+        <div class="row-btns" style="margin-top:10px">
+          <button class="btn primary" type="button" id="dl-toml">Download project.toml</button>
+          <button class="btn" type="button" id="copy-toml">Copy</button>
+        </div>
+        <h3 style="margin:22px 0 6px;font-size:1rem">Where to put it</h3>
+        <nav class="tabs" id="where-tabs" style="margin-top:6px">
+          <button type="button" data-tab="repo">In the grading repo</button>
+          <button type="button" data-tab="local">In a local folder</button>
+        </nav>
+        <div class="panel" id="panel-repo">
+          <ol class="steps-mini">
+            <li>In your grading repo, create the folder <code class="proj-path-full">projects/…/</code> and put <code>project.toml</code> in it. On GitHub: <b>Add file → Upload files</b>, then type the folder path in front of the file name.</li>
+            <li>New project? Add two starter files next to it: <button class="btn" type="button" id="dl-decisions" style="padding:2px 9px">decisions.json</button> <button class="btn" type="button" id="dl-dispositions" style="padding:2px 9px">dispositions.json</button></li>
+            <li>New grading repo? Add a README that explains the layout: <button class="btn" type="button" id="dl-readme" style="padding:2px 9px">README.md</button></li>
+          </ol>
+          <p class="kbd-note">Permissions: you need write access to the grading repo. Changing settings later? Edit the file the same way; it's best done between grading runs.</p>
+        </div>
+        <div class="panel" id="panel-local" hidden>
+          <p class="hint" style="margin:6px 0">Make a folder for the project (any name, e.g. <code class="proj-name">orders-api</code>) and save <code>project.toml</code> in it, along with the two starter files above. Graders can then save reports into its <code>reports/</code> folder, and the Review page can open the whole folder.</p>
+        </div>
+      </section>
+    </div>
+
+    <aside class="sticky" aria-label="Live preview">
+      <div class="card" id="preview">
+        <h2 style="font-size:1.1rem">What this means</h2>
+        <div id="pv-status" class="kbd-note">Loading the engine…</div>
+        <div style="margin-top:12px"><span class="label">Gates (non-negotiable)</span><div id="pv-gates" class="row-btns" style="margin-top:6px"></div></div>
+        <div style="margin-top:14px"><span class="label">Weights</span><div class="kbd-note">Darker = counts more. ↑↓ = moved by your answers. Outlined = gate. Click one to see why.</div><div id="pv-weights" class="wgrid" style="margin-top:8px"></div></div>
+        <div id="pv-explain"></div>
+      </div>
+    </aside>
+  </div>
+</div>

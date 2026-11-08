@@ -61,7 +61,7 @@
 <p><strong>Option A: your shell can reach this server (preferred).</strong></p>
 <pre><code class="language-bash">DEST=&quot;$(mktemp -d)&quot;
 curl -fsSL &quot;BASE/downloads/code-grading-suite-4.2.2.zip&quot; -o &quot;$DEST/suite.zip&quot;
-echo &quot;29c687eb054193d586c1951a720a1948a33d60d8e3134b01d2d4b4d74855ca03  $DEST/suite.zip&quot; | sha256sum -c -        # must print: OK
+echo &quot;e2ebebd8d9914410f399943aaa8ec609fa4b172eae595a7cf13c3af75bc7c362  $DEST/suite.zip&quot; | sha256sum -c -        # must print: OK
 unzip -q &quot;$DEST/suite.zip&quot; -d &quot;$DEST&quot;
 SUITE_DIR=&quot;$DEST/code-grading-suite&quot;
 </code></pre>
@@ -158,7 +158,7 @@ SUITE_DIR=&quot;$DEST/code-grading-suite&quot;
 </tr>
 <tr>
 <td><code>downloads/code-grading-suite-4.2.2.zip</code></td>
-<td>Everything above as one zip (SHA-256 <code>29c687eb054193d586c1951a720a1948a33d60d8e3134b01d2d4b4d74855ca03</code>)</td>
+<td>Everything above as one zip (SHA-256 <code>e2ebebd8d9914410f399943aaa8ec609fa4b172eae595a7cf13c3af75bc7c362</code>)</td>
 </tr>
 <tr>
 <td><code>manifest.json</code>, <code>SHA256SUMS</code></td>

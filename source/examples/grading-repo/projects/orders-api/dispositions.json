@@ -1,0 +1,12 @@
+{
+  "_about": "Findings accepted as-is (e.g. won't fix). The grader marks them 'accepted' and they stop lowering scores. Append new entries; never edit old ones.",
+  "dispositions": [
+    {
+      "finding_id": "B5-001",
+      "decision": "won't fix",
+      "reason": "One payment provider is a deliberate business constraint through 2027",
+      "decided_by": "jane@example.com",
+      "date": "2026-10-25"
+    }
+  ]
+}

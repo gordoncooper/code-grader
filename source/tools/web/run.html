@@ -1,0 +1,70 @@
+<div class="app">
+  <header class="app-head">
+    <div>
+      <div class="eyebrow">Tool 2 of 3</div>
+      <h1>Start a run</h1>
+      <p class="lede">Answer a few questions and get the exact prompt to paste into your coding agent. This works with cloud or local agents, local folders or GitHub repos, and whatever delivery suits you.</p>
+    </div>
+  </header>
+
+  <div class="two-col">
+    <div id="run-form">
+      <section class="card">
+        <h2><span class="num">1</span>What should the agent do?</h2>
+        <div class="choices" id="roles"></div>
+      </section>
+
+      <section class="card">
+        <h2><span class="num">2</span>Where are things?</h2>
+        <div class="field"><span class="label">The agent runs…</span>
+          <div class="seg" role="radiogroup" aria-label="Where the agent runs">
+            <label><input type="radio" name="where" value="cloud" checked><span>In the cloud</span></label>
+            <label><input type="radio" name="where" value="local"><span>On a computer I control</span></label>
+          </div></div>
+        <div class="field"><span class="label">The code is…</span>
+          <div class="seg" role="radiogroup" aria-label="Where the code is">
+            <label><input type="radio" name="code" value="url" checked><span>A git repository URL</span></label>
+            <label><input type="radio" name="code" value="path"><span>A folder the agent can open</span></label>
+          </div>
+          <input type="text" id="code-loc" placeholder="https://github.com/you/your-repo" aria-label="Code location" style="margin-top:8px"></div>
+        <div class="field"><span class="label">The grading files are…</span>
+          <div class="seg" role="radiogroup" aria-label="Where the grading files are">
+            <label><input type="radio" name="gdir" value="repo" checked><span>In a grading repo</span></label>
+            <label><input type="radio" name="gdir" value="local"><span>In a local folder</span></label>
+          </div>
+          <input type="text" id="gdir-loc" aria-label="Grading repo or folder" style="margin-top:8px">
+          <small id="gdir-hint"></small></div>
+        <div class="field"><label for="project-name">Project name</label>
+          <input type="text" id="project-name" placeholder="orders-api">
+          <small>Its folder is <code id="project-path">projects/…/</code> in the grading repo. Defaults to the code repo's name.</small></div>
+        <div class="field"><span class="label">The suite is…</span>
+          <div class="seg" role="radiogroup" aria-label="Where the suite is">
+            <label><input type="radio" name="suite" value="site" checked><span>This website</span></label>
+            <label><input type="radio" name="suite" value="path"><span>A local copy</span></label>
+          </div>
+          <input type="text" id="suite-loc" aria-label="Suite location" style="margin-top:8px"></div>
+      </section>
+
+      <section class="card">
+        <h2><span class="num">3</span>How should it hand back results?</h2>
+        <div class="choices" id="delivery"></div>
+      </section>
+
+      <section class="card" id="extras-card">
+        <h2><span class="num">4</span>Details</h2>
+        <div id="extras"></div>
+      </section>
+    </div>
+
+    <aside class="sticky">
+      <div class="card">
+        <h2 style="font-size:1.1rem">Your prompt</h2>
+        <nav class="tabs" id="prompt-tabs" style="margin:4px 0 10px" hidden></nav>
+        <pre id="prompt-out" class="out-pre" style="white-space:pre-wrap"></pre>
+        <div class="row-btns" style="margin-top:10px"><button class="btn primary" type="button" id="copy-prompt">Copy prompt</button></div>
+        <h3 style="font-size:.95rem;margin:20px 0 4px">Then</h3>
+        <ol class="steps-mini" id="next-steps"></ol>
+      </div>
+    </aside>
+  </div>
+</div>

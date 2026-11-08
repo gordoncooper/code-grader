@@ -1,0 +1,72 @@
+<div class="app">
+  <header class="app-head">
+    <div>
+      <div class="eyebrow">Tool 3 of 3</div>
+      <h1>Review a report</h1>
+      <p class="lede">See where the code stands, compare with last time, answer the decision questions, and check the grader's work. Everything runs in your browser; your files aren't uploaded anywhere.</p>
+    </div>
+    <span class="engine-pill" id="engine-pill">Starting…</span>
+  </header>
+  <div id="engine-error"></div>
+
+  <section class="card" id="load-card">
+    <nav class="tabs" id="load-tabs" style="margin-top:0">
+      <button type="button" data-tab="repo">From the grading repo</button>
+      <button type="button" data-tab="files">Open files</button>
+    </nav>
+    <div class="panel" id="panel-repo">
+      <div class="grid2">
+        <div class="field"><label for="gh-repo">Grading repo</label><input type="text" id="gh-repo" placeholder="owner/grading, or its github.com URL (a report PR's URL works too)"></div>
+        <div class="field"><label for="gh-project">Project</label><input type="text" id="gh-project" list="gh-projects" placeholder="orders-api (leave empty to list them)"><datalist id="gh-projects"></datalist></div>
+      </div>
+      <div class="grid2">
+        <div class="field"><label for="gh-ref">Branch (optional)</label><input type="text" id="gh-ref" placeholder="Default branch, or a report branch like report/orders-api/2026-11-07-a1b2c3d"></div>
+        <div class="field" style="align-self:end"><button class="btn primary" type="button" id="gh-load">Load</button></div>
+      </div>
+      <p class="kbd-note">Loads the project's settings, decisions, accepted findings and its reports. The newest report is reviewed and compared with the one before; you can pick others below. Works with public GitHub repos.</p>
+      <div id="gh-status"></div>
+    </div>
+    <div class="panel" id="panel-files" hidden>
+      <div class="drop" id="drop" tabindex="0" role="button" aria-label="Choose files">
+        <b>Drop files, a project folder, or a .zip here</b> or click to choose files<br>
+        <small>A project folder (or a zip of the grading repo) brings everything at once. Loose files work too: a <code>report.json</code> plus, optionally, <code>project.toml</code>, <code>decisions.json</code>, <code>dispositions.json</code>, an older report to compare, extra run files, and a zip of the code (to check citations).</small>
+      </div>
+      <input type="file" id="file-input" multiple hidden accept=".json,.toml,.zip,application/json,application/zip,text/plain">
+      <input type="file" id="folder-input" webkitdirectory multiple hidden>
+      <div class="row-btns" style="margin-top:10px"><button class="btn" type="button" id="pick-folder">Choose a folder…</button></div>
+      <div class="filelist" id="filelist"></div>
+    </div>
+    <div class="row-btns" style="margin-top:14px">
+      <button class="btn primary" type="button" id="analyze" disabled>Review</button>
+      <button class="btn" type="button" id="sample">Try the sample project</button>
+      <button class="btn" type="button" id="clear-files">Clear</button>
+    </div>
+  </section>
+
+  <div id="results" hidden>
+    <div class="card" id="history-bar" style="margin-top:18px;padding:12px 18px" hidden>
+      <div class="row-btns">
+        <span class="label" id="history-project"></span>
+        <label class="kbd-note">Report <select id="pick-report" style="width:auto;margin-left:6px"></select></label>
+        <label class="kbd-note">Compare with <select id="pick-compare" style="width:auto;margin-left:6px"></select></label>
+      </div>
+    </div>
+    <div id="result-banners" style="margin-top:18px"></div>
+    <nav class="tabs" id="result-tabs" aria-label="Report sections">
+      <button type="button" data-tab="overview">Overview</button>
+      <button type="button" data-tab="decisions">Decisions <span class="count" id="dec-count" hidden></span></button>
+      <button type="button" data-tab="priorities">Priorities</button>
+      <button type="button" data-tab="scorecard">Scorecard</button>
+      <button type="button" data-tab="findings">Findings</button>
+      <button type="button" data-tab="compare">Compare</button>
+      <button type="button" data-tab="more">More</button>
+    </nav>
+    <div class="panel" id="panel-overview"></div>
+    <div class="panel" id="panel-decisions" hidden></div>
+    <div class="panel" id="panel-priorities" hidden></div>
+    <div class="panel" id="panel-scorecard" hidden></div>
+    <div class="panel" id="panel-findings" hidden></div>
+    <div class="panel" id="panel-compare" hidden></div>
+    <div class="panel" id="panel-more" hidden></div>
+  </div>
+</div>

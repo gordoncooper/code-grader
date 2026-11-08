@@ -1,0 +1,76 @@
+# EXAMPLE project configuration for the Code Grading Suite (v4.2.2)
+# In a grading repo this file lives at projects/<name>/project.toml.
+# People own this file. Agents read it but don't change it.
+# Answers to decision questions go in decisions.json, accepted findings in dispositions.json.
+# Check it with:  python3 SUITE_DIR/tools/gradekit.py resolve --config projects/orders-api/project.toml
+# Or use the "Set up a project" page on the suite's website.
+
+[project]
+name            = "orders-api"
+description     = "REST API that takes orders and payments for the web shop"
+code_repo       = "https://github.com/acme/orders-api"   # where the code lives (informational)
+preset          = "service"   # default | service | web_app | library | oss_library | cli | internal_tool | prototype
+languages       = "Python 3.12, FastAPI, Postgres"
+users           = "The web shop front end and the internal sales dashboard"
+maturity_target = "production"   # prototype | internal tool | production | public open source
+scope           = "Create, list and cancel orders; idempotent payments; CSV export (see docs/requirements.md)"
+out_of_scope    = ["vendor/**", "src/generated/**"]   # paths the grader skips, e.g. "vendor/**"
+
+# Answers override the preset. Each one moves specific weights; see `gradekit resolve --explain ID`.
+[answers]
+data_sensitivity  = "financial"   # What is the most sensitive data this code handles? (none | internal | personal | financial | regulated)
+audience          = "internal_org"   # Who uses it? (just_me | team | internal_org | public | developers)
+lifespan          = "years"   # How long will this code live? (throwaway | months | years | indefinite)
+failure_impact    = "revenue_loss"   # What happens when it fails? (inconvenience | degraded_work | revenue_loss | safety_or_legal)
+team              = "small"   # Who works on it? (solo | small | large | open_source)
+change_rate       = "regular"   # How often does it change? (rare | regular | constant)
+delivery          = "service"   # How is it delivered? (mixed | service | website | package | installed_app | internal_script)
+scale             = "moderate"   # What load or data volume does it face? (small | moderate | large | massive)
+
+# Criticality zones: the first match wins, so list specific zones first.
+# hot = matters most (money, auth, data writes); cold = matters least (scripts, examples).
+
+[[zones]]
+name        = "payments"
+paths       = ["src/payments/**", "src/billing/**"]
+criticality = "hot"
+why         = "Moves money"
+
+[[zones]]
+name        = "auth"
+paths       = ["src/auth/**"]
+criticality = "hot"
+why         = "Controls who can do what"
+
+[[zones]]
+name        = "tooling"
+paths       = ["scripts/**", "examples/**", "tests/fixtures/**"]
+criticality = "cold"
+why         = "Developer convenience; never runs in production"
+
+# Where improving agents stop: proportional (default) | maximal | level:L3
+[targets]
+mode = "proportional"
+# overrides = { F4 = 10 }
+
+# Explicit weight overrides (each needs a reason).
+[weights.overrides]
+F4 = { weight = 3, reason = "Checkout calls this synchronously; p99 latency budget is 150 ms" }
+
+# Extra gates for this project, or (rarely) remove one:
+# [gates]
+# extra   = ["C4"]
+# exclude = []
+
+# Let agent reviewers approve decision questions (default: humans only):
+# [review]
+# allow_agent_decisions = true
+
+# Monorepos (advanced): one combined score via components. Usually simpler: one project per part,
+# each with its own `path`.
+# [[components]]
+# name    = "web"
+# path    = "apps/web"
+# weight  = 1
+# preset  = "web_app"
+# answers = { scale = "large" }

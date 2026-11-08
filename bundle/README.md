@@ -2,6 +2,8 @@
 
 The Code Grading Suite, kept here so graders, reviewers and improvers work from the same copy as the projects they grade.
 
+**Generated, don't edit.** Both folders are built from [`../source/`](../source/) by the *Kit* workflow. `SOURCE-SHA256` records which source they were built from. To change the kit, see [Changing the kit](../README.md#changing-the-kit).
+
 | Folder | What it is | Who uses it |
 |---|---|---|
 | `bare/` | The kit: prompts, rubric, config, schema, `gradekit.py`, docs, calibration and examples. The website builder files are left out, because the built site is in `web/`. | Agents and the command line: `python3 bundle/bare/tools/gradekit.py …` |
@@ -28,7 +30,7 @@ cd bundle/web && sha256sum -c SHA256SUMS      # macOS: shasum -a 256 -c SHA256SU
 
 ## Releases
 
-Releases happen on their own. When a bundle PR merges, the *Release suite* workflow ([`.github/workflows/release.yml`](../.github/workflows/release.yml)) does three things:
+Releases happen on their own. When a release PR merges (one whose `source/CHANGELOG.md` heading isn't marked unreleased, so CI rebuilt `bundle/`), the *Release suite* workflow ([`.github/workflows/release.yml`](../.github/workflows/release.yml)) does three things:
 
 1. Reads the version from `web/manifest.json` and checks it against the top of `bare/CHANGELOG.md`.
 2. Tags the merge commit `vX.Y.Z`.

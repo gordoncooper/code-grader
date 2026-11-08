@@ -1,0 +1,42 @@
+{
+ "suite_version": "4.2.2",
+ "reference": "sample-repo @ a1b2c3d",
+ "criteria": {
+  "within_tolerance_pct": 90,
+  "mae_max": 0.75
+ },
+ "expected": {
+  "A1": {
+   "score": 5
+  },
+  "A2": {
+   "score": 5
+  },
+  "A3": {
+   "score": 4
+  },
+  "A4": {
+   "score": 5
+  },
+  "C4": {
+   "score": 3
+  },
+  "D1": {
+   "score": 5
+  },
+  "E1": {
+   "score": 3
+  },
+  "F2": {
+   "score": 2
+  },
+  "X1": {
+   "score": null,
+   "applicability": "not_applicable"
+  },
+  "F5": {
+   "score": 7,
+   "applicability": "limited"
+  }
+ }
+}

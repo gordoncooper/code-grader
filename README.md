@@ -36,7 +36,8 @@ code-grader/
 │           └── <date>-<commit>/  one folder per report, never overwritten          (graders, by pull request)
 │               ├── report.json
 │               └── report.md
-└── bundle/
+├── source/                       the kit's source: edit the kit here
+└── bundle/                       built from source/ by CI; never edited by hand
     ├── bare/                     the kit: prompts, rubric, config, schema, gradekit, docs
     └── web/                      the built website (served by GitHub Pages)
 ```
@@ -82,6 +83,15 @@ Start with `bundle/bare/GETTING-STARTED.md` for the walkthrough, then `README.md
 ## Versions
 
 Each version of the suite is a tagged [release](https://github.com/gordoncooper/code-grader/releases), with the bare kit and the website attached as zips. `bundle/` always holds the newest version. To see an older one, browse its tag. The full list is in [`bundle/README.md`](bundle/README.md).
+
+## Changing the kit
+
+The kit lives in [`source/`](source/). `bundle/` is generated from it by the *Kit* workflow, so a change always goes to `source/`, never to `bundle/`.
+
+1. **Start the next version.** Add a heading to `source/CHANGELOG.md` such as `## 4.3.0 (unreleased)`, and set `suite_version` in `source/rubric/catalog.json` to match. Kit PRs can then merge freely, and `bundle/` and the live site stay at the last release.
+2. **Release it.** In one PR, drop `(unreleased)` from the heading and update the version labels and `bundle/README.md`. CI rebuilds `bundle/` and commits it to the PR. Merging publishes the site and the release.
+
+`python3 .github/scripts/bundles.py status` shows the current state, and `smoke` runs the quick checks CI runs. If `source/` changes without a new version heading, CI stops and asks for one, so a released bundle always matches its source.
 
 ## License
 

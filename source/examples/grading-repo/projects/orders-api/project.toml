@@ -1,0 +1,36 @@
+# Project config for the bundled sample: examples/sample-repo, graded from this example grading repo.
+
+[project]
+name            = "orders-api"
+code_repo       = "examples/sample-repo"
+description     = "Small internal orders API (example only)"
+preset          = "service"
+languages       = "Python"
+users           = "Internal sales tools"
+maturity_target = "production"
+scope           = "Create orders, take idempotent payments, export orders"
+out_of_scope    = []
+
+[answers]
+data_sensitivity = "financial"   # takes payments
+
+[[zones]]
+name        = "payments"
+paths       = ["src/payments/**"]
+criticality = "hot"
+why         = "Moves money"
+
+[[zones]]
+name        = "orders"
+paths       = ["src/orders/**"]
+criticality = "hot"
+why         = "Order totals are billed to customers"
+
+[[zones]]
+name        = "scripts"
+paths       = ["scripts/**", "tests/**"]
+criticality = "cold"
+why         = "Developer convenience; never runs in production"
+
+[targets]
+mode = "proportional"
