@@ -1,0 +1,2356 @@
+{
+  "suite_version": "4.2.0",
+  "mode": "full",
+  "run": {
+    "commit": "9f8e7d6",
+    "base_commit": null,
+    "date": "2026-10-24",
+    "grader": "example",
+    "run_index": 1,
+    "run_count": 1,
+    "suite_source": "local",
+    "project": "orders-api"
+  },
+  "component": null,
+  "project_context_inferred": "Small internal orders API (Python), example only",
+  "config": {
+    "hash": "c068a92b5feead6f",
+    "preset": "service",
+    "source": ".grading/project.toml",
+    "component": null
+  },
+  "commands_run": [
+    {
+      "command": "pytest -q",
+      "exit_code": 0,
+      "result_summary": "1 passed"
+    },
+    {
+      "command": "ruff check .",
+      "exit_code": 0,
+      "result_summary": "All checks passed"
+    }
+  ],
+  "scope_examined": "Entire repository read in full (5 files)",
+  "metrics": {
+    "build_passes": true,
+    "tests_total": 1,
+    "tests_failed": 0,
+    "tests_skipped": 0,
+    "line_coverage_pct": 41.0,
+    "branch_coverage_pct": 25.0,
+    "lint_errors": 0,
+    "lint_suppressions": 0,
+    "vulns_critical": 0,
+    "secrets_found": 0,
+    "setup_second_run_passes": false,
+    "time_to_first_success_minutes": null,
+    "mutation_score_pct": null,
+    "loc_source": 25,
+    "loc_tests": 5
+  },
+  "metrics_notes": {
+    "time_to_first_success_minutes": "quickstart fails at step 1",
+    "mutation_score_pct": "no mutation tool available"
+  },
+  "feature_inventory": [
+    {
+      "feature": "Create order",
+      "source": "route",
+      "status": "partial",
+      "evidence": [
+        {
+          "type": "code",
+          "file": "src/orders/service.py",
+          "lines": "12",
+          "quote": "def create_order(db, items):",
+          "note": ""
+        }
+      ]
+    },
+    {
+      "feature": "Idempotent charge",
+      "source": "route",
+      "status": "complete",
+      "evidence": [
+        {
+          "type": "code",
+          "file": "src/payments/api.py",
+          "lines": "2",
+          "quote": "key = request.headers[\"Idempotency-Key\"]",
+          "note": ""
+        }
+      ]
+    },
+    {
+      "feature": "CSV/XLSX export",
+      "source": "README",
+      "status": "stub",
+      "evidence": [
+        {
+          "type": "code",
+          "file": "README.md",
+          "lines": "3",
+          "quote": "Exports orders to CSV and XLSX.",
+          "note": ""
+        }
+      ]
+    }
+  ],
+  "gap_register": [
+    {
+      "id": "GAP-002",
+      "gap": "No health check endpoint",
+      "severity": "minor",
+      "necessity": "must-have",
+      "status": "new",
+      "rationale": "Needed by the platform's load balancer",
+      "benchmark_ids": [
+        "D2",
+        "F1"
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "id": "A1-001",
+      "benchmark_id": "A1",
+      "title": "Discount ignored for single-item orders",
+      "severity": "major",
+      "status": "new",
+      "first_seen_commit": "9f8e7d6",
+      "evidence": [
+        {
+          "type": "code",
+          "file": "src/orders/service.py",
+          "lines": "7-8",
+          "quote": "if len(items) > 1:\n        total = total * (1 - discount)",
+          "note": "discount only applied when more than one item"
+        }
+      ],
+      "disposition": null,
+      "disposition_concern": null
+    },
+    {
+      "id": "A2-001",
+      "benchmark_id": "A2",
+      "title": "No input validation on charge amount",
+      "severity": "major",
+      "status": "new",
+      "first_seen_commit": "9f8e7d6",
+      "evidence": [
+        {
+          "type": "code",
+          "file": "src/payments/api.py",
+          "lines": "5",
+          "quote": "result = gateway.charge(request.json[\"amount\"])",
+          "note": "amount passed to gateway unchecked; negative or string values accepted"
+        }
+      ],
+      "disposition": null,
+      "disposition_concern": null
+    },
+    {
+      "id": "A3-001",
+      "benchmark_id": "A3",
+      "title": "Stock reservation errors swallowed",
+      "severity": "critical",
+      "status": "new",
+      "first_seen_commit": "9f8e7d6",
+      "evidence": [
+        {
+          "type": "code",
+          "file": "src/orders/service.py",
+          "lines": "16-17",
+          "quote": "except Exception:\n        pass",
+          "note": "order is created even when stock reservation fails"
+        }
+      ],
+      "disposition": null,
+      "disposition_concern": null
+    },
+    {
+      "id": "A4-001",
+      "benchmark_id": "A4",
+      "title": "Seed script not re-runnable",
+      "severity": "major",
+      "status": "new",
+      "first_seen_commit": "9f8e7d6",
+      "evidence": [
+        {
+          "type": "code",
+          "file": "scripts/seed.sql",
+          "lines": "2",
+          "quote": "INSERT INTO plans (id, name) VALUES (1, 'free');",
+          "note": "second run fails with duplicate key"
+        }
+      ],
+      "disposition": null,
+      "disposition_concern": null
+    },
+    {
+      "id": "A4-002",
+      "benchmark_id": "A4",
+      "title": "Wall-clock time read inside domain logic",
+      "severity": "minor",
+      "status": "new",
+      "first_seen_commit": "9f8e7d6",
+      "evidence": [
+        {
+          "type": "code",
+          "file": "src/orders/service.py",
+          "lines": "13",
+          "quote": "order_id = db.insert(\"orders\", {\"total\": order_total(items), \"ts\": time.time()})",
+          "note": "time not injectable; tests cannot control it"
+        }
+      ],
+      "disposition": null,
+      "disposition_concern": null
+    },
+    {
+      "id": "A5-001",
+      "benchmark_id": "A5",
+      "title": "Order insert and stock reservation not in one transaction",
+      "severity": "major",
+      "status": "new",
+      "first_seen_commit": "9f8e7d6",
+      "evidence": [
+        {
+          "type": "code",
+          "file": "src/orders/service.py",
+          "lines": "13-15",
+          "quote": "order_id = db.insert(\"orders\", {\"total\": order_total(items), \"ts\": time.time()})",
+          "note": "a crash between insert and reserve leaves an order with no stock held"
+        }
+      ],
+      "disposition": null,
+      "disposition_concern": null
+    },
+    {
+      "id": "B1-001",
+      "benchmark_id": "B1",
+      "title": "Domain logic depends directly on the DB handle",
+      "severity": "minor",
+      "status": "new",
+      "first_seen_commit": "9f8e7d6",
+      "evidence": [
+        {
+          "type": "code",
+          "file": "src/orders/service.py",
+          "lines": "12",
+          "quote": "def create_order(db, items):",
+          "note": "no repository boundary; persistence details leak into the domain"
+        }
+      ],
+      "disposition": null,
+      "disposition_concern": null
+    },
+    {
+      "id": "B2-001",
+      "benchmark_id": "B2",
+      "title": "Orders and payments share no interface; payments reads the raw request",
+      "severity": "minor",
+      "status": "new",
+      "first_seen_commit": "9f8e7d6",
+      "evidence": [
+        {
+          "type": "code",
+          "file": "src/payments/api.py",
+          "lines": "1",
+          "quote": "def charge(request, gateway, store):",
+          "note": "HTTP request object passed into payment logic"
+        }
+      ],
+      "disposition": null,
+      "disposition_concern": null
+    },
+    {
+      "id": "B4-001",
+      "benchmark_id": "B4",
+      "title": "Items are untyped dicts",
+      "severity": "major",
+      "status": "new",
+      "first_seen_commit": "9f8e7d6",
+      "evidence": [
+        {
+          "type": "code",
+          "file": "src/orders/service.py",
+          "lines": "6",
+          "quote": "total = sum(i[\"price\"] * i[\"qty\"] for i in items)",
+          "note": "no type or schema for items"
+        }
+      ],
+      "disposition": null,
+      "disposition_concern": null
+    },
+    {
+      "id": "B5-001",
+      "benchmark_id": "B5",
+      "title": "Single payment gateway assumed",
+      "severity": "minor",
+      "status": "new",
+      "first_seen_commit": "9f8e7d6",
+      "evidence": [
+        {
+          "type": "code",
+          "file": "src/payments/api.py",
+          "lines": "5",
+          "quote": "result = gateway.charge(request.json[\"amount\"])",
+          "note": "no currency or provider abstraction"
+        }
+      ],
+      "disposition": null,
+      "disposition_concern": null
+    },
+    {
+      "id": "C2-001",
+      "benchmark_id": "C2",
+      "title": "Rounding and discount logic mixed in one function",
+      "severity": "minor",
+      "status": "new",
+      "first_seen_commit": "9f8e7d6",
+      "evidence": [
+        {
+          "type": "code",
+          "file": "src/orders/service.py",
+          "lines": "9",
+          "quote": "return round(total, 2)",
+          "note": "float rounding for money; no money type"
+        }
+      ],
+      "disposition": null,
+      "disposition_concern": null
+    },
+    {
+      "id": "C4-001",
+      "benchmark_id": "C4",
+      "title": "One test covers one happy path",
+      "severity": "critical",
+      "status": "new",
+      "first_seen_commit": "9f8e7d6",
+      "evidence": [
+        {
+          "type": "command",
+          "command": "pytest -q",
+          "excerpt": "1 passed",
+          "note": "single test; create_order and charge untested"
+        }
+      ],
+      "disposition": null,
+      "disposition_concern": null,
+      "paths": [
+        "tests/**"
+      ]
+    },
+    {
+      "id": "D1-001",
+      "benchmark_id": "D1",
+      "title": "XLSX export advertised but not implemented",
+      "severity": "major",
+      "status": "new",
+      "first_seen_commit": "9f8e7d6",
+      "evidence": [
+        {
+          "type": "code",
+          "file": "README.md",
+          "lines": "3",
+          "quote": "Run `make dev` to start. Exports orders to CSV and XLSX.",
+          "note": ""
+        },
+        {
+          "type": "absence",
+          "searched": "export implementation",
+          "method": "grep -rni 'xlsx\\|csv' src/",
+          "note": "no export code at all"
+        }
+      ],
+      "disposition": null,
+      "disposition_concern": null
+    },
+    {
+      "id": "D3-001",
+      "benchmark_id": "D3",
+      "title": "Money handled as floats",
+      "severity": "minor",
+      "status": "new",
+      "first_seen_commit": "9f8e7d6",
+      "evidence": [
+        {
+          "type": "code",
+          "file": "src/orders/service.py",
+          "lines": "9",
+          "quote": "return round(total, 2)",
+          "note": "float arithmetic for currency"
+        }
+      ],
+      "disposition": null,
+      "disposition_concern": null
+    },
+    {
+      "id": "D4-001",
+      "benchmark_id": "D4",
+      "title": "discount parameter silently ignored in a common case",
+      "severity": "minor",
+      "status": "new",
+      "first_seen_commit": "9f8e7d6",
+      "evidence": [
+        {
+          "type": "code",
+          "file": "src/orders/service.py",
+          "lines": "5",
+          "quote": "def order_total(items, discount=0.0):",
+          "note": "callers passing a discount for one item get no error and no discount"
+        }
+      ],
+      "disposition": null,
+      "disposition_concern": null
+    },
+    {
+      "id": "E1-001",
+      "benchmark_id": "E1",
+      "title": "Quickstart command does not exist",
+      "severity": "critical",
+      "status": "new",
+      "first_seen_commit": "9f8e7d6",
+      "evidence": [
+        {
+          "type": "code",
+          "file": "README.md",
+          "lines": "3",
+          "quote": "Run `make dev` to start.",
+          "note": ""
+        },
+        {
+          "type": "absence",
+          "searched": "Makefile",
+          "method": "ls -a at repo root",
+          "note": "no Makefile; quickstart fails at step 1"
+        }
+      ],
+      "disposition": null,
+      "disposition_concern": null
+    },
+    {
+      "id": "E2-001",
+      "benchmark_id": "E2",
+      "title": "README is one line and partly wrong",
+      "severity": "major",
+      "status": "new",
+      "first_seen_commit": "9f8e7d6",
+      "evidence": [
+        {
+          "type": "code",
+          "file": "README.md",
+          "lines": "3",
+          "quote": "Exports orders to CSV and XLSX.",
+          "note": "claims features that do not exist"
+        }
+      ],
+      "disposition": null,
+      "disposition_concern": null
+    },
+    {
+      "id": "E3-001",
+      "benchmark_id": "E3",
+      "title": "No dependency manifest or dev setup",
+      "severity": "major",
+      "status": "new",
+      "first_seen_commit": "9f8e7d6",
+      "evidence": [
+        {
+          "type": "absence",
+          "searched": "pyproject.toml, requirements.txt, setup.cfg",
+          "method": "ls -a at repo root",
+          "note": ""
+        }
+      ],
+      "disposition": null,
+      "disposition_concern": null
+    },
+    {
+      "id": "E4-001",
+      "benchmark_id": "E4",
+      "title": "No standard Python project metadata",
+      "severity": "minor",
+      "status": "new",
+      "first_seen_commit": "9f8e7d6",
+      "evidence": [
+        {
+          "type": "absence",
+          "searched": "pyproject.toml",
+          "method": "ls -a at repo root",
+          "note": ""
+        }
+      ],
+      "disposition": null,
+      "disposition_concern": null
+    },
+    {
+      "id": "F1-001",
+      "benchmark_id": "F1",
+      "title": "No deploy artifact or instructions",
+      "severity": "critical",
+      "status": "new",
+      "first_seen_commit": "9f8e7d6",
+      "evidence": [
+        {
+          "type": "absence",
+          "searched": "Dockerfile, deploy scripts, IaC",
+          "method": "find . -iname '*docker*' -o -iname '*.tf'",
+          "note": ""
+        }
+      ],
+      "disposition": null,
+      "disposition_concern": null
+    },
+    {
+      "id": "F2-001",
+      "benchmark_id": "F2",
+      "title": "No CI",
+      "severity": "critical",
+      "status": "new",
+      "first_seen_commit": "9f8e7d6",
+      "evidence": [
+        {
+          "type": "absence",
+          "searched": "CI configuration",
+          "method": "ls .github/workflows .gitlab-ci.yml .circleci",
+          "note": "none present"
+        }
+      ],
+      "disposition": null,
+      "disposition_concern": null,
+      "paths": [
+        ".github/**"
+      ]
+    },
+    {
+      "id": "F3-001",
+      "benchmark_id": "F3",
+      "title": "No logging anywhere",
+      "severity": "major",
+      "status": "new",
+      "first_seen_commit": "9f8e7d6",
+      "evidence": [
+        {
+          "type": "absence",
+          "searched": "logging calls",
+          "method": "grep -rn 'logging\\|logger' src/",
+          "note": ""
+        }
+      ],
+      "disposition": null,
+      "disposition_concern": null
+    },
+    {
+      "id": "F4-001",
+      "benchmark_id": "F4",
+      "title": "Total recomputed per insert with no batching",
+      "severity": "minor",
+      "status": "new",
+      "first_seen_commit": "9f8e7d6",
+      "evidence": [
+        {
+          "type": "code",
+          "file": "src/orders/service.py",
+          "lines": "13",
+          "quote": "order_id = db.insert(\"orders\", {\"total\": order_total(items), \"ts\": time.time()})",
+          "note": "fine at current scale; noted for bulk imports"
+        }
+      ],
+      "disposition": null,
+      "disposition_concern": null
+    },
+    {
+      "id": "F6-001",
+      "benchmark_id": "F6",
+      "title": "Dependencies not declared or pinned",
+      "severity": "major",
+      "status": "new",
+      "first_seen_commit": "9f8e7d6",
+      "evidence": [
+        {
+          "type": "absence",
+          "searched": "lockfile or manifest",
+          "method": "ls -a at repo root",
+          "note": ""
+        }
+      ],
+      "disposition": null,
+      "disposition_concern": null
+    },
+    {
+      "id": "X2-001",
+      "benchmark_id": "X2",
+      "title": "No versioning of the HTTP API",
+      "severity": "minor",
+      "status": "new",
+      "first_seen_commit": "9f8e7d6",
+      "evidence": [
+        {
+          "type": "absence",
+          "searched": "API version prefix or changelog",
+          "method": "grep -rn 'v1' src/; ls CHANGELOG*",
+          "note": ""
+        }
+      ],
+      "disposition": null,
+      "disposition_concern": null
+    },
+    {
+      "id": "X3-001",
+      "benchmark_id": "X3",
+      "title": "Check-then-act race on idempotency key",
+      "severity": "major",
+      "status": "new",
+      "first_seen_commit": "9f8e7d6",
+      "evidence": [
+        {
+          "type": "code",
+          "file": "src/payments/api.py",
+          "lines": "3-6",
+          "quote": "if store.seen(key):\n        return store.result(key)\n    result = gateway.charge(request.json[\"amount\"])",
+          "note": "two concurrent requests with the same key can both charge"
+        }
+      ],
+      "disposition": null,
+      "disposition_concern": null
+    },
+    {
+      "id": "X6-001",
+      "benchmark_id": "X6",
+      "title": "No agent instructions or runnable verification commands",
+      "severity": "major",
+      "status": "new",
+      "first_seen_commit": "9f8e7d6",
+      "evidence": [
+        {
+          "type": "absence",
+          "searched": "AGENTS.md / CLAUDE.md / test command docs",
+          "method": "ls -a at repo root",
+          "note": ""
+        }
+      ],
+      "disposition": null,
+      "disposition_concern": null
+    },
+    {
+      "id": "A2-002",
+      "benchmark_id": "A2",
+      "title": "Payment API key committed in config",
+      "severity": "critical",
+      "status": "new",
+      "first_seen_commit": "9f8e7d6",
+      "evidence": [
+        {
+          "type": "absence",
+          "searched": "secret scanning",
+          "method": "grep for API keys in src/",
+          "note": "(example) key was committed in an earlier version"
+        }
+      ],
+      "disposition": null,
+      "disposition_concern": null
+    }
+  ],
+  "benchmarks": [
+    {
+      "id": "A1",
+      "name": "Correctness & Functional Behavior",
+      "pillar": "A",
+      "applicability": "full",
+      "applicability_reason": null,
+      "config_weight": 3,
+      "weight": 3,
+      "weight_note": null,
+      "score": 5,
+      "confidence": "medium",
+      "carried_forward": false,
+      "caps_applied": [],
+      "finding_ids": [
+        "A1-001"
+      ],
+      "strengths": [],
+      "enforcement": [],
+      "gaming_flags": [],
+      "target": 10,
+      "path_to_target": [],
+      "previous_score": null,
+      "change_explanation": null
+    },
+    {
+      "id": "A2",
+      "name": "Security & Privacy",
+      "pillar": "A",
+      "applicability": "full",
+      "applicability_reason": null,
+      "config_weight": 3,
+      "weight": 3,
+      "weight_note": null,
+      "score": 3,
+      "confidence": "medium",
+      "carried_forward": false,
+      "caps_applied": [],
+      "finding_ids": [
+        "A2-001",
+        "A2-002"
+      ],
+      "strengths": [],
+      "enforcement": [],
+      "gaming_flags": [],
+      "target": 10,
+      "path_to_target": [],
+      "previous_score": null,
+      "change_explanation": null
+    },
+    {
+      "id": "A3",
+      "name": "Robustness & Error Handling",
+      "pillar": "A",
+      "applicability": "full",
+      "applicability_reason": null,
+      "config_weight": 3,
+      "weight": 3,
+      "weight_note": null,
+      "score": 4,
+      "confidence": "medium",
+      "carried_forward": false,
+      "caps_applied": [
+        "Catch-all blocks that swallow errors in core paths → max 4"
+      ],
+      "finding_ids": [
+        "A3-001"
+      ],
+      "strengths": [],
+      "enforcement": [],
+      "gaming_flags": [],
+      "target": 10,
+      "path_to_target": [
+        {
+          "id": "A3-act-1",
+          "action": "In src/orders/service.py create_order, remove the bare except; let reserve_stock failures propagate as an OutOfStock error and return 409 from the API layer",
+          "resolves": [
+            "A3-001"
+          ],
+          "expected_new_score": 7,
+          "effort": "S",
+          "requires_human_decision": false,
+          "decision_question": null,
+          "optional": false
+        }
+      ],
+      "previous_score": null,
+      "change_explanation": null
+    },
+    {
+      "id": "A4",
+      "name": "Idempotence & Determinism",
+      "pillar": "A",
+      "applicability": "full",
+      "applicability_reason": null,
+      "config_weight": 3,
+      "weight": 3,
+      "weight_note": null,
+      "score": 5,
+      "confidence": "high",
+      "carried_forward": false,
+      "caps_applied": [
+        "Setup or migration fails or corrupts on a second run → max 5"
+      ],
+      "finding_ids": [
+        "A4-001",
+        "A4-002"
+      ],
+      "strengths": [
+        {
+          "note": "Payment endpoint honours idempotency keys",
+          "evidence": [
+            {
+              "type": "code",
+              "file": "src/payments/api.py",
+              "lines": "2",
+              "quote": "key = request.headers[\"Idempotency-Key\"]",
+              "note": ""
+            }
+          ]
+        }
+      ],
+      "enforcement": [],
+      "gaming_flags": [],
+      "target": 10,
+      "path_to_target": [
+        {
+          "id": "A4-act-1",
+          "action": "Rewrite scripts/seed.sql inserts as INSERT ... ON CONFLICT (id) DO NOTHING and add a CI step that runs the seed twice",
+          "resolves": [
+            "A4-001"
+          ],
+          "expected_new_score": 7,
+          "effort": "S",
+          "requires_human_decision": false,
+          "decision_question": null,
+          "optional": false
+        }
+      ],
+      "previous_score": null,
+      "change_explanation": null
+    },
+    {
+      "id": "A5",
+      "name": "Durability & Recoverability",
+      "pillar": "A",
+      "applicability": "full",
+      "applicability_reason": null,
+      "config_weight": 3,
+      "weight": 3,
+      "weight_note": null,
+      "score": 4,
+      "confidence": "medium",
+      "carried_forward": false,
+      "caps_applied": [
+        "Important state written non-atomically or held only in memory → max 4"
+      ],
+      "finding_ids": [
+        "A5-001"
+      ],
+      "strengths": [],
+      "enforcement": [],
+      "gaming_flags": [],
+      "target": 10,
+      "path_to_target": [],
+      "previous_score": null,
+      "change_explanation": null
+    },
+    {
+      "id": "B1",
+      "name": "Architecture & Design Fitness",
+      "pillar": "B",
+      "applicability": "full",
+      "applicability_reason": null,
+      "config_weight": 2,
+      "weight": 2,
+      "weight_note": null,
+      "score": 6,
+      "confidence": "medium",
+      "carried_forward": false,
+      "caps_applied": [],
+      "finding_ids": [
+        "B1-001"
+      ],
+      "strengths": [],
+      "enforcement": [],
+      "gaming_flags": [],
+      "target": 9,
+      "path_to_target": [],
+      "previous_score": null,
+      "change_explanation": null
+    },
+    {
+      "id": "B2",
+      "name": "Modularity & Decoupling",
+      "pillar": "B",
+      "applicability": "full",
+      "applicability_reason": null,
+      "config_weight": 2,
+      "weight": 2,
+      "weight_note": null,
+      "score": 6,
+      "confidence": "medium",
+      "carried_forward": false,
+      "caps_applied": [],
+      "finding_ids": [
+        "B2-001"
+      ],
+      "strengths": [],
+      "enforcement": [],
+      "gaming_flags": [],
+      "target": 9,
+      "path_to_target": [],
+      "previous_score": null,
+      "change_explanation": null
+    },
+    {
+      "id": "B3",
+      "name": "Structure & Organization",
+      "pillar": "B",
+      "applicability": "full",
+      "applicability_reason": null,
+      "config_weight": 1,
+      "weight": 1,
+      "weight_note": null,
+      "score": 7,
+      "confidence": "medium",
+      "carried_forward": false,
+      "caps_applied": [],
+      "finding_ids": [],
+      "strengths": [
+        {
+          "note": "src/, tests/ and scripts/ cleanly separated",
+          "evidence": [
+            {
+              "type": "command",
+              "command": "find . -maxdepth 2 -type d",
+              "excerpt": "./src/orders\n./src/payments",
+              "note": ""
+            }
+          ]
+        }
+      ],
+      "enforcement": [],
+      "gaming_flags": [],
+      "target": 8,
+      "path_to_target": [],
+      "previous_score": null,
+      "change_explanation": null
+    },
+    {
+      "id": "B4",
+      "name": "Interface Design & Contracts",
+      "pillar": "B",
+      "applicability": "full",
+      "applicability_reason": null,
+      "config_weight": 2,
+      "weight": 2,
+      "weight_note": null,
+      "score": 5,
+      "confidence": "medium",
+      "carried_forward": false,
+      "caps_applied": [],
+      "finding_ids": [
+        "B4-001"
+      ],
+      "strengths": [],
+      "enforcement": [],
+      "gaming_flags": [],
+      "target": 9,
+      "path_to_target": [],
+      "previous_score": null,
+      "change_explanation": null
+    },
+    {
+      "id": "B5",
+      "name": "Flexibility & Extensibility",
+      "pillar": "B",
+      "applicability": "full",
+      "applicability_reason": null,
+      "config_weight": 1,
+      "weight": 1,
+      "weight_note": null,
+      "score": 6,
+      "confidence": "medium",
+      "carried_forward": false,
+      "caps_applied": [],
+      "finding_ids": [
+        "B5-001"
+      ],
+      "strengths": [],
+      "enforcement": [],
+      "gaming_flags": [],
+      "target": 8,
+      "path_to_target": [],
+      "previous_score": null,
+      "change_explanation": null
+    },
+    {
+      "id": "B6",
+      "name": "Leanness",
+      "pillar": "B",
+      "applicability": "full",
+      "applicability_reason": null,
+      "config_weight": 2,
+      "weight": 2,
+      "weight_note": null,
+      "score": 6,
+      "confidence": "medium",
+      "carried_forward": false,
+      "caps_applied": [],
+      "finding_ids": [],
+      "strengths": [
+        {
+          "note": "Small, dependency-free code",
+          "evidence": [
+            {
+              "type": "command",
+              "command": "wc -l src/**/*.py",
+              "excerpt": "25 total",
+              "note": ""
+            }
+          ]
+        }
+      ],
+      "enforcement": [],
+      "gaming_flags": [],
+      "target": 9,
+      "path_to_target": [],
+      "previous_score": null,
+      "change_explanation": null
+    },
+    {
+      "id": "C1",
+      "name": "Readability & Clarity",
+      "pillar": "C",
+      "applicability": "full",
+      "applicability_reason": null,
+      "config_weight": 2,
+      "weight": 2,
+      "weight_note": null,
+      "score": 7,
+      "confidence": "medium",
+      "carried_forward": false,
+      "caps_applied": [],
+      "finding_ids": [],
+      "strengths": [
+        {
+          "note": "Short functions with clear names",
+          "evidence": [
+            {
+              "type": "code",
+              "file": "src/orders/service.py",
+              "lines": "5",
+              "quote": "def order_total(items, discount=0.0):",
+              "note": ""
+            }
+          ]
+        }
+      ],
+      "enforcement": [],
+      "gaming_flags": [],
+      "target": 9,
+      "path_to_target": [],
+      "previous_score": null,
+      "change_explanation": null
+    },
+    {
+      "id": "C2",
+      "name": "Maintainability & Complexity",
+      "pillar": "C",
+      "applicability": "full",
+      "applicability_reason": null,
+      "config_weight": 2,
+      "weight": 2,
+      "weight_note": null,
+      "score": 6,
+      "confidence": "medium",
+      "carried_forward": false,
+      "caps_applied": [],
+      "finding_ids": [
+        "C2-001"
+      ],
+      "strengths": [],
+      "enforcement": [],
+      "gaming_flags": [],
+      "target": 9,
+      "path_to_target": [],
+      "previous_score": null,
+      "change_explanation": null
+    },
+    {
+      "id": "C3",
+      "name": "Consistency & Idiomatic Code",
+      "pillar": "C",
+      "applicability": "full",
+      "applicability_reason": null,
+      "config_weight": 1,
+      "weight": 1,
+      "weight_note": null,
+      "score": 7,
+      "confidence": "medium",
+      "carried_forward": false,
+      "caps_applied": [],
+      "finding_ids": [],
+      "strengths": [
+        {
+          "note": "Consistent PEP 8 style",
+          "evidence": [
+            {
+              "type": "command",
+              "command": "ruff check .",
+              "excerpt": "All checks passed!",
+              "note": ""
+            }
+          ]
+        }
+      ],
+      "enforcement": [],
+      "gaming_flags": [],
+      "target": 8,
+      "path_to_target": [],
+      "previous_score": null,
+      "change_explanation": null
+    },
+    {
+      "id": "C4",
+      "name": "Test Suite Quality",
+      "pillar": "C",
+      "applicability": "full",
+      "applicability_reason": null,
+      "config_weight": 2,
+      "weight": 2,
+      "weight_note": null,
+      "score": 2,
+      "confidence": "high",
+      "carried_forward": false,
+      "caps_applied": [
+        "Tests not run in CI → max 7"
+      ],
+      "finding_ids": [
+        "C4-001"
+      ],
+      "strengths": [],
+      "enforcement": [],
+      "gaming_flags": [],
+      "target": 9,
+      "path_to_target": [],
+      "previous_score": null,
+      "change_explanation": null
+    },
+    {
+      "id": "D1",
+      "name": "Feature Completeness",
+      "pillar": "D",
+      "applicability": "full",
+      "applicability_reason": null,
+      "config_weight": 2,
+      "weight": 2,
+      "weight_note": null,
+      "score": 5,
+      "confidence": "medium",
+      "carried_forward": false,
+      "caps_applied": [
+        "Any advertised core feature that is missing or broken → max 5"
+      ],
+      "finding_ids": [
+        "D1-001"
+      ],
+      "strengths": [],
+      "enforcement": [],
+      "gaming_flags": [],
+      "target": 9,
+      "path_to_target": [
+        {
+          "id": "D1-act-1",
+          "action": "Either implement CSV/XLSX export in a new src/export module with tests, or remove the claim from README.md",
+          "resolves": [
+            "D1-001"
+          ],
+          "expected_new_score": 8,
+          "effort": "M",
+          "requires_human_decision": true,
+          "decision_question": "Implement CSV and XLSX export, or drop the export claim from the README?",
+          "optional": false
+        }
+      ],
+      "previous_score": null,
+      "change_explanation": null
+    },
+    {
+      "id": "D2",
+      "name": "Gap Coverage",
+      "pillar": "D",
+      "applicability": "full",
+      "applicability_reason": null,
+      "config_weight": 2,
+      "weight": 2,
+      "weight_note": null,
+      "score": 5,
+      "confidence": "medium",
+      "carried_forward": false,
+      "caps_applied": [],
+      "finding_ids": [
+        "D2-001"
+      ],
+      "strengths": [],
+      "enforcement": [],
+      "gaming_flags": [],
+      "target": 9,
+      "path_to_target": [],
+      "previous_score": null,
+      "change_explanation": null
+    },
+    {
+      "id": "D3",
+      "name": "Practicality",
+      "pillar": "D",
+      "applicability": "full",
+      "applicability_reason": null,
+      "config_weight": 2,
+      "weight": 2,
+      "weight_note": null,
+      "score": 6,
+      "confidence": "medium",
+      "carried_forward": false,
+      "caps_applied": [],
+      "finding_ids": [
+        "D3-001"
+      ],
+      "strengths": [],
+      "enforcement": [],
+      "gaming_flags": [],
+      "target": 9,
+      "path_to_target": [],
+      "previous_score": null,
+      "change_explanation": null
+    },
+    {
+      "id": "D4",
+      "name": "Intuitiveness",
+      "pillar": "D",
+      "applicability": "full",
+      "applicability_reason": null,
+      "config_weight": 2,
+      "weight": 2,
+      "weight_note": null,
+      "score": 6,
+      "confidence": "medium",
+      "carried_forward": false,
+      "caps_applied": [],
+      "finding_ids": [
+        "D4-001"
+      ],
+      "strengths": [],
+      "enforcement": [],
+      "gaming_flags": [],
+      "target": 9,
+      "path_to_target": [],
+      "previous_score": null,
+      "change_explanation": null
+    },
+    {
+      "id": "E1",
+      "name": "Adopter Friendliness",
+      "pillar": "E",
+      "applicability": "full",
+      "applicability_reason": null,
+      "config_weight": 2,
+      "weight": 2,
+      "weight_note": null,
+      "score": 3,
+      "confidence": "high",
+      "carried_forward": false,
+      "caps_applied": [
+        "Quickstart fails → max 4"
+      ],
+      "finding_ids": [
+        "E1-001"
+      ],
+      "strengths": [],
+      "enforcement": [],
+      "gaming_flags": [],
+      "target": 9,
+      "path_to_target": [],
+      "previous_score": null,
+      "change_explanation": null
+    },
+    {
+      "id": "E2",
+      "name": "Documentation",
+      "pillar": "E",
+      "applicability": "full",
+      "applicability_reason": null,
+      "config_weight": 2,
+      "weight": 2,
+      "weight_note": null,
+      "score": 3,
+      "confidence": "medium",
+      "carried_forward": false,
+      "caps_applied": [
+        "Wrong setup instructions → max 5"
+      ],
+      "finding_ids": [
+        "E2-001"
+      ],
+      "strengths": [],
+      "enforcement": [],
+      "gaming_flags": [],
+      "target": 9,
+      "path_to_target": [],
+      "previous_score": null,
+      "change_explanation": null
+    },
+    {
+      "id": "E3",
+      "name": "Developer Experience & Inner Loop",
+      "pillar": "E",
+      "applicability": "full",
+      "applicability_reason": null,
+      "config_weight": 1,
+      "weight": 1,
+      "weight_note": null,
+      "score": 4,
+      "confidence": "medium",
+      "carried_forward": false,
+      "caps_applied": [],
+      "finding_ids": [
+        "E3-001"
+      ],
+      "strengths": [],
+      "enforcement": [],
+      "gaming_flags": [],
+      "target": 8,
+      "path_to_target": [],
+      "previous_score": null,
+      "change_explanation": null
+    },
+    {
+      "id": "E4",
+      "name": "Native Tooling & Ecosystem Fit",
+      "pillar": "E",
+      "applicability": "full",
+      "applicability_reason": null,
+      "config_weight": 1,
+      "weight": 1,
+      "weight_note": null,
+      "score": 6,
+      "confidence": "medium",
+      "carried_forward": false,
+      "caps_applied": [],
+      "finding_ids": [
+        "E4-001"
+      ],
+      "strengths": [],
+      "enforcement": [],
+      "gaming_flags": [],
+      "target": 8,
+      "path_to_target": [],
+      "previous_score": null,
+      "change_explanation": null
+    },
+    {
+      "id": "F1",
+      "name": "Ease of Deployability",
+      "pillar": "F",
+      "applicability": "full",
+      "applicability_reason": null,
+      "config_weight": 3,
+      "weight": 3,
+      "weight_note": "Deploys are owned by a platform team; weight 2 would better reflect this repo's share.",
+      "score": 3,
+      "confidence": "medium",
+      "carried_forward": false,
+      "caps_applied": [
+        "Manual, undocumented deploy steps → max 4"
+      ],
+      "finding_ids": [
+        "F1-001"
+      ],
+      "strengths": [],
+      "enforcement": [],
+      "gaming_flags": [],
+      "target": 10,
+      "path_to_target": [],
+      "previous_score": null,
+      "change_explanation": null
+    },
+    {
+      "id": "F2",
+      "name": "Build, CI/CD & Automation",
+      "pillar": "F",
+      "applicability": "full",
+      "applicability_reason": null,
+      "config_weight": 1,
+      "weight": 1,
+      "weight_note": null,
+      "score": 2,
+      "confidence": "high",
+      "carried_forward": false,
+      "caps_applied": [],
+      "finding_ids": [
+        "F2-001"
+      ],
+      "strengths": [],
+      "enforcement": [],
+      "gaming_flags": [],
+      "target": 8,
+      "path_to_target": [
+        {
+          "id": "F2-act-1",
+          "action": "Add .github/workflows/ci.yml running ruff, mypy --strict and pytest --cov with a branch-coverage floor, required on main",
+          "resolves": [
+            "F2-001"
+          ],
+          "expected_new_score": 7,
+          "effort": "S",
+          "requires_human_decision": false,
+          "decision_question": null,
+          "optional": false
+        }
+      ],
+      "previous_score": null,
+      "change_explanation": null
+    },
+    {
+      "id": "F3",
+      "name": "Observability & Debuggability",
+      "pillar": "F",
+      "applicability": "full",
+      "applicability_reason": null,
+      "config_weight": 3,
+      "weight": 3,
+      "weight_note": null,
+      "score": 3,
+      "confidence": "medium",
+      "carried_forward": false,
+      "caps_applied": [],
+      "finding_ids": [
+        "F3-001"
+      ],
+      "strengths": [],
+      "enforcement": [],
+      "gaming_flags": [],
+      "target": 10,
+      "path_to_target": [],
+      "previous_score": null,
+      "change_explanation": null
+    },
+    {
+      "id": "F4",
+      "name": "Performance, Efficiency & Scalability",
+      "pillar": "F",
+      "applicability": "full",
+      "applicability_reason": null,
+      "config_weight": 1,
+      "weight": 1,
+      "weight_note": null,
+      "score": 6,
+      "confidence": "medium",
+      "carried_forward": false,
+      "caps_applied": [],
+      "finding_ids": [
+        "F4-001"
+      ],
+      "strengths": [],
+      "enforcement": [],
+      "gaming_flags": [],
+      "target": 8,
+      "path_to_target": [],
+      "previous_score": null,
+      "change_explanation": null
+    },
+    {
+      "id": "F5",
+      "name": "Portability",
+      "pillar": "F",
+      "applicability": "limited",
+      "applicability_reason": "Ships only as one pinned Linux container; would become fully relevant if it ran on other platforms.",
+      "config_weight": 1,
+      "weight": 1,
+      "weight_note": null,
+      "score": 7,
+      "confidence": "medium",
+      "carried_forward": false,
+      "caps_applied": [],
+      "finding_ids": [],
+      "strengths": [
+        {
+          "note": "No platform-specific paths or shell calls",
+          "evidence": [
+            {
+              "type": "absence",
+              "searched": "absolute paths and subprocess calls",
+              "method": "grep -rn \"subprocess\\|/home/\\|C:\\\\\" src/",
+              "note": ""
+            }
+          ]
+        }
+      ],
+      "enforcement": [],
+      "gaming_flags": [],
+      "target": 8,
+      "path_to_target": [],
+      "previous_score": null,
+      "change_explanation": null
+    },
+    {
+      "id": "F6",
+      "name": "Dependency Health & Longevity",
+      "pillar": "F",
+      "applicability": "full",
+      "applicability_reason": null,
+      "config_weight": 1,
+      "weight": 1,
+      "weight_note": null,
+      "score": 5,
+      "confidence": "medium",
+      "carried_forward": false,
+      "caps_applied": [],
+      "finding_ids": [
+        "F6-001"
+      ],
+      "strengths": [],
+      "enforcement": [],
+      "gaming_flags": [],
+      "target": 8,
+      "path_to_target": [],
+      "previous_score": null,
+      "change_explanation": null
+    },
+    {
+      "id": "X1",
+      "name": "Accessibility, UX & Internationalization",
+      "pillar": "X",
+      "applicability": "not_applicable",
+      "applicability_reason": "Backend API with no user interface.",
+      "config_weight": 2,
+      "weight": 0,
+      "weight_note": null,
+      "score": null,
+      "confidence": null,
+      "carried_forward": false,
+      "caps_applied": [],
+      "finding_ids": [],
+      "strengths": [],
+      "enforcement": [],
+      "gaming_flags": [],
+      "target": null,
+      "path_to_target": [],
+      "previous_score": null,
+      "change_explanation": null
+    },
+    {
+      "id": "X2",
+      "name": "Public API Stability & Upgradeability",
+      "pillar": "X",
+      "applicability": "limited",
+      "applicability_reason": "Internal API with one known consumer; becomes fully relevant if exposed to other teams.",
+      "config_weight": 2,
+      "weight": 1,
+      "weight_note": null,
+      "score": 5,
+      "confidence": "medium",
+      "carried_forward": false,
+      "caps_applied": [],
+      "finding_ids": [
+        "X2-001"
+      ],
+      "strengths": [],
+      "enforcement": [],
+      "gaming_flags": [],
+      "target": 8,
+      "path_to_target": [],
+      "previous_score": null,
+      "change_explanation": null
+    },
+    {
+      "id": "X3",
+      "name": "Concurrency Safety",
+      "pillar": "X",
+      "applicability": "full",
+      "applicability_reason": null,
+      "config_weight": 2,
+      "weight": 2,
+      "weight_note": null,
+      "score": 5,
+      "confidence": "medium",
+      "carried_forward": false,
+      "caps_applied": [],
+      "finding_ids": [
+        "X3-001"
+      ],
+      "strengths": [],
+      "enforcement": [],
+      "gaming_flags": [],
+      "target": 9,
+      "path_to_target": [],
+      "previous_score": null,
+      "change_explanation": null
+    },
+    {
+      "id": "X4",
+      "name": "Cost Efficiency",
+      "pillar": "X",
+      "applicability": "not_applicable",
+      "applicability_reason": "Runs on fixed, already-paid hardware; no metered resources or paid APIs.",
+      "config_weight": 2,
+      "weight": 0,
+      "weight_note": null,
+      "score": null,
+      "confidence": null,
+      "carried_forward": false,
+      "caps_applied": [],
+      "finding_ids": [],
+      "strengths": [],
+      "enforcement": [],
+      "gaming_flags": [],
+      "target": null,
+      "path_to_target": [],
+      "previous_score": null,
+      "change_explanation": null
+    },
+    {
+      "id": "X5",
+      "name": "Compliance & Licensing",
+      "pillar": "X",
+      "applicability": "not_applicable",
+      "applicability_reason": "No regulated data and the software is not distributed.",
+      "config_weight": 2,
+      "weight": 0,
+      "weight_note": null,
+      "score": null,
+      "confidence": null,
+      "carried_forward": false,
+      "caps_applied": [],
+      "finding_ids": [],
+      "strengths": [],
+      "enforcement": [],
+      "gaming_flags": [],
+      "target": null,
+      "path_to_target": [],
+      "previous_score": null,
+      "change_explanation": null
+    },
+    {
+      "id": "X6",
+      "name": "Agent-Readiness",
+      "pillar": "X",
+      "applicability": "full",
+      "applicability_reason": null,
+      "config_weight": 1,
+      "weight": 1,
+      "weight_note": null,
+      "score": 2,
+      "confidence": "medium",
+      "carried_forward": false,
+      "caps_applied": [],
+      "finding_ids": [
+        "X6-001"
+      ],
+      "strengths": [],
+      "enforcement": [],
+      "gaming_flags": [],
+      "target": 8,
+      "path_to_target": [],
+      "previous_score": null,
+      "change_explanation": null
+    }
+  ],
+  "integrity_flags": [],
+  "holdout": {
+    "run": true,
+    "checks_run": 4,
+    "pass_rate": 0.5,
+    "private_details": "[not used in this example]"
+  },
+  "rollup": {
+    "computed_by": "gradekit.py",
+    "config_hash": "c068a92b5feead6f",
+    "pillar_scores": {
+      "A": 4.2,
+      "B": 5.9,
+      "C": 5.3,
+      "D": 5.5,
+      "E": 3.7,
+      "F": 3.8,
+      "X": 4.2
+    },
+    "overall_score_uncapped": 4.7,
+    "overall_score": 4.0,
+    "overall_cap_applied": true,
+    "gates": [
+      {
+        "benchmark_id": "A1",
+        "why": [
+          "always"
+        ],
+        "score": 5,
+        "status": "passed"
+      },
+      {
+        "benchmark_id": "A2",
+        "why": [
+          "always"
+        ],
+        "score": 3,
+        "status": "failed"
+      },
+      {
+        "benchmark_id": "A3",
+        "why": [
+          "failure_impact=revenue_loss"
+        ],
+        "score": 4,
+        "status": "passed"
+      },
+      {
+        "benchmark_id": "A4",
+        "why": [
+          "data_sensitivity=financial"
+        ],
+        "score": 5,
+        "status": "passed"
+      },
+      {
+        "benchmark_id": "A5",
+        "why": [
+          "data_sensitivity=financial"
+        ],
+        "score": 4,
+        "status": "passed"
+      }
+    ],
+    "maturity": {
+      "current_level": "L0",
+      "level_before_integrity_cap": null,
+      "next_level": "L1",
+      "blockers": [
+        {
+          "requirement": "gate above 3",
+          "benchmark_id": "A2",
+          "current": 3
+        },
+        {
+          "requirement": "overall ≥ 5.0",
+          "current": 4.0
+        },
+        {
+          "requirement": "gate ≥ 4",
+          "benchmark_id": "A2",
+          "current": 3,
+          "required": 4
+        }
+      ]
+    },
+    "open_gaps": {
+      "critical": 0,
+      "major_must_have": 0
+    },
+    "open_findings_by_zone": {
+      "hot": {
+        "minor": 0,
+        "major": 8,
+        "critical": 6
+      },
+      "cold": {
+        "minor": 1,
+        "major": 1,
+        "critical": 0
+      },
+      "normal": {
+        "minor": 2,
+        "major": 6,
+        "critical": 4
+      }
+    },
+    "finding_zones": {
+      "A1-001": {
+        "zone": "orders",
+        "criticality": "hot",
+        "severity": "major",
+        "effective_severity": "critical",
+        "status": "new",
+        "benchmark_id": "A1"
+      },
+      "A2-001": {
+        "zone": "payments",
+        "criticality": "hot",
+        "severity": "major",
+        "effective_severity": "critical",
+        "status": "new",
+        "benchmark_id": "A2"
+      },
+      "A3-001": {
+        "zone": "orders",
+        "criticality": "hot",
+        "severity": "critical",
+        "effective_severity": "critical",
+        "status": "new",
+        "benchmark_id": "A3"
+      },
+      "A4-001": {
+        "zone": "scripts",
+        "criticality": "cold",
+        "severity": "major",
+        "effective_severity": "minor",
+        "status": "new",
+        "benchmark_id": "A4"
+      },
+      "A4-002": {
+        "zone": "orders",
+        "criticality": "hot",
+        "severity": "minor",
+        "effective_severity": "major",
+        "status": "new",
+        "benchmark_id": "A4"
+      },
+      "A5-001": {
+        "zone": "orders",
+        "criticality": "hot",
+        "severity": "major",
+        "effective_severity": "critical",
+        "status": "new",
+        "benchmark_id": "A5"
+      },
+      "B1-001": {
+        "zone": "orders",
+        "criticality": "hot",
+        "severity": "minor",
+        "effective_severity": "major",
+        "status": "new",
+        "benchmark_id": "B1"
+      },
+      "B2-001": {
+        "zone": "payments",
+        "criticality": "hot",
+        "severity": "minor",
+        "effective_severity": "major",
+        "status": "new",
+        "benchmark_id": "B2"
+      },
+      "B4-001": {
+        "zone": "orders",
+        "criticality": "hot",
+        "severity": "major",
+        "effective_severity": "critical",
+        "status": "new",
+        "benchmark_id": "B4"
+      },
+      "B5-001": {
+        "zone": "payments",
+        "criticality": "hot",
+        "severity": "minor",
+        "effective_severity": "major",
+        "status": "new",
+        "benchmark_id": "B5"
+      },
+      "C2-001": {
+        "zone": "orders",
+        "criticality": "hot",
+        "severity": "minor",
+        "effective_severity": "major",
+        "status": "new",
+        "benchmark_id": "C2"
+      },
+      "C4-001": {
+        "zone": "scripts",
+        "criticality": "cold",
+        "severity": "critical",
+        "effective_severity": "major",
+        "status": "new",
+        "benchmark_id": "C4"
+      },
+      "D1-001": {
+        "zone": null,
+        "criticality": "normal",
+        "severity": "major",
+        "effective_severity": "major",
+        "status": "new",
+        "benchmark_id": "D1"
+      },
+      "D3-001": {
+        "zone": "orders",
+        "criticality": "hot",
+        "severity": "minor",
+        "effective_severity": "major",
+        "status": "new",
+        "benchmark_id": "D3"
+      },
+      "D4-001": {
+        "zone": "orders",
+        "criticality": "hot",
+        "severity": "minor",
+        "effective_severity": "major",
+        "status": "new",
+        "benchmark_id": "D4"
+      },
+      "E1-001": {
+        "zone": null,
+        "criticality": "normal",
+        "severity": "critical",
+        "effective_severity": "critical",
+        "status": "new",
+        "benchmark_id": "E1"
+      },
+      "E2-001": {
+        "zone": null,
+        "criticality": "normal",
+        "severity": "major",
+        "effective_severity": "major",
+        "status": "new",
+        "benchmark_id": "E2"
+      },
+      "E3-001": {
+        "zone": null,
+        "criticality": "normal",
+        "severity": "major",
+        "effective_severity": "major",
+        "status": "new",
+        "benchmark_id": "E3"
+      },
+      "E4-001": {
+        "zone": null,
+        "criticality": "normal",
+        "severity": "minor",
+        "effective_severity": "minor",
+        "status": "new",
+        "benchmark_id": "E4"
+      },
+      "F1-001": {
+        "zone": null,
+        "criticality": "normal",
+        "severity": "critical",
+        "effective_severity": "critical",
+        "status": "new",
+        "benchmark_id": "F1"
+      },
+      "F2-001": {
+        "zone": null,
+        "criticality": "normal",
+        "severity": "critical",
+        "effective_severity": "critical",
+        "status": "new",
+        "benchmark_id": "F2"
+      },
+      "F3-001": {
+        "zone": null,
+        "criticality": "normal",
+        "severity": "major",
+        "effective_severity": "major",
+        "status": "new",
+        "benchmark_id": "F3"
+      },
+      "F4-001": {
+        "zone": "orders",
+        "criticality": "hot",
+        "severity": "minor",
+        "effective_severity": "major",
+        "status": "new",
+        "benchmark_id": "F4"
+      },
+      "F6-001": {
+        "zone": null,
+        "criticality": "normal",
+        "severity": "major",
+        "effective_severity": "major",
+        "status": "new",
+        "benchmark_id": "F6"
+      },
+      "X2-001": {
+        "zone": null,
+        "criticality": "normal",
+        "severity": "minor",
+        "effective_severity": "minor",
+        "status": "new",
+        "benchmark_id": "X2"
+      },
+      "X3-001": {
+        "zone": "payments",
+        "criticality": "hot",
+        "severity": "major",
+        "effective_severity": "critical",
+        "status": "new",
+        "benchmark_id": "X3"
+      },
+      "X6-001": {
+        "zone": null,
+        "criticality": "normal",
+        "severity": "major",
+        "effective_severity": "major",
+        "status": "new",
+        "benchmark_id": "X6"
+      },
+      "A2-002": {
+        "zone": null,
+        "criticality": "normal",
+        "severity": "critical",
+        "effective_severity": "critical",
+        "status": "new",
+        "benchmark_id": "A2"
+      }
+    },
+    "targets": {
+      "A1": 10,
+      "A2": 10,
+      "A3": 10,
+      "A4": 10,
+      "A5": 10,
+      "B1": 9,
+      "B2": 9,
+      "B3": 8,
+      "B4": 9,
+      "B5": 8,
+      "B6": 9,
+      "C1": 9,
+      "C2": 9,
+      "C3": 8,
+      "C4": 9,
+      "D1": 9,
+      "D2": 9,
+      "D3": 9,
+      "D4": 9,
+      "E1": 9,
+      "E2": 9,
+      "E3": 8,
+      "E4": 8,
+      "F1": 10,
+      "F2": 8,
+      "F3": 10,
+      "F4": 8,
+      "F5": 8,
+      "F6": 8,
+      "X1": null,
+      "X2": 8,
+      "X3": 9,
+      "X4": null,
+      "X5": null,
+      "X6": 8
+    },
+    "below_target": [
+      {
+        "benchmark_id": "A2",
+        "score": 3,
+        "target": 10,
+        "gap": 7,
+        "weight": 3,
+        "weighted_gap": 21
+      },
+      {
+        "benchmark_id": "F1",
+        "score": 3,
+        "target": 10,
+        "gap": 7,
+        "weight": 3,
+        "weighted_gap": 21
+      },
+      {
+        "benchmark_id": "F3",
+        "score": 3,
+        "target": 10,
+        "gap": 7,
+        "weight": 3,
+        "weighted_gap": 21
+      },
+      {
+        "benchmark_id": "A3",
+        "score": 4,
+        "target": 10,
+        "gap": 6,
+        "weight": 3,
+        "weighted_gap": 18
+      },
+      {
+        "benchmark_id": "A5",
+        "score": 4,
+        "target": 10,
+        "gap": 6,
+        "weight": 3,
+        "weighted_gap": 18
+      },
+      {
+        "benchmark_id": "A1",
+        "score": 5,
+        "target": 10,
+        "gap": 5,
+        "weight": 3,
+        "weighted_gap": 15
+      },
+      {
+        "benchmark_id": "A4",
+        "score": 5,
+        "target": 10,
+        "gap": 5,
+        "weight": 3,
+        "weighted_gap": 15
+      },
+      {
+        "benchmark_id": "C4",
+        "score": 2,
+        "target": 9,
+        "gap": 7,
+        "weight": 2,
+        "weighted_gap": 14
+      },
+      {
+        "benchmark_id": "E1",
+        "score": 3,
+        "target": 9,
+        "gap": 6,
+        "weight": 2,
+        "weighted_gap": 12
+      },
+      {
+        "benchmark_id": "E2",
+        "score": 3,
+        "target": 9,
+        "gap": 6,
+        "weight": 2,
+        "weighted_gap": 12
+      },
+      {
+        "benchmark_id": "B4",
+        "score": 5,
+        "target": 9,
+        "gap": 4,
+        "weight": 2,
+        "weighted_gap": 8
+      },
+      {
+        "benchmark_id": "D1",
+        "score": 5,
+        "target": 9,
+        "gap": 4,
+        "weight": 2,
+        "weighted_gap": 8
+      },
+      {
+        "benchmark_id": "D2",
+        "score": 5,
+        "target": 9,
+        "gap": 4,
+        "weight": 2,
+        "weighted_gap": 8
+      },
+      {
+        "benchmark_id": "X3",
+        "score": 5,
+        "target": 9,
+        "gap": 4,
+        "weight": 2,
+        "weighted_gap": 8
+      },
+      {
+        "benchmark_id": "B1",
+        "score": 6,
+        "target": 9,
+        "gap": 3,
+        "weight": 2,
+        "weighted_gap": 6
+      },
+      {
+        "benchmark_id": "B2",
+        "score": 6,
+        "target": 9,
+        "gap": 3,
+        "weight": 2,
+        "weighted_gap": 6
+      },
+      {
+        "benchmark_id": "B6",
+        "score": 6,
+        "target": 9,
+        "gap": 3,
+        "weight": 2,
+        "weighted_gap": 6
+      },
+      {
+        "benchmark_id": "C2",
+        "score": 6,
+        "target": 9,
+        "gap": 3,
+        "weight": 2,
+        "weighted_gap": 6
+      },
+      {
+        "benchmark_id": "D3",
+        "score": 6,
+        "target": 9,
+        "gap": 3,
+        "weight": 2,
+        "weighted_gap": 6
+      },
+      {
+        "benchmark_id": "D4",
+        "score": 6,
+        "target": 9,
+        "gap": 3,
+        "weight": 2,
+        "weighted_gap": 6
+      },
+      {
+        "benchmark_id": "F2",
+        "score": 2,
+        "target": 8,
+        "gap": 6,
+        "weight": 1,
+        "weighted_gap": 6
+      },
+      {
+        "benchmark_id": "X6",
+        "score": 2,
+        "target": 8,
+        "gap": 6,
+        "weight": 1,
+        "weighted_gap": 6
+      },
+      {
+        "benchmark_id": "C1",
+        "score": 7,
+        "target": 9,
+        "gap": 2,
+        "weight": 2,
+        "weighted_gap": 4
+      },
+      {
+        "benchmark_id": "E3",
+        "score": 4,
+        "target": 8,
+        "gap": 4,
+        "weight": 1,
+        "weighted_gap": 4
+      },
+      {
+        "benchmark_id": "F6",
+        "score": 5,
+        "target": 8,
+        "gap": 3,
+        "weight": 1,
+        "weighted_gap": 3
+      },
+      {
+        "benchmark_id": "X2",
+        "score": 5,
+        "target": 8,
+        "gap": 3,
+        "weight": 1,
+        "weighted_gap": 3
+      },
+      {
+        "benchmark_id": "B5",
+        "score": 6,
+        "target": 8,
+        "gap": 2,
+        "weight": 1,
+        "weighted_gap": 2
+      },
+      {
+        "benchmark_id": "E4",
+        "score": 6,
+        "target": 8,
+        "gap": 2,
+        "weight": 1,
+        "weighted_gap": 2
+      },
+      {
+        "benchmark_id": "F4",
+        "score": 6,
+        "target": 8,
+        "gap": 2,
+        "weight": 1,
+        "weighted_gap": 2
+      },
+      {
+        "benchmark_id": "B3",
+        "score": 7,
+        "target": 8,
+        "gap": 1,
+        "weight": 1,
+        "weighted_gap": 1
+      },
+      {
+        "benchmark_id": "C3",
+        "score": 7,
+        "target": 8,
+        "gap": 1,
+        "weight": 1,
+        "weighted_gap": 1
+      },
+      {
+        "benchmark_id": "F5",
+        "score": 7,
+        "target": 8,
+        "gap": 1,
+        "weight": 1,
+        "weighted_gap": 1
+      }
+    ],
+    "priorities": [
+      {
+        "action_id": "A3-act-1",
+        "benchmark_id": "A3",
+        "tier": 0,
+        "priority": 18.0,
+        "zone": "hot",
+        "gain": 3,
+        "effort": "S",
+        "requires_human_decision": false,
+        "decision_question": null,
+        "action": "In src/orders/service.py create_order, remove the bare except; let reserve_stock failures propagate as an OutOfStock error and return 409 from the API layer",
+        "decision": null,
+        "rank": 1
+      },
+      {
+        "action_id": "F2-act-1",
+        "benchmark_id": "F2",
+        "tier": 2,
+        "priority": 5.0,
+        "zone": "normal",
+        "gain": 5,
+        "effort": "S",
+        "requires_human_decision": false,
+        "decision_question": null,
+        "action": "Add .github/workflows/ci.yml running ruff, mypy --strict and pytest --cov with a branch-coverage floor, required on main",
+        "decision": null,
+        "rank": 2
+      },
+      {
+        "action_id": "A4-act-1",
+        "benchmark_id": "A4",
+        "tier": 2,
+        "priority": 3.0,
+        "zone": "cold",
+        "gain": 2,
+        "effort": "S",
+        "requires_human_decision": false,
+        "decision_question": null,
+        "action": "Rewrite scripts/seed.sql inserts as INSERT ... ON CONFLICT (id) DO NOTHING and add a CI step that runs the seed twice",
+        "decision": null,
+        "rank": 3
+      },
+      {
+        "action_id": "D1-act-1",
+        "benchmark_id": "D1",
+        "tier": 2,
+        "priority": 3.0,
+        "zone": "normal",
+        "gain": 3,
+        "effort": "M",
+        "requires_human_decision": true,
+        "decision_question": "Implement CSV and XLSX export, or drop the export claim from the README?",
+        "action": "Either implement CSV/XLSX export in a new src/export module with tests, or remove the claim from README.md",
+        "decision": {
+          "status": "pending"
+        },
+        "rank": 4
+      }
+    ],
+    "weight_issues": [],
+    "applicability": {
+      "limited": [
+        "F5",
+        "X2"
+      ],
+      "not_applicable": [
+        "X1",
+        "X4",
+        "X5"
+      ],
+      "weight_notes": {
+        "F1": "Deploys are owned by a platform team; weight 2 would better reflect this repo's share."
+      }
+    }
+  },
+  "top_priorities": [
+    {
+      "rank": 1,
+      "benchmark_id": "A3",
+      "action_id": "A3-act-1",
+      "why_first": "Critical silent failure; clears the A3 cap",
+      "expected_gain": "+3 on A3"
+    },
+    {
+      "rank": 2,
+      "benchmark_id": "F2",
+      "action_id": "F2-act-1",
+      "why_first": "CI is the enforcement every other benchmark needs",
+      "expected_gain": "+5 on F2; lifts C4 cap"
+    },
+    {
+      "rank": 3,
+      "benchmark_id": "A4",
+      "action_id": "A4-act-1",
+      "why_first": "Clears the A4 cap with a small change",
+      "expected_gain": "+2 on A4"
+    }
+  ],
+  "limitations": [
+    "Example report for the bundled sample repo; scores are illustrative."
+  ]
+}

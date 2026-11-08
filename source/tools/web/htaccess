@@ -1,0 +1,17 @@
+# Code Grading Suite: Apache settings (needs AllowOverride FileInfo; Header lines need mod_headers)
+AddDefaultCharset utf-8
+AddType "text/markdown; charset=utf-8" .md
+AddType "text/plain; charset=utf-8" .txt .py .sql .toml
+AddType "application/json; charset=utf-8" .json
+AddType "text/css; charset=utf-8" .css
+AddType "application/javascript; charset=utf-8" .js
+AddType application/zip .zip
+AddType application/wasm .wasm
+AddType "application/javascript; charset=utf-8" .mjs
+AddType "image/svg+xml" .svg
+<IfModule mod_headers.c>
+  Header set X-Content-Type-Options "nosniff"
+  <FilesMatch "\.(md|py|json|txt|sql|toml)$">
+    Header set Access-Control-Allow-Origin "*"
+  </FilesMatch>
+</IfModule>
