@@ -62,7 +62,7 @@ Minor release: tools that let agents run the whole cycle without custom scripts,
   - **Focus outlines** show on every control.
   - **Tap targets** are at least 24×24 px, a WCAG 2.2 requirement (summaries, small buttons).
   - **Motion** is reduced for people who ask for it.
-- **Narrow screens:** the home page no longer scrolls sideways at 320 px, and the top bar wraps its links from 900 px down instead of overflowing at tablet width.
+- **Narrow screens:** the home page and the Review overview no longer scroll sideways at 320 px; long gate badges wrap. The top bar wraps its links from 900 px down instead of overflowing at tablet width.
 - **New tests:**
   - axe-core on every page and state;
   - keyboard checks: every control reachable with Tab and showing focus, the skip link, tabs, choosing files;
