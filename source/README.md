@@ -12,7 +12,7 @@ A kit for having AI agents grade a codebase from 1 to 10 on **35 benchmarks** (2
 | **The prompts** | One per job: `grader.md`, `reviewer.md`, `improver.md`, `pr-review.md`. Each starts with a table of inputs (code, grading repo and project, delivery, permissions) with sensible defaults. |
 | **The rubric** | One file per pillar, with anchors, caps and "Not this" boundaries for each benchmark. |
 | **The config** | `config/defaults.toml` holds every tunable setting. Each project has its own `project.toml` on top. |
-| **`gradekit.py`** | Does all the arithmetic and checking: weights, gates, zones, validation, evidence checks, roll-ups, ranked priorities, consensus, comparisons. Use it from the command line (Python 3.11+, standard library only), or let the website run it. |
+| **`gradekit.py`** | Does all the arithmetic and checking: weights, gates, zones, validation, evidence checks, the rollup, ranked priorities, consensus, comparisons. Use it from the command line (Python 3.11+, standard library only), or let the website run it. |
 
 ## Where things live
 
@@ -63,7 +63,7 @@ Repeat from step 1. Optionally, use three graders for milestone audits; the Revi
 
 - **Weights.** Each benchmark counts 1 (minor) to 3 (critical). Weights start from base values and move with the project's answers to eight questions, e.g. "handles money" raises Security, Idempotence and Durability.
 - **Gates.** Correctness and Security always, plus whatever the answers add. A gate at or below 3 caps the overall score at 4.0: an average can't make up for a security hole.
-- **Criticality zones.** Hot code (money, auth, data writes) counts more than cold code (scripts, examples). Findings are one severity higher in hot zones and one lower in cold, and hot-zone work is ranked first.
+- **Zones.** Hot code (money, auth, data writes) counts more than cold code (scripts, examples). Findings are one severity higher in hot zones and one lower in cold, and hot-zone work is ranked first.
 - **Applicability.** Every benchmark is classified `full`, `limited` (counts at weight 1) or `not_applicable` (excluded), each with a reason. The decision is based on the project's purpose, never on current quality.
 - **Targets.** `proportional` (default: 10 / 9 / 8 by weight), `maximal` or `level:L3`, plus per-benchmark overrides. Improvers stop at the target.
 - **Maturity ladder.** L0 Not viable → L1 Prototype → L2 Usable → L3 Production-ready → L4 Exemplary. Each report names the exact blockers.

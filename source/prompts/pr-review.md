@@ -1,6 +1,8 @@
-# Code Grading Suite v4.2.2: Pull-Request Quick Mode
+# Code Grading Suite v4.2.2: PR Check
 
 A lightweight grading pass for a single change. It catches backsliding between full audits at a fraction of the cost. **Everything in `prompts/grader.md` still applies**: integrity and safety rules, scoring rules, evidence format, finding IDs and anti-gaming rules. This file only changes the scope and adds a verdict.
+
+**Terms** mean exactly what the suite's `GLOSSARY.md` says (`gradekit glossary TERM` looks one up). Use them that way in everything you write.
 
 ## Inputs
 | Item | What it is | Default |
@@ -37,7 +39,7 @@ Re-grade a benchmark if the diff plausibly affects it. Use this map, and add any
 | CI configuration | F2, plus whatever a changed gate enforces |
 | Deploy, infrastructure, Dockerfiles, environment config | F1, F5, X4 |
 | Logging, metrics, tracing | F3 |
-| Hot paths, queries, caching, concurrency | F4, X3 |
+| Busy code paths, queries, caching, concurrency | F4, X3 |
 | UI | X1, D4 |
 | Agent instruction files (`AGENTS.md`, `CLAUDE.md`…) | X6, and check for integrity flags |
 | **Anything in a hot zone** | All gates, plus every benchmark the changed code relates to. Read the changed hot-zone files in full, not just the diff. |
@@ -89,7 +91,7 @@ python3 SUITE_DIR/tools/gradekit.py render check PROJECT_DIR/reports/<newest>/re
 Without Python, keep it short and in this shape:
 
 ```
-**Quality check: PASS | FAIL**
+**PR check: PASS | FAIL**
 Re-graded: A1, A4, C4, F2 (others carried forward)
 Changes: A4 5 → 7 (A4-001 fixed) · C4 7 → 7 · F2 8 → 9
 New findings: none | <ID: title, effective severity, zone>

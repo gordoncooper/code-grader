@@ -162,7 +162,7 @@ def test_a_pr_check_from_carry_to_comment(tmp_path, changed_repo):
     d = gk("diff", NEW, pr, "--project", "orders-api", "--fail-on-regression")
     assert "verdict: PASS" in d.stdout, d.stdout
     comment = gk("render", "check", NEW, pr, "--project", "orders-api").stdout
-    assert comment.startswith("**Quality check: PASS**") and "(others carried forward)" in comment
+    assert comment.startswith("**PR check: PASS**") and "(others carried forward)" in comment
 
 
 # --------------------------------------------------------------------------- matching

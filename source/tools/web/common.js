@@ -130,10 +130,43 @@
     return { select: select };
   }
 
+  // Glossary help: every element with data-term="gate" gets a "?" button that shows the glossary's
+  // definition (window.GLOSSARY, generated from rubric/glossary.json), the same words as GLOSSARY.md.
+  var termSeq = 0;
+  function terms(root) {
+    if (!window.GLOSSARY) return;
+    $$("[data-term]", root).forEach(function (el) {
+      if (el.querySelector(":scope > .term-help")) return;
+      var name = el.dataset.term, def = window.GLOSSARY[name];
+      if (!def) return;
+      var id = "term-" + (++termSeq);
+      var box = h("div", { class: "term-pop", id: id, role: "note" }, h("b", null, name), " ", inline(def));
+      var btn = h("button", { type: "button", class: "term-help", "aria-label": "What is " + (/^[aeiou]/i.test(name) ? "an " : "a ") + name + "?",
+                              "aria-expanded": "false", "aria-controls": id }, "?");
+      box.hidden = true;
+      btn.addEventListener("click", function (e) {
+        e.preventDefault(); e.stopPropagation();
+        var open = box.hidden;
+        $$(".term-pop").forEach(function (b) { b.hidden = true; });
+        $$(".term-help").forEach(function (b) { b.setAttribute("aria-expanded", "false"); });
+        box.hidden = !open; btn.setAttribute("aria-expanded", String(open));
+      });
+      el.appendChild(btn);
+      el.insertAdjacentElement("afterend", box);
+    });
+  }
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape") $$(".term-pop:not([hidden])").forEach(function (b) { b.hidden = true; var t = $("[aria-controls='" + b.id + "']"); if (t) { t.setAttribute("aria-expanded", "false"); t.focus(); } });
+  });
+  document.addEventListener("click", function (e) {
+    if (!e.target.closest(".term-pop")) $$(".term-pop:not([hidden])").forEach(function (b) { b.hidden = true; var t = $("[aria-controls='" + b.id + "']"); if (t) t.setAttribute("aria-expanded", "false"); });
+  });
+  document.addEventListener("DOMContentLoaded", function () { terms(document); });
+
   // `code` spans in report text (questions, actions) as <code>; everything else stays plain text.
   function inline(text) {
     return String(text == null ? "" : text).split(/`([^`]+)`/).map(function (part, i) { return i % 2 ? h("code", null, part) : part; });
   }
   window.UI = { h: h, $: $, $$: $$, inline: inline, clear: clear, toast: toast, copyText: copyText, download: download, readFile: readFile,
-                store: store, debounce: debounce, bindEnginePill: bindEnginePill, engineHelp: engineHelp, dropZone: dropZone, tabs: tabs, tabKeys: tabKeys };
+                store: store, debounce: debounce, bindEnginePill: bindEnginePill, engineHelp: engineHelp, dropZone: dropZone, tabs: tabs, tabKeys: tabKeys, terms: terms };
 })();

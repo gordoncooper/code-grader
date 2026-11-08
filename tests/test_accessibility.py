@@ -72,14 +72,14 @@ TAB_WALK = """(sel) => {
   // A group of radios is one stop on the Tab key.
   const seen = new Set();
   return all.filter(el => { if (el.type !== 'radio') return true; const k = el.name; if (seen.has(k)) return false; seen.add(k); return true; })
-            .map(el => el.type === 'radio' ? 'radio:' + el.name : (el.id ? '#' + el.id : el.tagName + ':' + (el.textContent || el.value || el.name || '').trim().slice(0, 30)));
+            .map(el => el.type === 'radio' ? 'radio:' + el.name : (el.id ? '#' + el.id : el.tagName + ':' + (el.getAttribute('aria-label') || el.textContent || el.value || el.name || '').trim().slice(0, 30)));
 }"""
 
 FOCUS_SHOWN = """() => {
   const el = document.activeElement;
   const shows = e => { if (!e) return false; const cs = getComputedStyle(e);
     return (cs.outlineStyle !== 'none' && parseFloat(cs.outlineWidth) > 0) || (cs.boxShadow && cs.boxShadow !== 'none'); };
-  const key = el.type === 'radio' ? 'radio:' + el.name : (el.id ? '#' + el.id : el.tagName + ':' + (el.textContent || el.value || el.name || '').trim().slice(0, 30));
+  const key = el.type === 'radio' ? 'radio:' + el.name : (el.id ? '#' + el.id : el.tagName + ':' + (el.getAttribute('aria-label') || el.textContent || el.value || el.name || '').trim().slice(0, 30));
   // Visually hidden radios and checkboxes show focus on the label or the span next to them.
   return [key, shows(el) || shows(el.nextElementSibling) || shows(el.closest('label'))];
 }"""

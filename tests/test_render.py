@@ -70,7 +70,7 @@ def test_check_comment(gk):
     old, new = json.loads(OLD.read_text()), json.loads(NEW.read_text())
     c = cfg(gk)
     text = gk.render_check_comment(gk.compute_diff(old, new, c, c), new, c)
-    assert text.startswith("**Quality check: FAIL**")
+    assert text.startswith("**PR check: FAIL**")
     assert "Re-graded: every applicable benchmark" in text
     assert "A2 3 → 5 (A2-002 fixed)" in text and "D2-001" in text
 

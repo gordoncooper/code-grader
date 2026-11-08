@@ -65,7 +65,7 @@ def test_setup_gate_chips_sit_together(page, site):
 
 @pytest.mark.parametrize("role, expect", [
     ("Grade the code", "Act as the GRADER"), ("Review a report", "REVIEWER"),
-    ("Improve the code", "Act as the IMPROVER"), ("Check a pull request", "PULL-REQUEST REVIEWER"),
+    ("Improve the code", "Act as the IMPROVER"), ("Check a pull request", "PR CHECKER"),
 ])
 def test_run_prompts(page, site, role, expect):
     page.goto(site + "app/run.html")

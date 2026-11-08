@@ -321,3 +321,7 @@ ol.cycle{display:flex;flex-wrap:wrap;gap:6px;list-style:none;margin:12px 0 0;pad
 ol.cycle li{padding:3px 10px;border-radius:999px;background:var(--soft);color:var(--muted)}
 ol.cycle li+li::before{content:"→ ";color:var(--muted)}
 ol.cycle li.on{background:var(--accent-soft);color:var(--accent);font-weight:600}
+/* glossary help */
+.term-help{flex:none;min-width:24px;min-height:24px;display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;margin-left:6px;border:1px solid var(--line);border-radius:999px;background:var(--panel);color:var(--muted);font:600 .75rem var(--sans);cursor:pointer;vertical-align:middle;text-transform:none;letter-spacing:0}
+.term-help:hover,.term-help[aria-expanded=true]{color:var(--accent);border-color:var(--accent)}
+.term-pop{margin:6px 0 10px;padding:10px 12px;border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:8px;background:var(--panel);font:400 .86rem/1.45 var(--sans);color:var(--ink);text-transform:none;letter-spacing:0;max-width:60ch}

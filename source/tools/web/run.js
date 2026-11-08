@@ -8,7 +8,7 @@
     grade:   { title: "Grade the code", who: "GRADER", desc: "A full, read-only audit. Adds one dated report folder for the project.", file: "prompts/grader.md" },
     review:  { title: "Review a report", who: "REPORT REVIEWER", desc: "An agent checks a grader's report and prepares the decision questions. People can use the Review page instead.", file: "prompts/reviewer.md" },
     improve: { title: "Improve the code", who: "IMPROVER", desc: "Works down the report's ranked priorities and stops at each benchmark's target.", file: "prompts/improver.md" },
-    prcheck: { title: "Check a pull request", who: "PULL-REQUEST REVIEWER", desc: "Re-grades only what a code change touches and returns PASS or FAIL.", file: "prompts/pr-review.md" }
+    prcheck: { title: "Check a pull request", who: "PR CHECKER", desc: "Re-grades only what a code change touches and returns PASS or FAIL.", file: "prompts/pr-review.md" }
   };
   // [title, description, permissions]
   var DELIVERY = {
@@ -204,7 +204,7 @@
   }
   function gdirLoc() { return s.gdir === "repo" ? s.gdirRepo : s.gdirLocal; }
   function gradingLines() {
-    var loc = gdirLoc() || (s.gdir === "repo" ? "<grading repository URL>" : "<project folder>");
+    var loc = gdirLoc() || (s.gdir === "repo" ? "<grading repo URL>" : "<project folder>");
     if (s.gdir === "repo") return ["Grading repo: " + loc, "Project: " + project() + " (folder projects/" + project() + "/)"];
     return ["Project folder: " + loc + " (project.toml, decisions.json, dispositions.json, reports/)", "Project: " + project()];
   }
@@ -258,14 +258,14 @@
       improve: [
         ["Make sure the report is merged and your decisions are in decisions.json."],
         [s.improveSource === "files" ? "Hand the agent report.json, decisions.json and project.toml along with the prompt." : "Give the session read access to the grading repo as well as the code repo."],
-        ["Review its pull request like any other. A pull-request check shows whether anything got worse."]
+        ["Review its pull request like any other. A PR check shows whether anything got worse."]
       ],
       prcheck: [["Paste the prompt into an agent session, or run it from CI."], ["FAIL means something got worse: read the regressions it lists before merging."]]
     }[s.role];
     var after = {
       grade: "Next in the cycle: decide (answer the report's questions), then improve.",
       review: "Next in the cycle: improve, working from the approved decisions.",
-      improve: "Next in the cycle: a pull-request check on its changes, then the next grade.",
+      improve: "Next in the cycle: a PR check on its changes, then the next grade.",
       prcheck: "Next in the cycle: merge if it passed; grade again at the next milestone."
     }[s.role];
     var ol = UI.clear($("#next-steps"));
@@ -290,7 +290,7 @@
     $("#prompt-out").textContent = buildPrompt(multi ? promptTab : 1);
     $("#code-loc").placeholder = s.code === "url" ? "https://github.com/acme/orders-api" : (s.where === "local" ? "~/code/orders-api" : "/workspace/orders-api");
     $("#gdir-loc").placeholder = s.gdir === "repo" ? "https://github.com/acme/grading" : "~/grading/projects/orders-api";
-    $("#gdir-hint").textContent = s.gdir === "repo" ? "The central repo with a projects/ folder for every graded codebase." : "A project folder with project.toml, decisions.json, dispositions.json and reports/.";
+    $("#gdir-hint").textContent = s.gdir === "repo" ? "The grading repo, with a projects/ folder for every graded codebase." : "A project folder with project.toml, decisions.json, dispositions.json and reports/.";
     $("#project-path").textContent = "projects/" + project() + "/";
     if ($("#project-name").value !== s.project) $("#project-name").value = s.project;
     $("#suite-loc").hidden = s.suite !== "path";

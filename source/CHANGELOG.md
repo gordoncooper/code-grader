@@ -53,6 +53,23 @@ Minor release: tools that let agents run the whole cycle without custom scripts,
   - `fetch-kit.py`, which downloads the kit from your suite website and refuses it unless it matches the published checksum.
 - `gradekit init --ci github|gitlab --site URL` installs the check. It never overwrites an existing `.gitlab-ci.yml`.
 
+**One vocabulary**
+- **`rubric/glossary.json`** defines the suite's 44 terms, from *benchmark* and *gate* to *effective severity*, *accepted finding* and *PR check*. It also lists alternatives to avoid.
+- **Generated from it:**
+  - **`GLOSSARY.md`**, a new docs page;
+  - **the website's "?" help** next to key terms (gates, zones, presets, targets, weights, pillars, maturity, delivery…);
+  - **`gradekit glossary [TERM]`**, which also accepts an avoided word and says which term to use.
+- **Every prompt** points at the glossary.
+- **Tests keep the alternatives out** of the prompts, docs, rendered reports and every page's visible text. File names such as `dispositions.json` are still fine.
+- **Wording made consistent:**
+  - "PR check" (was also "quality check" and "pull-request check"); the PR-check comment now starts **PR check: PASS/FAIL**, and the PR-check role is the *PR checker*;
+  - "rollup";
+  - "grading repo";
+  - "zones" (Setup's step 5 is now *Mark hot and cold zones*, since "critical" is a severity);
+  - "accepted findings";
+  - "hidden checks";
+  - "busiest code paths" in F4, so it isn't mistaken for a hot zone.
+
 **Start a run remembers your projects**
 - **Saved settings:** each project's settings are kept in your browser: where the agent runs, where the code and grading files are, the suite, the number of graders, the improver's budget and source, guidance, code size, and the delivery you chose for each task. A **Your projects** row restores them in one click. Per-run details (commit, pull request, branch, report) start empty each time. Up to 8 projects are kept, and each can be forgotten.
 - **What to expect:** a rough agent time for the task and code size (for example, grading a medium codebase takes about 45 min to 1.5 h, and a PR check 10–25 min), what drives the cost, and your part.

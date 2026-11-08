@@ -378,6 +378,7 @@
     if (!R.project) banners.appendChild(h("div", { class: "banner warn" }, "No project.toml loaded, so the report is checked against suite defaults. Load the whole project, or add project.toml, to check the config properly."));
     else if (!c.config_hash_match) banners.appendChild(h("div", { class: "banner warn" }, "This report was graded with a different config than the project.toml you loaded (weights, gates or zones changed since). Scores still stand; overall and maturity are recomputed with your current config."));
     renderOverview(); renderDecisions(); renderPriorities(); renderScorecard(); renderFindings(); renderCompare(); renderMore();
+    UI.terms($("#results"));
     var pending = roll.priorities.filter(function (p) { return p.decision && p.decision.status === "pending"; }).length;
     var cnt = $("#dec-count"); cnt.hidden = !pending; cnt.textContent = pending;
     resultTabs.select("overview");
@@ -390,9 +391,9 @@
     var names = {}; (info.maturity.levels || []).forEach(function (l) { names[l.level] = l.name; });
     var cur = levels.indexOf(roll.maturity.current_level), nxt = levels.indexOf(roll.maturity.next_level);
     box.appendChild(h("div", { class: "stats-row" },
-      h("div", { class: "stat" }, h("div", { class: "k" }, "Overall"), h("div", { class: "v" }, roll.overall_score === null ? "–" : String(roll.overall_score)),
+      h("div", { class: "stat" }, h("div", { class: "k", dataset: { term: "score" } }, "Overall"), h("div", { class: "v" }, roll.overall_score === null ? "–" : String(roll.overall_score)),
         h("div", { class: "s" }, roll.overall_cap_applied ? "Capped by a failed gate (" + roll.overall_score_uncapped + " before the cap)" : "Weighted average out of 10")),
-      h("div", { class: "stat", style: "grid-column:span 2" }, h("div", { class: "k" }, "Maturity"),
+      h("div", { class: "stat", style: "grid-column:span 2" }, h("div", { class: "k", dataset: { term: "maturity level" } }, "Maturity"),
         h("div", { class: "ladder-h" }, levels.map(function (l, i) {
           return h("div", { class: i === cur ? "current" : i < cur ? "reached" : i === nxt ? "next" : "" }, h("b", null, l), names[l] || "");
         })),
@@ -422,9 +423,9 @@
     }));
     box.appendChild(h("div", { class: "two-col even" },
       h("div", { class: "card" }, h("h2", null, "Checks on this report"), checks),
-      h("div", { class: "card" }, h("h2", null, "Gates"), h("p", { class: "hint" }, "Non-negotiable. A gate at 3 or below caps the overall score."), gates,
+      h("div", { class: "card" }, h("h2", { dataset: { term: "gate" } }, "Gates"), h("p", { class: "hint" }, "Non-negotiable. A gate at 3 or below caps the overall score."), gates,
         h("h2", { style: "margin-top:18px" }, roll.maturity.next_level ? "What blocks " + roll.maturity.next_level : "Maturity"), blockers)));
-    box.appendChild(h("div", { class: "card", style: "margin-top:16px" }, h("h2", null, "Pillars"), bars));
+    box.appendChild(h("div", { class: "card", style: "margin-top:16px" }, h("h2", { dataset: { term: "pillar" } }, "Pillars"), bars));
   }
 
   // ------------------------------------------------------------------ decisions
