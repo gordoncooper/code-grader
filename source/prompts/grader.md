@@ -110,7 +110,7 @@ Work in phases. If your context is limited, run Phase 4 one pillar per pass, car
 **Write the report with `gradekit report` if you can run Python.** It fills in every benchmark with its weight and target, copies quotes from the code so they always verify, and picks finding IDs, so you only record judgments. `K="python3 SUITE_DIR/tools/gradekit.py"`, `R` is the path `report new` prints, and `--repo` is the code checkout:
 
 ```
-$K report new --project-dir PROJECT_DIR --commit COMMIT --grader NAME        # prints the report's path
+$K report new --project-dir PROJECT_DIR --commit COMMIT --grader NAME --model MODEL [--session ID] [--work-order ID]   # prints the report's path
 $K report finding add $R --benchmark A3 --title "..." --severity major --cite src/x.py:40-44 --repo CODE --note "..."
 $K report finding add $R --benchmark F2 --title "No CI" --severity critical --absence "CI config" --method "ls -a; …"
 $K report finding add $R --benchmark C4 --title "..." --severity major --command "pytest -q" --excerpt @out.txt
@@ -246,7 +246,8 @@ A **finding** is one specific problem with one root cause.
 
   | Status | Meaning |
   |---|---|
-  | `new` | First seen this run |
+  | `new` | First recorded this run, and caused by the graded code (in a PR check: by the change) |
+  | `noticed` | First recorded this run, but already there before: the previous report missed it. It counts as open, but never fails a PR check. |
   | `open` | Seen before and still present |
   | `fixed` | Previously reported, now resolved. Keep it in the list with evidence of the fix. |
   | `regressed` | Was fixed and has come back |
@@ -254,7 +255,8 @@ A **finding** is one specific problem with one root cause.
 
 - **Severity:** `critical`, `major` or `minor`. This is the finding's **intrinsic** severity, judged as if the code were in a normal zone. Don't adjust it for the zone yourself: `gradekit` applies the zone shift (hot +1, cold −1 by default) to get the *effective* severity that maturity and priorities use.
 - **Location:** code evidence places a finding in a zone automatically. A finding with no code evidence (e.g. "no rate limiting anywhere") should list the affected areas in `paths` (repo-relative paths or globs, e.g. `["src/api/**"]`), so it lands in the right zone.
-- **`first_seen_commit`:** carried over from the previous report, or the current commit for new findings.
+- **`first_seen_commit`:** carried over from the previous report; the current commit for `new` findings; the PR's base commit (or the previous report's commit) for `noticed` ones.
+- **`fingerprint`:** written by `gradekit` from the benchmark, the files and the quoted code, so the same problem is recognized across reports. Don't write it yourself.
 - **`sensitive`:** `true` when the details must not be public (Part 1, rule 6). Leave it out otherwise.
 
 ### Evidence objects
@@ -267,6 +269,7 @@ Every finding, strength and enforcement claim needs at least one evidence object
 ```
 
 - **`quote` must be copied exactly** from the cited lines: 1–3 lines, no paraphrasing or ellipses. `file` is relative to the repo root. `gradekit verify-evidence` checks every code quote against the repo, and a mismatch makes the report invalid.
+- **The quote is the anchor; `lines` is optional.** With `lines`, the quote must be within two lines of them; without, anywhere in the file. `report cite` writes both, which lets the Review page link to the exact lines.
 - `excerpt` must be copied exactly from the command output.
 - Use `absence` evidence to show that something is missing (no tests, no backups, no timeouts), saying what you searched and how.
 
@@ -335,7 +338,8 @@ These scores become goals, so grade **substance, not artifacts**. When you find 
 
 - For every score that changed, write a `change_explanation` naming the specific code change behind it, and give `previous_score`.
 - Raise a score only when the code improved, not because effort was spent. Lower any score that regressed, even on benchmarks nobody targeted.
-- Scores are only comparable between reports with the same **major** `suite_version`. If the major version differs, still reconcile finding IDs, but don't explain score deltas; note the version change under limitations.
+- A problem that was already in the previously graded code, which that report missed, is `noticed`, not `new`: the code didn't get worse, the last grade just didn't see it. Use `new` for problems the code changes since then introduced.
+- Scores are comparable between reports with the same **scoring version** major (`config.scoring_version`; for 4.x reports, their `suite_version`). Reports from suite 4.x and 5.x share scoring version 4.2.0. If the scoring major differs, still reconcile finding IDs, but don't explain score deltas; note the change under limitations.
 
 ---
 
@@ -389,12 +393,16 @@ Write `report.json` matching `schema/report.schema.json`. Abbreviated example:
 
 ```json
 {
-  "suite_version": "4.3.0",
+  "schema_version": 5,
+  "suite_version": "5.0.0",
   "mode": "full",
-  "run": {"project": "orders-api", "commit": "a1b2c3d", "base_commit": null, "date": "2026-11-07T21:04:00Z", "grader": "model or agent name", "run_index": 1, "run_count": 3, "suite_source": "https://example.com/grading/AGENT.md (4.3.0)"},
+  "run": {"project": "orders-api", "commit": "a1b2c3d", "base_commit": null, "started": "2026-11-07T20:12:00Z", "date": "2026-11-07T21:04:00Z",
+          "grader": "Claude Code", "model": "claude-opus-5-5", "session": "https://example.com/sessions/123", "work_order": null,
+          "usage": {"minutes": 52, "tokens_in": null, "tokens_out": null, "cost_usd": null},
+          "run_index": 1, "run_count": 3, "suite_source": "https://example.com/grading/AGENT.md (5.0.0)"},
   "component": null,
   "project_context_inferred": "Internal order-processing REST API (Python/FastAPI, Postgres)",
-  "config": {"hash": "06cfd807d4b75ede", "preset": "service", "source": "project.toml", "component": null},
+  "config": {"hash": "06cfd807d4b75ede", "preset": "service", "source": "project.toml", "component": null, "scoring_version": "4.2.0"},
   "commands_run": [{"command": "pytest --cov=src --cov-branch", "exit_code": 0, "result_summary": "412 passed, 3 skipped; 61% branch coverage"}],
   "scope_examined": "Read src/orders, src/auth, src/db in full; sampled src/reports; skipped vendor/",
   "metrics": {"tests_total": 415, "tests_failed": 0, "branch_coverage_pct": 61.0, "setup_second_run_passes": false},

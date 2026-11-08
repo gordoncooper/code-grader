@@ -3,7 +3,8 @@
   "use strict";
   var script = document.currentScript && document.currentScript.src;
   var SITE = script ? new URL("../", script).href : new URL("./", location.href).href;
-  var SUITE_FILES = ["tools/gradekit.py", "config/defaults.toml", "rubric/catalog.json", "schema/report.schema.json"];
+  var SUITE_FILES = ["tools/gradekit.py", "config/defaults.toml", "rubric/catalog.json", "schema/report.schema.json",
+                     "schema/report-4.schema.json"];
   // Optional Pyodide packages, loaded the first time a call needs them (from the same place as Pyodide itself).
   // If one can't be loaded, gradekit falls back and says what it skipped.
   var CALL_PACKAGES = { check: ["jsonschema"] };

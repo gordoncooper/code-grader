@@ -81,6 +81,10 @@
           ]
         },
         {
+          "term": "noticed finding",
+          "definition": "A problem first recorded in this report that was already there before: the previous report missed it. It counts as open, but a PR check never fails because of it."
+        },
+        {
           "term": "severity",
           "definition": "How bad a finding is: critical, major or minor, as the grader judged it."
         },
