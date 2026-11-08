@@ -36,6 +36,16 @@ Minor release: tools that let agents run the whole cycle without custom scripts,
 - New optional report fields: `summary` (set with `report set summary`) and each benchmark's one-line `rationale` (`report score --rationale`).
 - The prompts use these commands. The example reports' `report.md` files are now rendered.
 
+**Handing reports back with `gradekit deliver`**
+- `deliver REPORT --delivery pr|save|return` does what the grader prompt's delivery table says, for any host. Every delivery starts the same way:
+  - it refuses an unfinished or invalid report (exit 5 or 1, with the list);
+  - it stores the rollup, and withholds sensitive findings in a public grading repo;
+  - it checks the report is safe to publish and renders `report.md`.
+- **`pr`** prints the branch, commit, title and body, or does the git steps with `--run`. The branch starts from the remote's default branch, or `--base`. Only the report folder is committed, never a `*.private.json`, even without a `.gitignore`. It refuses to commit onto the default branch, and running it again is safe.
+- `--push` pushes the branch. `--open github` or `--open gitlab` opens the pull request with `gh` or `glab` when they're installed and signed in. Without them, it says what to open by hand, and the body is written to a file.
+- **`save`** leaves the folder in place. **`return`** prints the fenced blocks for the final message, with the private report labeled.
+- The example grading repo now has the `.gitignore` that `gradekit init` writes.
+
 **JSON output and exit codes for every command**
 - Every command takes `--json` and prints exactly one JSON object: `{ok, exit_code, command, result, text}`, plus `error` on failure. `result` is the command's data (validation errors and warnings, the rollup, the diff, citation results, the resolved config, written paths…), and `text` is what it would have printed, so agents never parse text.
 - One exit-code table for every command: 0 ok, 1 failed or error, 2 regression, 3 unstable runs, 4 calibration failed, 5 report not finished, 64 bad arguments. Bad arguments used to exit 2, the same code as a `diff` regression.

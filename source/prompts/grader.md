@@ -180,7 +180,17 @@ If you wrote findings without starting from the previous report, `report match $
    ```
 
    Both withhold sensitive findings in a public grading repo. Without Python, write `report.md` yourself following Part 10B.
-8. **Report and deliver.** Produce the outputs in Part 10 and deliver them as described in Part 0.
+8. **Report and deliver.** Produce the outputs in Part 10 and deliver them as described in Part 0. If you can run Python, `deliver` does the rest of step 7 and the delivery in one go. It refuses an unfinished report, withholds sensitive findings, renders `report.md`, and then:
+   - for `pr`, creates the branch from the default branch and commits only the report folder (never `report.private.json`); `--push` pushes it, and `--open github` or `--open gitlab` opens the pull request with `gh` or `glab` if they're installed and signed in. Without those, open it however the grading repo's host allows, with the title it prints and the body in the file it names;
+   - for `save`, leaves the folder where it is;
+   - for `return`, prints the fenced blocks to put in your final message.
+
+   ```
+   python3 SUITE_DIR/tools/gradekit.py deliver report.json --project-dir PROJECT_DIR --repo CODE_CHECKOUT \
+       --delivery pr --run --push [--open github|gitlab] [--site SUITE_SITE --grading-repo-url GRADING_REPO_URL]
+   ```
+
+   Without `--run` it only prints the git steps.
 
 ---
 
