@@ -208,16 +208,40 @@ def test_runs_spread_and_verdicts(gk, tmp_path):
     (golden / "expected.json").write_text(json.dumps({"reference": "demo @ 1", "commit": "abc",
                                                       "criteria": {"within_tolerance_pct": 50, "mae_max": 1.5, "max_spread": 1},
                                                       "expected": {"A1": {"score": 7}, "A2": {"score": 5}}}))
+    fp = gk.scoring_fingerprint()
     for i, (a1, a2) in enumerate([(7, 5), (8, 5), (7, 6)], 1):
-        (golden / "runs" / f"run-{i}.json").write_text(json.dumps({"scores": {"A1": {"score": a1}, "A2": {"score": a2}}}))
+        (golden / "runs" / f"run-{i}.json").write_text(json.dumps({"rules_fingerprint": fp, "scores": {"A1": {"score": a1}, "A2": {"score": a2}}}))
     res = gk.calibration_results(tmp_path / "golden", 3)
     g = res["goldens"][0]
     assert g["status"] == "pass" and res["pass"] and g["spread"]["largest"] == 1
-    (golden / "runs" / "run-4.json").write_text(json.dumps({"scores": {"A1": {"score": 4}, "A2": {"score": 5}}}))
+    (golden / "runs" / "run-4.json").write_text(json.dumps({"rules_fingerprint": fp, "scores": {"A1": {"score": 4}, "A2": {"score": 5}}}))
     g = gk.calibration_results(tmp_path / "golden", 3)["goldens"][0]
     assert g["status"] == "fail" and g["spread"]["unstable"] == ["A1"]
     assert gk.calibration_results(tmp_path / "golden", 5)["goldens"][0]["status"] == "needs more runs"
     assert "## demo: needs more runs" in gk.calibration_markdown(gk.calibration_results(tmp_path / "golden", 5))
+
+
+def test_only_runs_under_the_current_rules_count(gk, tmp_path):
+    """A rubric or limits change makes earlier runs history: listed, not counted, until graders run again."""
+    golden = tmp_path / "golden" / "demo"
+    (golden / "runs").mkdir(parents=True)
+    (golden / "expected.json").write_text(json.dumps({"reference": "demo @ 1", "commit": "abc", "expected": {"A1": {"score": 7}}}))
+    for i, fp in enumerate(["0123456789abcdef", None, gk.scoring_fingerprint()], 1):
+        (golden / "runs" / f"run-{i}.json").write_text(json.dumps({"rules_fingerprint": fp, "scores": {"A1": {"score": 3 if fp != gk.scoring_fingerprint() else 7}}}))
+    g = gk.calibration_results(tmp_path / "golden", 1)["goldens"][0]
+    assert [r["run"] for r in g["runs"]] == ["run-3"] and [r["run"] for r in g["earlier_runs"]] == ["run-1", "run-2"]
+    assert g["status"] == "pass" and g["spread"]["largest"] is None, "the old runs' 3s don't count toward the spread"
+    assert "Not counted, because they were graded under earlier scoring rules: run-1, run-2." in \
+        gk.calibration_markdown(gk.calibration_results(tmp_path / "golden", 1))
+
+
+def test_add_run_records_the_rules(gk, tmp_path):
+    golden = tmp_path / "g"
+    golden.mkdir()
+    (golden / "expected.json").write_text(json.dumps({"commit": "a1b2c3d", "expected": {"A1": {"score": 7}}}))
+    report = EXAMPLE / PROJ / "reports" / "2026-11-07-a1b2c3d" / "report.json"
+    cli("calibration", "add-run", golden, report, cwd=tmp_path)
+    assert json.loads((golden / "runs" / "run-1.json").read_text())["rules_fingerprint"] == gk.scoring_fingerprint()
 
 
 def test_add_run_needs_the_golden_commit(tmp_path):
