@@ -103,7 +103,7 @@
     }) };
     sel.report = source.history.length - 1; sel.compare = source.history.length - 2;
     renderFiles();
-    if (source.history.length) analyze();
+    if (source.history.length) await analyze();   // finish before more dropped files (e.g. a code zip) are added
     else UI.toast("Loaded " + p.name + ": no reports yet");
   }
 

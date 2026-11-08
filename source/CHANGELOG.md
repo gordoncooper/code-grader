@@ -60,6 +60,7 @@ Minor release: tools that let agents run the whole cycle without custom scripts,
   - what each dropped file is (`classify_files`).
 - The command line uses the same functions, so the page and the CLI can't disagree. A test keeps the JavaScript copies from coming back.
 - A role you pick for a dropped file is now kept: a newer report no longer takes over the "report to review" slot you chose.
+- Fixed: dropping a grading repo zip and a code zip together could skip the citation check, if the zip of the code arrived before the report's review had finished.
 
 **A preflight with `gradekit doctor`**
 - `doctor` checks, before a run starts, everything the run will need, so a missing permission shows up in seconds rather than after an hour of grading:

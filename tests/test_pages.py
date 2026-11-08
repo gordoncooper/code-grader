@@ -141,7 +141,7 @@ def test_review_zips_check_citations(page, site, tmp_path):
     page.click("[data-tab=files]")
     page.set_input_files("#file-input", [str(grading), str(code)])
     page.wait_for_selector("#results:not([hidden])")
-    page.wait_for_function("document.querySelector('#panel-overview .checks').textContent.includes('checked')")
+    page.wait_for_function("/Code citations: \\d+ checked/.test(document.querySelector('#panel-overview .checks').textContent)")
     assert re.search(r"Code citations: \d+ checked, 0 failed", page.inner_text("#panel-overview .checks"))
     assert not page.errors
 
