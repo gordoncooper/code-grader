@@ -215,12 +215,28 @@
       var api = function (path) { return "https://api.github.com/repos/" + owner + "/" + repo + "/contents/" + path + "?ref=" + encodeURIComponent(at); };
       var raw = function (path) { return "https://raw.githubusercontent.com/" + owner + "/" + repo + "/" + encRef(at) + "/" + path; };
       if (!project) {
+        // projects/index.json (written by `gradekit index` in CI) lists them with their scores; else list the folder.
+        var index = null;
+        try { index = JSON.parse(await getText(raw("projects/index.json"))); } catch (e) { /* optional */ }
         var listed = null;
-        try { listed = await getJSON(api("projects")); } catch (e) { if (e.status !== 404) throw e; }
-        var list = (listed || []).filter(function (x) { return x.type === "dir"; }).map(function (x) { return x.name; });
-        var dl = UI.clear($("#gh-projects")); list.forEach(function (n) { dl.appendChild(h("option", { value: n })); });
-        if (list.length === 1) { project = list[0]; $("#gh-project").value = project; }
-        else { say(list.length ? "Pick a project: " + list.join(", ") + "." : listed ? "There are no projects in projects/ yet. Add one with Set up a project." : "No projects/ folder found in this repo.", list.length ? "info" : "warn"); return; }
+        if (!index) { try { listed = await getJSON(api("projects")); } catch (e) { if (e.status !== 404) throw e; } }
+        var entries = index ? index.projects : (listed || []).filter(function (x) { return x.type === "dir"; }).map(function (x) { return { name: x.name }; });
+        var label = function (p) {
+          if (!p.latest) return p.history ? p.name + " (no report yet)" : p.name;
+          var n = (p.pending_decisions || []).length;
+          return p.name + " (" + p.latest.overall + ", " + p.latest.level + (n ? ", " + n + " decision" + (n > 1 ? "s" : "") + " waiting" : "") + ")";
+        };
+        var dl = UI.clear($("#gh-projects")); entries.forEach(function (p) { dl.appendChild(h("option", { value: p.name, label: label(p) })); });
+        if (entries.length === 1) { project = entries[0].name; $("#gh-project").value = project; }
+        else {
+          say(entries.length ? h("span", null, "Pick a project:", h("ul", { class: "project-index" }, entries.map(function (p) {
+                var b = h("button", { type: "button", class: "link" }, p.name);
+                b.addEventListener("click", function () { $("#gh-project").value = p.name; loadGitHub(); });
+                return h("li", null, b, label(p).slice(p.name.length));
+              })))
+            : (index || listed) ? "There are no projects in projects/ yet. Add one with Set up a project." : "No projects/ folder found in this repo.", entries.length ? "info" : "warn");
+          return;
+        }
       }
       say("Loading " + project + "…");
       var base = "projects/" + project + "/";

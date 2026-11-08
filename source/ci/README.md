@@ -6,6 +6,8 @@ These run `gradekit ci` on every pull request (merge request) to a grading repo.
 - keeps `decisions.json` and `dispositions.json` **append-only**;
 - comments a summary (score, maturity, gates, decisions waiting, a link to the Review page) and labels the pull request `grading: report`, `grading: settings` or `grading: needs changes`.
 
+When reports or decisions land on the default branch, a second job rebuilds `projects/index.json` with `gradekit index` and commits it. That file holds every project's latest score, maturity, history and the decisions still waiting, and dashboards and the Review page read it. A pull request may include the index, but only if it matches what `gradekit index` makes. To check it yourself, run `gradekit index --check`.
+
 | File | Host | Install |
 |---|---|---|
 | `github-grading.yml` | GitHub Actions | `gradekit init --ci github --site URL`, or copy to `.github/workflows/grading.yml` |
@@ -14,7 +16,8 @@ These run `gradekit ci` on every pull request (merge request) to a grading repo.
 
 **Permissions:**
 - **GitHub:** the workflow's own token, with `contents: read`, `pull-requests: write` and `issues: write` (for labels). Pull requests from forks are checked but not commented on.
-- **GitLab:** comments and labels need a `GRADING_BOT_TOKEN` variable, which is a project access token with `api` scope. Without it, the result is in the job log.
+- **GitHub, index job:** `contents: write`. If the default branch doesn't allow direct pushes, let GitHub Actions bypass that rule, or delete the job.
+- **GitLab:** comments, labels and the index need a `GRADING_BOT_TOKEN` variable. It's a project access token with the `api` and `write_repository` scopes, and a role that may push to the default branch. Without it, the result is in the job log and the index isn't rebuilt.
 
 **Another host:** run the same two steps in any CI that gives you a checkout with history:
 

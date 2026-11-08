@@ -90,6 +90,8 @@ $K report check REPORT --repo CODE [--write]                     # what's missin
 $K carry LAST_REPORT --repo CODE --commit SHA [--mode full|pr …]  # next report from the last: IDs kept, citations moved
 $K report match REPORT --baseline LAST_REPORT [--apply]           # which earlier finding each new one is
 $K deliver REPORT --delivery pr|save|return [--run --push --open github|gitlab]   # hand back a finished report
+$K index [--check]                                               # grading repos: projects/index.json (scores, history, decisions waiting)
+$K ci --base origin/main                                         # grading repos: check a pull request (see ci/README.md)
 $K render report REPORT                                          # report.md from report.json
 $K render pr REPORT                                             # the grading pull request's branch, title and body
 $K render check BASELINE PR_REPORT                               # the PR-check comment

@@ -53,6 +53,15 @@ Minor release: tools that let agents run the whole cycle without custom scripts,
   - `fetch-kit.py`, which downloads the kit from your suite website and refuses it unless it matches the published checksum.
 - `gradekit init --ci github|gitlab --site URL` installs the check. It never overwrites an existing `.gitlab-ci.yml`.
 
+**`projects/index.json`**
+- `gradekit index` writes one file listing every project in a grading repo. For each project it has the description and preset, the latest full report (score, maturity, next level, failed gates, open findings by effective severity), the decisions still waiting, and the history of every report. Dashboards and the Review page read it. It's derived from the reports and settings with no timestamps of its own, so `index --check` tells whether it's current. Its format is in `schema/index.schema.json`.
+- **The CI templates rebuild it** when reports or decisions land on the default branch:
+  - **GitHub:** a second job with `contents: write`.
+  - **GitLab:** a job that runs only with `GRADING_BOT_TOKEN`.
+- **`gradekit ci`** lets a pull request include the index only if it matches what `gradekit index` makes.
+- **The Review page**, loading a grading repo with several projects from GitHub, lists them with their scores and decisions waiting from the index, one click each.
+- The example grading repo has its index.
+
 **One engine**
 - The Review page no longer re-implements gradekit's rules in JavaScript. It calls the engine for:
   - which projects a folder, zip or repo holds (`scan_layout`, from the file paths alone, so files are only read once a project is chosen);
