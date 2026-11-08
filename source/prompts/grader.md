@@ -99,6 +99,23 @@ A 10 always means "a demanding senior reviewer would find nothing material left 
 
 Work in phases. If your context is limited, run Phase 4 one pillar per pass, carrying your Phase 1–3 notes forward so every pass grades from the same evidence.
 
+**Write the report with `gradekit report` if you can run Python.** It fills in every benchmark with its weight and target, copies quotes from the code so they always verify, and picks finding IDs, so you only record judgments. `K="python3 SUITE_DIR/tools/gradekit.py"`, `R` is the path `report new` prints, and `--repo` is the code checkout:
+
+```
+$K report new --project-dir PROJECT_DIR --commit COMMIT --grader NAME        # prints the report's path
+$K report finding add $R --benchmark A3 --title "..." --severity major --cite src/x.py:40-44 --repo CODE --note "..."
+$K report finding add $R --benchmark F2 --title "No CI" --severity critical --absence "CI config" --method "ls -a; …"
+$K report finding add $R --benchmark C4 --title "..." --severity major --command "pytest -q" --excerpt @out.txt
+$K report score $R A3 --score 5 --confidence medium --why "what changed since the last report"
+$K report score $R X1 --applicability not_applicable --reason "HTTP API with no user interface"
+$K report strength $R A1 --text "..." --cite src/y.py:10 --repo CODE
+$K report action $R A3 --action "..." --resolves A3-004 --new-score 7 --effort S [--decision "question?"]
+$K report gap | feature | flag | ran | set …                                   # the rest; see --help
+$K report check $R --repo CODE                                                 # lists what's missing or wrong
+```
+
+To keep a finding from the previous report, pass its ID with `finding add --id A3-002 --status open`. Add `--sensitive` for findings whose details must not be public (Part 1, rule 6). `report cite FILE:LINES --repo CODE` prints a single evidence object if you need one elsewhere. Without Python, write the JSON yourself following Part 10.
+
 1. **Recon.** Map the repo: structure, entry points, manifests, build files, tests, CI, deploy config, docs. Write a short system summary and a list of every feature the project claims (README, docs, CLI help, routes, UI).
 2. **Tooling and metrics.** Run whatever applies:
    - Clean install and build.
@@ -128,13 +145,14 @@ Work in phases. If your context is limited, run Phase 4 one pillar per pass, car
    - Is every quote copied exactly from the source?
    - Does any hidden-check detail appear outside `holdout.private_details`?
    - Should any finding be marked sensitive, and is every sensitive finding described only in general terms outside its own entry?
-7. **Validate and compute.** If you can run Python, run these, fix any errors, and repeat until clean:
+7. **Validate and compute.** If you can run Python, run this, fix what it lists, and repeat until it says `ready` (exit code 0; 5 means there's still something to do, 1 means errors). Then run it once more with `--write`, which stores the rollup and the finish time:
 
    ```
-   python3 SUITE_DIR/tools/gradekit.py validate report.json --config /tmp/effective.json --project-dir PROJECT_DIR
-   python3 SUITE_DIR/tools/gradekit.py verify-evidence report.json --repo CODE_CHECKOUT
-   python3 SUITE_DIR/tools/gradekit.py rollup report.json --config /tmp/effective.json --project-dir PROJECT_DIR --write
+   python3 SUITE_DIR/tools/gradekit.py report check report.json --repo CODE_CHECKOUT --project-dir PROJECT_DIR
+   python3 SUITE_DIR/tools/gradekit.py report check report.json --repo CODE_CHECKOUT --project-dir PROJECT_DIR --write
    ```
+
+   It runs the same checks as `validate`, `verify-evidence` and `rollup`, which still work on their own.
 
    **Never hand-compute pillar scores, the overall score, gates, effective severities, targets, priorities or the maturity level.** Use what `rollup` writes. If you can't run the tool, leave `rollup` null; the orchestrator will run it.
 

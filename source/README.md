@@ -83,6 +83,9 @@ K="python3 SUITE_DIR/tools/gradekit.py"
 $K init --project orders-api --code-repo URL --preset service   # create projects/orders-api/
 $K resolve  --project orders-api [--explain A4]                 # weights, gates, zones (and why)
 $K presets                                                       # compare presets side by side
+$K report new --project orders-api --commit SHA                   # graders: start a report (weights and targets filled in)
+$K report finding add REPORT --benchmark A3 --cite src/x.py:40 --repo CODE …   # quotes copied from the code; see `report --help`
+$K report check REPORT --repo CODE [--write]                     # what's missing or wrong; --write stores the rollup
 $K validate --project orders-api [--publish]                     # schema, config and rule checks (latest report); --publish: safe to commit?
 $K verify-evidence --project orders-api --repo CODE_DIR_OR_ZIP   # every quoted line exists
 $K rollup   --project orders-api [--write]                       # gates, maturity, targets, ranked priorities
