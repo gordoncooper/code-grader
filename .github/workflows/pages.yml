@@ -1,12 +1,13 @@
-# Publishes bundle/web/ (the Code Grading Suite website) to GitHub Pages.
-# Runs when bundle/web/ changes on main, or by hand from the Actions tab.
+# Publishes the Code Grading Suite website to GitHub Pages: bundle/web/ at the root, and every major version
+# at its own path (/v4/, /v5/ …) from the release tags, with versions.json (see .github/scripts/site_versions.py).
+# Runs when bundle/web/ or the site builder changes on main, or by hand from the Actions tab.
 # One-time setup: Settings → Pages → Source: GitHub Actions (needs admin on this repo).
 name: Publish website
 
 on:
   push:
     branches: [main]
-    paths: ["bundle/web/**"]
+    paths: ["bundle/web/**", ".github/scripts/site_versions.py", ".github/workflows/pages.yml"]
   workflow_dispatch:
 
 permissions:
@@ -26,6 +27,8 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0      # the release tags, for the older major versions
 
       - name: Check the site is there
         id: check
@@ -37,10 +40,9 @@ jobs:
             echo "ready=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Verify checksums
+      - name: Assemble every version (each checked against its SHA256SUMS)
         if: steps.check.outputs.ready == 'true'
-        working-directory: bundle/web
-        run: sha256sum -c --quiet SHA256SUMS
+        run: python3 .github/scripts/site_versions.py _site
 
       - uses: actions/configure-pages@v5
         if: steps.check.outputs.ready == 'true'
@@ -48,7 +50,7 @@ jobs:
       - uses: actions/upload-pages-artifact@v4
         if: steps.check.outputs.ready == 'true'
         with:
-          path: bundle/web
+          path: _site
 
       - id: deployment
         if: steps.check.outputs.ready == 'true'

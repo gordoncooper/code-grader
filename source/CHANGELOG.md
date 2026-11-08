@@ -26,6 +26,14 @@ Major release, in progress: a beta for agents first, then the pages for people. 
   - `gradekit ci` needs changes on a report PR whose report was made by another major than the pin.
   - A project without a pin works as before.
 
+**Every major version at its own address**
+- The suite's site serves the newest release of each major at its own path: `/v4/` and, once released, `/v5/`. The root shows the newest. Each copy is built from its release and checked against its own `SHA256SUMS` before it's published.
+- `versions.json` beside each copy lists the versions. With it:
+  - the pages show a version menu in the top bar that keeps you on the same page;
+  - **Start a run** writes prompts that point at the page's own major (`…/v5/AGENT.md`), so a later major can't change a project's rules;
+  - `AGENT.md` sends agents to the version a project pins.
+- Every built site ships a `versions.json` that lists only itself, so a single-version host changes nothing and makes no failed requests. It isn't in `SHA256SUMS`, because it describes the host. `DEPLOY.md` shows how to host several majors on your own server.
+
 ## 4.3.0
 Minor release: tools that let agents run the whole cycle without custom scripts, and safer publishing. No scoring changes; config fingerprints and existing reports stay valid. Tested by running the whole cycle on a real repository (dbader/schedule) with `gradekit` commands only: it reproduced the 4.2.2 grade exactly.
 

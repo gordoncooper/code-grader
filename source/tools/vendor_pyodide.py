@@ -84,7 +84,7 @@ def rewrite_manifest(site: Path) -> None:
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     entries = []
     for p in sorted(site.rglob("*")):
-        if p.is_file() and p.name not in ("manifest.json", "SHA256SUMS"):
+        if p.is_file() and p.name not in ("manifest.json", "SHA256SUMS", "versions.json"):   # versions.json describes the host
             data = p.read_bytes()
             entries.append({"path": p.relative_to(site).as_posix(), "bytes": len(data), "sha256": hashlib.sha256(data).hexdigest()})
     manifest["files"] = entries
