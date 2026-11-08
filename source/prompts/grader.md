@@ -115,7 +115,14 @@ $K report gap | feature | flag | ran | set …                                  
 $K report check $R --repo CODE                                                 # lists what's missing or wrong
 ```
 
-To keep a finding from the previous report, pass its ID with `finding add --id A3-002 --status open`. Add `--sensitive` for findings whose details must not be public (Part 1, rule 6). `report cite FILE:LINES --repo CODE` prints a single evidence object if you need one elsewhere. Without Python, write the JSON yourself following Part 10.
+**If there's a previous report,** start from it instead of `report new`: `carry` keeps every finding's ID and moves its code citations to where that code is now, listing the ones whose lines changed or disappeared. Every score is cleared for you to grade afresh. Re-check each carried finding and mark the ones that are gone `fixed`:
+
+```
+$K carry PROJECT_DIR/reports/<newest>/report.json --mode full --repo CODE --commit COMMIT --project-dir PROJECT_DIR
+$K report finding update $R A3-002 --status fixed --replace-evidence --cite src/x.py:51-53 --repo CODE --note "now handled"
+```
+
+If you wrote findings without starting from the previous report, `report match $R --baseline PREVIOUS --apply` gives findings that are clearly the same problem their earlier IDs back; it lists the uncertain ones for you to decide. To keep an ID by hand, use `finding add --id A3-002 --status open`. Add `--sensitive` for findings whose details must not be public (Part 1, rule 6). `report cite FILE:LINES --repo CODE` prints a single evidence object if you need one elsewhere. Without Python, write the JSON yourself following Part 10.
 
 1. **Recon.** Map the repo: structure, entry points, manifests, build files, tests, CI, deploy config, docs. Write a short system summary and a list of every feature the project claims (README, docs, CLI help, routes, UI).
 2. **Tooling and metrics.** Run whatever applies:
