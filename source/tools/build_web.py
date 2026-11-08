@@ -297,7 +297,7 @@ Every prompt starts with a short table of inputs: where the code is, where the *
 | `suite/rubric/catalog.json` | Benchmark IDs, names and pillars |
 | `suite/TUNING.md` | How to customize scoring |
 | `suite/schema/report.schema.json` | JSON Schema for reports |
-| `suite/tools/gradekit.py` | Resolves configs, validates reports, checks evidence, computes roll-ups and priorities (Python 3.11+, standard library only) |
+| `suite/tools/gradekit.py` | Builds reports (`gradekit report …`), resolves configs, validates reports, checks evidence, computes roll-ups and priorities (Python 3.11+, standard library only) |
 | `suite/examples/` | A sample repo and a complete example report |
 | `downloads/{zip_name}` | Everything above as one zip (SHA-256 `{zip_sha}`) |
 | `manifest.json`, `SHA256SUMS` | Version, sizes and checksums for every file on this site |
@@ -329,7 +329,7 @@ def llms_txt(version: str, zip_name: str) -> str:
               "- [defaults.toml](suite/config/defaults.toml): every tunable setting, commented",
               "- [project.example.toml](suite/config/project.example.toml): a filled-in project config",
               "- [Tuning guide](suite/TUNING.md)",
-              "", "## Tools", "- [gradekit.py](suite/tools/gradekit.py): validate, verify-evidence, rollup, stability, diff, calibrate, redact, rollup-repo",
+              "", "## Tools", "- [gradekit.py](suite/tools/gradekit.py): report (new, finding, score, check…), validate, verify-evidence, rollup, stability, diff, calibrate, redact, rollup-repo",
               "- [report.schema.json](suite/schema/report.schema.json)",
               f"- [Download the kit](downloads/{zip_name})", "- [manifest.json](manifest.json): checksums", ""]
     return "\n".join(lines)

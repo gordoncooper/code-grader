@@ -10,6 +10,15 @@ After any major or minor change, re-run calibration (`calibration/README.md`) be
 ## 4.3.0 (unreleased)
 Minor release: tools that let agents run the whole cycle without custom scripts, and safer publishing. No scoring changes; config fingerprints and existing reports stay valid.
 
+**Writing reports with `gradekit report`**
+- Graders build `report.json` with commands instead of typing JSON. The tool fills in every benchmark with its name, weight and target, copies each quote from the code so citations always verify, and picks the next free finding, gap and action IDs (never reusing an ID from the project's earlier reports).
+  - `report new` starts a report in `projects/NAME/reports/<date>-<commit>/` (or `runs/run-N.json` for several graders), with previous scores filled in.
+  - `report finding add|update`, `score`, `strength`, `enforcement`, `action`, `gap`, `feature`, `flag`, `ran` and `set` record judgments. Evidence comes from `--cite FILE:LINES --repo CODE`, `--command CMD --excerpt TEXT` or `--absence WHAT --method HOW`.
+  - `report cite FILE:LINES` prints one evidence object with the exact quote.
+  - `report check` runs validation, citation checks and the rollup, and lists what's still missing. Exit code 0 means ready, 5 not finished yet, 1 errors. `--write` stores the rollup and the finish time.
+  - Every `report` command takes `--json`.
+- The grader prompt shows the commands. Hand-written reports still work.
+
 **Safe publishing for public grading repos**
 - Graders mark findings whose details would help an attacker (an exploitable vulnerability, a leaked secret) with `"sensitive": true`.
 - `gradekit redact --in-place` splits a report into a public `report.json` and a full `report.private.json`, which is never committed (`gradekit init` adds `*.private.json` to the grading repo's `.gitignore`). In the public report, a sensitive finding keeps its ID, benchmark, severity, status and the files it concerns, so scores, gates, zones and priorities are exactly the same; its title, quotes and commands, and the wording of the actions and decision questions that fix it, are withheld. `redact` refuses to write anything while withheld text still appears elsewhere in the report, and says where.

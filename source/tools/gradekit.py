@@ -18,6 +18,14 @@ Reports:
   redact           Strip hidden-check details so a report can be shared with improvers.
   rollup-repo      Combine per-component reports for a monorepo.
 
+Writing a report (graders):
+  report new       Start a report: all 35 benchmarks with weights and targets from the config.
+  report cite      Print an evidence object for FILE:LINES with the exact quote.
+  report finding   Add or update a finding (next free ID, quotes copied from the code).
+  report score     Score a benchmark, or mark it limited / not applicable.
+  report strength | enforcement | action | gap | feature | flag | ran | set
+  report check     List what's missing or wrong; --write stores the rollup when it's complete.
+
 Projects: in a grading repo, pass --project NAME (folder projects/NAME/) and commands find the
 project's settings, decisions, accepted findings and latest report themselves; `diff` compares
 the latest two reports. --project-dir works for a project folder anywhere.
@@ -28,7 +36,7 @@ The website runs this same file in the browser (Pyodide) through web_api().
 
 Python 3.11+ (uses tomllib); standard library only. Uses `jsonschema` when installed.
 Exit codes: 0 ok, 1 invalid/failed check, 2 regression (diff --fail-on-regression),
-3 unstable runs (stability --strict), 4 calibration failed.
+3 unstable runs (stability --strict), 4 calibration failed, 5 report not finished (report check).
 """
 from __future__ import annotations
 
@@ -1925,6 +1933,511 @@ def cmd_init(args) -> int:
     return 0
 
 
+# =========================================================================== report authoring
+# Graders build reports with these commands instead of typing JSON: weights, targets, quotes and
+# IDs all come from the tool. Every command re-normalizes the report against the effective config.
+
+EXIT_INCOMPLETE = 5
+REPORT_LISTS = ("commands_run", "feature_inventory", "gap_register", "findings", "integrity_flags",
+                "top_priorities", "limitations")
+CONFIDENCE = ("high", "medium", "low")
+
+
+def utc_now() -> str:
+    import datetime
+    return datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def blank_benchmark(b: dict, cfg: dict) -> dict:
+    cw = cfg["weights"][b["id"]]["weight"]
+    return {"id": b["id"], "name": b["name"], "pillar": b["pillar"], "applicability": "full", "applicability_reason": None,
+            "config_weight": cw, "weight": cw, "weight_note": None, "score": None, "confidence": None,
+            "carried_forward": False, "caps_applied": [], "finding_ids": [], "strengths": [], "enforcement": [],
+            "gaming_flags": [], "target": None, "path_to_target": [], "previous_score": None, "change_explanation": None}
+
+
+def normalize_report(report: dict, cfg: dict, catalog: dict | None = None) -> dict:
+    """Fill everything the tool knows: every benchmark (catalog order), names, pillars, weights, targets
+    and finding_ids. Never touches a grader's judgments (scores, findings, evidence, prose)."""
+    catalog = catalog or load_catalog()
+    for key in REPORT_LISTS:
+        report.setdefault(key, [])
+    report.setdefault("metrics", {})
+    report.setdefault("scope_examined", "")
+    report.setdefault("holdout", {"run": False, "checks_run": None, "pass_rate": None, "private_details": None})
+    have = benchmarks_by_id(report)
+    benches = []
+    for c in catalog["benchmarks"]:
+        b = have.get(c["id"]) or blank_benchmark(c, cfg)
+        b.update({"name": c["name"], "pillar": c["pillar"], "config_weight": cfg["weights"][c["id"]]["weight"]})
+        b["weight"] = expected_weight(b.get("applicability"), b["config_weight"])
+        if b.get("applicability") == "not_applicable":
+            b["score"], b["confidence"] = None, None
+        for key in ("caps_applied", "finding_ids", "strengths", "enforcement", "gaming_flags", "path_to_target"):
+            b.setdefault(key, [])
+        benches.append(b)
+    report["benchmarks"] = benches + [b for bid, b in have.items() if bid not in {c["id"] for c in catalog["benchmarks"]}]
+    by_id = benchmarks_by_id(report)
+    for f in report["findings"]:
+        b = by_id.get(f.get("benchmark_id"))
+        if b is not None and f.get("id") not in b["finding_ids"]:
+            b["finding_ids"].append(f.get("id"))
+    for bid, tv in compute_targets(report, cfg).items():
+        if bid in by_id:
+            by_id[bid]["target"] = tv
+    return report
+
+
+def project_dir_for_report(path) -> Path | None:
+    """projects/NAME/reports/<folder>/report.json (or …/<folder>/runs/run-N.json) → projects/NAME."""
+    p = Path(path).resolve().parent
+    for cand in (p.parent, p.parent.parent):
+        if cand.name == "reports" and (cand.parent / PROJECT_FILE).exists():
+            return cand.parent
+    return None
+
+
+def authoring_config(args, report: dict) -> dict:
+    if not (getattr(args, "config", None) or getattr(args, "project", None) or getattr(args, "project_dir", None)):
+        pdir = project_dir_for_report(args.report)
+        if pdir:
+            args.project_dir = str(pdir)
+    return load_config(args, report, quiet=True)
+
+
+def parse_cite(spec: str) -> tuple[str, int, int]:
+    m = re.fullmatch(r"(.+):(\d+)(?:-(\d+))?", spec.strip())
+    if not m:
+        die(f"--cite takes FILE:LINE or FILE:START-END, got '{spec}'")
+    start, end = int(m.group(2)), int(m.group(3) or m.group(2))
+    if start < 1 or end < start:
+        die(f"bad line range in '{spec}'")
+    return repo_relative(m.group(1)), start, end
+
+
+def repo_reader(repo: str | None):
+    if not repo:
+        die("--cite needs --repo (the code checkout, or a zip of it) to read the quote from")
+    path = Path(repo)
+    if path.suffix == ".zip" and path.is_file():
+        return zip_reader(str(path))
+    if not path.is_dir():
+        die(f"repo not found: {repo}")
+    return fs_reader(path)
+
+
+def cite(spec: str, read_lines, note: str | None = None) -> dict:
+    """An evidence object whose quote is copied from the file, so it always verifies."""
+    rel, start, end = parse_cite(spec)
+    if Path(rel).is_absolute() or ".." in Path(rel).parts:
+        die(f"cite a path inside the repo: {rel}")
+    lines = read_lines(rel)
+    if isinstance(lines, str):
+        die(lines)
+    if end > len(lines):
+        die(f"{rel} has {len(lines)} lines; cited {start}-{end}")
+    quote = "\n".join(lines[start - 1:end]).strip("\n")
+    if not quote.strip():
+        die(f"{rel}:{start}-{end} is blank; cite the lines that show the problem")
+    ev = {"type": "code", "file": rel, "lines": str(start) if start == end else f"{start}-{end}", "quote": quote}
+    if note:
+        ev["note"] = note
+    return ev
+
+
+def read_text_arg(value: str | None) -> str | None:
+    """'@path' reads a file, '-' reads stdin; anything else is the text itself."""
+    if value is None:
+        return None
+    if value == "-":
+        return sys.stdin.read()
+    if value.startswith("@"):
+        try:
+            return Path(value[1:]).read_text(encoding="utf-8")
+        except OSError as exc:
+            die(f"cannot read {value[1:]}: {exc}")
+    return value
+
+
+def evidence_from_args(args, required: bool = False) -> list[dict]:
+    out = []
+    note = getattr(args, "note", None)
+    cites = getattr(args, "cite", None) or []
+    if cites:
+        read = repo_reader(getattr(args, "repo", None))
+        out += [cite(c, read, note) for c in cites]
+    if getattr(args, "command", None):
+        excerpt = read_text_arg(getattr(args, "excerpt", None))
+        if not (excerpt or "").strip():
+            die("--command needs --excerpt (the relevant output; '@file' or '-' for stdin)")
+        out.append({"type": "command", "command": args.command, "excerpt": excerpt.strip("\n"), **({"note": note} if note else {})})
+    if getattr(args, "absence", None):
+        if not getattr(args, "method", None):
+            die("--absence needs --method (how you searched)")
+        out.append({"type": "absence", "searched": args.absence, "method": args.method, **({"note": note} if note else {})})
+    if required and not out:
+        die("give evidence: --cite FILE:LINES (with --repo), --command CMD --excerpt TEXT, or --absence WHAT --method HOW")
+    return out
+
+
+def known_ids(report_path, report: dict, pattern: str) -> set[str]:
+    """IDs matching pattern in this report and every report of its project, so new IDs never reuse old ones."""
+    ids = set()
+    texts = [json.dumps(report)]
+    pdir = project_dir_for_report(report_path)
+    if pdir:
+        for folder in report_folders(pdir):
+            for f in [folder / "report.json", *sorted((folder / "runs").glob("*.json"))]:
+                if f.exists() and f.resolve() != Path(report_path).resolve():
+                    texts.append(f.read_text(encoding="utf-8", errors="replace"))
+    for t in texts:
+        ids.update(re.findall(pattern, t))
+    return ids
+
+
+def next_id(prefix: str, sep: str, taken: set[str], width: int = 3) -> str:
+    nums = [int(i.rsplit(sep, 1)[1]) for i in taken if i.startswith(prefix + sep) and i.rsplit(sep, 1)[1].isdigit()]
+    return f"{prefix}{sep}{str(max(nums, default=0) + 1).zfill(width)}"
+
+
+def benchmark_or_die(report: dict, bid: str) -> dict:
+    b = benchmarks_by_id(report).get(str(bid).upper())
+    if b is None:
+        die(f"unknown benchmark '{bid}'")
+    return b
+
+
+def finding_or_die(report: dict, fid: str) -> dict:
+    f = next((f for f in report.get("findings", []) if f.get("id") == fid), None)
+    if f is None:
+        die(f"no finding {fid} in this report")
+    return f
+
+
+def emit(args, result: dict, text: str) -> None:
+    if getattr(args, "json", False):
+        print(json.dumps(result, indent=2, ensure_ascii=False))
+    elif text:
+        print(text)
+
+
+# ---------------------------------------------------------------- commands
+
+def cmd_report_new(args) -> int:
+    if args.mode == "pr" and not args.base_commit:
+        die("--mode pr needs --base-commit")
+    m = re.fullmatch(r"(\d+)/(\d+)", args.run or "1/1")
+    if not m or not 1 <= int(m.group(1)) <= int(m.group(2)):
+        die(f"--run takes N/COUNT, e.g. 2/3; got '{args.run}'")
+    run_index, run_count = int(m.group(1)), int(m.group(2))
+    cfg = load_config(args, quiet=True)
+    pdir = project_dir_from_args(args)
+    commit = args.commit.strip()
+    now = utc_now()
+    if args.out:
+        out = Path(args.out)
+    elif pdir:
+        folder = pdir / "reports" / f"{now[:10]}-{commit[:7]}"
+        out = folder / ("report.json" if run_count == 1 else f"runs/run-{run_index}.json")
+    else:
+        die("give --project NAME (or --project-dir), or --out FILE")
+    if out.exists() and not args.force:
+        die(f"{out} exists (use --force to start it again)")
+    catalog = load_catalog()
+    previous = {}
+    if pdir:
+        older = [f for f in report_folders(pdir) if (f / "report.json").resolve() != out.resolve()]
+        if older:
+            previous = benchmarks_by_id(load_json(older[-1] / "report.json"))
+    project = (cfg.get("project") or {}).get("name") or (pdir.name if pdir else None)
+    report = {
+        "suite_version": catalog["suite_version"], "mode": args.mode,
+        "run": {"project": project, "commit": commit, "base_commit": args.base_commit, "date": now, "grader": args.grader,
+                "run_index": run_index, "run_count": run_count, "suite_source": args.suite_source},
+        "component": ({"name": cfg["component"]["name"], "path": cfg["component"].get("path"), "weight": cfg["component"].get("weight", 1)}
+                      if cfg.get("component") else None),
+        "config": {"hash": cfg["hash"], "preset": cfg["preset"], "source": " + ".join(cfg["sources"][1:]) or None,
+                   "component": (cfg.get("component") or {}).get("name")},
+        "commands_run": [], "scope_examined": "", "metrics": {}, "feature_inventory": [], "gap_register": [],
+        "findings": [], "benchmarks": [blank_benchmark(c, cfg) for c in catalog["benchmarks"]], "integrity_flags": [],
+        "holdout": {"run": False, "checks_run": None, "pass_rate": None, "private_details": None},
+        "rollup": None, "top_priorities": [], "limitations": [],
+    }
+    for b in report["benchmarks"]:
+        b["previous_score"] = (previous.get(b["id"]) or {}).get("score")
+    normalize_report(report, cfg, catalog)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    write_json(out, report)
+    emit(args, {"report": str(out), "commit": commit, "config_hash": cfg["hash"], "previous": bool(previous)},
+         f"wrote {out}\nnext: add findings and scores with `gradekit report finding add` / `report score`, then `gradekit report check {out}`")
+    return 0
+
+
+def load_for_edit(args) -> tuple[dict, dict]:
+    report = load_json(args.report)
+    cfg = authoring_config(args, report)
+    return report, cfg
+
+
+def save_edit(args, report: dict, cfg: dict) -> None:
+    normalize_report(report, cfg)
+    write_json(args.report, report)
+
+
+def cmd_report_cite(args) -> int:
+    ev = cite(args.spec, repo_reader(args.repo), args.note)
+    print(json.dumps(ev, indent=None if args.compact else 2, ensure_ascii=False))
+    return 0
+
+
+def cmd_finding_add(args) -> int:
+    report, cfg = load_for_edit(args)
+    bench = benchmark_or_die(report, args.benchmark)
+    bid = bench["id"]
+    if args.id:
+        if not re.fullmatch(rf"{bid}-\d{{3,}}", args.id):
+            die(f"--id must look like {bid}-007")
+        if any(f.get("id") == args.id for f in report["findings"]):
+            die(f"{args.id} is already in this report; use `report finding update`")
+        fid = args.id
+    else:
+        fid = next_id(bid, "-", known_ids(args.report, report, rf"\b{bid}-\d{{3,}}\b"))
+    f = {"id": fid, "benchmark_id": bid, "title": args.title, "severity": args.severity, "status": args.status,
+         "first_seen_commit": args.first_seen or (report.get("run") or {}).get("commit"),
+         "evidence": evidence_from_args(args, required=True), "disposition": None, "disposition_concern": None}
+    if args.paths:
+        f["paths"] = [repo_relative(p) for p in args.paths]
+    if args.sensitive:
+        f["sensitive"] = True
+    report["findings"].append(f)
+    save_edit(args, report, cfg)
+    emit(args, {"id": fid, "finding": f}, f"added {fid} ({args.severity}): {args.title}")
+    return 0
+
+
+def cmd_finding_update(args) -> int:
+    report, cfg = load_for_edit(args)
+    f = finding_or_die(report, args.id)
+    for key in ("title", "severity", "status"):
+        if getattr(args, key) is not None:
+            f[key] = getattr(args, key)
+    if args.disposition_concern is not None:
+        f["disposition_concern"] = args.disposition_concern or None
+    if args.sensitive is not None:
+        if args.sensitive:
+            f["sensitive"] = True
+        else:
+            f.pop("sensitive", None)
+    if args.paths:
+        f["paths"] = list(dict.fromkeys(list(f.get("paths", []) or []) + [repo_relative(p) for p in args.paths]))
+    new_ev = evidence_from_args(args)
+    if args.replace_evidence:
+        if not new_ev:
+            die("--replace-evidence needs new evidence")
+        f["evidence"] = new_ev
+    else:
+        f["evidence"] = f.get("evidence", []) + new_ev
+    save_edit(args, report, cfg)
+    emit(args, {"id": f["id"], "finding": f}, f"updated {f['id']}")
+    return 0
+
+
+def cmd_report_score(args) -> int:
+    report, cfg = load_for_edit(args)
+    b = benchmark_or_die(report, args.benchmark)
+    if args.applicability:
+        b["applicability"] = args.applicability
+    if args.reason is not None:
+        b["applicability_reason"] = args.reason or None
+    if b["applicability"] in ("limited", "not_applicable") and not (b.get("applicability_reason") or "").strip():
+        die(f"{b['id']} is {b['applicability']}: give --reason (based on the project's purpose, not its quality)")
+    if b["applicability"] == "not_applicable":
+        if args.score is not None:
+            die("a not_applicable benchmark has no score")
+        b["score"], b["confidence"] = None, None
+    else:
+        if args.score is not None:
+            b["score"] = args.score
+        if args.confidence:
+            b["confidence"] = args.confidence
+        if b.get("score") is None or b.get("confidence") is None:
+            die(f"{b['id']} needs --score and --confidence")
+    if args.why is not None:
+        b["change_explanation"] = args.why or None
+    if args.weight_note is not None:
+        b["weight_note"] = args.weight_note or None
+    for key, vals in (("caps_applied", args.cap), ("gaming_flags", args.gaming_flag)):
+        for v in vals or []:
+            if v not in b[key]:
+                b[key].append(v)
+    save_edit(args, report, cfg)
+    msg = f"{b['id']} {b['name']}: " + ("not applicable" if b["score"] is None else f"{b['score']} ({b['confidence']} confidence)")
+    if b.get("target") is not None:
+        msg += f", target {b['target']}"
+    emit(args, {"benchmark": b}, msg)
+    return 0
+
+
+def cmd_report_strength(args) -> int:
+    report, cfg = load_for_edit(args)
+    b = benchmark_or_die(report, args.benchmark)
+    b["strengths"].append({"note": args.text, "evidence": evidence_from_args(args, required=True)})
+    save_edit(args, report, cfg)
+    emit(args, {"benchmark_id": b["id"], "strengths": len(b["strengths"])}, f"{b['id']}: {len(b['strengths'])} strength(s)")
+    return 0
+
+
+def cmd_report_enforcement(args) -> int:
+    report, cfg = load_for_edit(args)
+    b = benchmark_or_die(report, args.benchmark)
+    b["enforcement"] += evidence_from_args(args, required=True)
+    save_edit(args, report, cfg)
+    emit(args, {"benchmark_id": b["id"], "enforcement": len(b["enforcement"])}, f"{b['id']}: {len(b['enforcement'])} enforcement item(s)")
+    return 0
+
+
+def cmd_report_action(args) -> int:
+    report, cfg = load_for_edit(args)
+    b = benchmark_or_die(report, args.benchmark)
+    findings = {f.get("id") for f in report["findings"]} | {g.get("id") for g in report["gap_register"]}
+    for fid in args.resolves:
+        if fid not in findings:
+            die(f"--resolves {fid}: no such finding or gap in this report")
+    aid = next_id(f"{b['id']}-act", "-", {a.get("id", "") for x in report["benchmarks"] for a in x["path_to_target"]}, width=1)
+    act = {"id": aid, "action": args.action, "resolves": args.resolves, "expected_new_score": args.new_score,
+           "effort": args.effort, "requires_human_decision": bool(args.decision), "decision_question": args.decision}
+    if args.optional:
+        act["optional"] = True
+    b["path_to_target"].append(act)
+    save_edit(args, report, cfg)
+    emit(args, {"id": aid, "action": act}, f"added {aid}" + (" (needs a human decision)" if args.decision else ""))
+    return 0
+
+
+def cmd_report_gap(args) -> int:
+    report, cfg = load_for_edit(args)
+    for bid in args.benchmarks:
+        benchmark_or_die(report, bid)
+    gid = next_id("GAP", "-", known_ids(args.report, report, r"\bGAP-\d{3,}\b"))
+    gap = {"id": gid, "gap": args.gap, "severity": args.severity, "necessity": args.necessity, "status": args.status,
+           "rationale": args.rationale or "", "benchmark_ids": [b.upper() for b in args.benchmarks]}
+    report["gap_register"].append(gap)
+    save_edit(args, report, cfg)
+    emit(args, {"id": gid, "gap": gap}, f"added {gid}: {args.gap}")
+    return 0
+
+
+def cmd_report_feature(args) -> int:
+    report, cfg = load_for_edit(args)
+    feat = {"feature": args.feature, "source": args.source, "status": args.status, "evidence": evidence_from_args(args)}
+    report["feature_inventory"].append(feat)
+    save_edit(args, report, cfg)
+    emit(args, {"feature": feat}, f"added feature '{args.feature}' ({args.status})")
+    return 0
+
+
+def cmd_report_flag(args) -> int:
+    report, cfg = load_for_edit(args)
+    flag = {"description": args.description, "evidence": evidence_from_args(args, required=True)}
+    report["integrity_flags"].append(flag)
+    save_edit(args, report, cfg)
+    emit(args, {"integrity_flag": flag}, "added integrity flag (caps maturity at L1 for this run)")
+    return 0
+
+
+def cmd_report_ran(args) -> int:
+    report, cfg = load_for_edit(args)
+    entry = {"command": args.command_text, "exit_code": args.exit_code, "result_summary": args.summary}
+    report["commands_run"].append(entry)
+    save_edit(args, report, cfg)
+    emit(args, {"command": entry}, f"recorded `{args.command_text}`")
+    return 0
+
+
+SETTABLE = ("scope_examined", "project_context_inferred", "metrics", "metrics_notes", "limitations", "holdout",
+            "top_priorities", "run")
+
+
+def cmd_report_set(args) -> int:
+    report, cfg = load_for_edit(args)
+    parts = args.key.split(".")
+    if parts[0] not in SETTABLE:
+        die(f"`report set` covers {', '.join(SETTABLE)}; use the other report commands for findings, scores and evidence")
+    try:
+        value = json.loads(args.value)
+    except json.JSONDecodeError:
+        value = args.value
+    node = report
+    for p in parts[:-1]:
+        node = node.setdefault(p, {})
+        if not isinstance(node, dict):
+            die(f"{args.key}: {p} is not an object")
+    last = parts[-1]
+    if args.append:
+        node.setdefault(last, [])
+        if not isinstance(node[last], list):
+            die(f"{args.key} is not a list")
+        node[last].append(value)
+    else:
+        node[last] = value
+    save_edit(args, report, cfg)
+    emit(args, {"key": args.key, "value": node[last]}, f"set {args.key}")
+    return 0
+
+
+def report_todo(report: dict) -> list[str]:
+    """What a grader still has to do before the report is finished."""
+    todo = []
+    for b in report.get("benchmarks", []):
+        if b.get("applicability") != "not_applicable" and (b.get("score") is None or b.get("confidence") is None):
+            todo.append(f"{b['id']} {b['name']}: score it (`report score REPORT {b['id']} --score N --confidence C`), "
+                        f"or mark it not applicable with a reason")
+    if not str(report.get("scope_examined") or "").strip():
+        todo.append("say what you examined: `report set REPORT scope_examined \"...\"`")
+    if not report.get("commands_run"):
+        todo.append("record the commands you ran: `report ran REPORT --command-text CMD --summary TEXT`")
+    if not report.get("limitations"):
+        todo.append("list limitations (or 'None'): `report set REPORT limitations \"...\" --append`")
+    return todo
+
+
+def cmd_report_check(args) -> int:
+    report, cfg = load_for_edit(args)
+    normalize_report(report, cfg)
+    errors, warnings = validate_report(report, cfg, load_catalog())
+    todo = report_todo(report)
+    todo_ids = {t.split(" ", 1)[0] for t in todo}
+    # A blank benchmark fails several rules at once; the to-do list says it once.
+    errors = [e for e in errors if not any(e.startswith(f"{bid}: applicable benchmark") for bid in todo_ids)]
+    evidence = None
+    if args.repo:
+        evidence = verify_evidence(report, repo_reader(args.repo), args.tolerance)
+        errors += [f"citation: {f}" for f in evidence["failures"]]
+    roll = None
+    if not todo:
+        roll = compute_rollup(report, cfg)
+        errors += [f"weight: {w}" for w in roll["weight_issues"]]
+    if args.write:
+        if roll is not None:
+            apply_rollup(report, cfg)
+            report["run"]["date"] = utc_now()
+        write_json(args.report, report)
+    status = "errors" if errors else "incomplete" if todo else "ready"
+    result = {"status": status, "errors": errors, "warnings": cfg.get("warnings", []) + warnings, "todo": todo,
+              "evidence": evidence, "overall_score": roll and roll["overall_score"],
+              "level": roll and roll["maturity"]["current_level"]}
+    lines = [f"ERROR:   {e}" for e in errors] + [f"warning: {w}" for w in result["warnings"]] + [f"todo:    {t}" for t in todo]
+    if evidence:
+        lines.append(f"citations: {evidence['checked']} checked, {len(evidence['failures'])} failed")
+    if roll:
+        lines.append(f"overall {roll['overall_score']}, maturity {roll['maturity']['current_level']}" +
+                     ("" if args.write else "  (run with --write to store the rollup and stamp the finish time)"))
+    lines.append(f"\n{status}: {len(errors)} error(s), {len(result['warnings'])} warning(s), {len(todo)} to do")
+    emit(args, result, "\n".join(lines))
+    return 1 if errors else EXIT_INCOMPLETE if todo else 0
+
+
+
 # =========================================================================== web API (used by the website via Pyodide)
 
 def _web_layers(p: dict) -> list[tuple[str, dict]]:
@@ -2202,6 +2715,157 @@ def main(argv=None) -> int:
     p.add_argument("reports", nargs="+")
     p.add_argument("--out")
     p.set_defaults(fn=cmd_rollup_repo)
+
+    # ------------------------------------------------------------ report authoring
+    p = sub.add_parser("report", help="build a report step by step (graders): new, cite, finding, score, check…",
+                       description="Build a report without typing JSON. Weights, targets, quotes and IDs come from the tool; "
+                                   "every command re-checks the report against the project's config.")
+    rsub = p.add_subparsers(dest="report_cmd", required=True, metavar="ACTION")
+
+    def report_arg(q):
+        q.add_argument("report", help="the report JSON being written")
+        q.add_argument("--json", action="store_true", help="print the result as JSON")
+        with_config(q)
+
+    def evidence_args(q, cite_help="FILE:LINE or FILE:START-END; the quote is copied from the file (repeatable)"):
+        q.add_argument("--cite", action="append", metavar="FILE:LINES", help=cite_help)
+        q.add_argument("--repo", metavar="DIR_OR_ZIP", help="the code checkout (or a zip of it) that --cite reads")
+        q.add_argument("--command", metavar="CMD", help="evidence from a command you ran…")
+        q.add_argument("--excerpt", metavar="TEXT", help="…and the relevant part of its output ('@file' or '-' for stdin)")
+        q.add_argument("--absence", metavar="WHAT", help="evidence that something is missing: what you looked for…")
+        q.add_argument("--method", metavar="HOW", help="…and how you searched")
+        q.add_argument("--note", help="note on each evidence item added by this command")
+
+    q = rsub.add_parser("new", help="start a report: every benchmark with its weight and target filled in")
+    with_config(q)
+    q.add_argument("--commit", required=True, help="the commit being graded")
+    q.add_argument("--base-commit", help="pr mode: the pull request's base commit")
+    q.add_argument("--mode", choices=["full", "pr"], default="full")
+    q.add_argument("--grader", default="unknown", help="model or agent name")
+    q.add_argument("--run", metavar="N/COUNT", help="for several independent graders: e.g. 2/3 (writes runs/run-2.json)")
+    q.add_argument("--suite-source", default="local", help="where the suite came from, e.g. the AGENT.md URL and version")
+    q.add_argument("--out", metavar="FILE", help="write here instead of projects/NAME/reports/<date>-<commit>/report.json")
+    q.add_argument("--force", action="store_true", help="overwrite an existing report")
+    q.add_argument("--json", action="store_true", help="print the result as JSON")
+    q.set_defaults(fn=cmd_report_new)
+
+    q = rsub.add_parser("cite", help="print an evidence object for FILE:LINES with the exact quote")
+    q.add_argument("spec", metavar="FILE:LINES")
+    q.add_argument("--repo", required=True, metavar="DIR_OR_ZIP")
+    q.add_argument("--note")
+    q.add_argument("--compact", action="store_true", help="one line")
+    q.set_defaults(fn=cmd_report_cite)
+
+    q = rsub.add_parser("finding", help="add or update a finding")
+    fsub = q.add_subparsers(dest="finding_cmd", required=True, metavar="add|update")
+    q = fsub.add_parser("add", help="add a finding; its ID is the next free one for the benchmark")
+    report_arg(q)
+    q.add_argument("--benchmark", required=True, metavar="ID")
+    q.add_argument("--title", required=True)
+    q.add_argument("--severity", required=True, choices=SEVERITIES[::-1])
+    q.add_argument("--status", default="new", choices=["new", "open", "fixed", "regressed", "accepted"])
+    q.add_argument("--first-seen", metavar="COMMIT", help="default: the graded commit")
+    q.add_argument("--id", help="reuse an ID from the previous report (default: next free ID)")
+    q.add_argument("--paths", nargs="+", metavar="GLOB", help="areas the finding concerns, for zones when there's no code evidence")
+    q.add_argument("--sensitive", action="store_true", help="details must not be public (security); see `redact`")
+    evidence_args(q)
+    q.set_defaults(fn=cmd_finding_add)
+    q = fsub.add_parser("update", help="change a finding or add evidence to it")
+    report_arg(q)
+    q.add_argument("id")
+    q.add_argument("--title")
+    q.add_argument("--severity", choices=SEVERITIES[::-1])
+    q.add_argument("--status", choices=["new", "open", "fixed", "regressed", "accepted"])
+    q.add_argument("--disposition-concern", metavar="TEXT", help="why an accepted finding should be reconsidered ('' clears it)")
+    q.add_argument("--paths", nargs="+", metavar="GLOB")
+    g = q.add_mutually_exclusive_group()
+    g.add_argument("--sensitive", dest="sensitive", action="store_true", default=None)
+    g.add_argument("--not-sensitive", dest="sensitive", action="store_false")
+    q.add_argument("--replace-evidence", action="store_true", help="replace the evidence instead of adding to it")
+    evidence_args(q)
+    q.set_defaults(fn=cmd_finding_update)
+
+    q = rsub.add_parser("score", help="score a benchmark, or mark it limited / not applicable")
+    report_arg(q)
+    q.add_argument("benchmark", metavar="ID")
+    q.add_argument("--score", type=int, choices=range(1, 11), metavar="1-10")
+    q.add_argument("--confidence", choices=CONFIDENCE)
+    q.add_argument("--applicability", choices=["full", "limited", "not_applicable"])
+    q.add_argument("--reason", help="why it's limited or not applicable (the project's purpose, not its quality)")
+    q.add_argument("--why", help="what changed since the previous report")
+    q.add_argument("--weight-note", help="if the configured weight looks wrong for this code, say why")
+    q.add_argument("--cap", action="append", help="a cap you applied (repeatable)")
+    q.add_argument("--gaming-flag", action="append", help="a gaming pattern you found (repeatable)")
+    q.set_defaults(fn=cmd_report_score)
+
+    q = rsub.add_parser("strength", help="add a strength (positive evidence) to a benchmark")
+    report_arg(q)
+    q.add_argument("benchmark", metavar="ID")
+    q.add_argument("--text", required=True, help="what is good")
+    evidence_args(q)
+    q.set_defaults(fn=cmd_report_strength)
+
+    q = rsub.add_parser("enforcement", help="add evidence that a benchmark's quality is enforced (CI, lint rule, test)")
+    report_arg(q)
+    q.add_argument("benchmark", metavar="ID")
+    evidence_args(q)
+    q.set_defaults(fn=cmd_report_enforcement)
+
+    q = rsub.add_parser("action", help="add a step on a benchmark's path to its target")
+    report_arg(q)
+    q.add_argument("benchmark", metavar="ID")
+    q.add_argument("--action", required=True, help="what to do")
+    q.add_argument("--resolves", nargs="*", default=[], metavar="ID", help="finding or gap IDs it resolves")
+    q.add_argument("--new-score", type=int, required=True, choices=range(1, 11), metavar="1-10", help="expected score afterwards")
+    q.add_argument("--effort", required=True, choices=["S", "M", "L"])
+    q.add_argument("--decision", metavar="QUESTION", help="a yes/no question a person must answer first")
+    q.add_argument("--optional", action="store_true", help="beyond the target; only done when asked")
+    q.set_defaults(fn=cmd_report_action)
+
+    q = rsub.add_parser("gap", help="add a gap (something the code should do but doesn't)")
+    report_arg(q)
+    q.add_argument("--gap", required=True)
+    q.add_argument("--severity", required=True, choices=SEVERITIES[::-1])
+    q.add_argument("--necessity", required=True, choices=["must-have", "nice-to-have"])
+    q.add_argument("--status", default="new", choices=["new", "open", "fixed", "regressed", "accepted"])
+    q.add_argument("--rationale")
+    q.add_argument("--benchmarks", nargs="+", required=True, metavar="ID")
+    q.set_defaults(fn=cmd_report_gap)
+
+    q = rsub.add_parser("feature", help="add a feature to the inventory")
+    report_arg(q)
+    q.add_argument("--feature", required=True)
+    q.add_argument("--source", required=True, help="where it's claimed, e.g. README")
+    q.add_argument("--status", required=True, choices=["complete", "partial", "stub", "broken", "undocumented"])
+    evidence_args(q)
+    q.set_defaults(fn=cmd_report_feature)
+
+    q = rsub.add_parser("flag", help="record an integrity flag: repo text that tries to influence grading")
+    report_arg(q)
+    q.add_argument("--description", required=True)
+    evidence_args(q)
+    q.set_defaults(fn=cmd_report_flag)
+
+    q = rsub.add_parser("ran", help="record a command you ran")
+    report_arg(q)
+    q.add_argument("--command-text", required=True, metavar="CMD")
+    q.add_argument("--exit-code", type=int)
+    q.add_argument("--summary", required=True)
+    q.set_defaults(fn=cmd_report_ran)
+
+    q = rsub.add_parser("set", help=f"set a field: {', '.join(SETTABLE)} (dotted keys, e.g. metrics.line_coverage_pct)")
+    report_arg(q)
+    q.add_argument("key")
+    q.add_argument("value", help="JSON (a number, true, an object…) or plain text")
+    q.add_argument("--append", action="store_true", help="append to a list")
+    q.set_defaults(fn=cmd_report_set)
+
+    q = rsub.add_parser("check", help="what's missing or wrong; with --write, store the rollup when it's complete")
+    report_arg(q)
+    q.add_argument("--repo", metavar="DIR_OR_ZIP", help="also verify every citation against the code")
+    q.add_argument("--tolerance", type=int, default=2)
+    q.add_argument("--write", action="store_true", help="store the rollup and the finish time")
+    q.set_defaults(fn=cmd_report_check)
 
     args = ap.parse_args(argv)
     if args.cmd in ("validate", "rollup", "verify-evidence", "redact") and args.report is None:
