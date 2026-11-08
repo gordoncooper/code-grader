@@ -265,3 +265,20 @@ def test_setup_private_grading_repo_option(page, site):
     page.uncheck("#private-repo")
     page.wait_for_function("!/^public = false/m.test(document.querySelector('#toml-out').textContent)")
     assert not page.errors
+
+
+def test_review_recognises_loose_files(page, site, tmp_path):
+    """Dropped files get their roles from the engine: the newest report is reviewed, the other compared."""
+    old = json.loads((PROJECT / "reports" / "2026-10-24-9f8e7d6" / "report.json").read_text())
+    new = json.loads((PROJECT / "reports" / "2026-11-07-a1b2c3d" / "report.json").read_text())
+    (tmp_path / "b-older.json").write_text(json.dumps(old))
+    (tmp_path / "a-newer.json").write_text(json.dumps(new))
+    shutil.copy(PROJECT / "project.toml", tmp_path / "project.toml")
+    ready(page, site, "app/review.html")
+    page.click("[data-tab=files]")
+    page.set_input_files("#file-input", [str(tmp_path / "b-older.json"), str(tmp_path / "a-newer.json"), str(tmp_path / "project.toml")])
+    page.wait_for_selector("#results:not([hidden])")
+    roles = page.eval_on_selector_all("#filelist .filerow", "rows => rows.map(r => [r.querySelector('.name').firstChild.textContent, r.querySelector('select') && r.querySelector('select').value])")
+    assert dict(roles) == {"b-older.json": "previous", "a-newer.json": "report", "project.toml": "project"}
+    assert "a1b2c3d" in page.inner_text("#results")
+    assert not page.errors

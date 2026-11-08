@@ -36,6 +36,14 @@ Minor release: tools that let agents run the whole cycle without custom scripts,
 - New optional report fields: `summary` (set with `report set summary`) and each benchmark's one-line `rationale` (`report score --rationale`).
 - The prompts use these commands. The example reports' `report.md` files are now rendered.
 
+**One engine**
+- The Review page no longer re-implements gradekit's rules in JavaScript. It calls the engine for:
+  - which projects a folder, zip or repo holds (`scan_layout`, from the file paths alone, so files are only read once a project is chosen);
+  - the order of reports (`order_report_folders`, which names the few reports whose `run.date` it needs);
+  - what each dropped file is (`classify_files`).
+- The command line uses the same functions, so the page and the CLI can't disagree. A test keeps the JavaScript copies from coming back.
+- A role you pick for a dropped file is now kept: a newer report no longer takes over the "report to review" slot you chose.
+
 **A preflight with `gradekit doctor`**
 - `doctor` checks, before a run starts, everything the run will need, so a missing permission shows up in seconds rather than after an hour of grading:
   - Python 3.11+, the kit itself, jsonschema (optional) and a writable temp folder;

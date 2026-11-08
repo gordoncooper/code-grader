@@ -15,39 +15,29 @@
   var answers = {};   // action_id -> {choice, answer}
   var fileSeq = 0;
   var resultTabs = null;
-  var SIDE = { "project.toml": "project", "decisions.json": "decisions", "dispositions.json": "dispositions", "org.toml": "org" };
+  async function engineInfo() { if (!info) info = await GK.call("info", {}); return info; }
 
   function projectName() {
     return (source && source.project) || (R && R.report && R.report.run && R.report.run.project) || "<project>";
   }
 
   // ------------------------------------------------------------------ loose files
-  function guessRole(f) {
-    if (SIDE[f.name]) return SIDE[f.name];
-    if (/\.zip$/i.test(f.name)) return "zip";
-    if (/\.toml$/i.test(f.name)) return byRole("project").length ? "org" : "project";
-    if (f.json && Array.isArray(f.json.benchmarks)) {
-      var main = files.find(function (x) { return x.role === "report"; });
-      if (!main) return "report";
-      var a = (main.json.run || {}).commit, b = (f.json.run || {}).commit;
-      return a && b && a === b ? "run" : "previous";
-    }
-    if (f.json && Array.isArray(f.json.decisions)) return "decisions";
-    if (f.json && Array.isArray(f.json.dispositions)) return "dispositions";
-    return "ignore";
-  }
-
+  // What each loose file is (report, earlier report, run, project.toml…) is decided by the engine
+  // (gradekit classify_files), the same rule everywhere. A role the person picks is kept.
   function addFile(name, content, isBytes, role, fromSource) {
-    var f = { id: ++fileSeq, name: name, fromSource: !!fromSource };
+    var f = { id: ++fileSeq, name: name, fromSource: !!fromSource, chosen: !!role, role: role || "ignore" };
     if (isBytes) f.bytes = content; else f.text = content;
     if (!isBytes && /\.json$/i.test(name)) { try { f.json = JSON.parse(content); } catch (e) { f.error = "not valid JSON"; } }
-    f.role = role || (f.error ? "ignore" : guessRole(f));
-    if (!role && f.role === "previous") {
-      var main = files.find(function (x) { return x.role === "report"; });
-      if (main && String((f.json.run || {}).date) > String((main.json.run || {}).date)) { main.role = "previous"; f.role = "report"; }
-    }
     files.push(f);
     return f;
+  }
+  async function classifyFiles() {
+    var loose = files.filter(function (f) { return !f.fromSource; });
+    if (!loose.some(function (f) { return !f.chosen; })) return;
+    var res = await GK.call("classify", { files: loose.map(function (f) {
+      return { name: f.name, json: f.json || null, error: f.error || null, role: f.chosen ? f.role : null };
+    }) });
+    loose.forEach(function (f, i) { f.role = res.roles[i]; });
   }
   function byRole(role) { return files.filter(function (f) { return f.role === role; }); }
 
@@ -59,7 +49,7 @@
       if (f.fromSource && f.role !== "zip") return;
       var sel = h("select", { "aria-label": "Use " + f.name + " as" });
       Object.keys(ROLES).forEach(function (r) { var o = h("option", { value: r }, ROLES[r]); if (r === f.role) o.selected = true; sel.appendChild(o); });
-      sel.addEventListener("change", function () { f.role = sel.value; updateAnalyzeButton(); });
+      sel.addEventListener("change", function () { f.role = sel.value; f.chosen = true; updateAnalyzeButton(); });
       var del = h("button", { type: "button", class: "icon-btn", "aria-label": "Remove " + f.name }, "×");
       del.addEventListener("click", function () { files = files.filter(function (x) { return x !== f; }); renderFiles(); });
       var meta = f.error ? f.error : f.json && f.json.run ? "commit " + String(f.json.run.commit || "?").slice(0, 10) + (f.json.run.date ? " · " + f.json.run.date : "") : f.bytes ? Math.round(f.bytes.length / 1024) + " KB" : "";
@@ -71,54 +61,36 @@
 
   // ------------------------------------------------------------------ whole projects (folder, zip, GitHub, sample)
   // entries: [{path, text: async () => string}] — grouped into projects like gradekit's scan_paths().
-  function scanEntries(entries) {
-    var projects = {}, org = null;
-    entries.forEach(function (e) {
-      var parts = e.path.replace(/^\/+/, "").split("/"), last = parts[parts.length - 1];
-      if (last === "org.toml") { org = e; return; }
-      var idx = parts.lastIndexOf("reports");
-      var root = idx >= 0 ? parts.slice(0, idx) : parts.slice(0, -1), rest = idx >= 0 ? parts.slice(idx + 1) : [last];
-      var key = root.join("/"), name = root[root.length - 1] || "project";
-      var p = projects[key] = projects[key] || { name: name, key: key, side: {}, reports: {} };
-      if (idx < 0 && rest.length === 1 && SIDE[last] && last !== "org.toml") p.side[last] = e;
-      else if (rest.length === 2 && rest[1] === "report.json") (p.reports[rest[0]] = p.reports[rest[0]] || { runs: [] }).report = e;
-      else if (rest.length === 3 && rest[1] === "runs" && /\.json$/.test(rest[2])) (p.reports[rest[0]] = p.reports[rest[0]] || { runs: [] }).runs.push(e);
+  // Which projects a folder, zip or repo holds is decided by the engine (gradekit scan_layout) from the
+  // paths alone; files are read only once a project is chosen.
+  async function scanEntries(entries) {
+    var byPath = {};
+    entries.forEach(function (e) { byPath[e.path] = e; });
+    var res = await GK.call("scan_layout", { paths: Object.keys(byPath) });
+    return res.projects.map(function (p) {
+      var side = {}, reports = {};
+      Object.keys(p.side).forEach(function (k) { side[k] = byPath[p.side[k]]; });
+      Object.keys(p.reports).forEach(function (f) {
+        reports[f] = { report: byPath[p.reports[f].report], runs: p.reports[f].runs.map(function (x) { return byPath[x]; }) };
+      });
+      return { name: p.name, key: p.root, side: side, reports: reports, org: p.org ? byPath[p.org] : null };
     });
-    var found = Object.keys(projects).map(function (k) { var p = projects[k]; p.org = org; return p; })
-      .filter(function (p) { return p.side["project.toml"] || Object.keys(p.reports).some(function (f) { return p.reports[f].report; }); });
-    // Copies of the suite (any folder with tools/gradekit.py, such as bundle/bare/ or a website's suite/)
-    // ship an example project. Skip projects inside them, unless they're all there is.
-    var kits = entries.map(function (e) { return e.path.replace(/^\/+/, ""); })
-      .filter(function (p) { return p === "tools/gradekit.py" || /\/tools\/gradekit\.py$/.test(p); })
-      .map(function (p) { return p.slice(0, p.length - "tools/gradekit.py".length); });
-    var outside = found.filter(function (p) { return !kits.some(function (k) { return (p.key + "/").indexOf(k) === 0; }); });
-    if (outside.length) return outside;
-    // Only copies of the example: show each project once (the shortest path).
-    var seen = {};
-    return found.slice().sort(function (a, b) { return a.key.length - b.key.length; })
-      .filter(function (p) { if (seen[p.name]) return false; seen[p.name] = true; return true; });
   }
 
-  // Oldest first, like gradekit's report_order_key: folders are <date>-<commit>, so the name orders by day;
-  // reports from the same day are ordered by run.date (a UTC timestamp). Only same-day reports are read.
+  // Oldest first, by the engine's rule (gradekit order_report_folders). It names the folders whose
+  // run.date it needs (reports from the same day); only those are read.
   async function orderFolders(folders, runDate) {
-    var byDay = {};
-    folders.forEach(function (f) { (byDay[f.slice(0, 10)] = byDay[f.slice(0, 10)] || []).push(f); });
+    var res = await GK.call("order_reports", { folders: folders });
+    if (!res.need_run_dates.length) return res.ordered;
     var dates = {};
-    for (var day in byDay) {
-      if (byDay[day].length < 2) continue;
-      for (var i = 0; i < byDay[day].length; i++) dates[byDay[day][i]] = await runDate(byDay[day][i]);
-    }
-    return folders.slice().sort(function (a, b) {
-      var ka = [a.slice(0, 10), dates[a] || "", a], kb = [b.slice(0, 10), dates[b] || "", b];
-      for (var i = 0; i < 3; i++) { if (ka[i] < kb[i]) return -1; if (ka[i] > kb[i]) return 1; }
-      return 0;
-    });
+    for (var i = 0; i < res.need_run_dates.length; i++) dates[res.need_run_dates[i]] = await runDate(res.need_run_dates[i]);
+    return (await GK.call("order_reports", { folders: folders, run_dates: dates })).ordered;
   }
 
   async function useProject(p, label, meta) {
     pendingPicker = null;
     files = files.filter(function (f) { return !f.fromSource && ["project", "decisions", "dispositions", "org", "report", "previous", "run"].indexOf(f.role) < 0; });
+    var SIDE = (await engineInfo()).side_files;
     for (var fname in p.side) addFile(fname, await p.side[fname].text(), false, SIDE[fname], true);
     if (p.org) addFile("org.toml", await p.org.text(), false, "org", true);
     var folders = await orderFolders(Object.keys(p.reports).filter(function (f) { return p.reports[f].report; }), function (f) {
@@ -166,6 +138,10 @@
       }
     }
     for (var j = 0; j < loose.length; j++) addFile(loose[j].name, await UI.readFile(loose[j]));
+    if (loose.length) {
+      try { await classifyFiles(); }
+      catch (err) { UI.clear($("#engine-error")).appendChild(err.gk ? h("div", { class: "banner bad" }, err.message) : UI.engineHelp(err)); }
+    }
     renderFiles();
     if (loose.length && files.some(function (f) { return f.role === "report"; })) analyze();
     else if (R) analyze();
@@ -186,7 +162,8 @@
       return { path: f.webkitRelativePath || f.name, text: function () { return UI.readFile(f); } };
     }).filter(function (e) { return /\.(json|toml)$/.test(e.path) || /(^|\/)tools\/gradekit\.py$/.test(e.path); });
     var top = (entries[0] && entries[0].path.split("/")[0]) || "folder";
-    await chooseProject(scanEntries(entries), "folder " + top);
+    try { await chooseProject(await scanEntries(entries), "folder " + top); }
+    catch (err) { UI.clear($("#engine-error")).appendChild(err.gk ? h("div", { class: "banner bad" }, err.message) : UI.engineHelp(err)); }
   }
 
   // ------------------------------------------------------------------ GitHub (public grading repos)
@@ -249,8 +226,8 @@
       var base = "projects/" + project + "/";
       var listing = [];
       try { listing = await getJSON(api(base + "reports")); } catch (e) { if (e.status !== 404) throw e; }
-      var folders = listing.filter(function (x) { return x.type === "dir"; }).map(function (x) { return x.name; }).sort();
-      var side = {};
+      var folders = listing.filter(function (x) { return x.type === "dir"; }).map(function (x) { return x.name; });
+      var side = {}, SIDE = (await engineInfo()).side_files;
       for (var fname in SIDE) {
         if (fname === "org.toml") continue;
         try { var t = await getText(raw(base + fname)); side[fname] = { text: (function (t) { return async function () { return t; }; })(t) }; } catch (e) { /* optional */ }
@@ -288,7 +265,7 @@
       var entries = manifest.files.filter(function (f) { return f.path.indexOf(prefix) === 0 && /\.(json|toml)$/.test(f.path); }).map(function (f) {
         return { path: f.path.slice(prefix.length), text: function () { return getText(new URL(f.path, GK.site).href); } };
       });
-      await chooseProject(scanEntries(entries), "the sample grading repo");
+      await chooseProject(await scanEntries(entries), "the sample grading repo");
     } catch (err) { UI.toast("Couldn't load the sample: " + err.message); }
   }
 
@@ -311,7 +288,7 @@
       runs = runs.concat(byRole("run").map(function (r) { return r.json; }));
       var text = function (role) { var f = byRole(role)[0]; return f ? f.text : null; };
       var base = { project_toml: text("project"), org_toml: text("org"), decisions_json: text("decisions"), dispositions_json: text("dispositions") };
-      if (!info) info = await GK.call("info", {});
+      await engineInfo();
       var consensus = null;
       if (runs.length) {
         var all = (current.benchmarks ? [current] : []).concat(runs);
