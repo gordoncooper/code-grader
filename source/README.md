@@ -89,7 +89,7 @@ $K report check REPORT --repo CODE [--write]                     # what's missin
 $K carry LAST_REPORT --repo CODE --commit SHA [--mode full|pr …]  # next report from the last: IDs kept, citations moved
 $K report match REPORT --baseline LAST_REPORT [--apply]           # which earlier finding each new one is
 $K render report REPORT                                          # report.md from report.json
-$K render pr REPORT [--json]                                     # the grading pull request's branch, title and body
+$K render pr REPORT                                             # the grading pull request's branch, title and body
 $K render check BASELINE PR_REPORT                               # the PR-check comment
 $K render log improve-log.json --report REPORT                   # the improver's log
 $K validate --project orders-api [--publish]                     # schema, config and rule checks (latest report); --publish: safe to commit?
@@ -100,6 +100,18 @@ $K stability projects/orders-api/reports/<folder>/runs/run-*.json --project orde
 $K calibrate report.json expected.json                           # grader drift check
 $K redact report.json [--in-place]                               # withhold sensitive findings and hidden-check details
 ```
+
+**For agents and scripts:** add `--json` to any command to get exactly one JSON object on stdout: `{"ok", "exit_code", "command", "result", "text"}`, plus `"error"` when the command failed. `result` holds the command's data (validation errors, the rollup, a diff, the path written…) and `text` holds what it would have printed.
+
+| Exit code | Meaning |
+|:-:|---|
+| 0 | OK |
+| 1 | Failed check, invalid report or other error |
+| 2 | Regression (`diff --fail-on-regression`) |
+| 3 | Unstable runs (`stability --strict`) |
+| 4 | Calibration failed (`calibrate`) |
+| 5 | Report not finished yet (`report check`) |
+| 64 | Bad arguments (the usage message says which) |
 
 Try it on the bundled example grading repo:
 

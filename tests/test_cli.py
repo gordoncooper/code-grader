@@ -1,4 +1,5 @@
 """The gradekit command line, as agents and people run it."""
+import json
 import os
 import subprocess
 import sys
@@ -54,3 +55,78 @@ def test_runs_on_python_311_syntax():
     """The kit promises Python 3.11+: compile it with the oldest supported grammar."""
     import ast
     ast.parse((SRC / "tools" / "gradekit.py").read_text(), feature_version=(3, 11))
+
+
+# --------------------------------------------------------------------------- --json everywhere (4.3)
+
+class _Stop(Exception):
+    pass
+
+
+
+def leaf_commands():
+    """Every leaf command, as an argv prefix, read from the real parser."""
+    import argparse
+    sys.path.insert(0, str(SRC / "tools"))
+    import gradekit
+    built = {}
+    orig = gradekit.CliParser.parse_args
+
+    def grab(self, argv=None, namespace=None):
+        built["ap"] = self
+        raise _Stop()
+    gradekit.CliParser.parse_args = grab
+    try:
+        gradekit.main([])
+    except _Stop:
+        pass
+    finally:
+        gradekit.CliParser.parse_args = orig
+
+    def walk(parser, prefix):
+        subs = [a for a in parser._actions if isinstance(a, argparse._SubParsersAction)]
+        if not subs:
+            yield prefix, parser
+        for a in subs:
+            for name, sp in a.choices.items():
+                yield from walk(sp, prefix + [name])
+    return list(walk(built["ap"], []))
+
+
+def test_every_command_takes_json():
+    leaves = leaf_commands()
+    assert len(leaves) >= 30
+    for argv, parser in leaves:
+        assert any("--json" in a.option_strings for a in parser._actions), " ".join(argv)
+
+
+def test_json_envelope_on_success_and_failure(tmp_path):
+    ok = json.loads(run("validate", "--project", "orders-api", "--json").stdout)
+    assert ok["ok"] is True and ok["exit_code"] == 0 and ok["command"] == "validate"
+    assert ok["result"]["valid"] and ok["result"]["config_hash"] and "0 error(s)" in ok["text"]
+    d = run("diff", "--project", "orders-api", "--fail-on-regression", "--json")
+    env = json.loads(d.stdout)
+    assert d.returncode == env["exit_code"] == 2 and env["result"]["verdict"] == "FAIL" and env["result"]["regressions"]
+    bad = run("validate", str(tmp_path / "missing.json"), "--json")
+    env = json.loads(bad.stdout)
+    assert bad.returncode == 1 and env["ok"] is False and "error" in env and env["result"] is None
+
+
+@pytest.mark.parametrize("argv, key", [
+    (["resolve", "--project", "orders-api"], "config"),
+    (["presets"], "weights"),
+    (["rollup", "--project", "orders-api"], "rollup"),
+    (["verify-evidence", "--project", "orders-api", "--repo", "../sample-repo"], "checked"),
+    (["stability", "projects/orders-api/reports/2026-10-24-9f8e7d6/report.json",
+      "projects/orders-api/reports/2026-11-07-a1b2c3d/report.json", "--project", "orders-api"], "unstable"),
+    (["render", "pr", "projects/orders-api/reports/2026-11-07-a1b2c3d/report.json"], "title"),
+])
+def test_json_results_are_structured(argv, key):
+    env = json.loads(run(*argv, "--json").stdout)
+    assert env["ok"], env
+    assert key in env["result"]
+
+
+def test_bad_arguments_exit_64():
+    r = run("validate", "--no-such-flag")
+    assert r.returncode == 64 and "usage:" in r.stderr

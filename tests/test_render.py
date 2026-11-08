@@ -58,7 +58,7 @@ def test_pr_title_body_and_branch(gk):
     assert pr["branch"] == "report/orders-api/2026-11-07-a1b2c3d"
     assert "https://example.com/grading/app/review.html?repo=https://github.com/acme/grading&project=orders-api&ref=report/orders-api/2026-11-07-a1b2c3d" in pr["body"]
     assert "D1-act-1" in pr["body"] and "A1: 5 — passed" in pr["body"]
-    out = json.loads(gk_cli_pr())
+    out = json.loads(gk_cli_pr())["result"]
     assert out["title"] == pr["title"]
 
 
@@ -107,4 +107,4 @@ def test_render_report_writes_beside_the_report(tmp_path):
     rep = tmp_path / "g" / "projects" / "orders-api" / "reports" / "2026-11-07-a1b2c3d"
     (rep / "report.md").unlink()
     out = gk("render", "report", rep / "report.json", "--json", cwd=tmp_path / "g")
-    assert json.loads(out.stdout)["written"].endswith("report.md") and (rep / "report.md").exists()
+    assert json.loads(out.stdout)["result"]["written"].endswith("report.md") and (rep / "report.md").exists()
