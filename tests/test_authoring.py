@@ -193,3 +193,29 @@ def test_check_reports_errors_with_exit_1(repo):
     (repo / rel).write_text(json.dumps(r))
     out = gk("report", "check", rel, cwd=repo, ok=False)
     assert out.returncode == 1 and "requires positive evidence" in out.stdout
+
+
+# --------------------------------------------------------------------------- found by the 4.3 release gate
+
+def test_ids_mentioned_in_text_are_still_free(repo):
+    """A summary saying "confirmed C1-001" (a finding not written yet) must not push the new finding to C1-002."""
+    rel = start(repo)
+    gk("report", "ran", rel, "--command", "python probe.py", "--exit-code", "0", "--summary", "confirmed C1-001 and GAP-009", cwd=repo)
+    gk("report", "set", rel, "metrics_notes", '{"lint_errors": "see C1-001"}', cwd=repo)
+    out = json.loads(gk("report", "finding", "add", rel, "--benchmark", "C1", "--title", "x", "--severity", "minor",
+                        "--absence", "a", "--method", "b", "--json", cwd=repo).stdout)["result"]
+    assert out["id"] == "C1-001"
+    r = load(repo, rel)
+    assert r["commands_run"][-1]["command"] == "python probe.py", "--command works for `report ran`, like everywhere else"
+
+
+def test_the_same_feature_again_updates_it(repo):
+    rel = start(repo)
+    gk("report", "feature", rel, "--feature", "Refunds", "--source", "README", "--status", "partial",
+       "--cite", "src/payments/api.py:5", "--repo", CODE, cwd=repo)
+    n = len(load(repo, rel)["feature_inventory"])
+    r = gk("report", "feature", rel, "--feature", "refunds", "--source", "README", "--status", "complete",
+           "--cite", "src/payments/api.py:6", "--repo", CODE, cwd=repo)
+    assert "updated feature 'Refunds'" in r.stdout
+    feats = load(repo, rel)["feature_inventory"]
+    assert len(feats) == n and feats[-1]["status"] == "complete" and feats[-1]["evidence"][0]["lines"] == "6"

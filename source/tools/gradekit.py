@@ -2160,19 +2160,27 @@ def evidence_from_args(args, required: bool = False) -> list[dict]:
     return out
 
 
+def recorded_ids(report: dict) -> set[str]:
+    """The IDs a report gives its findings and gaps. Only these: text that mentions an ID ("confirmed A1-001")
+    doesn't take it."""
+    ids = {str(f.get("id")) for f in report.get("findings") or [] if isinstance(f, dict) and f.get("id")}
+    ids |= {str(g.get("id")) for g in report.get("gap_register") or [] if isinstance(g, dict) and g.get("id")}
+    return ids
+
+
 def known_ids(report_path, report: dict, pattern: str) -> set[str]:
     """IDs matching pattern in this report and every report of its project, so new IDs never reuse old ones."""
-    ids = set()
-    texts = [json.dumps(report)]
+    ids = recorded_ids(report)
     pdir = project_dir_for_report(report_path)
     if pdir:
         for folder in report_folders(pdir):
             for f in [folder / "report.json", *sorted((folder / "runs").glob("*.json"))]:
                 if f.exists() and f.resolve() != Path(report_path).resolve():
-                    texts.append(f.read_text(encoding="utf-8", errors="replace"))
-    for t in texts:
-        ids.update(re.findall(pattern, t))
-    return ids
+                    try:
+                        ids |= recorded_ids(json.loads(f.read_text(encoding="utf-8", errors="replace")))
+                    except json.JSONDecodeError:
+                        continue
+    return {i for i in ids if re.fullmatch(pattern.replace(r"\b", ""), i)}
 
 
 def next_id(prefix: str, sep: str, taken: set[str], width: int = 3) -> str:
@@ -2414,7 +2422,18 @@ def cmd_report_gap(args) -> int:
 
 def cmd_report_feature(args) -> int:
     report, cfg = load_for_edit(args)
-    feat = {"feature": args.feature, "source": args.source, "status": args.status, "evidence": evidence_from_args(args)}
+    evidence = evidence_from_args(args)
+    same = [f for f in report["feature_inventory"] if str(f.get("feature", "")).strip().lower() == args.feature.strip().lower()]
+    if same:   # the same feature again updates it, e.g. when `carry` says its citation needs new evidence
+        feat = same[0]
+        feat.update({"source": args.source or feat.get("source"), "status": args.status})
+        if evidence:
+            feat["evidence"] = evidence
+        save_edit(args, report, cfg)
+        emit(args, {"feature": feat, "updated": True},
+             f"updated feature '{feat['feature']}' ({args.status}{', new evidence' if evidence else ''})")
+        return 0
+    feat = {"feature": args.feature, "source": args.source, "status": args.status, "evidence": evidence}
     report["feature_inventory"].append(feat)
     save_edit(args, report, cfg)
     emit(args, {"feature": feat}, f"added feature '{args.feature}' ({args.status})")
@@ -3878,6 +3897,13 @@ LOG_KEYS = {"done": ("action_id", "commit", "resolves", "check"), "blocked": ("a
             "skipped": ("action_id", "reason"), "behavior_changes": None, "new_issues": None}
 
 
+def log_commits(commit) -> str:
+    """An action's commit(s) in the improvement log: one SHA, several (a list, or separated by spaces or commas), or none."""
+    shas = commit if isinstance(commit, list) else re.split(r"[\s,]+", str(commit or "").strip())
+    shas = [str(s).strip()[:10] for s in shas if str(s).strip()]
+    return ", ".join(f"`{s}`" for s in shas) if shas else "`?`"
+
+
 def render_improve_log(log: dict, report: dict | None = None, cfg: dict | None = None, guard: dict | None = None) -> str:
     for key in log:
         if key not in LOG_KEYS and key != "notes":
@@ -3899,7 +3925,7 @@ def render_improve_log(log: dict, report: dict | None = None, cfg: dict | None =
     if guard is not None:
         out += render_guard(guard) + [""]
     out += ["**Done** (claims; the next independent grading verifies them)", ""]
-    out += [f"- **{d.get('action_id')}** in `{str(d.get('commit') or '?')[:10]}`" + (f", resolves {', '.join(d.get('resolves') or [])}" if d.get("resolves") else "")
+    out += [f"- **{d.get('action_id')}** in {log_commits(d.get('commit'))}" + (f", resolves {', '.join(d.get('resolves') or [])}" if d.get("resolves") else "")
             + (f". Checked with: {d['check']}" if d.get("check") else "") for d in log.get("done") or []] or ["- Nothing yet."]
     out += ["", "**Blocked** (waiting on a decision)", ""]
     out += [f"- **{b.get('action_id')}:** {b.get('question')}" for b in blocked] or ["- None."]
@@ -4020,29 +4046,49 @@ GUARD_SKIP_DIRS = {".git", "node_modules", ".venv", "venv", "__pycache__", ".tox
 
 # Direction of each count: which way is better.
 GUARD_HIGHER = ("passed", "packages_ok", "coverage_pct", "pylint_score")
-GUARD_LOWER = ("failed", "errors", "skipped", "xfailed", "pending", "problems", "warnings", "diagnostics", "packages_failed")
+GUARD_LOWER = ("failed", "errors", "skipped", "xfailed", "pending", "problems", "warnings", "diagnostics", "packages_failed",
+               "vulnerabilities")
 GUARD_COUNT_ORDER = ("passed", "failed", "errors", "skipped", "xfailed", "pending", "packages_ok", "packages_failed",
-                     "problems", "warnings", "diagnostics", "coverage_pct", "pylint_score")
+                     "problems", "warnings", "vulnerabilities", "diagnostics", "coverage_pct", "pylint_score")
 GUARD_LABEL = {"passed": "passed", "failed": "failed", "errors": "errors", "skipped": "skipped", "xfailed": "xfailed",
                "pending": "pending", "packages_ok": "packages ok", "packages_failed": "packages failed",
-               "problems": "problems", "warnings": "warnings", "diagnostics": "diagnostic lines",
+               "problems": "problems", "warnings": "warnings", "vulnerabilities": "vulnerabilities", "diagnostics": "diagnostic lines",
                "coverage_pct": "coverage %", "pylint_score": "pylint score"}
 
 GUARD_SCORES = ("coverage_pct", "pylint_score")
 _TESTS = {"passed", "failed", "errors", "skipped", "xfailed", "pending", "packages_ok", "packages_failed"}
 _LINT = {"problems", "warnings"}
-GUARD_FAMILY = {**{k: _TESTS for k in _TESTS}, **{k: _LINT for k in _LINT}, "diagnostics": {"diagnostics"}}
+GUARD_FAMILY = {**{k: _TESTS for k in _TESTS}, **{k: _LINT for k in _LINT}, "diagnostics": {"diagnostics"},
+                "vulnerabilities": {"vulnerabilities"}}
 
 
 def guard_count_text(k: str, v) -> str:
+    if k == "coverage_pct":
+        return f"coverage {v:g}%"
+    if k == "pylint_score":
+        return f"pylint {v:g}/10"
     label = GUARD_LABEL[k]
     if v == 1:
-        label = {"errors": "error", "problems": "problem", "warnings": "warning", "diagnostic lines": "diagnostic line",
+        label = {"errors": "error", "problems": "problem", "warnings": "warning", "vulnerabilities": "vulnerability",
+                 "diagnostic lines": "diagnostic line",
                  "packages ok": "package ok", "packages failed": "package failed"}.get(label, label)
     return f"{v:g} {label}" if isinstance(v, float) else f"{v} {label}"
 
 
 ANSI_RE = re.compile(r"\x1b\[[0-9;?]*[ -/]*[@-~]")
+
+
+GUARD_INSTALL_RE = re.compile(r"\b(pip3?|python3? -m pip|uv pip|npm|yarn|pnpm|bun|gem|bundle|cargo|go|apt(-get)?|brew|conda|poetry)"
+                              r"\s+(install|add|ci|get|sync)\b")
+
+
+def guard_trim_note(command: str) -> str:
+    """Graders often note something after a command: `pytest -q  (venv without pytz)`. A `(…)` straight after a word
+    isn't valid shell, so it's a note, not part of the command. After `&&`, `|` or `;` it's a subshell, and stays."""
+    m = re.search(r"\s+\([^()]*\)\s*$", command)
+    if m and not re.search(r"(&&|\|\||[|;&])\s*$", command[:m.start()]):
+        return command[:m.start()].rstrip()
+    return command
 
 
 def guard_kind(command: str) -> str | None:
@@ -4123,6 +4169,19 @@ def guard_counts(output: str) -> dict:
     es = re.findall(r"✖ (\d+) problems? \((\d+) errors?, (\d+) warnings?\)", text)
     if es:
         add("problems", es[-1][0]), add("warnings", es[-1][2])
+    # black --check: "3 files would be reformatted, 1 file would be left unchanged."
+    bl = re.findall(r"^(?:Oh no!.*\n)?(\d+) files? would be reformatted", text, re.M)
+    if bl:
+        add("problems", bl[-1])
+    elif re.search(r"^\d+ files? would be left unchanged\.$", text, re.M):
+        add("problems", 0)
+    # pip-audit: "Found 5 known vulnerabilities in 1 package" / "No known vulnerabilities found";
+    # npm audit: "found 3 vulnerabilities" / "3 vulnerabilities (1 low, 2 high)"
+    va = re.findall(r"Found (\d+) known vulnerabilit(?:y|ies)", text) or re.findall(r"^(?:found )?(\d+) vulnerabilit(?:y|ies)\b", text, re.M | re.I)
+    if va:
+        add("vulnerabilities", va[-1])
+    elif re.search(r"No known vulnerabilities found|found 0 vulnerabilities", text):
+        add("vulnerabilities", 0)
     # pylint: "Your code has been rated at 9.12/10"
     pl = re.findall(r"rated at (-?[\d.]+)/10", text)
     if pl:
@@ -4256,14 +4315,24 @@ def guard_plan(args, code: Path) -> tuple[list[dict], list[str]]:
         checks.append({"name": name.strip(), "command": cmd.strip(), "from": "--check"})
     if args.from_report:
         rep = load_json(args.from_report)
-        skipped = []
+        skipped, installs, trimmed = [], [], []
         for entry in rep.get("commands_run") or []:
-            cmd = str(entry.get("command") or "").strip()
+            raw = str(entry.get("command") or "").strip()
+            cmd = guard_trim_note(raw)
+            if cmd != raw:
+                trimmed.append(raw[len(cmd):].strip())
             kind = guard_kind(cmd) if cmd else None
-            if kind:
+            if kind and GUARD_INSTALL_RE.search(cmd):
+                installs.append(cmd)
+            elif kind:
                 checks.append({"name": kind, "command": cmd, "from": "report"})
             elif cmd:
                 skipped.append(cmd)
+        if trimmed:
+            notes.append(f"dropped the grader's notes after {len(trimmed)} command(s), which aren't part of the command: {'; '.join(trimmed[:3])}")
+        if installs:
+            notes.append(f"left out {len(installs)} command(s) that install packages (the guard never installs anything): "
+                         f"{'; '.join(installs[:3])}")
         if skipped:
             notes.append(f"left out {len(skipped)} command(s) from the report that aren't tests, lint, types, coverage, build "
                          f"or audit: {'; '.join(skipped[:5])}{' …' if len(skipped) > 5 else ''}")
@@ -4385,7 +4454,8 @@ def guard_diff(before: dict, after: dict, explain: dict, coverage_tolerance: flo
                 continue
             changed = True
             worse = (av < bv) if k in GUARD_HIGHER else (av > bv)
-            item(f"{name}.{k}", "check", "regressed" if worse else "improved", f"{name}: {GUARD_LABEL[k]} {bv:g} → {av:g}", bv, av)
+            item(f"{name}.{k}", "check", "regressed" if worse else "improved",
+                 f"{name}: {guard_count_text(k, bv)} → {guard_count_text(k, av)}", bv, av)
         if not changed:
             item(name, "check", "same", f"{name}: {guard_state(a)}", guard_state(b), guard_state(a))
     for name, a in after_by.items():
@@ -5028,7 +5098,7 @@ def main(argv=None) -> int:
     q.add_argument("--benchmarks", nargs="+", required=True, metavar="ID")
     q.set_defaults(fn=cmd_report_gap)
 
-    q = rsub.add_parser("feature", help="add a feature to the inventory")
+    q = rsub.add_parser("feature", help="add a feature to the inventory (the same name again updates it: status, source, evidence)")
     report_arg(q)
     q.add_argument("--feature", required=True)
     q.add_argument("--source", required=True, help="where it's claimed, e.g. README")
@@ -5044,7 +5114,8 @@ def main(argv=None) -> int:
 
     q = rsub.add_parser("ran", help="record a command you ran")
     report_arg(q)
-    q.add_argument("--command-text", required=True, metavar="CMD")
+    q.add_argument("--command", "--command-text", dest="command_text", required=True, metavar="CMD",
+                   help="exactly what you ran, so others (and `guard snapshot --from-report`) can run it again; notes go in --summary")
     q.add_argument("--exit-code", type=int)
     q.add_argument("--summary", required=True)
     q.set_defaults(fn=cmd_report_ran)

@@ -119,7 +119,8 @@ $K report score $R X1 --applicability not_applicable --reason "HTTP API with no 
 $K report strength $R A1 --text "..." --cite src/y.py:10 --repo CODE
 $K report action $R A3 --action "..." --resolves A3-004 --new-score 7 --effort S [--decision "question?"]
 $K report set $R summary "3–5 sentences: overall health, biggest risks and strengths"
-$K report gap | feature | flag | ran | set …                                   # the rest; see --help
+$K report ran $R --command "pytest -q --cov=src" --exit-code 0 --summary "412 passed; 61% branch coverage"
+$K report gap | feature | flag | set …                                         # the rest; see --help
 $K report check $R --repo CODE                                                 # lists what's missing or wrong
 ```
 
@@ -142,7 +143,7 @@ If you wrote findings without starting from the previous report, `report match $
    - Bundle, image or binary size; benchmarks.
    - **Setup, seed and migration scripts, run twice** (needed for A4).
 
-   Record exact commands, exit codes and summarized output. Fill the `metrics` block (Part 5).
+   Record exact commands, exit codes and summarized output. Fill the `metrics` block (Part 5). Record each command exactly as you ran it, so it can be run again: the improver re-runs your test, lint and type-check commands to prove nothing got worse. Put notes such as "in a venv without pytz" in the summary, not after the command.
 3. **Exercise it as a user.** Follow the README quickstart literally from a clean state. Try 3–5 common tasks as a first-time user. Record every failure, surprise and missing piece.
 4. **Grade pillar by pillar.** For each pillar, load its rubric file and grade each benchmark. Classify applicability first, then score, then write findings and the path to target.
    - **Read every hot zone in full**, plus any other critical paths you find (auth, data access, money, user data), and survey the rest.

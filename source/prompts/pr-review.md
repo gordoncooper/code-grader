@@ -52,6 +52,8 @@ python3 SUITE_DIR/tools/gradekit.py carry PROJECT_DIR/reports/<newest>/report.js
     --commit HEAD_COMMIT --base-commit BASE_COMMIT --out /tmp/pr-report.json --project-dir PROJECT_DIR [--touched A1 A2 …]
 ```
 
+For each citation `carry` lists as changed or not found, check it still shows what it claims and replace it: `report finding update ID --replace-evidence --cite …` for a finding, or `report feature` with the same feature name and a new `--cite` for a feature.
+
 Then grade the touched benchmarks and update findings with the `gradekit report` commands (grader Part 2), and finish with `gradekit report check /tmp/pr-report.json --repo HEAD_CHECKOUT --project-dir PROJECT_DIR --write`. If the baseline is a public copy that withholds sensitive findings, carry from its `report.private.json` if you were given it; otherwise add `--allow-withheld` and leave those findings as they are.
 
 - **Touched benchmarks:** grade them fully against the rubric, considering the whole affected area of code, not just the changed lines. Set `carried_forward: false`.

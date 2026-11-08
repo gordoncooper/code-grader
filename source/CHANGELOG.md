@@ -11,9 +11,9 @@ After any major or minor change, re-run calibration (`calibration/README.md`) be
 Minor release: tools that let agents run the whole cycle without custom scripts, and safer publishing. No scoring changes; config fingerprints and existing reports stay valid.
 
 **Writing reports with `gradekit report`**
-- Graders build `report.json` with commands instead of typing JSON. The tool fills in every benchmark with its name, weight and target, copies each quote from the code so citations always verify, and picks the next free finding, gap and action IDs (never reusing an ID from the project's earlier reports).
+- Graders build `report.json` with commands instead of typing JSON. The tool fills in every benchmark with its name, weight and target, copies each quote from the code so citations always verify, and picks the next free finding, gap and action IDs (never reusing an ID from the project's earlier reports; an ID only mentioned in text, such as a command's summary, doesn't count as taken).
   - `report new` starts a report in `projects/NAME/reports/<date>-<commit>/` (or `runs/run-N.json` for several graders), with previous scores filled in.
-  - `report finding add|update`, `score`, `strength`, `enforcement`, `action`, `gap`, `feature`, `flag`, `ran` and `set` record judgments. Evidence comes from `--cite FILE:LINES --repo CODE`, `--command CMD --excerpt TEXT` or `--absence WHAT --method HOW`.
+  - `report finding add|update`, `score`, `strength`, `enforcement`, `action`, `gap`, `feature`, `flag`, `ran` and `set` record judgments. `report feature` with a name already in the inventory updates that feature, e.g. to replace a citation `carry` couldn't move. `report ran --command` records a command exactly as run; notes go in `--summary`. Evidence comes from `--cite FILE:LINES --repo CODE`, `--command CMD --excerpt TEXT` or `--absence WHAT --method HOW`.
   - `report cite FILE:LINES` prints one evidence object with the exact quote.
   - `report check` runs validation, citation checks and the rollup, and lists what's still missing. Exit code 0 means ready, 5 not finished yet, 1 errors. `--write` stores the rollup and the finish time.
   - Every `report` command takes `--json`.
@@ -31,14 +31,14 @@ Minor release: tools that let agents run the whole cycle without custom scripts,
 - `render report` writes `report.md` from `report.json`, with the same sections every time: summary, gates and maturity, scorecard by pillar, applicability notes, top priorities, decisions, metrics, findings, feature inventory, gap register, per-benchmark detail, flags and limitations.
 - `render pr` gives the grading pull request's branch, title and body, with the decision checklist and a link to the Review page.
 - `render check` gives the PR-check comment from the baseline and PR reports.
-- `render log` gives the improver's log from a small JSON file, listing pending decisions as blocked by itself.
+- `render log` gives the improver's log from a small JSON file, listing pending decisions as blocked by itself. An action's `commit` may name several commits.
 - Public text never carries withheld details. In a public grading repo, `render report` and `render pr` withhold sensitive findings even before `redact` has run, and PR-check comments always do.
 - New optional report fields: `summary` (set with `report set summary`) and each benchmark's one-line `rationale` (`report score --rationale`).
 - The prompts use these commands. The example reports' `report.md` files are now rendered.
 
 **The improver guard with `gradekit guard`**
 - "Never trade one benchmark for another" is now checked, not just asked for.
-  - **`guard snapshot CODE`**, before any change, runs the code's own checks and records each one's exit code and counts. The checks come from `--check NAME=COMMAND`, the test, lint, type-check, coverage, build and audit commands the grader ran (`--from-report`), or a small detection from the repo. The counts are tests passed, failed and skipped, lint and type problems, and coverage, read from pytest, unittest, jest, vitest, mocha, go, cargo, rspec, ruff, mypy, tsc, eslint and pylint. It also counts suppressions and skipped tests in the code and fingerprints CI and lint settings. The snapshot is kept in `.git/`, so it can't be committed.
+  - **`guard snapshot CODE`**, before any change, runs the code's own checks and records each one's exit code and counts. The checks come from `--check NAME=COMMAND`, the test, lint, type-check, coverage, build and audit commands the grader ran (`--from-report`), or a small detection from the repo. The counts are tests passed, failed and skipped, lint and type problems, formatting, known vulnerabilities and coverage, read from pytest, unittest, jest, vitest, mocha, go, cargo, rspec, ruff, mypy, tsc, eslint, pylint, black, pip-audit and npm audit. From a report it drops graders' notes after a command (`pytest -q  (without pytz)`) and leaves out commands that install packages. It also counts suppressions and skipped tests in the code and fingerprints CI and lint settings. The snapshot is kept in `.git/`, so it can't be committed.
   - **`guard compare CODE`**, after, runs exactly the same commands again. Exit code 2 means something got worse: a check that now fails or times out, fewer tests passing, more failures or problems, lower coverage, more suppressions or skipped tests, or a check that wasn't run. `--explain KEY="reason"` records a deliberate change instead. Changed CI or lint settings are listed for review.
 - `render log --guard` puts the before → after table in the improvement log, so the pull request shows the proof.
 - The improver prompt takes a snapshot before its first change and compares after each one.
