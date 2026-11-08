@@ -17,7 +17,7 @@ from pathlib import Path
 
 import pytest
 
-from states import STATES, home, docs, setup_filled, run_page, review_tab
+from states import STATES, components, dark, home, docs, setup_filled, run_page, review_tab
 
 pytestmark = pytest.mark.browser
 
@@ -65,7 +65,7 @@ def test_layout(page, site, state, width):
 SHOTS = [("home", home, 1280), ("docs", docs, 1280), ("setup", setup_filled, 1280), ("run", run_page, 1280),
          ("review-overview", review_tab("overview"), 1280), ("review-scorecard", review_tab("scorecard"), 1280),
          ("review-decisions", review_tab("decisions"), 1280), ("review-overview-phone", review_tab("overview"), 390),
-         ("setup-phone", setup_filled, 390)]
+         ("setup-phone", setup_filled, 390), ("components", components, 1280), ("components-dark", dark(components), 1280)]
 # Things that change on their own: the kit version, build date, download size, engine status, timings.
 MASK = [".ver", ".engine-pill", "[data-built]", ".dl-meta", "#pv-hash", ".built", "time",
         ".files", ".hash", "footer.site"]   # the home page's download sizes and checksums, and the build date
@@ -105,7 +105,8 @@ def test_screenshots(browser, site, tmp_path):
     OUT.mkdir(parents=True, exist_ok=True)
     failures = []
     for name, state, width in SHOTS:
-        ctx = browser.new_context(viewport={"width": width, "height": 900}, device_scale_factor=1, reduced_motion="reduce")
+        ctx = browser.new_context(viewport={"width": width, "height": 900}, device_scale_factor=1, reduced_motion="reduce",
+                                  bypass_csp=True)   # FREEZE adds a <style>, which the pages' policy blocks
         pg = ctx.new_page()
         state(pg, site)
         pg.evaluate(FREEZE)

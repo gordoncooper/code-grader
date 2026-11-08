@@ -4,7 +4,7 @@
 Generates a static site you can drop into any web server and point coding agents at:
 
   index.html         Landing page for people
-  app/               The three browser tools: Set up a project, Start a run, Review a report
+  app/               The three browser tools (Set up a project, Start a run, Review a report) and the components page
   AGENT.md           Entry point for agents: roles, how to download and verify the suite
   llms.txt           Short machine-readable index (llmstxt.org convention)
   docs/              Every document rendered as HTML
@@ -106,7 +106,20 @@ def slugify(text: str) -> str:
 
 # --------------------------------------------------------------------------- markdown rendering
 
+ALIGN = re.compile(r'<(t[hd])(?: align="(left|center|right)"| style="text-align:\s*(left|center|right);?")>')
+
+
+def no_inline_styles(render):
+    """Table alignment as classes, not style attributes: the pages' policy allows no inline styles."""
+    return lambda text: ALIGN.sub(lambda m: f'<{m.group(1)} class="ta-{(m.group(2) or m.group(3))[0]}">', render(text))
+
+
 def make_renderer():
+    render, name = _renderer()
+    return no_inline_styles(render), name
+
+
+def _renderer():
     try:
         from markdown_it import MarkdownIt  # CommonMark: handles 2-space nested lists correctly
 
@@ -149,13 +162,14 @@ WEB_SRC = KIT / "tools" / "web"
 # Kept in a <meta> tag so it works on any host; DEPLOY.md shows the same policy as a header.
 CSP = ("default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'wasm-unsafe-eval'; "
        "connect-src 'self' https://cdn.jsdelivr.net https://api.github.com https://raw.githubusercontent.com; "
-       "img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self'; object-src 'none'; "
+       "img-src 'self' data:; style-src 'self'; font-src 'self'; object-src 'none'; "
        "base-uri 'self'; form-action 'none'; worker-src 'self' blob:")
-ASSETS = ["style.css", "site.js", "common.js", "engine.js", "engine-config.js", "setup.js", "run.js", "review.js", "favicon.svg"]
+ASSETS = ["style.css", "site.js", "common.js", "engine.js", "engine-config.js", "setup.js", "run.js", "review.js", "components.js", "favicon.svg"]
 APP_PAGES = [  # (slug, title, nav key, scripts)
     ("setup", "Set up a project", "setup", ["engine-config.js", "engine.js", "glossary.js", "common.js", "setup.js"]),
     ("run", "Start a run", "run", ["glossary.js", "common.js", "run.js"]),
     ("review", "Review a report", "review", ["engine-config.js", "engine.js", "glossary.js", "common.js", "review.js"]),
+    ("components", "Components", "", ["glossary.js", "common.js", "components.js"]),   # for contributors: every component, every state
 ]
 NAV = [("start", "Get started", "docs/GETTING-STARTED.html"), ("setup", "Set up", "app/setup.html"),
        ("run", "Start a run", "app/run.html"), ("review", "Review", "app/review.html"), ("docs", "Docs", "docs/README.html")]
@@ -467,7 +481,7 @@ def landing(version: str, weights: dict, zip_name: str, zip_sha: str, zip_size: 
     <p class="note">Host this only on a server you control, over HTTPS: agents treat it as their instructions. Never put hidden checks or private reports here. <a href="docs/DEPLOY.html">Hosting guide →</a></p>
   </section>
 </div>
-<footer class="site">Code Grading Suite v{version} · built {built}</footer>
+<footer class="site">Code Grading Suite v{version} · built {built} · <a href="app/components.html">Components</a></footer>
 """
     return page("Home", body, 0, version)
 
@@ -560,7 +574,7 @@ def main(argv=None) -> int:
             prev_link = f'<a href="{up}docs/{doc_html_path(ps)}"><small>Previous</small>{html.escape(pt)}</a>'
         if i < len(flat) - 1:
             ns, nt = flat[i + 1]
-            next_link = f'<a href="{up}docs/{doc_html_path(ns)}" style="margin-left:auto;text-align:right"><small>Next</small>{html.escape(nt)}</a>'
+            next_link = f'<a class="next" href="{up}docs/{doc_html_path(ns)}"><small>Next</small>{html.escape(nt)}</a>'
         content = (f'<div class="layout">{sidebar_html(src, depth)}<main class="doc" id="main">{bar}{toc_html}{body_html}'
                    f'<nav class="pager">{prev_link}{next_link}</nav></main></div>')
         active = "start" if src == "GETTING-STARTED.md" else "docs"

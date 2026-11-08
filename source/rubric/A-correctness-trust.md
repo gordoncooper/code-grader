@@ -53,7 +53,7 @@
 ## A5. Durability & Recoverability
 - **Measures:** Data and state survive crashes, restarts, deploys and power loss, and the system can recover. Covers atomic writes (write to a temp file then rename; fsync where it matters), transactions around multi-step writes, no important state held only in memory, crash-consistent file formats, versioned and reversible migrations, backups with a *tested* restore, defined RPO and RTO for production data, and clean resume after a restart (checkpointing for long jobs).
 - **Not this:** Schema design quality (B4). Concurrency races (X3).
-- **Assess:** Find every write path and every place state lives. Ask what happens if the process is killed between any two lines. Check for a backup and restore procedure and evidence it has been tested.
+- **Assess:** Find every write path and every place state lives. Ask what happens if the process is killed between any two lines. Check for a backup and restore procedure and evidence it has been tested. If the project writes no data and keeps no state that must outlive its process (a library whose only state is what its host sets up again at startup), A5 is `not_applicable`: say so and name what would make it apply. Use `limited` when some state does need to survive but little depends on it.
 - **Anchors:**
   - **1–3:** A crash can lose or corrupt important data.
   - **4–6:** Mostly safe; some non-atomic writes or in-memory-only state; backups untested.

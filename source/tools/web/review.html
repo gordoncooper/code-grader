@@ -10,7 +10,7 @@
   <div id="engine-error"></div>
 
   <section class="card" id="load-card">
-    <div class="tabs" id="load-tabs" style="margin-top:0" aria-label="Where the report comes from">
+    <div class="tabs mt-0" id="load-tabs" aria-label="Where the report comes from">
       <button type="button" data-tab="repo">From the grading repo</button>
       <button type="button" data-tab="files">Open files</button>
     </div>
@@ -21,7 +21,7 @@
       </div>
       <div class="grid2">
         <div class="field"><label for="gh-ref">Branch (optional)</label><input type="text" id="gh-ref" placeholder="Default branch, or a report branch like report/orders-api/2026-11-07-a1b2c3d"></div>
-        <div class="field" style="align-self:end"><button class="btn primary" type="button" id="gh-load">Load</button></div>
+        <div class="field self-end"><button class="btn primary" type="button" id="gh-load">Load</button></div>
       </div>
       <p class="kbd-note">Loads the project's settings, decisions, accepted findings and its reports. The newest report is reviewed and compared with the one before; you can pick others below. Works with public GitHub repos.</p>
       <div id="gh-status"></div>
@@ -33,25 +33,26 @@
       </div>
       <input type="file" id="file-input" multiple hidden accept=".json,.toml,.zip,application/json,application/zip,text/plain">
       <input type="file" id="folder-input" webkitdirectory multiple hidden>
-      <div class="row-btns" style="margin-top:10px"><button class="btn" type="button" id="pick-folder">Choose a folder…</button></div>
+      <div class="row-btns mt-3"><button class="btn" type="button" id="pick-folder">Choose a folder…</button></div>
       <div class="filelist" id="filelist"></div>
     </div>
-    <div class="row-btns" style="margin-top:14px">
+    <div class="row-btns mt-4">
       <button class="btn primary" type="button" id="analyze" disabled>Review</button>
       <button class="btn" type="button" id="sample">Try the sample project</button>
       <button class="btn" type="button" id="clear-files">Clear</button>
     </div>
   </section>
 
+  <div id="review-status" class="status-slot mt-4" aria-live="polite"></div>
   <div id="results" hidden>
-    <div class="card" id="history-bar" style="margin-top:18px;padding:12px 18px" hidden>
+    <div class="card compact mt-4" id="history-bar" hidden>
       <div class="row-btns">
         <span class="label" id="history-project"></span>
-        <label class="kbd-note">Report <select id="pick-report" style="width:auto;margin-left:6px"></select></label>
-        <label class="kbd-note">Compare with <select id="pick-compare" style="width:auto;margin-left:6px"></select></label>
+        <label class="kbd-note">Report <select id="pick-report" class="w-auto ml-2"></select></label>
+        <label class="kbd-note">Compare with <select id="pick-compare" class="w-auto ml-2"></select></label>
       </div>
     </div>
-    <div id="result-banners" style="margin-top:18px"></div>
+    <div id="result-banners" class="mt-4"></div>
     <div class="tabs" id="result-tabs" aria-label="Report sections">
       <button type="button" data-tab="overview">Overview</button>
       <button type="button" data-tab="decisions">Decisions <span class="count" id="dec-count" hidden></span></button>
