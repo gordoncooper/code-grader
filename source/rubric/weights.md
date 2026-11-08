@@ -135,7 +135,7 @@ A weighted average lets strengths make up for weaknesses: great docs could "pay 
 - **Each maturity level has a gate minimum.** Every gate must reach it.
 - **Fixing a failed gate always ranks first** among improvement actions.
 
-## 3. Criticality zones: not all code matters equally
+## 3. Zones: not all code matters equally
 
 The project config maps paths to zones: **hot** (money, auth, data writes), **normal**, or **cold** (scripts, examples, internal tooling). A file takes the first zone whose pattern matches; a finding takes the hottest zone among the files it cites.
 
@@ -154,7 +154,7 @@ The project config maps paths to zones: **hot** (money, auth, data writes), **no
 
 A `limited` benchmark never targets above 8. Per-benchmark overrides beat the mode.
 
-## 5. Roll-ups
+## 5. The rollup
 
 - **Pillar score:** the weighted average of that pillar's applicable benchmarks.
 - **Overall score:** the weighted average of all applicable benchmarks, capped if a gate failed.

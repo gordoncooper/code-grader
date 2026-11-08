@@ -53,19 +53,19 @@
       </section>
 
       <section class="card">
-        <h2><span class="num">3</span>Pick a starting point</h2>
+        <h2 data-term="preset"><span class="num">3</span>Pick a starting point</h2>
         <p class="hint">A preset fills in typical answers below. You can change any of them afterwards.</p>
         <div class="choices" id="presets"></div>
       </section>
 
       <section class="card">
-        <h2><span class="num">4</span>Answer eight questions</h2>
+        <h2 data-term="answers"><span class="num">4</span>Answer eight questions</h2>
         <p class="hint">Each answer nudges specific weights up or down, and some make a benchmark a <b>gate</b> (non-negotiable). The chips show what each answer does.</p>
         <div id="questions"></div>
       </section>
 
       <section class="card">
-        <h2><span class="num">5</span>Mark critical code</h2>
+        <h2 data-term="zone"><span class="num">5</span>Mark hot and cold zones</h2>
         <p class="hint"><b>Hot</b> zones (money, auth, data writes) count more: problems there are one severity higher, and fixes rank first. <b>Cold</b> zones (scripts, examples) count less. Everything else is normal. The first matching zone wins, so put specific ones first.</p>
         <div id="zones"></div>
         <div class="row-btns" style="margin-top:10px">
@@ -78,7 +78,7 @@
       </section>
 
       <section class="card">
-        <h2><span class="num">6</span>Targets and fine-tuning</h2>
+        <h2 data-term="target"><span class="num">6</span>Targets and fine-tuning</h2>
         <p class="hint">Targets tell improving agents where to stop. Most projects can leave this as it is.</p>
         <div class="grid2">
           <div class="field"><label for="t-mode">Target</label>
@@ -130,8 +130,8 @@
       <div class="card" id="preview">
         <h2 style="font-size:1.1rem">What this means</h2>
         <div id="pv-status" class="kbd-note">Loading the engine…</div>
-        <div style="margin-top:12px"><span class="label">Gates (non-negotiable)</span><div id="pv-gates" class="row-btns" style="margin-top:6px"></div></div>
-        <div style="margin-top:14px"><span class="label">Weights</span><div class="kbd-note">Darker = counts more. ↑↓ = moved by your answers. Outlined = gate. Click one to see why.</div><div id="pv-weights" class="wgrid" style="margin-top:8px"></div></div>
+        <div style="margin-top:12px"><span class="label" data-term="gate">Gates (non-negotiable)</span><div id="pv-gates" class="row-btns" style="margin-top:6px"></div></div>
+        <div style="margin-top:14px"><span class="label" data-term="weight">Weights</span><div class="kbd-note">Darker = counts more. ↑↓ = moved by your answers. Outlined = gate. Click one to see why.</div><div id="pv-weights" class="wgrid" style="margin-top:8px"></div></div>
         <div id="pv-explain"></div>
       </div>
     </aside>

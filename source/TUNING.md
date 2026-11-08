@@ -46,7 +46,7 @@ data_sensitivity = "financial"
 scale            = "large"
 ```
 
-### 2. Map criticality zones (per project; highest leverage)
+### 2. Map zones (per project; highest leverage)
 The first matching zone wins, so list specific zones first.
 
 ```toml

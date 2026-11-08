@@ -31,6 +31,7 @@ Writing a report (graders):
   deliver          Hand back a finished report: pr (git steps printed, or run), save or return.
   index            Grading repos: projects/index.json, every project's latest score, history and decisions waiting.
   ci               Grading repos: check a pull request and write its summary comment and labels.
+  glossary         The suite's terms and what they mean.
   render           Markdown from data: report.md, the PR title and body, the PR-check comment, the improvement log.
 
 Projects: in a grading repo, pass --project NAME (folder projects/NAME/) and commands find the
@@ -76,6 +77,7 @@ SUITE_DIR = Path(__file__).resolve().parent.parent
 CATALOG_PATH = SUITE_DIR / "rubric" / "catalog.json"
 DEFAULTS_PATH = SUITE_DIR / "config" / "defaults.toml"
 SCHEMA_PATH = SUITE_DIR / "schema" / "report.schema.json"
+GLOSSARY_PATH = SUITE_DIR / "rubric" / "glossary.json"
 PROJECT_FILE, DECISIONS_FILE, DISPOSITIONS_FILE = "project.toml", "decisions.json", "dispositions.json"
 PILLARS = ["A", "B", "C", "D", "E", "F", "X"]
 OPEN_STATUSES = {"new", "open", "regressed"}
@@ -1786,7 +1788,7 @@ def render_project_toml(data: dict, defaults: dict | None = None, path: str = "p
     out.append("")
 
     zones = d.pop("zones", []) or []
-    out.append("# Criticality zones: the first match wins, so list specific zones first.")
+    out.append("# Zones: the first match wins, so list specific zones first.")
     out.append("# hot = matters most (money, auth, data writes); cold = matters least (scripts, examples).")
     if zones:
         out.append("")
@@ -3495,7 +3497,7 @@ def ci_comment(res: dict, site: str | None, repo_url: str | None, branch: str | 
     lines = [CI_MARKER, f"### Grading check: {head}", ""]
     if res["kind"] == "report" and s:
         lines.append(f"**Report** for `{s['project']}` at `{s['commit']}` ({s['date']}"
-                     + (", pull-request check" if s.get("mode") == "pr" else "") + f"): overall **{dash(s['overall'])}**, "
+                     + (", PR check" if s.get("mode") == "pr" else "") + f"): overall **{dash(s['overall'])}**, "
                      f"maturity **{s['level']}**" + (f" (next: {s['next_level']})" if s.get("next_level") else "") + ".")
         lines += ["", "Gates: " + " · ".join(f"{g} {dash(sc)} {st}" for g, sc, st in s["gates"])]
         if s["pending_decisions"]:
@@ -3538,6 +3540,65 @@ def cmd_ci(args) -> int:
     lines.append(f"\n{'passed' if res['ok'] else 'needs changes'}; labels: {', '.join(res['labels']) or 'none'}")
     emit(args, res, "\n".join(lines))
     return 0 if res["ok"] else 1
+
+
+# =========================================================================== glossary
+# One vocabulary for prompts, the website and the docs (rubric/glossary.json).
+
+def load_glossary() -> dict:
+    return load_json(GLOSSARY_PATH)
+
+
+def glossary_terms() -> list[dict]:
+    return [dict(t, group=g["name"]) for g in load_glossary()["groups"] for t in g["terms"]]
+
+
+def glossary_markdown() -> str:
+    data = load_glossary()
+    out = ["# Glossary", "",
+           "The words the suite uses, and what they mean. Prompts, the website and these docs use them exactly as defined "
+           "here. When a term has alternatives to avoid, they're listed: please don't use them either.", "",
+           "Generated from `rubric/glossary.json` by `gradekit glossary --markdown`. Edit that file, not this one.", ""]
+    for g in data["groups"]:
+        out += [f"## {g['name']}", ""]
+        for t in g["terms"]:
+            out.append(f"**{t['term']}**: {t['definition']}" + (f" *Not:* {', '.join(t['avoid'])}." if t.get("avoid") else ""))
+            out.append("")
+    return "\n".join(out)
+
+
+def cmd_glossary(args) -> int:
+    terms = glossary_terms()
+    if args.markdown:
+        text = glossary_markdown()
+        if args.out:
+            Path(args.out).write_text(text, encoding="utf-8")
+            emit(args, {"written": args.out}, f"wrote {args.out}")
+        else:
+            emit(args, {"markdown": text}, text.rstrip("\n"))
+        return 0
+    if args.term:
+        want = " ".join(args.term).lower()
+        found = [t for t in terms if t["term"].lower() == want] or \
+                [t for t in terms if want in t["term"].lower() or want in [a.lower() for a in t.get("avoid", [])]]
+        if not found:
+            die(f"'{want}' isn't in the glossary (`gradekit glossary` lists every term)")
+        lines = []
+        for t in found:
+            lines.append(f"{t['term']}: {t['definition']}")
+            if want in [a.lower() for a in t.get("avoid", [])]:
+                lines.append(f"  (say '{t['term']}', not '{want}')")
+        emit(args, {"terms": found}, "\n".join(lines))
+        return 0
+    lines = []
+    group = None
+    for t in terms:
+        if t["group"] != group:
+            group = t["group"]
+            lines.append(("\n" if lines else "") + group)
+        lines.append(f"  {t['term']:<20} {t['definition']}")
+    emit(args, {"terms": terms}, "\n".join(lines))
+    return 0
 
 
 # =========================================================================== render
@@ -3614,7 +3675,7 @@ def render_report_md(report: dict, cfg: dict, catalog: dict | None = None) -> st
     findings = report.get("findings", [])
     out = [f"# Grading report: {project} @ {commit} ({date})", ""]
     if report.get("mode") == "pr":
-        out += [f"*Pull-request check against base `{str((report.get('run') or {}).get('base_commit') or '?')[:7]}`. "
+        out += [f"*PR check against base `{str((report.get('run') or {}).get('base_commit') or '?')[:7]}`. "
                 f"Untouched benchmarks are carried forward from the last full report.*", ""]
 
     out += ["## Summary", "", f"Overall **{dash(roll['overall_score'])}**"
@@ -3797,7 +3858,7 @@ def render_check_comment(diff: dict, new: dict, cfg: dict) -> str:
     pre = [f for f in diff["findings"]["new"] if f.get("pre_existing")]
     roll = compute_rollup(new, cfg)
     pending = [p for p in roll["priorities"] if p.get("requires_human_decision") and (p.get("decision") or {}).get("status") == "pending"]
-    lines = [f"**Quality check: {diff['verdict']}**",
+    lines = [f"**PR check: {diff['verdict']}**",
              ("Re-graded: every applicable benchmark (full report)" if len(regraded) == len(applicable) else
               f"Re-graded: {', '.join(regraded) or 'none'} (others carried forward)"),
              f"Changes: {' · '.join(changes) or 'none'}",
@@ -3920,6 +3981,10 @@ def _web_cfg(p: dict, report: dict | None = None) -> tuple[dict, str]:
                          decisions=decisions, dispositions=dispositions)
     source = " + ".join(n for n, _ in layers) if layers else f"suite defaults (preset '{cfg['preset']}' from the report)"
     return cfg, source
+
+
+def _api_glossary(p):
+    return {"groups": load_glossary()["groups"]}
 
 
 def _api_info(p):
@@ -4141,7 +4206,7 @@ def _api_classify(p):
 WEB_API = {"info": _api_info, "build": _api_build, "parse": _api_parse, "zone_test": _api_zone_test,
            "check": _api_check, "consensus": _api_consensus, "compare": _api_compare,
            "verify_zip": _api_verify_zip, "redact": _api_redact, "decisions_update": _api_decisions_update,
-           "scan_zip": _api_scan_zip, "scan_layout": _api_scan_layout, "order_reports": _api_order_reports,
+           "scan_zip": _api_scan_zip, "scan_layout": _api_scan_layout, "glossary": _api_glossary, "order_reports": _api_order_reports,
            "classify": _api_classify}
 
 
@@ -4475,6 +4540,13 @@ def main(argv=None) -> int:
     p.add_argument("--out", metavar="FILE", help="default: projects/index.json")
     p.add_argument("--check", action="store_true", help="don't write; exit 1 if the file is missing or out of date")
     p.set_defaults(fn=cmd_index)
+
+    # ------------------------------------------------------------ glossary
+    p = sub.add_parser("glossary", help="the suite's terms and what they mean (one, or all)")
+    p.add_argument("term", nargs="*", help="a term to look up, e.g. gate or effective severity")
+    p.add_argument("--markdown", action="store_true", help="the whole glossary as GLOSSARY.md")
+    p.add_argument("--out", metavar="FILE", help="with --markdown: write it here")
+    p.set_defaults(fn=cmd_glossary)
 
     # ------------------------------------------------------------ render
     p = sub.add_parser("render", help="markdown from report data: report.md, PR title/body, PR-check comment, improvement log")
