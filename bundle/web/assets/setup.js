@@ -66,6 +66,7 @@
         if (state.answers[q] === o) opt.selected = true;
         sel.appendChild(opt);
       });
+      sel.title = (qd.options[state.answers[q]] || {}).label || "";
       var effects = h("div", { class: "effects" }, effectChips(qd.options[state.answers[q]] || {}));
       var note = h("div", { class: "from-preset" });
       function updateNote() {
@@ -75,6 +76,7 @@
       updateNote();
       sel.addEventListener("change", function () {
         state.answers[q] = sel.value;
+        sel.title = (qd.options[sel.value] || {}).label || "";
         UI.clear(effects); effectChips(qd.options[sel.value]).forEach(function (c) { effects.appendChild(c); });
         updateNote(); refresh();
       });

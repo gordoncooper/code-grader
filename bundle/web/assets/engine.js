@@ -4,6 +4,9 @@
   var script = document.currentScript && document.currentScript.src;
   var SITE = script ? new URL("../", script).href : new URL("./", location.href).href;
   var SUITE_FILES = ["tools/gradekit.py", "config/defaults.toml", "rubric/catalog.json", "schema/report.schema.json"];
+  // Optional Pyodide packages, loaded the first time a call needs them (from the same place as Pyodide itself).
+  // If one can't be loaded, gradekit falls back and says what it skipped.
+  var CALL_PACKAGES = { check: ["jsonschema"] };
   var listeners = [];
   var state = { status: "idle", message: "" };
   var readyPromise = null;
@@ -46,9 +49,14 @@
     });
     py.FS.mkdirTree("/work");
     py.runPython("import sys, json\nsys.path.insert(0, '/suite/tools')\nimport gradekit");
-    var n = 0;
+    var n = 0, tried = {};
     return {
       call: async function (name, payload) {
+        var pkgs = (CALL_PACKAGES[name] || []).filter(function (p) { return !tried[p]; });
+        if (pkgs.length) {
+          pkgs.forEach(function (p) { tried[p] = true; });
+          try { await py.loadPackage(pkgs, { messageCallback: function () {} }); } catch (e) { /* optional: gradekit reports the skipped check */ }
+        }
         py.globals.set("_gk_name", name);
         py.globals.set("_gk_payload", JSON.stringify(payload || {}));
         var out = py.runPython("json.dumps(gradekit.web_api(_gk_name, json.loads(_gk_payload)))");

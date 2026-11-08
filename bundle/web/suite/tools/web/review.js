@@ -99,12 +99,31 @@
       .filter(function (p) { if (seen[p.name]) return false; seen[p.name] = true; return true; });
   }
 
+  // Oldest first, like gradekit's report_order_key: folders are <date>-<commit>, so the name orders by day;
+  // reports from the same day are ordered by run.date (a UTC timestamp). Only same-day reports are read.
+  async function orderFolders(folders, runDate) {
+    var byDay = {};
+    folders.forEach(function (f) { (byDay[f.slice(0, 10)] = byDay[f.slice(0, 10)] || []).push(f); });
+    var dates = {};
+    for (var day in byDay) {
+      if (byDay[day].length < 2) continue;
+      for (var i = 0; i < byDay[day].length; i++) dates[byDay[day][i]] = await runDate(byDay[day][i]);
+    }
+    return folders.slice().sort(function (a, b) {
+      var ka = [a.slice(0, 10), dates[a] || "", a], kb = [b.slice(0, 10), dates[b] || "", b];
+      for (var i = 0; i < 3; i++) { if (ka[i] < kb[i]) return -1; if (ka[i] > kb[i]) return 1; }
+      return 0;
+    });
+  }
+
   async function useProject(p, label, meta) {
     pendingPicker = null;
     files = files.filter(function (f) { return !f.fromSource && ["project", "decisions", "dispositions", "org", "report", "previous", "run"].indexOf(f.role) < 0; });
     for (var fname in p.side) addFile(fname, await p.side[fname].text(), false, SIDE[fname], true);
     if (p.org) addFile("org.toml", await p.org.text(), false, "org", true);
-    var folders = Object.keys(p.reports).filter(function (f) { return p.reports[f].report; }).sort();
+    var folders = await orderFolders(Object.keys(p.reports).filter(function (f) { return p.reports[f].report; }), function (f) {
+      return p.reports[f].report.text().then(function (t) { try { return String((JSON.parse(t).run || {}).date || ""); } catch (e) { return ""; } }, function () { return ""; });
+    });
     source = { label: label, project: p.name, meta: meta || {}, history: folders.map(function (f) {
       var r = p.reports[f];
       return { folder: f, get: async function () { return JSON.parse(await r.report.text()); },
@@ -178,7 +197,16 @@
     m = s.match(/^([\w.-]+)\/([\w.-]+)$/);
     return m ? { owner: m[1], repo: m[2] } : null;
   }
-  async function getJSON(url) { var r = await fetch(url); if (!r.ok) { var e = new Error(url.replace(/^https:\/\//, "") + " → " + r.status); e.status = r.status; throw e; } return r.json(); }
+  async function getJSON(url) {
+    var r = await fetch(url);
+    if (!r.ok) {
+      var limited = (r.status === 403 || r.status === 429) && r.headers.get("x-ratelimit-remaining") === "0";
+      var reset = limited && Number(r.headers.get("x-ratelimit-reset"));
+      var e = new Error(limited ? "GitHub's limit for anonymous requests (60 an hour per network) is used up" + (reset ? "; it resets at " + new Date(reset * 1000).toLocaleTimeString() : "") + ". Try again then, or download the repo and use Open files" : url.replace(/^https:\/\//, "") + " → " + r.status);
+      e.status = r.status; e.limited = limited; throw e;
+    }
+    return r.json();
+  }
   async function getText(url) { var r = await fetch(url); if (!r.ok) { var e = new Error(r.status === 404 ? "not found" : String(r.status)); e.status = r.status; throw e; } return r.text(); }
   function encRef(ref) { return ref.split("/").map(encodeURIComponent).join("/"); }
 
@@ -201,13 +229,21 @@
         if (m && !project) { project = m[1]; $("#gh-project").value = project; }
       }
       if (!ref) ref = (await getJSON("https://api.github.com/repos/" + owner + "/" + repo)).default_branch;
-      var api = function (path) { return "https://api.github.com/repos/" + owner + "/" + repo + "/contents/" + path + "?ref=" + encodeURIComponent(ref); };
-      var raw = function (path) { return "https://raw.githubusercontent.com/" + owner + "/" + repo + "/" + encRef(ref) + "/" + path; };
+      // Read everything at one commit: raw files by branch name can be minutes stale right after a push,
+      // and a commit gives a consistent snapshot of reports and decisions.
+      var sha = null;
+      try { sha = (await getJSON("https://api.github.com/repos/" + owner + "/" + repo + "/commits/" + encodeURIComponent(ref))).sha; }
+      catch (e) { if (e.status !== 404 && e.status !== 422) throw e; }
+      var at = sha || ref;
+      var api = function (path) { return "https://api.github.com/repos/" + owner + "/" + repo + "/contents/" + path + "?ref=" + encodeURIComponent(at); };
+      var raw = function (path) { return "https://raw.githubusercontent.com/" + owner + "/" + repo + "/" + encRef(at) + "/" + path; };
       if (!project) {
-        var list = (await getJSON(api("projects"))).filter(function (x) { return x.type === "dir"; }).map(function (x) { return x.name; });
+        var listed = null;
+        try { listed = await getJSON(api("projects")); } catch (e) { if (e.status !== 404) throw e; }
+        var list = (listed || []).filter(function (x) { return x.type === "dir"; }).map(function (x) { return x.name; });
         var dl = UI.clear($("#gh-projects")); list.forEach(function (n) { dl.appendChild(h("option", { value: n })); });
         if (list.length === 1) { project = list[0]; $("#gh-project").value = project; }
-        else { say(list.length ? "Pick a project: " + list.join(", ") + "." : "No projects/ folder found in this repo.", list.length ? "info" : "warn"); return; }
+        else { say(list.length ? "Pick a project: " + list.join(", ") + "." : listed ? "There are no projects in projects/ yet. Add one with Set up a project." : "No projects/ folder found in this repo.", list.length ? "info" : "warn"); return; }
       }
       say("Loading " + project + "…");
       var base = "projects/" + project + "/";
@@ -226,16 +262,22 @@
       folders.forEach(function (f) {
         reports[f] = {
           report: { text: function () { return getText(raw(base + "reports/" + f + "/report.json")); } },
-          lazyRuns: function () { return getJSON(api(base + "reports/" + f + "/runs")).then(function (l) { return l.filter(function (x) { return /\.json$/.test(x.name); }).map(function (x) { return { text: function () { return getText(x.download_url); } }; }); }, function () { return []; }); }
+          lazyRuns: function () {
+            // List the report folder first, so a missing runs/ folder doesn't cost a 404.
+            return getJSON(api(base + "reports/" + f)).then(function (l) {
+              if (!l.some(function (x) { return x.name === "runs" && x.type === "dir"; })) return [];
+              return getJSON(api(base + "reports/" + f + "/runs")).then(function (r) { return r.filter(function (x) { return /\.json$/.test(x.name); }).map(function (x) { return { text: function () { return getText(x.download_url); } }; }); });
+            }).catch(function () { return []; });
+          }
         };
       });
       var proj = { name: project, side: side, org: org, reports: {} };
       folders.forEach(function (f) { proj.reports[f] = { report: reports[f].report, runs: [] }; });
       await useProject(proj, owner + "/" + repo + " @ " + ref, { owner: owner, repo: repo, ref: ref });
       source.history.forEach(function (hst) { hst.runs = async function () { var l = await reports[hst.folder].lazyRuns(); var out = []; for (var i = 0; i < l.length; i++) out.push(JSON.parse(await l[i].text())); return out; }; });
-      say("Loaded " + project + " from " + owner + "/" + repo + " @ " + ref + ": " + folders.length + " report(s)" + (side["decisions.json"] ? ", decisions" : "") + (side["dispositions.json"] ? ", accepted findings" : "") + ".", "info");
+      say("Loaded " + project + " from " + owner + "/" + repo + " @ " + ref + (sha ? " (" + sha.slice(0, 7) + ")" : "") + ": " + folders.length + " report(s)" + (side["decisions.json"] ? ", decisions" : "") + (side["dispositions.json"] ? ", accepted findings" : "") + ".", "info");
     } catch (err) {
-      say("Couldn't load from GitHub: " + err.message + ". Check that the repo is public and the project name is right, or download it and use Open files instead.", "bad");
+      say(err.limited ? err.message + "." : "Couldn't load from GitHub: " + err.message + ". Check that the repo is public and the project name is right, or download it and use Open files instead.", "bad");
     }
   }
 
@@ -375,7 +417,7 @@
       var v = roll.pillar_scores[p];
       return h("div", { class: "pbar" }, h("span", null, p + " · " + pname(p)), h("div", { class: "track" }, h("i", { style: "width:" + (v * 10) + "%" })), h("b", null, String(v)));
     }));
-    box.appendChild(h("div", { class: "two-col", style: "grid-template-columns:1fr 1fr" },
+    box.appendChild(h("div", { class: "two-col even" },
       h("div", { class: "card" }, h("h2", null, "Checks on this report"), checks),
       h("div", { class: "card" }, h("h2", null, "Gates"), h("p", { class: "hint" }, "Non-negotiable. A gate at 3 or below caps the overall score."), gates,
         h("h2", { style: "margin-top:18px" }, roll.maturity.next_level ? "What blocks " + roll.maturity.next_level : "Maturity"), blockers)));
@@ -403,8 +445,8 @@
       txt.value = a.answer; txt.addEventListener("input", function () { a.answer = txt.value; updateDecisionOutput(); });
       box.appendChild(h("div", { class: "decision" },
         h("div", { class: "meta" }, statusBadge(p.decision), " ", p.action_id, " · ", bname(p.benchmark_id), " · ", TIERS[p.tier], " · ", zoneBadge(p.zone)),
-        h("div", { class: "q" }, p.decision_question),
-        h("p", { class: "act" }, "Action: ", p.action),
+        h("div", { class: "q" }, UI.inline(p.decision_question)),
+        h("p", { class: "act" }, "Action: ", UI.inline(p.action)),
         p.decision.status !== "pending" ? h("p", { class: "kbd-note" }, "Already answered: " + p.decision.status + (p.decision.answer ? " — " + p.decision.answer : "") + (p.decision.decided_by ? " (" + p.decision.decided_by + ")" : "")) : null,
         p.decision.note ? h("p", { class: "kbd-note" }, p.decision.note) : null,
         seg, h("div", { style: "margin-top:8px" }, txt)));
@@ -464,7 +506,7 @@
       box.appendChild(section(TIERS[t]));
       box.appendChild(h("div", { class: "card" }, list.map(function (p) {
         return h("div", { class: "prio" }, h("div", { class: "rank" }, "#" + p.rank),
-          h("div", null, h("div", { class: "t" }, p.action),
+          h("div", null, h("div", { class: "t" }, UI.inline(p.action)),
             h("div", { class: "m" }, h("span", { class: "chip" }, p.benchmark_id + " " + bname(p.benchmark_id)), zoneBadge(p.zone),
               h("span", { class: "chip" }, "+" + p.gain + " points"), h("span", { class: "chip" }, "effort " + (p.effort || "?")),
               p.decision ? h("span", null, "decision: ", statusBadge(p.decision)) : null)));
@@ -553,7 +595,7 @@
         return (f.zone === "all" || z.criticality === f.zone) && (f.sev === "all" || z.effective_severity === f.sev) &&
                (f.status === "all" || (f.status === "open" ? openish : x.status === f.status));
       });
-      UI.clear(tableWrap).appendChild(rows.length ? h("table", null, h("thead", null, h("tr", null, ["ID", "Severity", "Zone", "Status", "Finding"].map(function (t) { return h("th", null, t); }))),
+      UI.clear(tableWrap).appendChild(rows.length ? h("table", { class: "findings" }, h("thead", null, h("tr", null, ["ID", "Severity", "Zone", "Status", "Finding"].map(function (t) { return h("th", null, t); }))),
         h("tbody", null, rows.map(function (x) {
           var z = fz[x.id] || {};
           return h("tr", null, h("td", null, h("code", null, x.id)), h("td", null, sevBadge(z.effective_severity || x.severity), z.effective_severity && z.effective_severity !== x.severity ? h("div", { class: "kbd-note" }, "was " + x.severity) : null),
@@ -574,7 +616,7 @@
     box.appendChild(h("div", { class: "banner " + (d.verdict === "PASS" ? "info" : "bad") }, h("b", null, d.verdict === "PASS" ? "Nothing got worse. " : "Something got worse. "),
       "Overall " + d.overall.old + " → " + d.overall.new + " · maturity " + d.maturity.old + " → " + d.maturity.new + " · commit " + String(d.from_commit).slice(0, 8) + " → " + String(d.to_commit).slice(0, 8)));
     if (d.regressions.length) box.appendChild(h("div", { class: "card" }, h("h2", null, "Regressions"), h("ul", null, d.regressions.map(function (r) { return h("li", null, r); }))));
-    box.appendChild(h("div", { class: "two-col", style: "grid-template-columns:1fr 1fr;margin-top:16px" },
+    box.appendChild(h("div", { class: "two-col even", style: "margin-top:16px" },
       h("div", { class: "card" }, h("h2", null, "Score changes"), d.score_changes.length ? h("table", null, h("tbody", null, d.score_changes.map(function (c) {
         var up = c.new !== null && c.old !== null && c.new > c.old;
         return h("tr", null, h("td", null, h("code", null, c.id)), h("td", null, bname(c.id)), h("td", null, (c.old === null ? "–" : c.old) + " → " + (c.new === null ? "–" : c.new)), h("td", null, h("span", { class: "badge " + (up ? "ok" : "bad") }, up ? "up" : "down")));
@@ -583,7 +625,7 @@
         list("New", d.findings.new), list("Fixed", d.findings.fixed), list("Regressed", d.findings.regressed))));
     function list(title, items) {
       return h("div", { style: "margin-bottom:10px" }, h("b", null, title + " (" + items.length + ")"), items.length ? h("ul", { style: "margin:4px 0;padding-left:18px" }, items.map(function (f) {
-        return h("li", null, h("code", null, f.id), " ", sevBadge(f.effective_severity), " ", f.title);
+        return h("li", null, h("code", null, f.id), " ", sevBadge(f.effective_severity), " ", f.title, f.pre_existing ? h("span", { class: "kbd-note" }, " (already there before this change)") : null);
       })) : null);
     }
     if (d.notes.length) box.appendChild(h("div", { class: "card", style: "margin-top:16px" }, h("h2", null, "Notes"), h("ul", null, d.notes.map(function (n) { return h("li", null, n); }))));
@@ -623,6 +665,7 @@
     box.appendChild(h("div", { class: "card" },
       c.validation.errors.length ? h("div", null, h("b", null, "Errors"), h("ul", null, c.validation.errors.map(function (e) { return h("li", null, e); }))) : h("p", null, "No errors."),
       c.validation.warnings.length ? h("div", null, h("b", null, "Warnings"), h("ul", null, c.validation.warnings.map(function (e) { return h("li", null, e); }))) : null,
+      (c.validation.notes || []).length ? h("p", { class: "kbd-note" }, "Note: " + c.validation.notes.join(" ")) : null,
       h("p", { class: "kbd-note" }, "Config used: " + c.config_source + " · hash " + c.config.hash)));
     if ((r.gap_register || []).length) {
       box.appendChild(section("Gaps", "Things the project's purpose needs, or users would expect, that are missing."));

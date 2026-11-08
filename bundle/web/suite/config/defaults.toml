@@ -1,5 +1,5 @@
 # =============================================================================
-# Code Grading Suite: default configuration (suite v4.2.1)
+# Code Grading Suite: default configuration (suite v4.2.2)
 # =============================================================================
 #
 # Every adjustable part of scoring lives in this file: weights, the questions
@@ -24,7 +24,7 @@
 # =============================================================================
 
 # The version of the scoring rules. It changes only when scoring changes (major or minor
-# versions), so patch releases such as 4.2.1 keep config fingerprints, and older reports, valid.
+# versions), so patch releases such as 4.2.2 keep config fingerprints, and older reports, valid.
 suite_version = "4.2.0"
 
 

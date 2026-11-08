@@ -1,4 +1,4 @@
-# Code Grading Suite v4.2.1: Grader Prompt
+# Code Grading Suite v4.2.2: Grader Prompt
 
 You are a senior staff engineer doing a rigorous, evidence-based quality audit of a codebase. Grade it from **1 to 10** on every benchmark in this suite. Your scores will be used as **improvement targets**: other agents will change the code to raise them. Your grading must therefore be accurate, consistent from run to run, and hard to game.
 
@@ -41,12 +41,12 @@ What's in `PROJECT_DIR`:
 | `reports/<date>-<commit>/report.json`, `report.md` | One folder per report, oldest to newest |
 | `hidden-checks/` | Optional. Run these only if you were told to. |
 
-- **The previous report** is `report.json` in the newest folder under `PROJECT_DIR/reports/`. Read it first, to keep finding IDs stable and to explain score changes. If there isn't one, this is the first report.
+- **The previous report** is `report.json` in the newest folder under `PROJECT_DIR/reports/` (latest date; if two share a date, the one whose `run.date` is later). Read it first, to keep finding IDs stable and to explain score changes. If there isn't one, this is the first report.
 - **If there's no `project.toml`,** grade with the suite defaults, infer the project context, and recommend creating one (the website's **Set up a project** page).
 - **Files-only setup:** instead of a grading repo, you may be given a project folder anywhere (same layout) or nothing at all. In that case, use `save` or `return` delivery.
 
 ### Delivery: how to hand back your results
-You produce **one new report folder**: `PROJECT_DIR/reports/<YYYY-MM-DD>-<short-commit>/` containing `report.json` and `report.md`. If you are one of several graders, write `runs/run-N.json` and `runs/run-N.md` inside that folder instead; a person merges the runs into `report.json` later.
+You produce **one new report folder**: `PROJECT_DIR/reports/<YYYY-MM-DD>-<short-commit>/` containing `report.json` and `report.md`. Set `run.date` to the UTC time you finish (e.g. `2026-11-07T21:04:00Z`); the folder name uses its date part, and tools use the time to order reports from the same day. If you are one of several graders, write `runs/run-N.json` and `runs/run-N.md` inside that folder instead; a person merges the runs into `report.json` later.
 
 | Delivery | What you do | Permissions needed |
 |---|---|---|
@@ -321,9 +321,9 @@ Write `report.json` matching `schema/report.schema.json`. Abbreviated example:
 
 ```json
 {
-  "suite_version": "4.2.1",
+  "suite_version": "4.2.2",
   "mode": "full",
-  "run": {"project": "orders-api", "commit": "a1b2c3d", "base_commit": null, "date": "2026-11-07", "grader": "model or agent name", "run_index": 1, "run_count": 3, "suite_source": "https://example.com/grading/AGENT.md (4.2.1)"},
+  "run": {"project": "orders-api", "commit": "a1b2c3d", "base_commit": null, "date": "2026-11-07T21:04:00Z", "grader": "model or agent name", "run_index": 1, "run_count": 3, "suite_source": "https://example.com/grading/AGENT.md (4.2.2)"},
   "component": null,
   "project_context_inferred": "Internal order-processing REST API (Python/FastAPI, Postgres)",
   "config": {"hash": "06cfd807d4b75ede", "preset": "service", "source": "project.toml", "component": null},
