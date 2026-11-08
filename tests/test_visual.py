@@ -5,9 +5,9 @@ Layout rules that hold on any machine, at four widths: no sideways scrolling, ta
 
 Screenshot comparison against baselines in tests/visual/. Fonts render differently from one machine to
 the next, so baselines are only compared on the platform and browser they were made with (CI's
-Linux Chromium). CI makes them on its first run and commits them to the pull request; run the Tests
-workflow by hand with "update_visual" to remake them after an intended change (UPDATE_VISUAL=1 does
-it locally). A failed comparison leaves the actual and diff images in tests/visual/out/, which CI
+Linux Chromium). CI makes them on its first run and commits them to the pull request; after an
+intended change, label the pull request "update-visual" (or run the Tests workflow by hand with
+"update_visual") to remake them (UPDATE_VISUAL=1 does it locally). A failed comparison leaves the actual and diff images in tests/visual/out/, which CI
 uploads as the "visual-diff" artifact.
 """
 import json

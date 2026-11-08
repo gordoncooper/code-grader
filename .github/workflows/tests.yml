@@ -4,6 +4,7 @@ name: Tests
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, labeled]
     paths: ["source/**", "tests/**", ".github/scripts/**", ".github/workflows/tests.yml"]
   push:
     branches: [main]
@@ -44,7 +45,8 @@ jobs:
     permissions:
       contents: write   # only to commit new screenshot baselines (tests/visual) to this branch
     env:
-      UPDATE_VISUAL: ${{ inputs.update_visual && '1' || '' }}
+      # Remake the screenshot baselines: the workflow's update_visual input, or the "update-visual" label on a PR.
+      UPDATE_VISUAL: ${{ (inputs.update_visual || contains(github.event.pull_request.labels.*.name, 'update-visual')) && '1' || '' }}
     steps:
       - uses: actions/checkout@v5
         with:
