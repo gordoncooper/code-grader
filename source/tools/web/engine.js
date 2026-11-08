@@ -72,6 +72,7 @@
     var cfg = window.GK_CONFIG || {};
     var index = cfg.pyodideIndexURL || "https://cdn.jsdelivr.net/pyodide/v0.29.3/full/";
     if (!/\/$/.test(index)) index += "/";
+    index = new URL(index, location.href).href;   // a relative address (a self-hosted copy) is relative to the page
     setStatus("loading", "Loading Python…");
     var pins = cfg.pyodideIntegrity;
     var options = { indexURL: index };

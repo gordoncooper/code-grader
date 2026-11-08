@@ -79,7 +79,18 @@ The **Set up a project** and **Review a report** pages run the suite's own `grad
 
 **Every runtime file is checked before it runs.** `assets/engine-config.js` pins the SHA-384 hash of each Pyodide core file: the loader, the WebAssembly, the standard library and the lock file. The browser refuses any file that doesn't match, and packages are checked against the lock file. A compromised or changed CDN can't run code on these pages; the pill says *Engine unavailable* and why. The suite's own files (`suite/tools/gradekit.py` and the rest) are checked against this site's `manifest.json` in the same way, so a half-finished deploy is caught too.
 
-To avoid the CDN (for an air-gapped network, a strict content-security policy, or just to remove the dependency):
+To avoid the CDN (for an air-gapped network, a host that allows only its own origin, or just to remove the dependency), the easiest way is the **web-with-Pyodide download**: each release has a `code-grading-suite-web-pyodide-vX.Y.Z.zip`, the same site with Pyodide already in `pyodide/`. Deploy it like the plain site; it loads nothing from a CDN.
+
+To do the same to a site you've built or already deployed, run the kit's `tools/vendor_pyodide.py` on it from any machine with internet access, once:
+
+```bash
+python3 tools/vendor_pyodide.py path/to/site                       # downloads the pinned Pyodide from the CDN
+python3 tools/vendor_pyodide.py path/to/site --from ./pyodide-0.29.3  # or uses files you already have
+```
+
+It copies Pyodide's core files and the packages the pages use into `pyodide/`. It refuses any file that doesn't match its pinned hash or Pyodide's lock file. Then it points `assets/engine-config.js` at the local copy and updates `manifest.json` and `SHA256SUMS`. The pages still check every file as they load it.
+
+To set it up by hand instead:
 
 1. Download the Pyodide release named in `assets/engine-config.js` from the Pyodide GitHub releases page. The "core" archive is enough to run everything. **Review a report** also uses Pyodide's `jsonschema` package (and its dependencies) for the full report-format check; it's in the full archive. Without it, the page still checks every scoring rule and notes that the structural schema check was skipped.
 2. Unpack it into a folder on your server, e.g. `/grading/pyodide/`.
