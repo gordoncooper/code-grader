@@ -98,6 +98,8 @@ Generated from `rubric/glossary.json` by `gradekit glossary --markdown`. Edit th
 
 **regression**: Something that got worse: a score that dropped, a finding that came back, or a new critical finding.
 
+**guard**: The improver's before-and-after record of the code's own checks (tests, linters, type checker, build) and of its suppressions and skipped tests. `guard compare` fails if any got worse.
+
 **consensus**: The report made from three independent graders: the median score of each benchmark, with the ones they disagree on flagged.
 
 **delivery**: How an agent hands back its work: a pull request, files saved in a folder, or the chat.

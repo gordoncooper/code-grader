@@ -95,7 +95,9 @@ $K ci --base origin/main                                         # grading repos
 $K render report REPORT                                          # report.md from report.json
 $K render pr REPORT                                             # the grading pull request's branch, title and body
 $K render check BASELINE PR_REPORT                               # the PR-check comment
-$K render log improve-log.json --report REPORT                   # the improver's log
+$K render log improve-log.json --report REPORT --guard CMP      # the improver's log, with the guard's table
+$K guard snapshot CODE --from-report REPORT [--check NAME=CMD]  # improvers: the code's checks before any change
+$K guard compare CODE [--explain KEY=REASON]                    # …and after: exit 2 if anything got worse
 $K validate --project orders-api [--publish]                     # schema, config and rule checks (latest report); --publish: safe to commit?
 $K verify-evidence --project orders-api --repo CODE_DIR_OR_ZIP   # every quoted line exists
 $K rollup   --project orders-api [--write]                       # gates, maturity, targets, ranked priorities
@@ -111,7 +113,7 @@ $K redact report.json [--in-place]                               # withhold sens
 |:-:|---|
 | 0 | OK |
 | 1 | Failed check, invalid report or other error |
-| 2 | Regression (`diff --fail-on-regression`) |
+| 2 | Regression (`diff --fail-on-regression`, `guard compare`) |
 | 3 | Unstable runs (`stability --strict`) |
 | 4 | Calibration failed (`calibrate`) |
 | 5 | Report not finished yet (`report check`) |

@@ -36,6 +36,13 @@ Minor release: tools that let agents run the whole cycle without custom scripts,
 - New optional report fields: `summary` (set with `report set summary`) and each benchmark's one-line `rationale` (`report score --rationale`).
 - The prompts use these commands. The example reports' `report.md` files are now rendered.
 
+**The improver guard with `gradekit guard`**
+- "Never trade one benchmark for another" is now checked, not just asked for.
+  - **`guard snapshot CODE`**, before any change, runs the code's own checks and records each one's exit code and counts. The checks come from `--check NAME=COMMAND`, the test, lint, type-check, coverage, build and audit commands the grader ran (`--from-report`), or a small detection from the repo. The counts are tests passed, failed and skipped, lint and type problems, and coverage, read from pytest, unittest, jest, vitest, mocha, go, cargo, rspec, ruff, mypy, tsc, eslint and pylint. It also counts suppressions and skipped tests in the code and fingerprints CI and lint settings. The snapshot is kept in `.git/`, so it can't be committed.
+  - **`guard compare CODE`**, after, runs exactly the same commands again. Exit code 2 means something got worse: a check that now fails or times out, fewer tests passing, more failures or problems, lower coverage, more suppressions or skipped tests, or a check that wasn't run. `--explain KEY="reason"` records a deliberate change instead. Changed CI or lint settings are listed for review.
+- `render log --guard` puts the before → after table in the improvement log, so the pull request shows the proof.
+- The improver prompt takes a snapshot before its first change and compares after each one.
+
 **CI for grading repos**
 - `gradekit ci --base origin/main` checks a pull request to a grading repo. It needs only git, so it runs on any host.
   - **One kind of change per pull request:** either one new report folder (`report.json`, `report.md`, `runs/*.json`), or a project's settings (`project.toml`, `decisions.json`, `dispositions.json`, `org.toml`). Anything else, or a mix, needs changes.
