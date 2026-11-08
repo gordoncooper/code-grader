@@ -141,12 +141,19 @@ code-grading-suite/
 │   ├── gradekit.py         the engine (CLI + the browser API)
 │   ├── build_web.py        builds the website
 │   └── web/                website sources (pages, styles, scripts)
+├── ci/                     the grading check for grading repos (GitHub Actions, GitLab CI, any host)
 ├── calibration/            checking graders against known scores
 ├── holdout/                writing hidden checks
 └── examples/
     ├── sample-repo/        a tiny code repo
     └── grading-repo/       an example grading repo with two reports for it
 ```
+
+## CI for grading repos
+
+`gradekit ci` checks every pull request to a grading repo. Each one must be a single kind of change: either one new report folder, or a project's settings. It validates the report, its rollup and its folder name, and makes sure no private report or withheld detail is published. It keeps `decisions.json` and `dispositions.json` append-only. Then it comments a summary with a link to the Review page, and labels the pull request.
+
+To add it, run `gradekit init --project NAME --ci github|gitlab --site URL`. It works on other hosts too. [ci/README.md](ci/README.md) covers setup and the permissions each host needs.
 
 ## Calibration and monorepos
 

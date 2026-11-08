@@ -29,6 +29,7 @@ Writing a report (graders):
   report match     Suggest which earlier finding each new one is, to keep its ID.
   doctor           Preflight: Python, kit, config, code, git and push access, the suite website.
   deliver          Hand back a finished report: pr (git steps printed, or run), save or return.
+  ci               Grading repos: check a pull request and write its summary comment and labels.
   render           Markdown from data: report.md, the PR title and body, the PR-check comment, the improvement log.
 
 Projects: in a grading repo, pass --project NAME (folder projects/NAME/) and commands find the
@@ -1905,6 +1906,8 @@ projects/
 - Graders open a pull request per report, on a branch named `report/<project>/<date>-<commit>`.
 - Decision answers go on that same pull request, or in a follow-up `decisions/<project>/<date>` pull request.
 - `org.toml` at the root (optional) holds house rules shared by every project.
+- Pull requests are checked by `gradekit ci` if the repo has the grading check (`gradekit init --ci github|gitlab`): one
+  new report folder, or settings changes, per pull request; decisions and dispositions are append-only.
 - This repo may be public. Before committing a report, graders run `gradekit redact --in-place`, which withholds
   the details of sensitive (security) findings, and `gradekit validate --publish`. The full report stays out of
   the repo as `report.private.json`.
@@ -1915,6 +1918,30 @@ PRIVATE_IGNORE = "*.private.json"
 
 def slug(name: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", str(name).lower()).strip("-") or "project"
+
+
+CI_DIR = SUITE_DIR / "ci"
+
+
+def install_ci(root: Path, host: str, site: str | None, force: bool = False) -> Path:
+    """Add the grading check to a grading repo. Returns the file written."""
+    text = (CI_DIR / f"{host}-grading.yml").read_text(encoding="utf-8")
+    if site:
+        text = text.replace("__SUITE_SITE__", site.rstrip("/"))
+    if host == "github":
+        dest = root / ".github" / "workflows" / "grading.yml"
+    else:
+        dest = root / ".gitlab-ci.yml"
+        if dest.exists() and "grading-check:" not in dest.read_text(encoding="utf-8"):
+            dest = root / ".gitlab" / "grading.yml"
+            print(f"note: .gitlab-ci.yml exists; add this to it:\n  include:\n    - local: .gitlab/grading.yml")
+    if dest.exists() and not force:
+        print(f"{dest} exists; left as it is (use --force to replace it)")
+        return dest
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.write_text(text, encoding="utf-8")
+    print(f"wrote {dest}" + ("" if site else "  (set SUITE_SITE in the CI settings: your suite website's address)"))
+    return dest
 
 
 def cmd_init(args) -> int:
@@ -1970,8 +1997,14 @@ def cmd_init(args) -> int:
             ignore.write_text("\n".join(lines + ["# full reports with withheld security details; never commit them", PRIVATE_IGNORE]) + "\n",
                               encoding="utf-8")
             print(f"{'updated' if lines else 'wrote'} {ignore}")
+    ci_file = None
+    if getattr(args, "ci", None):
+        if root is None:
+            die("--ci needs --project (it sets up a grading repo)")
+        ci_file = install_ci(root, args.ci, args.site, args.force)
     print(f"next: edit {out}, then run: gradekit resolve " + (f"--project {name}" if pdir else f"--config {out}"))
-    args._result = {"project": name, "project_toml": str(out), "project_dir": str(pdir) if pdir else None}
+    args._result = {"project": name, "project_toml": str(out), "project_dir": str(pdir) if pdir else None,
+                    "ci": str(ci_file) if ci_file else None}
     return 0
 
 
@@ -3154,6 +3187,257 @@ def shell_join(parts) -> str:
     return " ".join(shlex.quote(str(p)) for p in parts)
 
 
+# =========================================================================== ci (grading repos)
+# Checks a pull request to a grading repo. One kind of change per pull request:
+#   report    one new report folder (report.json, report.md, runs/*.json), nothing else
+#   settings  a project's project.toml, decisions.json, dispositions.json (append-only), org.toml
+# Writes a summary comment and labels; the host's CI posts them (see ci/ in the kit).
+
+CI_MARKER = "<!-- gradekit-ci -->"
+REPORT_FOLDER_FILES = re.compile(r"(report\.json|report\.md|runs/[^/]+\.json)")
+SETTINGS_FILES = {PROJECT_FILE, DECISIONS_FILE, DISPOSITIONS_FILE, "reports/.gitkeep"}
+ROOT_SETTINGS = {"org.toml", "README.md", ".gitignore"}
+CI_LABELS = {"report": "grading: report", "settings": "grading: settings", "problems": "grading: needs changes"}
+
+
+def git_changes(root, base: str, head: str) -> list[tuple[str, str]]:
+    out = git_out(root, "diff", "--no-renames", "--name-status", f"{base}...{head}")
+    return [(ln.split("\t", 1)[0][0], ln.split("\t", 1)[1]) for ln in out.splitlines() if "\t" in ln]
+
+
+def classify_change(changes: list[tuple[str, str]]) -> dict:
+    """What kind of grading change this is, and anything about its shape that's wrong."""
+    problems, report_folders_, settings, other = [], set(), {}, []
+    for status, path in changes:
+        parts = path.split("/")
+        if parts[0] == "projects" and len(parts) >= 4 and parts[2] == "reports" and len(parts) >= 5:
+            folder = (parts[1], parts[3])
+            rest = "/".join(parts[4:])
+            report_folders_.add(folder)
+            if path.endswith(".private.json"):
+                problems.append(f"{path} is a private report: it must never be committed (remove it from the pull request)")
+            elif not REPORT_FOLDER_FILES.fullmatch(rest):
+                problems.append(f"{path}: a report folder holds only report.json, report.md and runs/*.json")
+            elif status != "A":
+                problems.append(f"{path} is {'deleted' if status == 'D' else 'changed'}: reports are never edited after they're committed")
+        elif parts[0] == "projects" and len(parts) >= 3 and "/".join(parts[2:]) in SETTINGS_FILES:
+            settings.setdefault(parts[1], []).append((status, "/".join(parts[2:])))
+        elif path in ROOT_SETTINGS:
+            settings.setdefault("", []).append((status, path))
+        else:
+            other.append(path)
+    kinds = (["report"] if report_folders_ else []) + (["settings"] if settings else [])
+    if len(report_folders_) > 1:
+        problems.append("a pull request adds one report: " + ", ".join(f"projects/{p}/reports/{f}" for p, f in sorted(report_folders_)))
+    if len(kinds) > 1:
+        problems.append("a report pull request changes only its report folder; send the settings changes "
+                        f"({', '.join(p for p in sorted(settings) if p) or 'root files'}) separately")
+    projects_ = sorted({p for p, _ in report_folders_} | {p for p in settings if p})
+    if len(projects_) > 1:
+        problems.append(f"one project per pull request (this one touches {', '.join(projects_)})")
+    if other and kinds:
+        problems.append("grading changes come on their own; this also changes " + ", ".join(other[:8]) + ("…" if len(other) > 8 else ""))
+    kind = kinds[0] if len(kinds) == 1 else ("mixed" if kinds else "other")
+    folder = sorted(report_folders_)[0] if report_folders_ else None
+    return {"kind": kind, "project": folder[0] if folder else (projects_[0] if projects_ else None),
+            "folder": folder[1] if folder else None, "settings": settings, "other": other, "problems": problems}
+
+
+def file_at(root, rev: str, path: str) -> str | None:
+    import subprocess
+    r = subprocess.run(["git", "-C", str(root), "show", f"{rev}:{path}"], capture_output=True, text=True)
+    return r.stdout if r.returncode == 0 else None
+
+
+def config_at(root, rev: str, project: str) -> dict | None:
+    """The project's effective config as it was at rev (None if it didn't exist)."""
+    toml = file_at(root, rev, f"projects/{project}/{PROJECT_FILE}")
+    if toml is None:
+        return None
+    with tempfile.TemporaryDirectory() as tmp:
+        pdir = Path(tmp) / "projects" / project
+        pdir.mkdir(parents=True)
+        (pdir / PROJECT_FILE).write_text(toml, encoding="utf-8")
+        for name in (DECISIONS_FILE, DISPOSITIONS_FILE):
+            t = file_at(root, rev, f"projects/{project}/{name}")
+            if t is not None:
+                (pdir / name).write_text(t, encoding="utf-8")
+        org = file_at(root, rev, "org.toml")
+        if org is not None:
+            (Path(tmp) / "org.toml").write_text(org, encoding="utf-8")
+        try:
+            return load_config(argparse.Namespace(project_dir=str(pdir), config=None, component=None), quiet=True)
+        except GradekitError:
+            return None
+
+
+def append_only(old_text: str | None, new_text: str, key: str, name: str) -> list[str]:
+    try:
+        new = parse_list_text(new_text, key, name)
+        old = parse_list_text(old_text, key, name) if old_text else []
+    except GradekitError as exc:
+        return [str(exc)]
+    for i, entry in enumerate(old):
+        if i >= len(new) or new[i] != entry:
+            return [f"{name} is append-only: entry {i + 1} was changed or removed (add a new entry instead; the newest wins)"]
+    return []
+
+
+def ci_check(root: Path, base: str, head: str, changes: list[tuple[str, str]], site: str | None = None,
+             repo_url: str | None = None, branch: str | None = None) -> dict:
+    shape = classify_change(changes)
+    problems, warnings = list(shape["problems"]), []
+    summary: dict = {}
+    mb = git_out(root, "merge-base", base, head, check=False) or base
+    project = shape["project"]
+    pdir = root / "projects" / project if project else None
+
+    if shape["kind"] == "report" and pdir is not None:
+        folder = shape["folder"]
+        rel = f"projects/{project}/reports/{folder}"
+        if file_at(root, mb, f"{rel}/report.json") is not None:
+            problems.append(f"{rel} already exists on the base branch: reports are never edited after they're committed")
+        rpath = root / rel / "report.json"
+        if not rpath.exists():
+            problems.append(f"{rel} has no report.json")
+        else:
+            try:
+                report = load_json(rpath)
+                cfg = load_config(argparse.Namespace(project_dir=str(pdir), config=None, component=None), report, quiet=True)
+                errors, warns = validate_report(report, cfg, load_catalog())
+                problems += [f"report: {e}" for e in errors]
+                warnings += [f"report: {w}" for w in cfg.get("warnings", []) + warns if "run `gradekit redact" not in w]
+                if (cfg.get("publishing") or PUBLISHING_DEFAULTS).get("public"):
+                    problems += [f"publish: {e}" for e in publish_problems(report)]
+                run = report.get("run") or {}
+                commit = str(run.get("commit") or "")
+                if commit and not folder.endswith("-" + commit[:7]):
+                    problems.append(f"the folder is {folder}, but the report grades commit {commit[:7]} (expected <date>-{commit[:7]})")
+                roll = compute_rollup(report, cfg)
+                stored = report.get("rollup") or {}
+                if not stored:
+                    problems.append("report has no rollup: run `gradekit rollup --write` (or `report check --write`)")
+                elif (stored.get("overall_score"), (stored.get("maturity") or {}).get("current_level")) != (
+                        roll["overall_score"], roll["maturity"]["current_level"]):
+                    problems.append(f"the stored rollup ({stored.get('overall_score')}, {(stored.get('maturity') or {}).get('current_level')}) "
+                                    f"doesn't match the report ({roll['overall_score']}, {roll['maturity']['current_level']}): "
+                                    "never edit scores by hand; run `gradekit rollup --write`")
+                md = root / rel / "report.md"
+                if not md.exists():
+                    warnings.append("no report.md (`gradekit render report` makes it)")
+                else:
+                    try:
+                        if md.read_text(encoding="utf-8") != render_report_md(report, cfg):
+                            warnings.append("report.md differs from what `gradekit render report` makes from report.json")
+                    except GradekitError:
+                        pass
+                if (root / rel / "runs").is_dir() and not report.get("stability"):
+                    warnings.append("there are runs/ but report.json isn't their consensus (`gradekit stability … --out report.json`)")
+                pending = [p for p in roll["priorities"] if p.get("requires_human_decision") and (p.get("decision") or {}).get("status") == "pending"]
+                summary = {"project": project, "folder": folder, "commit": commit[:7], "date": str(run.get("date") or "")[:10],
+                           "overall": roll["overall_score"], "level": roll["maturity"]["current_level"],
+                           "next_level": roll["maturity"].get("next_level"),
+                           "gates": [(g["benchmark_id"], g["score"], g["status"]) for g in roll["gates"]],
+                           "pending_decisions": [(p["action_id"], p.get("decision_question")) for p in pending],
+                           "mode": report.get("mode")}
+            except GradekitError as exc:
+                problems.append(f"report: {exc}")
+
+    if shape["kind"] == "settings":
+        for proj, files in shape["settings"].items():
+            for status, name in files:
+                path = f"projects/{proj}/{name}" if proj else name
+                if status == "D" and name in (PROJECT_FILE, DECISIONS_FILE, DISPOSITIONS_FILE, "org.toml"):
+                    problems.append(f"{path} is deleted")
+                    continue
+                if name in (DECISIONS_FILE, DISPOSITIONS_FILE):
+                    key = "decisions" if name == DECISIONS_FILE else "dispositions"
+                    new_text = (root / path).read_text(encoding="utf-8")
+                    problems += append_only(file_at(root, mb, path), new_text, key, path)
+                    need = ("action_id", "approved") if key == "decisions" else ("finding_id", "decision", "reason")
+                    try:
+                        for i, e in enumerate(parse_list_text(new_text, key, path)):
+                            missing = [k for k in need if k not in e]
+                            if missing:
+                                problems.append(f"{path} entry {i + 1} needs {', '.join(missing)}")
+                    except GradekitError:
+                        pass
+        projects_ = [p for p in shape["settings"] if p] or ([project] if project else [])
+        if "" in shape["settings"] and not projects_:
+            projects_ = [d.name for d in sorted((root / "projects").iterdir()) if (d / PROJECT_FILE).exists()] if (root / "projects").is_dir() else []
+        for proj in projects_:
+            try:
+                cfg = load_config(argparse.Namespace(project_dir=str(root / "projects" / proj), config=None, component=None), quiet=True)
+                warnings += [f"{proj}: {w}" for w in cfg.get("warnings", [])]
+                before = config_at(root, mb, proj)
+                if before is None:
+                    summary.setdefault("new_projects", []).append(proj)
+                elif before["hash"] != cfg["hash"]:
+                    warnings.append(f"{proj}: the scoring config changes ({before['hash']} → {cfg['hash']}), so the next report "
+                                    "is weighted differently from earlier ones; diffs will say so")
+                summary.setdefault("configs", []).append((proj, cfg["hash"], cfg["preset"]))
+            except GradekitError as exc:
+                problems.append(f"{proj}: config: {exc}")
+
+    labels = ([CI_LABELS[shape["kind"]]] if shape["kind"] in CI_LABELS else []) + ([CI_LABELS["problems"]] if problems else [])
+    result = {"kind": shape["kind"], "project": project, "folder": shape["folder"], "ok": not problems,
+              "problems": problems, "warnings": warnings, "labels": labels, "summary": summary,
+              "changed": [p for _, p in changes]}
+    result["comment"] = ci_comment(result, site, repo_url, branch)
+    return result
+
+
+def ci_comment(res: dict, site: str | None, repo_url: str | None, branch: str | None) -> str:
+    s = res["summary"]
+    head = "✅ passed" if res["ok"] else "❌ needs changes"
+    lines = [CI_MARKER, f"### Grading check: {head}", ""]
+    if res["kind"] == "report" and s:
+        lines.append(f"**Report** for `{s['project']}` at `{s['commit']}` ({s['date']}"
+                     + (", pull-request check" if s.get("mode") == "pr" else "") + f"): overall **{dash(s['overall'])}**, "
+                     f"maturity **{s['level']}**" + (f" (next: {s['next_level']})" if s.get("next_level") else "") + ".")
+        lines += ["", "Gates: " + " · ".join(f"{g} {dash(sc)} {st}" for g, sc, st in s["gates"])]
+        if s["pending_decisions"]:
+            lines += ["", f"**{len(s['pending_decisions'])} decision(s) waiting:**"]
+            lines += [f"- [ ] {a}: {q}" for a, q in s["pending_decisions"]]
+        link = review_link(site, repo_url, s["project"], branch) if branch else None
+        if link:
+            lines += ["", f"[Review this report{' and answer the decisions' if s['pending_decisions'] else ''}]({link})"]
+    elif res["kind"] == "settings":
+        lines.append("**Settings** change" + (f" for `{res['project']}`" if res["project"] else "") + ".")
+        for proj, h_, preset in s.get("configs", []):
+            lines.append(f"- `{proj}`: config {h_} (preset {preset})" + (" · new project" if proj in s.get("new_projects", []) else ""))
+    elif res["kind"] == "other":
+        lines.append("No grading files changed, so there was nothing to check.")
+    if res["problems"]:
+        lines += ["", "**Problems**", ""] + [f"- {p}" for p in res["problems"]]
+    if res["warnings"]:
+        items = [f"- {w}" for w in res["warnings"]]
+        if len(items) > 5:
+            lines += ["", f"<details><summary><b>{len(items)} warnings</b></summary>", ""] + items + ["", "</details>"]
+        else:
+            lines += ["", "**Warnings**", ""] + items
+    lines += ["", f"<sub>gradekit ci · suite {load_catalog()['suite_version']}</sub>", ""]
+    return "\n".join(lines)
+
+
+def cmd_ci(args) -> int:
+    root = Path(git_out(args.grading_repo or ".", "rev-parse", "--show-toplevel"))
+    if args.changed:
+        changes = [tuple(c.split(":", 1)) if re.match(r"^[AMD]:", c) else ("A", c) for c in args.changed]
+    else:
+        changes = git_changes(root, args.base, args.head)
+    res = ci_check(root, args.base, args.head, changes, args.site, args.grading_repo_url, args.branch)
+    if args.comment_file:
+        Path(args.comment_file).write_text(res["comment"], encoding="utf-8")
+    if args.labels_file:
+        Path(args.labels_file).write_text("\n".join(res["labels"]) + ("\n" if res["labels"] else ""), encoding="utf-8")
+    lines = [f"{res['kind']} change" + (f" · {res['project']}" if res["project"] else "") + (f" · {res['folder']}" if res["folder"] else "")]
+    lines += [f"PROBLEM: {p}" for p in res["problems"]] + [f"warning: {w}" for w in res["warnings"]]
+    lines.append(f"\n{'passed' if res['ok'] else 'needs changes'}; labels: {', '.join(res['labels']) or 'none'}")
+    emit(args, res, "\n".join(lines))
+    return 0 if res["ok"] else 1
+
+
 # =========================================================================== render
 # Markdown made from report data, so every report, pull request, PR check and improvement log
 # has the same layout and no hand-copied numbers. Public text never carries withheld details.
@@ -3795,6 +4079,8 @@ def main(argv=None) -> int:
     p.add_argument("--name", default="my-project", help="project name when writing a single file with --out")
     p.add_argument("--answer", action="append", metavar="Q=A", help="e.g. --answer data_sensitivity=financial")
     p.add_argument("--out", default="project.toml")
+    p.add_argument("--ci", choices=["github", "gitlab"], help="also add the grading check for pull requests (see the kit's ci/)")
+    p.add_argument("--site", metavar="URL", help="with --ci: your suite website's address (else set SUITE_SITE in the CI settings)")
     p.add_argument("--force", action="store_true")
     p.set_defaults(fn=cmd_init)
 
@@ -4065,6 +4351,21 @@ def main(argv=None) -> int:
     p.add_argument("--grading-repo-url", metavar="URL", help="the grading repo's address, for that link")
     with_config(p)
     p.set_defaults(fn=cmd_deliver)
+
+    # ------------------------------------------------------------ ci
+    p = sub.add_parser("ci", help="grading repos: check a pull request (one report, or settings), write a comment and labels",
+                       description="Run in a grading repo's CI on a pull request. Templates for GitHub Actions and GitLab CI "
+                                   "are in the kit's ci/ folder (`gradekit init --ci github|gitlab` adds one).")
+    p.add_argument("--base", required=True, help="the target branch, e.g. origin/main")
+    p.add_argument("--head", default="HEAD")
+    p.add_argument("--grading-repo", metavar="DIR", help="the grading repo checkout (default: current folder)")
+    p.add_argument("--changed", nargs="+", metavar="[A|M|D:]PATH", help="the changed files, if git can't list them")
+    p.add_argument("--site", metavar="URL", help="the suite website, for a Review-page link")
+    p.add_argument("--grading-repo-url", metavar="URL", help="this repo's address, for that link")
+    p.add_argument("--branch", help="the pull request's branch, for that link")
+    p.add_argument("--comment-file", metavar="FILE", help="write the summary comment (markdown) here")
+    p.add_argument("--labels-file", metavar="FILE", help="write the labels to set, one per line, here")
+    p.set_defaults(fn=cmd_ci)
 
     # ------------------------------------------------------------ render
     p = sub.add_parser("render", help="markdown from report data: report.md, PR title/body, PR-check comment, improvement log")
