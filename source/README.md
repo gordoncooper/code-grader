@@ -71,7 +71,7 @@ Repeat from step 1. Optionally, use three graders for milestone audits; the Revi
 - **Stable findings.** Findings get IDs like `A3-007` that persist across runs, with a status of new, noticed (already there, but missed before), open, fixed, regressed or accepted. Accepted findings need an entry in `dispositions.json`.
 - **Metrics.** Raw measurements (coverage, vulnerability counts, complexity, setup re-run success, time to first success…) are recorded alongside the scores.
 - **Integrity flags.** Text in the repo that tries to influence the grader caps maturity at L1 for that run.
-- **Versions and pins.** Each project pins the suite's major version it uses (`suite = "5"` in `project.toml`), so a new major can't change its rules mid-cycle: the tools won't write its reports with another major. Scores are compared by the *scoring version*, which changes only when scoring rules do. 5.0 keeps 4.x's scoring version, so 4.x and 5.x reports compare directly, and 5.x reads 4.x reports unchanged.
+- **Versions and pins.** Each project pins the suite's major version it uses (`suite = "5"` in `project.toml`), so a new major can't change its rules mid-cycle: the tools won't write its reports with another major. Scores are compared by the *scoring version*, which changes only when scoring rules do. 5.0 keeps 4.x's scoring version, so 4.x and 5.x reports compare directly, and 5.x reads 4.x reports unchanged. `gradekit migrate` moves a project to a new major in one pull request: the pin and, with `--reports`, its old reports in the new format, with every score unchanged.
 
 All of these are tunable: see [TUNING.md](TUNING.md), and [rubric/weights.md](rubric/weights.md) for how the numbers combine.
 
@@ -106,6 +106,7 @@ $K diff     --project orders-api [--fail-on-regression]          # latest vs pre
 $K stability projects/orders-api/reports/<folder>/runs/run-*.json --project orders-api --out projects/orders-api/reports/<folder>/report.json
 $K calibrate report.json expected.json                           # grader drift check
 $K redact report.json [--in-place]                               # withhold sensitive findings and hidden-check details
+$K migrate --project orders-api [--reports] [--run --push --open github]   # move a project to this suite version, in one pull request
 ```
 
 **For agents and scripts:** add `--json` to any command to get exactly one JSON object on stdout: `{"ok", "exit_code", "command", "result", "text"}`, plus `"error"` when the command failed. `result` holds the command's data (validation errors, the rollup, a diff, the path written…) and `text` holds what it would have printed.

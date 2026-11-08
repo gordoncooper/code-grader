@@ -39,6 +39,18 @@ Major release, in progress: a beta for agents first, then the pages for people. 
   - `run.usage` holds minutes, tokens and cost where known. `report check --write` fills the minutes from the two timestamps.
   - `report.md` opens with a line saying who graded, with which model, how long it took, and the work order.
 - The grader and PR-check prompts, the glossary (*noticed finding*) and the Review page (status filter; evidence without line numbers) follow suit.
+- A public copy keeps each withheld finding's fingerprint, computed from the full report before `redact` withheld its evidence. Editing the public copy never overwrites it.
+
+**Moving a project to 5.x with `gradekit migrate`**
+- `gradekit migrate --project NAME` sets the pin (`suite = "5"`), changing only that line of `project.toml`. With `--reports`, it also upgrades the project's 4.x reports to format 5:
+  - every judgment, score and stored rollup is unchanged, and `migrated.from` records the version that wrote the report;
+  - `run.date` becomes a UTC timestamp, and `config.scoring_version` records the rules the report was graded under;
+  - every finding gets its fingerprint (withheld ones from `report.private.json`, which is upgraded too but never committed);
+  - in PR reports, a `new` finding first seen at the base commit becomes `noticed`;
+  - `report.md` is re-rendered.
+- **It runs in three ways:** without flags it's a dry run, listing every file and confirming the scores don't change. `--write` writes into this checkout, but never on the default branch. `--run` makes a branch from the default branch (`migrate/NAME-v5`) and commits; `--push` and `--open github|gitlab` work as in `deliver`. To undo it, revert the pull request.
+- **`gradekit ci` knows a migration** (label `grading: migration`). It redoes the migration from the base branch's files and needs changes unless every report file is exactly what `migrate` makes. Anything else in the same pull request makes it an ordinary change, where earlier reports may never be edited.
+- `doctor` and the tools' pin messages point to `migrate` for projects pinned to 4.
 
 **Every major version at its own address**
 - The suite's site serves the newest release of each major at its own path: `/v4/` and, once released, `/v5/`. The root shows the newest. Each copy is built from its release and checked against its own `SHA256SUMS` before it's published.

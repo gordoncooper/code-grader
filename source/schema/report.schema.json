@@ -32,6 +32,28 @@
       "pattern": "^5\\.\\d+\\.\\d+$",
       "description": "The kit version that wrote the report. 5.x reads 4.x reports unchanged."
     },
+    "migrated": {
+      "type": "object",
+      "required": [
+        "from",
+        "by"
+      ],
+      "description": "Set by `gradekit migrate` on a 4.x report upgraded to format 5: its judgments, scores and rollup are unchanged.",
+      "properties": {
+        "from": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "The suite version that wrote the report"
+        },
+        "by": {
+          "type": "string",
+          "description": "The suite version that migrated it"
+        }
+      },
+      "additionalProperties": false
+    },
     "mode": {
       "enum": [
         "full",
