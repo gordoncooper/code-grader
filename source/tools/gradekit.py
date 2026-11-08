@@ -448,24 +448,32 @@ def org_for(pdir: Path) -> Path | None:
     return None
 
 
-def report_order_key(folder: str, report_text: str | None = None) -> tuple:
-    """Oldest first. Folders are <date>-<commit>, so the name orders by day; reports from the same day are
-    ordered by run.date, which graders write as a full UTC timestamp (a date alone sorts before any time)."""
-    run_date = ""
-    if report_text:
-        try:
-            run_date = str((json.loads(report_text).get("run") or {}).get("date") or "")
-        except ValueError:
-            pass
-    return (folder[:10], run_date, folder)
+def order_report_folders(folders: list[str], run_dates: dict | None = None) -> tuple[list[str], list[str]]:
+    """Report folders oldest first, and the folders whose run.date is still needed to order them.
+    Only reports sharing a day need their run.date read (the folder name orders the rest)."""
+    by_day: dict[str, list[str]] = {}
+    for f in folders:
+        by_day.setdefault(f[:10], []).append(f)
+    rd = run_dates or {}
+    need = [f for group in by_day.values() if len(group) > 1 for f in group if f not in rd]
+    return sorted(folders, key=lambda f: (f[:10], str(rd.get(f) or ""), f)), need
+
+
+def run_date_of(text: str | None) -> str:
+    try:
+        return str((json.loads(text or "").get("run") or {}).get("date") or "")
+    except (ValueError, AttributeError):
+        return ""
 
 
 def report_folders(pdir: Path) -> list[Path]:
     root = pdir / "reports"
     if not root.is_dir():
         return []
-    found = [d for d in root.iterdir() if d.is_dir() and (d / "report.json").exists()]
-    return sorted(found, key=lambda d: report_order_key(d.name, (d / "report.json").read_text(encoding="utf-8", errors="replace")))
+    found = {d.name: d for d in root.iterdir() if d.is_dir() and (d / "report.json").exists()}
+    _, need = order_report_folders(list(found))
+    dates = {f: run_date_of((found[f] / "report.json").read_text(encoding="utf-8", errors="replace")) for f in need}
+    return [found[f] for f in order_report_folders(list(found), dates)[0]]
 
 
 def load_config(args, report: dict | None = None, quiet: bool = False) -> dict:
@@ -3538,7 +3546,7 @@ def _api_info(p):
             "zone_settings": merged.get("zone_settings", {}), "targets": merged.get("targets", {}),
             "maturity": merged.get("maturity", {}), "review": merged.get("review", {}),
             "starter_decisions": starter_json("decisions"), "starter_dispositions": starter_json("dispositions"),
-            "grading_repo_readme": GRADING_REPO_README}
+            "grading_repo_readme": GRADING_REPO_README, "side_files": SIDE_FILES}
 
 
 def _api_build(p):
@@ -3622,14 +3630,18 @@ def _api_scan_zip(p):
             "projects": scan_paths({n: (lambda n=n: zf.read(n).decode("utf-8", errors="replace")) for n in names})}
 
 
-def scan_paths(files: dict) -> dict:
-    """Group files of a grading repo (or one project folder) by project. files: path -> callable returning text."""
+SIDE_FILES = {PROJECT_FILE: "project", DECISIONS_FILE: "decisions", DISPOSITIONS_FILE: "dispositions", "org.toml": "org"}
+
+
+def scan_layout(paths: list[str]) -> list[dict]:
+    """Find the projects in a grading repo (or one project folder) from file paths alone.
+    Each: {name, root, side: {file name: path}, org: path, reports: {folder: {report: path, runs: [paths]}}}."""
     projects: dict[str, dict] = {}
     org = None
-    for path in files:
-        parts = path.split("/")
+    for path in paths:
+        parts = path.strip("/").split("/")
         if parts[-1] == "org.toml":
-            org = files[path]()
+            org = path
             continue
         if "reports" in parts:
             i = len(parts) - 1 - parts[::-1].index("reports")
@@ -3639,36 +3651,112 @@ def scan_paths(files: dict) -> dict:
         if not rest:
             continue
         key = "/".join(root)
-        name = root[-1] if root else "project"
-        proj = projects.setdefault(key, {"name": name, "root": key, "reports": {}})
-        if len(rest) == 1 and rest[0] in (PROJECT_FILE, DECISIONS_FILE, DISPOSITIONS_FILE) and "reports" not in parts:
-            proj[rest[0]] = files[path]()
+        proj = projects.setdefault(key, {"name": root[-1] if root else "project", "root": key, "side": {}, "reports": {}})
+        if len(rest) == 1 and rest[0] in SIDE_FILES and "reports" not in parts:
+            proj["side"][rest[0]] = path
         elif len(rest) == 2 and rest[1] == "report.json":
-            proj["reports"].setdefault(rest[0], {})["report"] = files[path]()
+            proj["reports"].setdefault(rest[0], {"runs": []})["report"] = path
         elif len(rest) == 3 and rest[1] == "runs" and rest[2].endswith(".json"):
-            proj["reports"].setdefault(rest[0], {}).setdefault("runs", []).append(files[path]())
-    found = [(key, proj) for key, proj in projects.items() if proj.get(PROJECT_FILE) or proj["reports"]]
+            proj["reports"].setdefault(rest[0], {"runs": []})["runs"].append(path)
+    found = [p for p in projects.values() if p["side"].get(PROJECT_FILE) or any(r.get("report") for r in p["reports"].values())]
     # Copies of the suite (any folder with tools/gradekit.py, such as bundle/bare/ or a website's suite/)
     # ship an example project. Skip projects inside them, unless they're all there is.
-    kits = [p[: -len("tools/gradekit.py")] for p in files if p == "tools/gradekit.py" or p.endswith("/tools/gradekit.py")]
-    outside = [(key, proj) for key, proj in found if not any((key + "/").startswith(k) for k in kits)]
+    clean = [x.strip("/") for x in paths]
+    kits = [x[: -len("tools/gradekit.py")] for x in clean if x == "tools/gradekit.py" or x.endswith("/tools/gradekit.py")]
+    outside = [p for p in found if not any((p["root"] + "/").startswith(k) for k in kits)]
     if not outside:  # only copies of the example: show each project once (the shortest path)
         seen: set = set()
-        outside = [(k, pr) for k, pr in sorted(found, key=lambda kv: len(kv[0])) if not (pr["name"] in seen or seen.add(pr["name"]))]
+        outside = [p for p in sorted(found, key=lambda p: len(p["root"])) if not (p["name"] in seen or seen.add(p["name"]))]
+    names: set = set()
+    for p in outside:
+        p["org"] = org
+        p["reports"] = {f: r for f, r in p["reports"].items() if r.get("report")}
+        if p["name"] in names:
+            p["name"] = p["root"]
+        names.add(p["name"])
+    return outside
+
+
+def scan_paths(files: dict) -> dict:
+    """Group files of a grading repo (or one project folder) by project, with their contents.
+    files: path -> callable returning text."""
     out = {}
-    for key, proj in outside:
-        reports = sorted(({"folder": f, **v} for f, v in proj["reports"].items() if v.get("report")),
-                         key=lambda r: report_order_key(r["folder"], r["report"]))
-        out[proj["name"] if proj["name"] not in out else key] = {
-            "root": key, "project_toml": proj.get(PROJECT_FILE), "decisions_json": proj.get(DECISIONS_FILE),
-            "dispositions_json": proj.get(DISPOSITIONS_FILE), "reports": reports, "org_toml": org}
+    for p in scan_layout(list(files)):
+        texts = {f: files[r["report"]]() for f, r in p["reports"].items()}
+        _, need = order_report_folders(list(texts))
+        order = order_report_folders(list(texts), {f: run_date_of(texts[f]) for f in need})[0]
+        side = {k: files[v]() for k, v in p["side"].items()}
+        out[p["name"]] = {
+            "root": p["root"], "project_toml": side.get(PROJECT_FILE), "decisions_json": side.get(DECISIONS_FILE),
+            "dispositions_json": side.get(DISPOSITIONS_FILE), "org_toml": files[p["org"]]() if p["org"] else None,
+            "reports": [{"folder": f, "report": texts[f], "runs": [files[x]() for x in p["reports"][f]["runs"]]} for f in order]}
     return out
+
+
+def classify_files(files: list[dict]) -> list[str]:
+    """What each loose file dropped on the Review page is, in the order given.
+    files: [{name, json (parsed, if it's JSON), error (if it didn't parse), role (if the person chose one)}].
+    The newest report (by run.date) is the one reviewed; another with the same commit is a run of it
+    (for consensus); any other report is an earlier one to compare with."""
+    roles: list[str] = []
+    fixed: list[bool] = []
+    for f in files:
+        name, data = str(f.get("name") or ""), f.get("json")
+        if f.get("role"):
+            roles.append(f["role"])
+            fixed.append(True)
+            continue
+        fixed.append(False)
+        run = (data.get("run") or {}) if isinstance(data, dict) else {}
+        if f.get("error"):
+            role = "ignore"
+        elif name in SIDE_FILES:
+            role = SIDE_FILES[name]
+        elif name.lower().endswith(".zip"):
+            role = "zip"
+        elif name.lower().endswith(".toml"):
+            role = "org" if "project" in roles else "project"
+        elif isinstance(data, dict) and isinstance(data.get("benchmarks"), list):
+            main = next((i for i, r in enumerate(roles) if r == "report"), None)
+            if main is None:
+                role = "report"
+            else:
+                mrun = (files[main].get("json") or {}).get("run") or {}
+                if run.get("commit") and run.get("commit") == mrun.get("commit"):
+                    role = "run"
+                elif not fixed[main] and str(run.get("date") or "") > str(mrun.get("date") or ""):
+                    roles[main], role = "previous", "report"
+                else:
+                    role = "previous"
+        elif isinstance(data, dict) and isinstance(data.get("decisions"), list):
+            role = "decisions"
+        elif isinstance(data, dict) and isinstance(data.get("dispositions"), list):
+            role = "dispositions"
+        else:
+            role = "ignore"
+        roles.append(role)
+    return roles
+
+
+
+def _api_scan_layout(p):
+    return {"projects": scan_layout(list(p.get("paths") or []))}
+
+
+def _api_order_reports(p):
+    ordered, need = order_report_folders(list(p.get("folders") or []), p.get("run_dates") or {})
+    return {"ordered": ordered, "need_run_dates": need}
+
+
+def _api_classify(p):
+    return {"roles": classify_files(list(p.get("files") or []))}
 
 
 WEB_API = {"info": _api_info, "build": _api_build, "parse": _api_parse, "zone_test": _api_zone_test,
            "check": _api_check, "consensus": _api_consensus, "compare": _api_compare,
            "verify_zip": _api_verify_zip, "redact": _api_redact, "decisions_update": _api_decisions_update,
-           "scan_zip": _api_scan_zip}
+           "scan_zip": _api_scan_zip, "scan_layout": _api_scan_layout, "order_reports": _api_order_reports,
+           "classify": _api_classify}
 
 
 def web_api(name: str, payload: dict) -> dict:
