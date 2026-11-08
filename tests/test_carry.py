@@ -90,7 +90,7 @@ def test_relocate_a_missing_file(gk):
 def carried(tmp_path, changed_repo, *extra):
     repo, base, head = changed_repo
     out = tmp_path / "pr.json"
-    res = json.loads(gk("carry", NEW, "--repo", repo, "--commit", head, "--base-commit", base, "--out", out,
+    res = json.loads(gk("carry", NEW, "--model", "test-model", "--repo", repo, "--commit", head, "--base-commit", base, "--out", out,
                         "--allow-withheld", "--json", *extra).stdout)["result"]
     return res, json.loads(out.read_text())
 
@@ -137,7 +137,7 @@ def test_full_carry_makes_the_next_report_folder(tmp_path, changed_repo):
     grading = tmp_path / "grading"
     shutil.copytree(EXAMPLE, grading)
     src = grading / "projects" / "orders-api" / "reports" / "2026-11-07-a1b2c3d" / "report.json"
-    res = json.loads(gk("carry", src, "--mode", "full", "--repo", repo, "--commit", head, "--allow-withheld", "--json", cwd=grading).stdout)["result"]
+    res = json.loads(gk("carry", src, "--model", "test-model", "--mode", "full", "--repo", repo, "--commit", head, "--allow-withheld", "--json", cwd=grading).stdout)["result"]
     assert res["report"].endswith(f"-{head[:7]}/report.json")
     r = json.loads((grading / res["report"]).read_text() if not os.path.isabs(res["report"]) else open(res["report"]).read())
     assert all(b["score"] is None and not b["carried_forward"] for b in r["benchmarks"])

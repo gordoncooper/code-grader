@@ -356,7 +356,7 @@
   function section(title, sub) { return h("div", { style: "margin:26px 0 10px" }, h("h2", { style: "font-family:var(--serif);font-size:1.3rem;margin:0" }, title), sub ? h("p", { class: "hint", style: "margin:4px 0 0;color:var(--muted);font-size:.9rem" }, sub) : null); }
   function evidenceList(evs) {
     return h("ul", { style: "margin:4px 0;padding-left:18px" }, (evs || []).map(function (e) {
-      if (e.type === "code") return h("li", null, h("code", null, e.file + ":" + e.lines), " ", e.note || "", e.quote ? h("pre", { style: "margin:4px 0;font-size:.78rem;white-space:pre-wrap" }, e.quote) : null);
+      if (e.type === "code") return h("li", null, h("code", null, e.file + (e.lines ? ":" + e.lines : "")), " ", e.note || "", e.quote ? h("pre", { style: "margin:4px 0;font-size:.78rem;white-space:pre-wrap" }, e.quote) : null);
       if (e.type === "command") return h("li", null, h("code", null, e.command), " ", e.note || "", h("pre", { style: "margin:4px 0;font-size:.78rem;white-space:pre-wrap" }, e.excerpt));
       if (e.type === "withheld") return h("li", null, h("span", { class: "badge" }, "details withheld"), " ", e.note || "");
       return h("li", null, "Searched for ", h("b", null, e.searched), " (", e.method, ") ", e.note || "");
@@ -588,14 +588,14 @@
     box.appendChild(h("div", { class: "filters" },
       selectFilter("Zone", "zone", [["all", "All"], ["hot", "Hot"], ["normal", "Normal"], ["cold", "Cold"]]),
       selectFilter("Severity", "sev", [["all", "All"], ["critical", "Critical"], ["major", "Major"], ["minor", "Minor"]]),
-      selectFilter("Status", "status", [["open", "Open (new, open, regressed)"], ["all", "All"], ["fixed", "Fixed"], ["accepted", "Accepted"]]),
+      selectFilter("Status", "status", [["open", "Open: not fixed or accepted"], ["all", "All"], ["fixed", "Fixed"], ["accepted", "Accepted"]]),
       h("span", { class: "kbd-note" }, "Severity shown is effective: one higher in hot zones, one lower in cold.")));
     var tableWrap = h("div", { class: "card", style: "padding:4px 12px" });
     box.appendChild(tableWrap);
     function draw() {
       var rows = list.filter(function (x) {
         var z = fz[x.id] || {};
-        var openish = ["new", "open", "regressed"].indexOf(x.status) >= 0;
+        var openish = ["new", "noticed", "open", "regressed"].indexOf(x.status) >= 0;
         return (f.zone === "all" || z.criticality === f.zone) && (f.sev === "all" || z.effective_severity === f.sev) &&
                (f.status === "all" || (f.status === "open" ? openish : x.status === f.status));
       });

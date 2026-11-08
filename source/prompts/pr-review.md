@@ -60,7 +60,7 @@ Then grade the touched benchmarks and update findings with the `gradekit report`
 - **Untouched benchmarks:** copy them unchanged from the last full report and set `carried_forward: true`.
 - **Config:** use the same project config as the last full report. If the config has changed since then, say so in the PR comment: weight changes alone can move the overall score.
 - **Findings:** for touched benchmarks, update statuses (`fixed`, `open`, `regressed`) and add `new` findings. Copy the rest unchanged.
-  - **A problem the change didn't cause** (it's already there at `BASE_COMMIT`, but the baseline report missed it): still add it as `new`, with `first_seen_commit` set to `BASE_COMMIT`. `gradekit diff` reports it as pre-existing and doesn't fail the PR for it. Problems the change introduces take `HEAD_COMMIT`.
+  - **A problem the change didn't cause** (it's already there at `BASE_COMMIT`, but the baseline report missed it): add it with status `noticed` (`report finding add … --status noticed`, which sets `first_seen_commit` to `BASE_COMMIT`). `gradekit diff` reports it as pre-existing and doesn't fail the PR for it. Problems the change introduces are `new`, with `HEAD_COMMIT`.
 - Re-run whichever tooling the change affects (always the tests; the linters and type checker if code changed; the dependency audit if manifests changed). Update the corresponding `metrics`.
 - **Output:** a full `pr-report.json` with `"mode": "pr"`, `run.commit` = `HEAD_COMMIT` and `run.base_commit` = `BASE_COMMIT`, written **outside the repo**. Then run `gradekit validate`, `verify-evidence` and `rollup --write`, exactly as in a full run, with `--project-dir PROJECT_DIR`.
 

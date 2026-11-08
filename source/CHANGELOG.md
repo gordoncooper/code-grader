@@ -26,6 +26,20 @@ Major release, in progress: a beta for agents first, then the pages for people. 
   - `gradekit ci` needs changes on a report PR whose report was made by another major than the pin.
   - A project without a pin works as before.
 
+**Report format 5**
+- New reports carry `"schema_version": 5`. Reports without it are format 4 (suite 4.x), which 5.x still reads with `schema/report-4.schema.json`. `report new` and `carry` write format 5, so carrying a 4.x report forward upgrades it.
+- **`noticed`, a new finding status:** a problem first recorded now that was already there before, because the previous report missed it. It counts as open everywhere (maturity, priorities, the index, Review). A PR check reports it as pre-existing and never fails because of it, so the old workaround (`new` with `first_seen_commit` set to the base commit) isn't needed. 4.x reports still use that rule. `report finding add --status noticed` sets the first-seen commit to the PR's base commit.
+- **The quote is the anchor:** `lines` is optional in code evidence. Without it, the check finds the quote anywhere in the file. `report cite` still writes both, for links to the exact lines.
+- **UTC timestamps:** `run.started` (stamped by `report new` and `carry`) and `run.date` (stamped by `report check --write` at the finish) are required, as `YYYY-MM-DDTHH:MM:SSZ`.
+- **Fingerprints:** every finding gets a `fingerprint` from its benchmark, files and quoted code. Rewording or moving the code doesn't change it, so the same problem is recognized across reports. gradekit writes it (report commands, `report check --write`, `rollup --write`), and `validate` refuses one that doesn't match.
+- **Who graded, and what it cost:**
+  - `run.model`: required before a report is finished.
+  - `run.session` and `run.work_order`: optional.
+  - `report new` and `carry` take `--model`, `--session` and `--work-order`. `report check` lists the model as a to-do until it's set.
+  - `run.usage` holds minutes, tokens and cost where known. `report check --write` fills the minutes from the two timestamps.
+  - `report.md` opens with a line saying who graded, with which model, how long it took, and the work order.
+- The grader and PR-check prompts, the glossary (*noticed finding*) and the Review page (status filter; evidence without line numbers) follow suit.
+
 **Every major version at its own address**
 - The suite's site serves the newest release of each major at its own path: `/v4/` and, once released, `/v5/`. The root shows the newest. Each copy is built from its release and checked against its own `SHA256SUMS` before it's published.
 - `versions.json` beside each copy lists the versions. With it:

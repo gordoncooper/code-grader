@@ -34,6 +34,8 @@ Generated from `rubric/glossary.json` by `gradekit glossary --markdown`. Edit th
 
 **finding**: A specific problem in the code, with an ID (A3-002), a severity, a status and evidence. Findings keep their ID from one report to the next. *Not:* issue ID.
 
+**noticed finding**: A problem first recorded in this report that was already there before: the previous report missed it. It counts as open, but a PR check never fails because of it.
+
 **severity**: How bad a finding is: critical, major or minor, as the grader judged it.
 
 **effective severity**: A finding's severity after its zone: one level higher in a hot zone, one lower in a cold zone (never lower for security findings). It decides priorities.

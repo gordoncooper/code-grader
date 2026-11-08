@@ -31,7 +31,7 @@ def gk(*args, cwd, ok=True):
 
 
 def start(repo, *extra):
-    out = json.loads(gk("report", "new", "--project", "orders-api", "--commit", "b2c3d4e5f6", "--grader", "t", "--json", *extra, cwd=repo).stdout)["result"]
+    out = json.loads(gk("report", "new", "--project", "orders-api", "--commit", "b2c3d4e5f6", "--grader", "t", "--model", "test-model", "--json", *extra, cwd=repo).stdout)["result"]
     return out["report"]
 
 

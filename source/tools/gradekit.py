@@ -76,11 +76,15 @@ except ModuleNotFoundError:  # pragma: no cover
 SUITE_DIR = Path(__file__).resolve().parent.parent
 CATALOG_PATH = SUITE_DIR / "rubric" / "catalog.json"
 DEFAULTS_PATH = SUITE_DIR / "config" / "defaults.toml"
-SCHEMA_PATH = SUITE_DIR / "schema" / "report.schema.json"
+SCHEMA_PATH = SUITE_DIR / "schema" / "report.schema.json"          # format 5: what this kit writes
+SCHEMA4_PATH = SUITE_DIR / "schema" / "report-4.schema.json"       # format 4: suite 4.x reports, still read
+REPORT_FORMAT = 5
 GLOSSARY_PATH = SUITE_DIR / "rubric" / "glossary.json"
 PROJECT_FILE, DECISIONS_FILE, DISPOSITIONS_FILE = "project.toml", "decisions.json", "dispositions.json"
 PILLARS = ["A", "B", "C", "D", "E", "F", "X"]
-OPEN_STATUSES = {"new", "open", "regressed"}
+OPEN_STATUSES = {"new", "noticed", "open", "regressed"}
+FINDING_STATUSES = ["new", "noticed", "open", "fixed", "regressed", "accepted"]   # noticed: format 5 only
+GAP_STATUSES = ["new", "open", "fixed", "regressed", "accepted"]
 SEVERITIES = ["minor", "major", "critical"]
 HEAT = {"cold": 0, "normal": 1, "hot": 2}
 
@@ -152,6 +156,22 @@ def kit_version() -> str:
 def scoring_version_of(report: dict) -> str:
     """The scoring rules a report was graded under: recorded since 5.0; before that the kit version said it."""
     return str((report.get("config") or {}).get("scoring_version") or report.get("suite_version") or "0")
+
+
+def report_format(report: dict) -> int:
+    """5 for reports this kit writes; 4 for suite 4.x reports, which have no schema_version."""
+    v = report.get("schema_version")
+    return v if isinstance(v, int) else 4
+
+
+def fingerprint_of(f: dict) -> str:
+    """The same problem gets the same fingerprint across reports: benchmark, files and quoted code (or, without
+    code, the title's words). Wording of notes doesn't change it; moving the code doesn't either."""
+    files = sorted(evidence_files(f.get("evidence", [])) | {repo_relative(p) for p in f.get("paths", []) or []})
+    quotes = sorted({norm(ln) for ev in f.get("evidence", []) if ev.get("type") == "code"
+                     for ln in str(ev.get("quote", "")).splitlines() if norm(ln)})
+    body = [f.get("benchmark_id"), files, quotes or sorted(_tokens(f.get("title") or ""))]
+    return hashlib.sha256(json.dumps(body, ensure_ascii=False).encode()).hexdigest()[:12]
 
 
 def suite_pin(cfg: dict) -> str | None:
@@ -630,7 +650,7 @@ def validate_report(report: dict, cfg: dict, catalog: dict) -> tuple[list[str], 
     try:
         import jsonschema  # type: ignore
 
-        validator = jsonschema.Draft202012Validator(load_json(SCHEMA_PATH))
+        validator = jsonschema.Draft202012Validator(load_json(SCHEMA_PATH if report_format(report) >= 5 else SCHEMA4_PATH))
         for err in sorted(validator.iter_errors(report), key=lambda e: list(e.path)):
             loc = "/".join(str(p) for p in err.path) or "(root)"
             errors.append(f"schema: {loc}: {err.message}")
@@ -679,6 +699,14 @@ def validate_report(report: dict, cfg: dict, catalog: dict) -> tuple[list[str], 
                 warnings.append(f"finding {fid} is 'accepted' but no entry in dispositions.json covers it")
         if f.get("disposition") and f.get("status") != "accepted":
             warnings.append(f"finding {fid}: has a disposition but status is '{f.get('status')}'")
+        if report_format(report) >= 5:
+            if f.get("fingerprint") and f["fingerprint"] != fingerprint_of(f):
+                errors.append(f"finding {fid}: fingerprint {f['fingerprint']} doesn't match its evidence (gradekit writes it: "
+                              "`report check --write` or `rollup --write`)")
+            elif not f.get("fingerprint"):
+                warnings.append(f"finding {fid}: no fingerprint yet (`report check --write` or `rollup --write` adds it)")
+    if report_format(report) >= 5 and report.get("rollup") and not str((report.get("run") or {}).get("model") or "").strip():
+        errors.append("run.model is empty: a finished report records the model that graded it (`report set REPORT run.model NAME`)")
     fz = analyze_findings(report, cfg)
 
     gates = set(cfg["gates"]["benchmarks"])
@@ -822,6 +850,11 @@ def check_code_evidence(ev: dict, read_lines, tolerance: int) -> str | None:
     lines = read_lines(rel)
     if isinstance(lines, str):
         return lines
+    quote = norm(ev.get("quote", ""))
+    if ev.get("lines") in (None, ""):   # format 5: the quote is the anchor
+        if not quote:
+            return "empty quote"
+        return None if quote in norm("\n".join(lines)) else f"quote not found in {rel}"
     m = re.fullmatch(r"(\d+)(?:-(\d+))?", str(ev.get("lines", "")))
     if not m:
         return f"bad line range '{ev.get('lines')}'"
@@ -1152,6 +1185,9 @@ def decision_for(action: dict, cfg: dict) -> dict | None:
 
 
 def apply_rollup(report: dict, cfg: dict) -> dict:
+    if report_format(report) >= 5:
+        for f in report.get("findings", []):
+            f["fingerprint"] = fingerprint_of(f)
     roll = compute_rollup(report, cfg)
     report["rollup"] = roll
     for b in report.get("benchmarks", []):
@@ -1341,6 +1377,8 @@ def compute_diff(old: dict, new: dict, cfg_old: dict, cfg_new: dict) -> dict:
     before = [c for c in (old.get("run", {}).get("commit"), new.get("run", {}).get("base_commit")) if c]
 
     def pre_existing(i):
+        if nf[i].get("status") == "noticed":   # format 5 says so directly
+            return True
         seen = str(nf[i].get("first_seen_commit") or "")
         return bool(seen) and any(seen.startswith(c) or c.startswith(seen) for c in before)
 
@@ -2064,6 +2102,15 @@ REPORT_LISTS = ("commands_run", "feature_inventory", "gap_register", "findings",
 CONFIDENCE = ("high", "medium", "low")
 
 
+def minutes_between(start: str, end: str) -> float | None:
+    import datetime
+    try:
+        a, b = (datetime.datetime.strptime(x, "%Y-%m-%dT%H:%M:%SZ") for x in (start, end))
+    except (TypeError, ValueError):
+        return None
+    return round(max((b - a).total_seconds(), 0) / 60, 1)
+
+
 def utc_now() -> str:
     import datetime
     return datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -2103,6 +2150,8 @@ def normalize_report(report: dict, cfg: dict, catalog: dict | None = None) -> di
         b = by_id.get(f.get("benchmark_id"))
         if b is not None and f.get("id") not in b["finding_ids"]:
             b["finding_ids"].append(f.get("id"))
+        if report_format(report) >= 5:
+            f["fingerprint"] = fingerprint_of(f)
     for bid, tv in compute_targets(report, cfg).items():
         if bid in by_id:
             by_id[bid]["target"] = tv
@@ -2282,8 +2331,9 @@ def cmd_report_new(args) -> int:
             previous = benchmarks_by_id(load_json(older[-1] / "report.json"))
     project = (cfg.get("project") or {}).get("name") or (pdir.name if pdir else None)
     report = {
-        "suite_version": catalog["suite_version"], "mode": args.mode,
-        "run": {"project": project, "commit": commit, "base_commit": args.base_commit, "date": now, "grader": args.grader,
+        "schema_version": REPORT_FORMAT, "suite_version": catalog["suite_version"], "mode": args.mode,
+        "run": {"project": project, "commit": commit, "base_commit": args.base_commit, "started": now, "date": now,
+                "grader": args.grader, "model": args.model, "session": args.session, "work_order": args.work_order,
                 "run_index": run_index, "run_count": run_count, "suite_source": args.suite_source},
         "component": ({"name": cfg["component"]["name"], "path": cfg["component"].get("path"), "weight": cfg["component"].get("weight", 1)}
                       if cfg.get("component") else None),
@@ -2334,8 +2384,12 @@ def cmd_finding_add(args) -> int:
         fid = args.id
     else:
         fid = next_id(bid, "-", known_ids(args.report, report, rf"\b{bid}-\d{{3,}}\b"))
+    run = report.get("run") or {}
+    if args.status == "noticed" and report_format(report) < 5:
+        die("status 'noticed' needs a format-5 report (suite 5.x); in this 4.x report, use 'new' with --first-seen BASE_COMMIT")
+    seen = args.first_seen or ((run.get("base_commit") or run.get("commit")) if args.status == "noticed" else run.get("commit"))
     f = {"id": fid, "benchmark_id": bid, "title": args.title, "severity": args.severity, "status": args.status,
-         "first_seen_commit": args.first_seen or (report.get("run") or {}).get("commit"),
+         "first_seen_commit": seen,
          "evidence": evidence_from_args(args, required=True), "disposition": None, "disposition_concern": None}
     if args.paths:
         f["paths"] = [repo_relative(p) for p in args.paths]
@@ -2545,6 +2599,8 @@ def report_todo(report: dict) -> list[str]:
         todo.append("record the commands you ran: `report ran REPORT --command-text CMD --summary TEXT`")
     if not report.get("limitations"):
         todo.append("list limitations (or 'None'): `report set REPORT limitations \"...\" --append`")
+    if report_format(report) >= 5 and not str((report.get("run") or {}).get("model") or "").strip():
+        todo.append("record the model that graded: `report set REPORT run.model NAME` (or `report new --model`)")
     return todo
 
 
@@ -2568,6 +2624,10 @@ def cmd_report_check(args) -> int:
         if roll is not None:
             apply_rollup(report, cfg)
             report["run"]["date"] = utc_now()
+            if report_format(report) >= 5:
+                usage = report["run"].setdefault("usage", {})
+                if usage.get("minutes") is None and report["run"].get("started"):
+                    usage["minutes"] = minutes_between(report["run"]["started"], report["run"]["date"])
         write_json(args.report, report)
     status = "errors" if errors else "incomplete" if todo else "ready"
     result = {"status": status, "errors": errors, "warnings": cfg.get("warnings", []) + warnings, "todo": todo,
@@ -2767,6 +2827,10 @@ def cmd_carry(args) -> int:
             touched += extra
             why.append(f"--touched: {', '.join(extra)}")
     report, stats = carry_report(baseline, read, cfg, args.commit, args.mode, args.base_commit, touched)
+    report = {"schema_version": REPORT_FORMAT, **{k: v for k, v in report.items() if k != "schema_version"}}
+    report["run"].update({"started": report["run"]["date"], "grader": args.grader or report["run"].get("grader"),
+                          "model": args.model, "session": args.session, "work_order": args.work_order})
+    report["run"].pop("usage", None)
     pdir = project_dir_for_report(args.baseline) or project_dir_from_args(args)
     if args.out:
         out = Path(args.out)
@@ -3738,6 +3802,19 @@ def decisions_block(roll: dict) -> list[str]:
     return [f"- [ ] **{p['action_id']}:** {p.get('decision_question')}" for p in pending]
 
 
+def provenance_line(run: dict) -> str:
+    """Who graded, with what, and how long it took (format 5)."""
+    who = " ".join(x for x in (str(run.get("grader") or "").strip(), f"({run['model']})" if run.get("model") else "") if x)
+    parts = [f"Graded by {md_cell(who or 'unknown')}"]
+    mins = (run.get("usage") or {}).get("minutes")
+    if mins is not None:
+        parts.append(f"{mins:g} min")
+    for key, label in (("work_order", "work order"), ("session", "session")):
+        if run.get(key):
+            parts.append(f"{label} `{md_cell(run[key])}`")
+    return "*" + " · ".join(parts) + "*"
+
+
 def render_report_md(report: dict, cfg: dict, catalog: dict | None = None) -> str:
     catalog = catalog or load_catalog()
     report = public_view(report, cfg)
@@ -3752,6 +3829,8 @@ def render_report_md(report: dict, cfg: dict, catalog: dict | None = None) -> st
     if report.get("mode") == "pr":
         out += [f"*PR check against base `{str((report.get('run') or {}).get('base_commit') or '?')[:7]}`. "
                 f"Untouched benchmarks are carried forward from the last full report.*", ""]
+    if report_format(report) >= 5:
+        out += [provenance_line(report.get("run") or {}), ""]
 
     out += ["## Summary", "", f"Overall **{dash(roll['overall_score'])}**"
             + (" (capped by a failed gate)" if roll["overall_cap_applied"] else "")
@@ -4951,6 +5030,11 @@ def main(argv=None) -> int:
     ap = CliParser(prog="gradekit", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
 
+    def provenance(p):
+        p.add_argument("--model", help="the model grading, e.g. claude-opus-5-5 (a finished report needs it)")
+        p.add_argument("--session", help="the agent session's ID or URL, so reviewers can see who graded")
+        p.add_argument("--work-order", help="the work order this run answers (its ID)")
+
     def with_config(p):
         p.add_argument("--project", metavar="NAME", help="project folder projects/NAME in the grading repo")
         p.add_argument("--grading-repo", metavar="DIR", help="grading repo root (default: current folder)")
@@ -5063,7 +5147,8 @@ def main(argv=None) -> int:
     q.add_argument("--commit", required=True, help="the commit being graded")
     q.add_argument("--base-commit", help="pr mode: the pull request's base commit")
     q.add_argument("--mode", choices=["full", "pr"], default="full")
-    q.add_argument("--grader", default="unknown", help="model or agent name")
+    q.add_argument("--grader", default="unknown", help="the agent or person grading, e.g. Claude Code")
+    provenance(q)
     q.add_argument("--run", metavar="N/COUNT", help="for several independent graders: e.g. 2/3 (writes runs/run-2.json)")
     q.add_argument("--suite-source", default="local", help="where the suite came from, e.g. the AGENT.md URL and version")
     q.add_argument("--out", metavar="FILE", help="write here instead of projects/NAME/reports/<date>-<commit>/report.json")
@@ -5084,7 +5169,8 @@ def main(argv=None) -> int:
     q.add_argument("--benchmark", required=True, metavar="ID")
     q.add_argument("--title", required=True)
     q.add_argument("--severity", required=True, choices=SEVERITIES[::-1])
-    q.add_argument("--status", default="new", choices=["new", "open", "fixed", "regressed", "accepted"])
+    q.add_argument("--status", default="new", choices=FINDING_STATUSES,
+                   help="new (caused by the graded code), noticed (already there before, first recorded now), open, …")
     q.add_argument("--first-seen", metavar="COMMIT", help="default: the graded commit")
     q.add_argument("--id", help="reuse an ID from the previous report (default: next free ID)")
     q.add_argument("--paths", nargs="+", metavar="GLOB", help="areas the finding concerns, for zones when there's no code evidence")
@@ -5096,7 +5182,7 @@ def main(argv=None) -> int:
     q.add_argument("id")
     q.add_argument("--title")
     q.add_argument("--severity", choices=SEVERITIES[::-1])
-    q.add_argument("--status", choices=["new", "open", "fixed", "regressed", "accepted"])
+    q.add_argument("--status", choices=FINDING_STATUSES)
     q.add_argument("--disposition-concern", metavar="TEXT", help="why an accepted finding should be reconsidered ('' clears it)")
     q.add_argument("--paths", nargs="+", metavar="GLOB")
     g = q.add_mutually_exclusive_group()
@@ -5149,7 +5235,7 @@ def main(argv=None) -> int:
     q.add_argument("--gap", required=True)
     q.add_argument("--severity", required=True, choices=SEVERITIES[::-1])
     q.add_argument("--necessity", required=True, choices=["must-have", "nice-to-have"])
-    q.add_argument("--status", default="new", choices=["new", "open", "fixed", "regressed", "accepted"])
+    q.add_argument("--status", default="new", choices=GAP_STATUSES)
     q.add_argument("--rationale")
     q.add_argument("--benchmarks", nargs="+", required=True, metavar="ID")
     q.set_defaults(fn=cmd_report_gap)
@@ -5210,6 +5296,8 @@ def main(argv=None) -> int:
     p.add_argument("--out", metavar="FILE", help="where to write (required in pr mode; full mode defaults to a new report folder)")
     p.add_argument("--force", action="store_true")
     p.add_argument("--allow-withheld", action="store_true", help="carry from a public copy anyway")
+    p.add_argument("--grader", help="the agent or person grading now (default: the baseline's)")
+    provenance(p)
     with_config(p)
     p.set_defaults(fn=cmd_carry)
 
