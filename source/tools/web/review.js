@@ -113,7 +113,7 @@
     var pick = h("select", { "aria-label": "Project" }, projects.map(function (p, i) { return h("option", { value: i }, p.name + " (" + Object.keys(p.reports).length + " reports)"); }));
     var go = h("button", { type: "button", class: "btn primary" }, "Load project");
     go.addEventListener("click", function () { useProject(projects[parseInt(pick.value, 10)], label, meta); });
-    pendingPicker = h("div", { class: "banner info" }, "This contains several projects. Pick one: ", pick, " ", go);
+    pendingPicker = UI.banner("info", "This contains several projects. Pick one: ", pick, " ", go);
     renderFiles();
   }
 
@@ -131,7 +131,7 @@
             await chooseProject(projects, file.name);
             continue;
           }
-        } catch (err) { UI.clear($("#engine-error")).appendChild(err.gk ? h("div", { class: "banner bad" }, err.message) : UI.engineHelp(err)); }
+        } catch (err) { UI.clear($("#engine-error")).appendChild(err.gk ? UI.banner("bad", err.message) : UI.engineHelp(err)); }
         addFile(file.name, bytes, true, "zip");
       } else {
         loose.push(file);
@@ -140,7 +140,7 @@
     for (var j = 0; j < loose.length; j++) addFile(loose[j].name, await UI.readFile(loose[j]));
     if (loose.length) {
       try { await classifyFiles(); }
-      catch (err) { UI.clear($("#engine-error")).appendChild(err.gk ? h("div", { class: "banner bad" }, err.message) : UI.engineHelp(err)); }
+      catch (err) { UI.clear($("#engine-error")).appendChild(err.gk ? UI.banner("bad", err.message) : UI.engineHelp(err)); }
     }
     renderFiles();
     if (loose.length && files.some(function (f) { return f.role === "report"; })) analyze();
@@ -163,7 +163,7 @@
     }).filter(function (e) { return /\.(json|toml)$/.test(e.path) || /(^|\/)tools\/gradekit\.py$/.test(e.path); });
     var top = (entries[0] && entries[0].path.split("/")[0]) || "folder";
     try { await chooseProject(await scanEntries(entries), "folder " + top); }
-    catch (err) { UI.clear($("#engine-error")).appendChild(err.gk ? h("div", { class: "banner bad" }, err.message) : UI.engineHelp(err)); }
+    catch (err) { UI.clear($("#engine-error")).appendChild(err.gk ? UI.banner("bad", err.message) : UI.engineHelp(err)); }
   }
 
   // ------------------------------------------------------------------ GitHub (public grading repos)
@@ -189,14 +189,15 @@
 
   async function loadGitHub() {
     var st = UI.clear($("#gh-status"));
-    var say = function (msg, cls) { UI.clear(st).appendChild(h("div", { class: "banner " + (cls || "info"), style: "margin-top:10px" }, msg)); };
+    var say = function (msg, cls) { UI.clear(st).appendChild(UI.banner(cls || "info", msg)).classList.add("mt-3"); };
+    var busy = function (msg) { UI.show(st, "loading", { title: msg }).classList.add("mt-3"); };
     var p = parseRepo($("#gh-repo").value);
     if (!p) { say("Enter the grading repo as owner/repo or a github.com URL.", "warn"); return; }
     var ref = $("#gh-ref").value.trim(), project = $("#gh-project").value.trim();
     var owner = p.owner, repo = p.repo;
     UI.store.set("gh", { repo: $("#gh-repo").value, project: project });
     try {
-      say("Looking up the repository…");
+      busy("Looking up the repository…");
       if (p.kind === "tree" && !ref) ref = decodeURIComponent(p.rest);
       if (p.kind === "pull") {
         var pr = await getJSON("https://api.github.com/repos/" + owner + "/" + repo + "/pulls/" + parseInt(p.rest, 10));
@@ -238,7 +239,7 @@
           return;
         }
       }
-      say("Loading " + project + "…");
+      busy("Loading " + project + "…");
       var base = "projects/" + project + "/";
       var listing = [];
       try { listing = await getJSON(api(base + "reports")); } catch (e) { if (e.status !== 404) throw e; }
@@ -288,7 +289,9 @@
   // ------------------------------------------------------------------ analysis
   async function analyze() {
     UI.clear($("#engine-error"));
+    var status = $("#review-status");
     $("#analyze").disabled = true; $("#analyze").textContent = "Reviewing…";
+    UI.show(status, "loading", { title: "Reviewing the report…", message: "Checking it against the project's settings; the first run also starts the engine.", skeleton: 3 });
     try {
       var current, prev = null, runs = [];
       if (source && source.history.length) {
@@ -316,11 +319,14 @@
       if (zip) { var path = await GK.putFile(zip.bytes, ".zip"); verify = await GK.call("verify_zip", { report: current, zip_path: path }); }
       R = { report: current, check: check, diff: diff, verify: verify, consensus: consensus, project: byRole("project")[0] };
       answers = {};
+      UI.clear(status);
       renderHistory();
       render();
     } catch (err) {
-      UI.clear($("#engine-error")).appendChild(err.gk ? h("div", { class: "banner bad" }, h("b", null, "Couldn't review these files: "), err.message) : UI.engineHelp(err));
+      if (err.gk) UI.clear(status).appendChild(UI.failed(err, { title: "Couldn't review these files", retry: analyze }));
+      else { UI.clear(status); UI.clear($("#engine-error")).appendChild(UI.engineHelp(err)); }
     } finally {
+      if (status.querySelector("[data-state=loading]")) UI.clear(status);
       $("#analyze").textContent = "Review"; updateAnalyzeButton();
     }
   }
@@ -353,11 +359,11 @@
     return withheld ? h("span", { class: "badge", title: "Security details are kept out of the public report" }, "details withheld")
                     : h("span", { class: "badge warn", title: "Its details must be withheld before this report goes in a public repo" }, "sensitive");
   }
-  function section(title, sub) { return h("div", { style: "margin:26px 0 10px" }, h("h2", { style: "font-family:var(--serif);font-size:1.3rem;margin:0" }, title), sub ? h("p", { class: "hint", style: "margin:4px 0 0;color:var(--muted);font-size:.9rem" }, sub) : null); }
+  function section(title, sub) { return h("div", { class: "section-head" }, h("h2", null, title), sub ? h("p", null, sub) : null); }
   function evidenceList(evs) {
-    return h("ul", { style: "margin:4px 0;padding-left:18px" }, (evs || []).map(function (e) {
-      if (e.type === "code") return h("li", null, h("code", null, e.file + (e.lines ? ":" + e.lines : "")), " ", e.note || "", e.quote ? h("pre", { style: "margin:4px 0;font-size:.78rem;white-space:pre-wrap" }, e.quote) : null);
-      if (e.type === "command") return h("li", null, h("code", null, e.command), " ", e.note || "", h("pre", { style: "margin:4px 0;font-size:.78rem;white-space:pre-wrap" }, e.excerpt));
+    return h("ul", { class: "evidence" }, (evs || []).map(function (e) {
+      if (e.type === "code") return h("li", null, h("code", null, e.file + (e.lines ? ":" + e.lines : "")), " ", e.note || "", e.quote ? h("pre", null, e.quote) : null);
+      if (e.type === "command") return h("li", null, h("code", null, e.command), " ", e.note || "", h("pre", null, e.excerpt));
       if (e.type === "withheld") return h("li", null, h("span", { class: "badge" }, "details withheld"), " ", e.note || "");
       return h("li", null, "Searched for ", h("b", null, e.searched), " (", e.method, ") ", e.note || "");
     }));
@@ -368,15 +374,15 @@
     $("#results").hidden = false;
     var banners = UI.clear($("#result-banners"));
     var c = R.check, roll = c.rollup;
-    if (R.consensus) banners.appendChild(h("div", { class: "banner info" }, "Showing the consensus of " + R.consensus.overall_by_run.length + " runs (median scores). ",
+    if (R.consensus) banners.appendChild(UI.banner("info", "Showing the consensus of " + R.consensus.overall_by_run.length + " runs (median scores). ",
       R.consensus.unstable.length ? "Runs disagreed on " + R.consensus.unstable.join(", ") + ". " : "Runs agreed. ", "Download it as report.json under More → Downloads, and add it to the report's folder."));
-    if ((R.report.integrity_flags || []).length) banners.appendChild(h("div", { class: "banner bad" }, h("b", null, "Integrity flag: "), "the grader found text in the repo trying to influence grading. Maturity is capped. See More."));
-    if (c.validation.errors.length) banners.appendChild(h("div", { class: "banner bad" }, h("b", null, "This report has " + c.validation.errors.length + " error(s). "), "Treat its numbers with caution; usually the fix is to re-run the grader. Details under More."));
+    if ((R.report.integrity_flags || []).length) banners.appendChild(UI.banner("bad", h("b", null, "Integrity flag: "), "the grader found text in the repo trying to influence grading. Maturity is capped. See More."));
+    if (c.validation.errors.length) banners.appendChild(UI.banner("bad", h("b", null, "This report has " + c.validation.errors.length + " error(s). "), "Treat its numbers with caution; usually the fix is to re-run the grader. Details under More."));
     var pub = c.publish || { problems: [] };
-    if (pub.public && pub.problems.length) banners.appendChild(h("div", { class: "banner bad" }, h("b", null, "Not safe to commit to a public grading repo: "),
+    if (pub.public && pub.problems.length) banners.appendChild(UI.banner("bad", h("b", null, "Not safe to commit to a public grading repo: "),
       pub.problems.join("; ") + ". Use the public copy under More → Downloads, or run ", h("code", null, "gradekit redact --in-place"), "."));
-    if (!R.project) banners.appendChild(h("div", { class: "banner warn" }, "No project.toml loaded, so the report is checked against suite defaults. Load the whole project, or add project.toml, to check the config properly."));
-    else if (!c.config_hash_match) banners.appendChild(h("div", { class: "banner warn" }, "This report was graded with a different config than the project.toml you loaded (weights, gates or zones changed since). Scores still stand; overall and maturity are recomputed with your current config."));
+    if (!R.project) banners.appendChild(UI.banner("warn", "No project.toml loaded, so the report is checked against suite defaults. Load the whole project, or add project.toml, to check the config properly."));
+    else if (!c.config_hash_match) banners.appendChild(UI.banner("warn", "This report was graded with a different config than the project.toml you loaded (weights, gates or zones changed since). Scores still stand; overall and maturity are recomputed with your current config."));
     renderOverview(); renderDecisions(); renderPriorities(); renderScorecard(); renderFindings(); renderCompare(); renderMore();
     UI.terms($("#results"));
     var pending = roll.priorities.filter(function (p) { return p.decision && p.decision.status === "pending"; }).length;
@@ -393,12 +399,12 @@
     box.appendChild(h("div", { class: "stats-row" },
       h("div", { class: "stat" }, h("div", { class: "k", dataset: { term: "score" } }, "Overall"), h("div", { class: "v" }, roll.overall_score === null ? "–" : String(roll.overall_score)),
         h("div", { class: "s" }, roll.overall_cap_applied ? "Capped by a failed gate (" + roll.overall_score_uncapped + " before the cap)" : "Weighted average out of 10")),
-      h("div", { class: "stat", style: "grid-column:span 2" }, h("div", { class: "k", dataset: { term: "maturity level" } }, "Maturity"),
+      h("div", { class: "stat span-2" }, h("div", { class: "k", dataset: { term: "maturity level" } }, "Maturity"),
         h("div", { class: "ladder-h" }, levels.map(function (l, i) {
           return h("div", { class: i === cur ? "current" : i < cur ? "reached" : i === nxt ? "next" : "" }, h("b", null, l), names[l] || "");
         })),
         h("div", { class: "s" }, roll.maturity.next_level ? "Next: " + roll.maturity.next_level + " " + (names[roll.maturity.next_level] || "") : "Top level reached")),
-      h("div", { class: "stat" }, h("div", { class: "k" }, "Graded"), h("div", { class: "v", style: "font-size:1.05rem;font-family:var(--mono)" }, String(run.commit || "?").slice(0, 12)),
+      h("div", { class: "stat" }, h("div", { class: "k" }, "Graded"), h("div", { class: "v commit" }, String(run.commit || "?").slice(0, 12)),
         h("div", { class: "s" }, [run.date, (R.report.config || {}).preset ? "preset " + R.report.config.preset : null, R.report.mode === "pr" ? "PR mode" : null].filter(Boolean).join(" · ")))));
 
     var gates = h("div", { class: "row-btns" }, roll.gates.map(function (g) {
@@ -419,23 +425,23 @@
     })) : h("p", { class: "kbd-note" }, "Nothing blocks the next level.");
     var bars = h("div", { class: "pillar-bars" }, Object.keys(roll.pillar_scores).filter(function (p) { return roll.pillar_scores[p] !== null; }).map(function (p) {
       var v = roll.pillar_scores[p];
-      return h("div", { class: "pbar" }, h("span", null, p + " · " + pname(p)), h("div", { class: "track" }, h("i", { style: "width:" + (v * 10) + "%" })), h("b", null, String(v)));
+      return h("div", { class: "pbar" }, h("span", null, p + " · " + pname(p)), h("div", { class: "track" }, h("i", { style: { "--w": (v * 10) + "%" } })), h("b", null, String(v)));
     }));
     box.appendChild(h("div", { class: "two-col even" },
       h("div", { class: "card" }, h("h2", null, "Checks on this report"), checks),
       h("div", { class: "card" }, h("h2", { dataset: { term: "gate" } }, "Gates"), h("p", { class: "hint" }, "Non-negotiable. A gate at 3 or below caps the overall score."), gates,
-        h("h2", { style: "margin-top:18px" }, roll.maturity.next_level ? "What blocks " + roll.maturity.next_level : "Maturity"), blockers)));
-    box.appendChild(h("div", { class: "card", style: "margin-top:16px" }, h("h2", { dataset: { term: "pillar" } }, "Pillars"), bars));
+        h("h2", { class: "mt-4" }, roll.maturity.next_level ? "What blocks " + roll.maturity.next_level : "Maturity"), blockers)));
+    box.appendChild(h("div", { class: "card mt-4" }, h("h2", { dataset: { term: "pillar" } }, "Pillars"), bars));
   }
 
   // ------------------------------------------------------------------ decisions
   function renderDecisions() {
     var box = UI.clear($("#panel-decisions"));
     var items = R.check.rollup.priorities.filter(function (p) { return p.decision; });
-    if (!items.length) { box.appendChild(h("div", { class: "empty" }, "No decision questions in this report. Nothing to answer.")); return; }
-    var nameInput = h("input", { type: "text", placeholder: "you@example.com", value: UI.store.get("decider", ""), "aria-label": "Your name or email", style: "max-width:320px" });
+    if (!items.length) { box.appendChild(UI.state("empty", { title: "No decision questions", message: "This report has nothing for a person to decide." })); return; }
+    var nameInput = h("input", { type: "text", placeholder: "you@example.com", value: UI.store.get("decider", ""), "aria-label": "Your name or email", class: "maxw-sm" });
     nameInput.addEventListener("input", function () { UI.store.set("decider", nameInput.value); updateDecisionOutput(); });
-    box.appendChild(h("p", { class: "hint", style: "color:var(--muted)" }, "Some fixes need a person's call: they change behavior, drop a feature, or touch a public interface. Improving agents skip them until they're approved. Answer what you can and leave the rest for later."));
+    box.appendChild(h("p", { class: "hint muted" }, "Some fixes need a person's call: they change behavior, drop a feature, or touch a public interface. Improving agents skip them until they're approved. Answer what you can and leave the rest for later."));
     box.appendChild(h("div", { class: "field" }, h("label", null, "Your name or email (recorded with each answer)"), nameInput));
     items.forEach(function (p) {
       var a = answers[p.action_id] = answers[p.action_id] || { choice: "later", answer: "" };
@@ -453,9 +459,9 @@
         h("p", { class: "act" }, "Action: ", UI.inline(p.action)),
         p.decision.status !== "pending" ? h("p", { class: "kbd-note" }, "Already answered: " + p.decision.status + (p.decision.answer ? " — " + p.decision.answer : "") + (p.decision.decided_by ? " (" + p.decision.decided_by + ")" : "")) : null,
         p.decision.note ? h("p", { class: "kbd-note" }, p.decision.note) : null,
-        seg, h("div", { style: "margin-top:8px" }, txt)));
+        seg, h("div", { class: "mt-2" }, txt)));
     });
-    box.appendChild(h("div", { class: "card", id: "dec-output", style: "margin-top:18px" }));
+    box.appendChild(h("div", { class: "card mt-4", id: "dec-output" }));
     updateDecisionOutput();
   }
 
@@ -478,9 +484,9 @@
       var res = await GK.call("decisions_update", { decisions: decisions, decisions_json: existing ? existing.text : null });
       var project = projectName();
       var path = "projects/" + project + "/decisions.json";
-      if (!existing) out.appendChild(h("div", { class: "banner warn" }, "No decisions.json was loaded, so this file contains only today's answers. If the project already has a decisions.json, load it first (loading from the grading repo does this for you) so earlier answers are kept."));
+      if (!existing) out.appendChild(UI.banner("warn", "No decisions.json was loaded, so this file contains only today's answers. If the project already has a decisions.json, load it first (loading from the grading repo does this for you) so earlier answers are kept."));
       out.appendChild(h("p", { class: "hint" }, "Your answers have been added to the end of ", h("code", null, "decisions.json"), " (" + items.length + " new). Replace the file's contents with this:"));
-      out.appendChild(h("pre", { class: "out-pre", style: "max-height:300px" }, res.json));
+      out.appendChild(h("pre", { class: "out-pre scroll-sm" }, res.json));
       var row = h("div", { class: "row-btns" });
       var copyBtn = h("button", { type: "button", class: "btn primary" }, "Copy decisions.json");
       copyBtn.addEventListener("click", function () { UI.copyText(res.json); });
@@ -488,22 +494,22 @@
       dl.addEventListener("click", function () { UI.download("decisions.json", res.json, "application/json"); });
       row.appendChild(copyBtn); row.appendChild(dl);
       out.appendChild(row);
-      out.appendChild(h("h3", { style: "font-size:.95rem;margin:18px 0 4px" }, "Where to put it"));
+      out.appendChild(h("h3", { class: "sub-h" }, "Where to put it"));
       var branch = (source && source.meta && source.meta.ref && /^report\//.test(source.meta.ref)) ? source.meta.ref : "report/" + project + "/…";
       out.appendChild(h("ol", { class: "steps-mini" },
         h("li", null, h("b", null, "On the report's pull request (suggested): "), "in the grading repo, switch to the PR's branch (", h("code", null, branch), "), open ", h("code", null, path), ", click the pencil (", h("b", null, "Edit"), "), replace everything with the copied file, and ", h("b", null, "commit directly to that branch"), ". Then merge the PR."),
         h("li", null, h("b", null, "Report already merged: "), "open ", h("code", null, path), " on the default branch, click ", h("b", null, "Edit"), ", paste, and choose ", h("b", null, "Create a new branch"), " named ", h("code", null, "decisions/" + project + "/" + date), " to open a small pull request."),
         h("li", null, h("b", null, "Local files: "), "save it as ", h("code", null, "decisions.json"), " in the project's folder.")));
       out.appendChild(h("p", { class: "kbd-note" }, "Permissions: editing on GitHub needs write access to the grading repo. Answers are only ever added, never edited; the newest answer to a question wins."));
-    } catch (err) { out.appendChild(h("div", { class: "banner bad" }, err.message)); }
+    } catch (err) { out.appendChild(UI.banner("bad", err.message)); }
   }, 200);
 
   // ------------------------------------------------------------------ priorities
   function renderPriorities() {
     var box = UI.clear($("#panel-priorities"));
     var prios = R.check.rollup.priorities;
-    if (!prios.length) { box.appendChild(h("div", { class: "empty" }, "No improvement actions in this report.")); return; }
-    box.appendChild(h("p", { class: "hint", style: "color:var(--muted)" }, "The order improving agents work in. gradekit ranks it: failed gates and critical problems in hot code first, then what blocks the next maturity level, then the rest by weight × points gained × zone ÷ effort."));
+    if (!prios.length) { box.appendChild(UI.state("empty", { title: "No improvement actions", message: "The grader planned no steps toward the targets in this report." })); return; }
+    box.appendChild(h("p", { class: "hint muted" }, "The order improving agents work in. gradekit ranks it: failed gates and critical problems in hot code first, then what blocks the next maturity level, then the rest by weight × points gained × zone ÷ effort."));
     [0, 1, 2, 3].forEach(function (t) {
       var list = prios.filter(function (p) { return p.tier === t; });
       if (!list.length) return;
@@ -524,16 +530,16 @@
     var roll = R.check.rollup, gates = roll.gates.map(function (g) { return g.benchmark_id; });
     var fz = roll.finding_zones, findings = {};
     (R.report.findings || []).forEach(function (f) { findings[f.id] = f; });
-    box.appendChild(h("p", { class: "hint", style: "color:var(--muted)" }, "Bars show the score; the tick marks the target. Click a row for its evidence, findings and next actions."));
+    box.appendChild(h("p", { class: "hint muted" }, "Bars show the score; the tick marks the target. Click a row for its evidence, findings and next actions."));
     var pillars = {};
     R.report.benchmarks.forEach(function (b) { (pillars[b.pillar] = pillars[b.pillar] || []).push(b); });
     Object.keys(pillars).forEach(function (p) {
       var ps = roll.pillar_scores[p];
       box.appendChild(section(p + " · " + pname(p) + (ps !== null && ps !== undefined ? "  —  " + ps : "")));
-      box.appendChild(h("div", { class: "card", style: "padding:6px 16px" }, pillars[p].map(function (b) {
+      box.appendChild(h("div", { class: "card flush" }, pillars[p].map(function (b) {
         var na = b.applicability === "not_applicable";
         var target = roll.targets[b.id];
-        var bar = na ? h("span", { class: "kbd-note" }, "not applicable") : h("div", { class: "track barcell" }, h("i", { style: "width:" + (b.score * 10) + "%" }), target ? h("span", { class: "tgt", style: "left:calc(" + (target * 10) + "% - 1px)" }) : null);
+        var bar = na ? h("span", { class: "kbd-note" }, "not applicable") : h("div", { class: "track barcell" }, h("i", { style: { "--w": (b.score * 10) + "%" } }), target ? h("span", { class: "tgt", style: { "--at": (target * 10) + "%" } }) : null);
         var head = h("button", { type: "button", "aria-expanded": "false" },
           h("span", { class: "id" }, b.id),
           h("span", null, b.name, " ", gates.indexOf(b.id) >= 0 ? h("span", { class: "chip gate" }, "gate") : null, " ",
@@ -556,7 +562,7 @@
     body.appendChild(h("p", { class: "kbd-note" }, "Score " + (b.score === null ? "–" : b.score) + (target ? " · target " + target : "") + " · confidence " + (b.confidence || "–") + (b.previous_score !== null && b.previous_score !== undefined ? " · was " + b.previous_score : "")));
     if (b.change_explanation) body.appendChild(h("p", null, h("b", null, "What changed: "), b.change_explanation));
     if ((b.caps_applied || []).length) body.appendChild(h("p", null, h("b", null, "Capped: "), b.caps_applied.join("; ")));
-    if ((b.gaming_flags || []).length) body.appendChild(h("div", { class: "banner bad" }, h("b", null, "Gaming flags: "), b.gaming_flags.join("; ")));
+    if ((b.gaming_flags || []).length) body.appendChild(UI.banner("bad", h("b", null, "Gaming flags: "), b.gaming_flags.join("; ")));
     if ((b.strengths || []).length) { body.appendChild(h("h4", null, "Strengths")); b.strengths.forEach(function (s) { body.appendChild(h("div", null, s.note, evidenceList(s.evidence))); }); }
     if ((b.enforcement || []).length) {
       body.appendChild(h("h4", null, "Enforced by"));
@@ -570,12 +576,12 @@
       b.finding_ids.forEach(function (id) {
         var f = findings[id], z = fz[id] || {};
         if (!f) return;
-        body.appendChild(h("div", { style: "margin:6px 0" }, h("b", null, id + " "), sevBadge(z.effective_severity || f.severity), " ", zoneBadge(z.criticality), " ", h("span", { class: "badge" }, f.status), " ", f.title, " ", withheldBadge(f), evidenceList(f.evidence)));
+        body.appendChild(h("div", { class: "finding-line" }, h("b", null, id + " "), sevBadge(z.effective_severity || f.severity), " ", zoneBadge(z.criticality), " ", h("span", { class: "badge" }, f.status), " ", f.title, " ", withheldBadge(f), evidenceList(f.evidence)));
       });
     }
     if ((b.path_to_target || []).length) {
       body.appendChild(h("h4", null, "Path to target"));
-      body.appendChild(h("ol", { style: "margin:4px 0;padding-left:20px" }, b.path_to_target.map(function (a) {
+      body.appendChild(h("ol", { class: "list-tight" }, b.path_to_target.map(function (a) {
         return h("li", null, a.action, h("span", { class: "kbd-note" }, "  (" + a.id + ", effort " + a.effort + ", → " + a.expected_new_score + (a.requires_human_decision ? ", needs a decision" : "") + ")"));
       })));
     }
@@ -585,10 +591,10 @@
   function renderFindings() {
     var box = UI.clear($("#panel-findings"));
     var fz = R.check.rollup.finding_zones, list = R.report.findings || [];
-    if (!list.length) { box.appendChild(h("div", { class: "empty" }, "No findings.")); return; }
+    if (!list.length) { box.appendChild(UI.state("empty", { title: "No findings", message: "The grader recorded no problems in this report." })); return; }
     var f = { zone: "all", sev: "all", status: "open" };
     function selectFilter(label, key, opts) {
-      var sel = h("select", { "aria-label": label, style: "width:auto" }, opts.map(function (o) { return h("option", { value: o[0] }, o[1]); }));
+      var sel = h("select", { "aria-label": label, class: "w-auto" }, opts.map(function (o) { return h("option", { value: o[0] }, o[1]); }));
       sel.value = f[key]; sel.addEventListener("change", function () { f[key] = sel.value; draw(); });
       return h("label", null, label + " ", sel);
     }
@@ -597,7 +603,7 @@
       selectFilter("Severity", "sev", [["all", "All"], ["critical", "Critical"], ["major", "Major"], ["minor", "Minor"]]),
       selectFilter("Status", "status", [["open", "Open: not fixed or accepted"], ["all", "All"], ["fixed", "Fixed"], ["accepted", "Accepted"]]),
       h("span", { class: "kbd-note" }, "Severity shown is effective: one higher in hot zones, one lower in cold.")));
-    var tableWrap = h("div", { class: "card", style: "padding:4px 12px" });
+    var tableWrap = h("div", { class: "card tight" });
     box.appendChild(tableWrap);
     function draw() {
       var rows = list.filter(function (x) {
@@ -611,7 +617,7 @@
           var z = fz[x.id] || {};
           return h("tr", null, h("td", null, h("code", null, x.id)), h("td", null, sevBadge(z.effective_severity || x.severity), z.effective_severity && z.effective_severity !== x.severity ? h("div", { class: "kbd-note" }, "was " + x.severity) : null),
             h("td", null, zoneBadge(z.criticality), z.zone ? h("div", { class: "kbd-note" }, z.zone) : null), h("td", null, x.status), h("td", null, x.title, " ", withheldBadge(x), x.disposition ? h("div", { class: "kbd-note" }, "Accepted: " + x.disposition) : null));
-        }))) : h("div", { class: "empty" }, "No findings match these filters."));
+        }))) : UI.state("empty", { title: "No findings match these filters", message: "Change or clear the filters above." }));
     }
     draw();
   }
@@ -620,14 +626,14 @@
   function renderCompare() {
     var box = UI.clear($("#panel-compare")), d = R.diff;
     if (!d) {
-      box.appendChild(h("div", { class: "empty" }, h("p", null, "Load an earlier report to see what changed."),
-        h("p", { class: "kbd-note" }, "Load the whole project (from the grading repo, a folder or a zip) and the previous report is picked automatically; or drop an earlier report.json.")));
+      box.appendChild(UI.state("empty", { title: "Load an earlier report to see what changed",
+        message: "Load the whole project (from the grading repo, a folder or a zip) and the previous report is picked automatically; or drop an earlier report.json." }));
       return;
     }
-    box.appendChild(h("div", { class: "banner " + (d.verdict === "PASS" ? "info" : "bad") }, h("b", null, d.verdict === "PASS" ? "Nothing got worse. " : "Something got worse. "),
+    box.appendChild(UI.banner(d.verdict === "PASS" ? "info" : "bad", h("b", null, d.verdict === "PASS" ? "Nothing got worse. " : "Something got worse. "),
       "Overall " + d.overall.old + " → " + d.overall.new + " · maturity " + d.maturity.old + " → " + d.maturity.new + " · commit " + String(d.from_commit).slice(0, 8) + " → " + String(d.to_commit).slice(0, 8)));
     if (d.regressions.length) box.appendChild(h("div", { class: "card" }, h("h2", null, "Regressions"), h("ul", null, d.regressions.map(function (r) { return h("li", null, r); }))));
-    box.appendChild(h("div", { class: "two-col even", style: "margin-top:16px" },
+    box.appendChild(h("div", { class: "two-col even mt-4" },
       h("div", { class: "card" }, h("h2", null, "Score changes"), d.score_changes.length ? h("table", null, h("tbody", null, d.score_changes.map(function (c) {
         var up = c.new !== null && c.old !== null && c.new > c.old;
         return h("tr", null, h("td", null, h("code", null, c.id)), h("td", null, bname(c.id)), h("td", null, (c.old === null ? "–" : c.old) + " → " + (c.new === null ? "–" : c.new)), h("td", null, h("span", { class: "badge " + (up ? "ok" : "bad") }, up ? "up" : "down")));
@@ -635,11 +641,11 @@
       h("div", { class: "card" }, h("h2", null, "Findings"),
         list("New", d.findings.new), list("Fixed", d.findings.fixed), list("Regressed", d.findings.regressed))));
     function list(title, items) {
-      return h("div", { style: "margin-bottom:10px" }, h("b", null, title + " (" + items.length + ")"), items.length ? h("ul", { style: "margin:4px 0;padding-left:18px" }, items.map(function (f) {
+      return h("div", { class: "mb-3" }, h("b", null, title + " (" + items.length + ")"), items.length ? h("ul", { class: "list-tight" }, items.map(function (f) {
         return h("li", null, h("code", null, f.id), " ", sevBadge(f.effective_severity), " ", f.title, f.pre_existing ? h("span", { class: "kbd-note" }, " (already there before this change)") : null);
       })) : null);
     }
-    if (d.notes.length) box.appendChild(h("div", { class: "card", style: "margin-top:16px" }, h("h2", null, "Notes"), h("ul", null, d.notes.map(function (n) { return h("li", null, n); }))));
+    if (d.notes.length) box.appendChild(h("div", { class: "card mt-4" }, h("h2", null, "Notes"), h("ul", null, d.notes.map(function (n) { return h("li", null, n); }))));
   }
 
   // ------------------------------------------------------------------ more
@@ -658,7 +664,7 @@
         var x = await GK.call("redact", { report: r });
         UI.clear(leakBox);
         if (x.leaks.length) {
-          leakBox.appendChild(h("div", { class: "banner bad" }, h("b", null, "Not downloaded: "), "withheld details still appear elsewhere in the report. Reword these places in general terms, then try again.",
+          leakBox.appendChild(UI.banner("bad", h("b", null, "Not downloaded: "), "withheld details still appear elsewhere in the report. Reword these places in general terms, then try again.",
             h("ul", null, x.leaks.map(function (l) { return h("li", null, l); }))));
           return;
         }
@@ -667,7 +673,7 @@
       dl.appendChild(red);
     }
     if (dl.firstChild) box.appendChild(h("div", { class: "card" }, h("h2", null, "Downloads"),
-      priv || unsafe ? h("div", { class: "banner warn" }, "This report still contains " + (priv ? "per-check hidden-check results" : "") + (priv && unsafe ? " and " : "") +
+      priv || unsafe ? UI.banner("warn", "This report still contains " + (priv ? "per-check hidden-check results" : "") + (priv && unsafe ? " and " : "") +
         (unsafe ? "the details of sensitive findings" : "") + ". Don't commit it to a public repo; use the copy safe to publish, and keep this one private.") : null, dl, leakBox));
     if (R.consensus) {
       box.appendChild(section("Consensus across runs", "Median score per benchmark. Spreads over 1 point mean the rubric wording for that benchmark may be too vague."));

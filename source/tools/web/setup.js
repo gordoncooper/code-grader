@@ -49,10 +49,10 @@
     var chips = [];
     Object.keys(opt.effects || {}).forEach(function (id) {
       var d = opt.effects[id];
-      chips.push(h("span", { class: "chip " + (d > 0 ? "up" : "down"), title: benchmarkName(id) }, id + " " + (d > 0 ? "+" : "") + d));
+      chips.push(UI.chip(id + " " + (d > 0 ? "+" : "") + d, d > 0 ? "up" : "down", benchmarkName(id)));
     });
-    (opt.gates || []).forEach(function (id) { chips.push(h("span", { class: "chip gate", title: benchmarkName(id) + " becomes a gate" }, id + " gate")); });
-    if (!chips.length) chips.push(h("span", { class: "chip" }, "no change"));
+    (opt.gates || []).forEach(function (id) { chips.push(UI.chip(id + " gate", "gate", benchmarkName(id) + " becomes a gate")); });
+    if (!chips.length) chips.push(UI.chip("no change"));
     return chips;
   }
 
@@ -131,17 +131,17 @@
       w.addEventListener("change", function () { ov.weight = parseInt(w.value, 10); refresh(); });
       reason.addEventListener("input", function () { ov.reason = reason.value; refresh(); });
       del.addEventListener("click", function () { delete state.weights.overrides[id]; renderOverrides(); refresh(); });
-      wbox.appendChild(h("div", { class: "row-btns", style: "margin:6px 0" }, h("div", { style: "flex:2;min-width:180px" }, sel), h("div", { style: "width:150px" }, w), h("div", { style: "flex:3;min-width:180px" }, reason), del));
+      wbox.appendChild(h("div", { class: "row-btns ov-row" }, h("div", { class: "f2" }, sel), h("div", { class: "w-150" }, w), h("div", { class: "f3" }, reason), del));
     });
     var tbox = UI.clear($("#t-overrides"));
     Object.keys(state.targets.overrides || {}).forEach(function (id) {
       var sel = benchmarkSelect(id, "Benchmark");
-      var v = h("input", { type: "number", min: "1", max: "10", value: state.targets.overrides[id], "aria-label": "Target", style: "width:90px" });
+      var v = h("input", { type: "number", min: "1", max: "10", value: state.targets.overrides[id], "aria-label": "Target", class: "w-90" });
       var del = h("button", { type: "button", class: "icon-btn", "aria-label": "Remove target override" }, "×");
       sel.addEventListener("change", function () { var x = state.targets.overrides[id]; delete state.targets.overrides[id]; state.targets.overrides[sel.value] = x; renderOverrides(); refresh(); });
       v.addEventListener("input", function () { var n = parseInt(v.value, 10); if (n >= 1 && n <= 10) { state.targets.overrides[id] = n; refresh(); } });
       del.addEventListener("click", function () { delete state.targets.overrides[id]; renderOverrides(); refresh(); });
-      tbox.appendChild(h("div", { class: "row-btns", style: "margin:6px 0" }, h("div", { style: "flex:1;min-width:200px" }, sel), v, del));
+      tbox.appendChild(h("div", { class: "row-btns ov-row" }, h("div", { class: "grow" }, sel), v, del));
     });
     var gsel = UI.clear($("#extra-gate"));
     gsel.appendChild(h("option", { value: "" }, "Add a gate…"));
@@ -219,12 +219,12 @@
       var st = UI.clear($("#build-status"));
       var pv = UI.clear($("#pv-status"));
       if (res.config_error) {
-        st.appendChild(h("div", { class: "banner bad" }, h("b", null, "Fix these before using the file:"), h("pre", { style: "margin:6px 0 0;white-space:pre-wrap;background:none;border:0;padding:0" }, res.config_error)));
-        pv.appendChild(h("span", { class: "badge bad" }, "Has errors"));
+        st.appendChild(UI.banner("bad", h("b", null, "Fix these before using the file:"), h("pre", { class: "plain" }, res.config_error)));
+        pv.appendChild(UI.badge("Has errors", "bad"));
       } else {
-        pv.appendChild(h("span", { class: "badge ok" }, "Valid"));
+        pv.appendChild(UI.badge("Valid", "ok"));
         pv.appendChild(h("span", null, " · config ", h("code", null, res.config.hash), " · preset ", res.config.preset));
-        (res.config.warnings || []).forEach(function (w) { st.appendChild(h("div", { class: "banner warn" }, w)); });
+        (res.config.warnings || []).forEach(function (w) { st.appendChild(UI.banner("warn", w)); });
       }
       renderPreview();
       store.save();
@@ -238,7 +238,7 @@
     var wbox = UI.clear($("#pv-weights"));
     if (!lastCfg) { gbox.appendChild(h("span", { class: "kbd-note" }, "—")); return; }
     lastCfg.gates.benchmarks.forEach(function (id) {
-      gbox.appendChild(h("span", { class: "chip gate", title: benchmarkName(id) + " — " + lastCfg.gates.why[id].join(", ") }, id));
+      gbox.appendChild(UI.chip(id, "gate", benchmarkName(id) + " — " + lastCfg.gates.why[id].join(", ")));
     });
     var pillars = {};
     info.catalog.benchmarks.forEach(function (b) { (pillars[b.pillar] = pillars[b.pillar] || []).push(b.id); });
@@ -268,12 +268,12 @@
     rows.push(h("tr", null, h("th", null, "Final weight"), h("th", null, String(w.weight))));
     var gate = lastCfg.gates.why[id];
     box.appendChild(h("div", { class: "explain" }, h("b", null, id + " · " + w.name), h("table", null, rows),
-      gate ? h("div", { style: "margin-top:6px" }, h("span", { class: "chip gate" }, "gate"), " because " + gate.join(", ")) : null));
+      gate ? h("div", { class: "mt-2" }, UI.chip("gate", "gate"), " because " + gate.join(", ")) : null));
   }
 
   function showEngineError(err) {
     var box = UI.clear($("#engine-error"));
-    if (err && err.gk) { box.appendChild(h("div", { class: "banner bad" }, err.message)); return; }
+    if (err && err.gk) { box.appendChild(UI.banner("bad", err.message)); return; }
     box.appendChild(UI.engineHelp(err));
     $("#toml-out").textContent = "The engine isn't available, so the file can't be generated here.";
   }
@@ -303,7 +303,7 @@
       UI.toast("Loaded" + (kept.length ? "; kept " + kept.join(", ") : ""));
     } catch (err) {
       UI.toast("Couldn't load it: " + err.message);
-      UI.clear($("#build-status")).appendChild(h("div", { class: "banner bad" }, err.message));
+      UI.clear($("#build-status")).appendChild(UI.banner("bad", err.message));
     }
   }
 
@@ -362,7 +362,7 @@
       if (!path) { out.textContent = ""; return; }
       try {
         var r = (await GK.call("zone_test", { project: projectData(), org_toml: $("#org-toml").value || null, paths: [path] })).results[0];
-        UI.clear(out).appendChild(h("span", null, h("span", { class: "badge " + (r.criticality === "hot" ? "hot" : r.criticality === "cold" ? "cold" : "") }, r.criticality), r.zone ? " via zone “" + r.zone + "”" : " (no zone matched)"));
+        UI.clear(out).appendChild(h("span", null, UI.badge(r.criticality, r.criticality === "hot" || r.criticality === "cold" ? r.criticality : null), r.zone ? " via zone “" + r.zone + "”" : " (no zone matched)"));
       } catch (err) { out.textContent = err.message; }
     }, 250));
 
@@ -380,9 +380,9 @@
     $("#dl-decisions").addEventListener("click", function () { UI.download("decisions.json", info.starter_decisions, "application/json"); });
     $("#dl-dispositions").addEventListener("click", function () { UI.download("dispositions.json", info.starter_dispositions, "application/json"); });
     renderAll(); refresh();
-    var reset = h("button", { type: "button", class: "btn", style: "margin-left:auto" }, "Start over");
+    var reset = h("button", { type: "button", class: "btn ml-auto" }, "Start over");
     reset.addEventListener("click", function () { if (confirmReset()) { state = blank(); extras = {}; $("#org-toml").value = ""; applyPreset("default", false); renderAll(); refresh(); } });
-    $("#setup-form .card .seg").parentNode.appendChild(h("div", { class: "row-btns", style: "margin-top:12px" }, h("span", { class: "kbd-note" }, "Your answers are remembered in this browser."), reset));
+    $("#setup-form .card .seg").parentNode.appendChild(h("div", { class: "row-btns mt-3" }, h("span", { class: "kbd-note" }, "Your answers are remembered in this browser."), reset));
   }
   function confirmReset() { return window.confirm ? window.confirm("Clear the form and start over?") : true; }
 

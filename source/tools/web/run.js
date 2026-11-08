@@ -160,7 +160,7 @@
       var r = h("input", { type: "radio", name: "delivery", value: k }); r.checked = s.delivery === k;
       r.addEventListener("change", function () { s.delivery = k; s.deliveries = Object.assign({}, s.deliveries); s.deliveries[s.role] = k; update(); });
       box.appendChild(h("label", { class: "choice" }, r, k === rec ? h("span", { class: "tag" }, "Suggested") : null,
-        h("b", null, opts[k][0]), opts[k][1] ? h("span", null, opts[k][1]) : null, h("span", { style: "margin-top:4px;font-size:.76rem" }, "Needs: " + opts[k][2])));
+        h("b", null, opts[k][0]), opts[k][1] ? h("span", null, opts[k][1]) : null, h("span", { class: "needs" }, "Needs: " + opts[k][2])));
     });
   }
 

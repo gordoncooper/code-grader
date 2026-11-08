@@ -49,5 +49,20 @@ def review_tab(tab):
     return go
 
 
+def components(page, site):
+    page.goto(site + "app/components.html", wait_until="networkidle")
+    page.wait_for_selector("#gallery .demo")
+
+
+def dark(state):
+    """The same state with the system set to dark mode (every color comes from the tokens in style.css)."""
+    def go(page, site):
+        page.emulate_media(color_scheme="dark")
+        state(page, site)
+    go.__name__ = f"{state.__name__}_dark"
+    return go
+
+
 TABS = ["overview", "decisions", "priorities", "scorecard", "findings", "compare", "more"]
-STATES = [home, docs, setup_empty, setup_filled, run_page, run_three, review_empty] + [review_tab(t) for t in TABS]
+STATES = ([home, docs, setup_empty, setup_filled, run_page, run_three, review_empty] + [review_tab(t) for t in TABS]
+          + [components, dark(components), dark(setup_filled), dark(review_tab("findings"))])

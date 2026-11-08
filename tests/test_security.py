@@ -22,7 +22,7 @@ def test_every_page_carries_the_policy(built):
     for p in pages:
         m = re.search(r'<meta http-equiv="Content-Security-Policy" content="([^"]+)">', p.read_text())
         assert m and m.group(1).startswith(POLICY_START), p
-        assert "'unsafe-eval'" not in m.group(1) and "'unsafe-inline'" not in m.group(1).split("style-src")[0], p
+        assert "'unsafe-eval'" not in m.group(1) and "'unsafe-inline'" not in m.group(1), p   # 5.0: no inline styles either
     htaccess = (built / "web" / ".htaccess").read_text()
     assert "Content-Security-Policy" in htaccess and "frame-ancestors 'none'" in htaccess
 

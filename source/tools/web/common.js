@@ -10,6 +10,12 @@
       if (v === null || v === undefined || v === false) return;
       if (k === "class") el.className = v;
       else if (k === "text") el.textContent = v;
+      // Styles only as an object of custom properties or properties, set through the CSSOM: no style
+      // attributes, so the pages work under a strict Content-Security-Policy (style-src without 'unsafe-inline').
+      else if (k === "style") {
+        if (typeof v !== "object") throw new Error("h(): give style as an object, e.g. {\"--w\": \"40%\"}; use classes for the rest");
+        Object.keys(v).forEach(function (p) { if (p.slice(0, 2) === "--") el.style.setProperty(p, v[p]); else el.style[p] = v[p]; });
+      }
       else if (k.slice(0, 2) === "on" && typeof v === "function") el.addEventListener(k.slice(2), v);
       else if (k === "dataset") Object.keys(v).forEach(function (d) { el.dataset[d] = v[d]; });
       else if (v === true) el.setAttribute(k, "");
@@ -29,6 +35,104 @@
   function $$(sel, root) { return Array.prototype.slice.call((root || document).querySelectorAll(sel)); }
   function clear(el) { while (el && el.firstChild) el.removeChild(el.firstChild); return el; }
 
+  // ------------------------------------------------------------------ components
+  // One builder per component; app/components.html shows each in every state. Pages use these instead of
+  // their own markup for banners, states, chips, badges, cards, fields, segmented controls, tables and tabs.
+  var TONES = ["info", "ok", "warn", "bad"];
+  function tone(t) { return TONES.indexOf(t) >= 0 ? t : "info"; }
+
+  // A message across the top of a section: UI.banner("warn", "No project.toml loaded…").
+  function banner(t) {
+    var kids = Array.prototype.slice.call(arguments, 1);
+    return h("div", { class: "banner " + tone(t), role: t === "bad" ? "alert" : null }, kids);
+  }
+
+  // What a section shows while it has nothing to show: loading, empty or error.
+  //   UI.state("loading", {title: "Reading the report…"})
+  //   UI.state("empty", {title: "No findings", message: "…", action: {label: "Load files", onClick: fn}})
+  //   UI.state("error", {title: "Couldn't load it", message: err.message, retry: fn})
+  function state(kind, o) {
+    o = o || {};
+    var kids = [];
+    if (kind === "loading") kids.push(o.skeleton ? skeleton(o.skeleton) : h("span", { class: "spinner", "aria-hidden": "true" }));
+    if (o.title) kids.push(h("p", { class: "state-title" }, o.title));
+    if (o.message) kids.push(h("p", null, typeof o.message === "string" ? inline(o.message) : o.message));
+    if (o.retry) kids.push(h("button", { type: "button", class: "btn", onclick: o.retry }, o.retryLabel || "Try again"));
+    if (o.action) kids.push(o.action.href ? h("a", { class: "btn", href: o.action.href }, o.action.label)
+                                          : h("button", { type: "button", class: "btn", onclick: o.action.onClick }, o.action.label));
+    var el = h("div", { class: "state " + kind, role: kind === "error" ? "alert" : kind === "loading" ? "status" : null,
+                        "aria-busy": kind === "loading" ? "true" : null, dataset: { state: kind } }, kids);
+    return el;
+  }
+  function skeleton(lines) {
+    var n = typeof lines === "number" ? lines : 3, out = [];
+    for (var i = 0; i < n; i++) out.push(h("i"));
+    return h("span", { class: "skeleton", "aria-hidden": "true" }, out);
+  }
+  // Put a state into a container (replacing what's there), e.g. while waiting on the engine.
+  function show(container, kind, o) { return clear(container).appendChild(state(kind, o)); }
+  // An error from the engine or the network, as an error state: a gradekit message as it is, anything else explained.
+  function failed(err, o) {
+    o = o || {};
+    if (err && err.gk) return state("error", { title: o.title || "That didn't work", message: err.message, retry: o.retry });
+    var msg = (err && err.message) || String(err);
+    return state("error", { title: o.title || "Something went wrong", message: msg, retry: o.retry });
+  }
+
+  function chip(text, t, title) { return h("span", { class: "chip" + (t ? " " + t : ""), title: title || null }, text); }
+  function badge(text, t, title) { return h("span", { class: "badge" + (t ? " " + t : ""), title: title || null }, text); }
+
+  // A card: UI.card({title: "Findings", num: 2, hint: "…", compact: true, id: "x"}, child, …)
+  function card(o) {
+    o = o || {};
+    var kids = Array.prototype.slice.call(arguments, 1);
+    var head = o.title ? h(o.level || "h2", { class: o.small ? "sm" : null }, o.num ? h("span", { class: "num" }, String(o.num)) : null, o.title) : null;
+    return h("section", { class: "card" + (o.compact ? " compact" : "") + (o.cls ? " " + o.cls : ""), id: o.id || null },
+             head, o.hint ? h("p", { class: "hint" }, o.hint) : null, kids);
+  }
+
+  // A form field: label, control, help and error, wired together for screen readers.
+  //   UI.field({label: "Grading repo", control: input, help: "owner/name", error: null})
+  var fieldSeq = 0;
+  function field(o) {
+    var c = o.control, id = c.id || (c.id = "f-" + (++fieldSeq));
+    var help = o.help ? h("small", { class: "help", id: id + "-help" }, o.help) : null;
+    var err = o.error ? h("small", { class: "error-text", id: id + "-error" }, o.error) : null;
+    var by = [help && help.id, err && err.id].filter(Boolean).join(" ");
+    if (by) c.setAttribute("aria-describedby", by);
+    if (err) c.setAttribute("aria-invalid", "true"); else c.removeAttribute("aria-invalid");
+    return h("div", { class: "field" + (err ? " has-error" : "") + (o.cls ? " " + o.cls : "") },
+             h("label", { for: id }, o.label), c, help, err);
+  }
+
+  // A segmented control (radio buttons): UI.seg("mode", [{value: "full", label: "Full"}, …], "full", onChange, "Mode")
+  function seg(name, options, value, onChange, label) {
+    return h("div", { class: "seg", role: "radiogroup", "aria-label": label || null }, options.map(function (opt) {
+      var input = h("input", { type: "radio", name: name, value: opt.value, checked: opt.value === value,
+                               onchange: function () { if (onChange) onChange(opt.value); } });
+      return h("label", null, input, h("span", null, opt.label));
+    }));
+  }
+
+  // A table that scrolls on its own on narrow screens, with an empty state instead of an empty table.
+  //   UI.table({columns: [{label: "ID", cell: function (row) { … }}], rows: [...], empty: {title: "No findings"}, cls: "findings"})
+  function table(o) {
+    if (!o.rows.length) return state("empty", o.empty || { title: "Nothing to show" });
+    return h("div", { class: "table-wrap" }, h("table", { class: o.cls || null },
+      o.caption ? h("caption", { class: "sr-only" }, o.caption) : null,
+      h("thead", null, h("tr", null, o.columns.map(function (c) { return h("th", { scope: "col", class: c.cls || null }, c.label); }))),
+      h("tbody", null, o.rows.map(function (r) {
+        return h("tr", null, o.columns.map(function (c) { return h("td", { class: c.cls || null }, c.cell(r)); }));
+      }))));
+  }
+
+  // Tab buttons for UI.tabs: UI.tabBar("result-tabs", [{id: "overview", label: "Overview", count: 3}], "Report sections")
+  function tabBar(id, items, label) {
+    return h("div", { class: "tabs", id: id, "aria-label": label || null }, items.map(function (t) {
+      return h("button", { type: "button", dataset: { tab: t.id } }, t.label, t.count ? h("span", { class: "count" }, String(t.count)) : null);
+    }));
+  }
+
   function toast(msg) {
     var t = $(".toast") || ($("main") || document.body).appendChild(h("div", { class: "toast", role: "status" }));
     t.textContent = msg; t.classList.add("show");
@@ -36,7 +140,7 @@
   }
   function copyText(text) {
     function fallback() {
-      var t = h("textarea", { style: "position:fixed;opacity:0" }); t.value = text; document.body.appendChild(t); t.select();
+      var t = h("textarea", { class: "sr-only", "aria-hidden": "true" }); t.value = text; document.body.appendChild(t); t.select();
       try { document.execCommand("copy"); toast("Copied"); } catch (e) { toast("Press Ctrl/Cmd+C to copy"); }
       document.body.removeChild(t);
     }
@@ -73,7 +177,7 @@
   }
   function engineHelp(err) {
     var msg = (err && err.message) || String(err);
-    return h("div", { class: "banner bad" },
+    return banner("bad",
       h("b", null, "The in-browser engine couldn't start. "), msg, " ",
       "This page runs the suite's Python code in your browser and loads the Python runtime from a CDN the first time. ",
       "Check your connection, or self-host the runtime (see ", h("a", { href: new URL("docs/DEPLOY.html#self-hosting-the-python-runtime", GK.site).href }, "Hosting guide"), ").");
@@ -168,5 +272,7 @@
     return String(text == null ? "" : text).split(/`([^`]+)`/).map(function (part, i) { return i % 2 ? h("code", null, part) : part; });
   }
   window.UI = { h: h, $: $, $$: $$, inline: inline, clear: clear, toast: toast, copyText: copyText, download: download, readFile: readFile,
-                store: store, debounce: debounce, bindEnginePill: bindEnginePill, engineHelp: engineHelp, dropZone: dropZone, tabs: tabs, tabKeys: tabKeys, terms: terms };
+                store: store, debounce: debounce, bindEnginePill: bindEnginePill, engineHelp: engineHelp, dropZone: dropZone, tabs: tabs, tabKeys: tabKeys, terms: terms,
+                banner: banner, state: state, show: show, failed: failed, skeleton: skeleton, chip: chip, badge: badge, card: card,
+                field: field, seg: seg, table: table, tabBar: tabBar };
 })();
