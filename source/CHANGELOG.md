@@ -36,6 +36,23 @@ Minor release: tools that let agents run the whole cycle without custom scripts,
 - New optional report fields: `summary` (set with `report set summary`) and each benchmark's one-line `rationale` (`report score --rationale`).
 - The prompts use these commands. The example reports' `report.md` files are now rendered.
 
+**CI for grading repos**
+- `gradekit ci --base origin/main` checks a pull request to a grading repo. It needs only git, so it runs on any host.
+  - **One kind of change per pull request:** either one new report folder (`report.json`, `report.md`, `runs/*.json`), or a project's settings (`project.toml`, `decisions.json`, `dispositions.json`, `org.toml`). Anything else, or a mix, needs changes.
+  - **Reports:**
+    - the report is valid and safe to publish in a public repo;
+    - its stored rollup matches its scores, so no hand edits;
+    - the folder name matches the graded commit;
+    - no `*.private.json` is committed;
+    - earlier reports are never edited;
+    - `report.md` matches `render report` (a warning).
+  - **Settings:** decisions and dispositions are append-only, and their entries have the fields they need. The config resolves, and a change to the scoring config is flagged.
+  - **Output:** a summary comment (score, maturity, gates, the decisions waiting as a checklist, a link to the Review page) and the labels `grading: report`, `grading: settings` or `grading: needs changes`. Exit 1 when changes are needed.
+- New `ci/` folder in the kit:
+  - a GitHub Actions workflow, and a GitLab CI job that comments and labels when given a `GRADING_BOT_TOKEN`;
+  - `fetch-kit.py`, which downloads the kit from your suite website and refuses it unless it matches the published checksum.
+- `gradekit init --ci github|gitlab --site URL` installs the check. It never overwrites an existing `.gitlab-ci.yml`.
+
 **One engine**
 - The Review page no longer re-implements gradekit's rules in JavaScript. It calls the engine for:
   - which projects a folder, zip or repo holds (`scan_layout`, from the file paths alone, so files are only read once a project is chosen);
@@ -43,6 +60,7 @@ Minor release: tools that let agents run the whole cycle without custom scripts,
   - what each dropped file is (`classify_files`).
 - The command line uses the same functions, so the page and the CLI can't disagree. A test keeps the JavaScript copies from coming back.
 - A role you pick for a dropped file is now kept: a newer report no longer takes over the "report to review" slot you chose.
+- Fixed: dropping a grading repo zip and a code zip together could skip the citation check, if the zip of the code arrived before the report's review had finished.
 
 **A preflight with `gradekit doctor`**
 - `doctor` checks, before a run starts, everything the run will need, so a missing permission shows up in seconds rather than after an hour of grading:

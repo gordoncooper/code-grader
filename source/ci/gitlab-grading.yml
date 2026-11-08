@@ -1,0 +1,35 @@
+# Grading check for a grading repo on GitLab. Add to .gitlab-ci.yml (`gradekit init --ci gitlab`
+# writes it, or `include:` this file). On each merge request that changes projects/ or org.toml it
+# checks the change with `gradekit ci`, and comments a summary and sets labels if it may.
+#
+# Settings → CI/CD → Variables:
+#   SUITE_SITE          your suite website's address
+#   GRADING_BOT_TOKEN   optional: a project access token with the `api` scope (Reporter or higher), used to
+#                       comment and label. Without it the check still runs; the summary is in the job log.
+grading-check:
+  image: python:3.12
+  variables:
+    GIT_DEPTH: 0
+    SUITE_SITE: "__SUITE_SITE__"
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes: ["projects/**/*", "org.toml"]
+  script:
+    - git fetch --quiet origin "$CI_MERGE_REQUEST_TARGET_BRANCH_NAME"
+    - curl -fsSL "${SUITE_SITE%/}/suite/ci/fetch-kit.py" -o /tmp/fetch-kit.py
+    - KIT=$(python3 /tmp/fetch-kit.py "$SUITE_SITE" /tmp/kit)
+    - status=0
+    - >
+      python3 "$KIT/tools/gradekit.py" ci --base "origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME"
+      --site "$SUITE_SITE" --grading-repo-url "$CI_PROJECT_URL" --branch "$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME"
+      --comment-file /tmp/comment.md --labels-file /tmp/labels.txt || status=$?
+    - cat /tmp/comment.md
+    - |
+      if [ -n "${GRADING_BOT_TOKEN:-}" ]; then
+        api="$CI_API_V4_URL/projects/$CI_PROJECT_ID/merge_requests/$CI_MERGE_REQUEST_IID"
+        curl -fsS -X POST -H "PRIVATE-TOKEN: $GRADING_BOT_TOKEN" --data-urlencode "body@/tmp/comment.md" "$api/notes" >/dev/null
+        add=$(paste -sd, /tmp/labels.txt)
+        curl -fsS -X PUT -H "PRIVATE-TOKEN: $GRADING_BOT_TOKEN" --data-urlencode "remove_labels=grading: report,grading: settings,grading: needs changes" "$api" >/dev/null
+        [ -z "$add" ] || curl -fsS -X PUT -H "PRIVATE-TOKEN: $GRADING_BOT_TOKEN" --data-urlencode "add_labels=$add" "$api" >/dev/null
+      fi
+    - exit $status
