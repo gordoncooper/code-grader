@@ -722,6 +722,15 @@ def validate_report(report: dict, cfg: dict, catalog: dict) -> tuple[list[str], 
             and not str((report.get("run") or {}).get("model") or "").strip()):
         errors.append("run.model is empty: a finished report records the model that graded it (`report set REPORT run.model NAME`)")
     fz = analyze_findings(report, cfg)
+    limits = score_limits(report, cfg, fz, catalog)
+    caps_ = catalog_caps(catalog)
+    for fid, f in findings.items():
+        if f.get("cap"):
+            c = caps_.get(f["cap"])
+            if c is None:
+                errors.append(f"finding {fid}: unknown cap {f['cap']} (the rubric lists each benchmark's caps)")
+            elif c["benchmark"] != f.get("benchmark_id"):
+                errors.append(f"finding {fid}: cap {f['cap']} belongs to {c['benchmark']}, not {f.get('benchmark_id')}")
 
     gates = set(cfg["gates"]["benchmarks"])
     referenced: set[str] = set()
@@ -762,10 +771,12 @@ def validate_report(report: dict, cfg: dict, catalog: dict) -> tuple[list[str], 
                 errors.append(f"{bid}: score 10 requires 'enforcement' evidence (otherwise max 9)")
             if score <= 6 and not b.get("finding_ids") and not b.get("carried_forward"):
                 warnings.append(f"{bid}: score {score} but no findings explain what is wrong")
-            crit_open = [fid for fid in b.get("finding_ids", [])
-                         if fz.get(fid, {}).get("effective_severity") == "critical" and fz.get(fid, {}).get("status") in OPEN_STATUSES]
-            if crit_open and score > 5:
-                warnings.append(f"{bid}: score {score} despite open effective-critical finding(s) {', '.join(crit_open)}")
+            for w in over_limit(b, limits.get(bid)):
+                msg = f"{bid}: score {score} is above its limit of {w['max']} ({w['why']})"
+                (errors if limits_enforced(report) else warnings).append(msg)
+            for entry in b.get("caps_applied", []) or []:
+                if resolve_cap(entry, bid, caps_) is None:
+                    warnings.append(f"{bid}: caps_applied entry {entry!r} isn't a rubric cap (use its ID, e.g. {bid}-cap-1)")
         for fid in b.get("finding_ids", []):
             referenced.add(fid)
             if fid not in findings:
@@ -1003,6 +1014,87 @@ def weighted(items) -> float | None:
     return round(sum(s * w for s, w in items) / tw, 1) if tw else None
 
 
+# --------------------------------------------------------------- score limits
+# Each benchmark's highest allowed score, and why. In format-5 reports a score above it is an error.
+
+CRITICAL_MAX, NO_STRENGTH_MAX, NO_ENFORCEMENT_MAX = 5, 8, 9
+AUTO_CAPS = {"D2-cap-1": "open critical gap"}   # caps whose condition is in the report's own data
+
+
+def catalog_caps(catalog: dict | None = None) -> dict:
+    """{cap ID: {id, when, max, benchmark}} from the catalog (the rubric's "Caps:" lines)."""
+    catalog = catalog or load_catalog()
+    return {c["id"]: {**c, "benchmark": b["id"]} for b in catalog["benchmarks"] for c in b.get("caps", [])}
+
+
+def resolve_cap(entry, benchmark: str, caps: dict) -> dict | None:
+    """A caps_applied entry, by ID ("E1-cap-1"), by its rubric wording, or (4.x reports) as free text ending "max N"."""
+    s = str(entry or "").strip()
+    if s in caps:
+        return caps[s]
+    low = s.lower()
+    for c in caps.values():
+        if c["benchmark"] == benchmark and c["when"].lower() in low:
+            return c
+    m = re.search(r"max\s+(\d+)", s)
+    return {"id": None, "when": s, "max": int(m.group(1)), "benchmark": benchmark} if m else None
+
+
+def score_limits(report: dict, cfg: dict, fz: dict | None = None, catalog: dict | None = None) -> dict:
+    """{benchmark: {"max": N, "why": [{kind, max, why}]}} for every benchmark held below 10."""
+    caps = catalog_caps(catalog)
+    fz = fz if fz is not None else analyze_findings(report, cfg)
+    open_ = [f for f in report.get("findings", []) if f.get("status") in OPEN_STATUSES]
+    critical_gaps = [g for g in report.get("gap_register", []) if g.get("status") in OPEN_STATUSES and g.get("severity") == "critical"]
+    out = {}
+    for b in report.get("benchmarks", []):
+        bid = b.get("id")
+        if b.get("applicability") == "not_applicable":
+            continue
+        why = []
+        if not b.get("strengths"):
+            why.append({"kind": "strengths", "max": NO_STRENGTH_MAX, "why": "no strengths (positive evidence)"})
+        if not b.get("enforcement"):
+            why.append({"kind": "enforcement", "max": NO_ENFORCEMENT_MAX, "why": "no enforcement evidence"})
+        crit = [fid for fid in b.get("finding_ids", []) if fz.get(fid, {}).get("effective_severity") == "critical"
+                and fz.get(fid, {}).get("status") in OPEN_STATUSES]
+        if crit:
+            why.append({"kind": "critical", "max": CRITICAL_MAX, "why": f"open critical finding {', '.join(crit)}"})
+        for entry in b.get("caps_applied", []) or []:
+            c = resolve_cap(entry, bid, caps)
+            if c:
+                why.append({"kind": "cap", "max": c["max"], "why": (f"{c['id']}: " if c["id"] else "") + c["when"]})
+        for f in open_:
+            c = caps.get(f.get("cap") or "")
+            if c and c["benchmark"] == bid:
+                why.append({"kind": "cap", "max": c["max"], "why": f"{c['id']}: {c['when']} ({f.get('id')})"})
+        for cid, cond in AUTO_CAPS.items():
+            c = caps.get(cid)
+            if c and c["benchmark"] == bid and critical_gaps:
+                why.append({"kind": "cap", "max": c["max"], "why": f"{cid}: {c['when']} ({', '.join(g.get('id', '?') for g in critical_gaps)})"})
+        if why:
+            seen, uniq = set(), []
+            for w in why:
+                if (w["kind"], w["why"]) not in seen:
+                    seen.add((w["kind"], w["why"]))
+                    uniq.append(w)
+            out[bid] = {"max": min(w["max"] for w in uniq), "why": uniq}
+    return out
+
+
+def limits_enforced(report: dict) -> bool:
+    """Format-5 reports are held to their limits; 4.x reports (and migrated ones, graded under 4.x) get warnings."""
+    return report_format(report) >= 5 and not report.get("migrated")
+
+
+def over_limit(b: dict, limit: dict | None) -> list[dict]:
+    """The reasons a benchmark's score is too high: caps and open critical findings. (Strengths and enforcement
+    are checked on their own, since a grader adds them after scoring.)"""
+    if not limit or not isinstance(b.get("score"), int):
+        return []
+    return [w for w in limit["why"] if w["kind"] in ("cap", "critical") and b["score"] > w["max"]]
+
+
 def compute_rollup(report: dict, cfg: dict) -> dict:
     weight_issues = []
     scored = []
@@ -1168,6 +1260,7 @@ def compute_rollup(report: dict, cfg: dict) -> dict:
         "below_target": below,
         "priorities": prios,
         "weight_issues": weight_issues,
+        "limits": {bid: lim for bid, lim in score_limits(report, cfg, fz).items() if lim["max"] < 10},
         "applicability": {
             "limited": [b["id"] for b in report.get("benchmarks", []) if b.get("applicability") == "limited"],
             "not_applicable": [b["id"] for b in report.get("benchmarks", []) if b.get("applicability") == "not_applicable"],
@@ -2409,10 +2502,22 @@ def cmd_finding_add(args) -> int:
         f["paths"] = [repo_relative(p) for p in args.paths]
     if args.sensitive:
         f["sensitive"] = True
+    if args.cap:
+        f["cap"] = finding_cap_or_die(args.cap, bid, report)
     report["findings"].append(f)
     save_edit(args, report, cfg)
     emit(args, {"id": fid, "finding": f}, f"added {fid} ({args.severity}): {args.title}")
     return 0
+
+
+def finding_cap_or_die(cap: str, bid: str, report: dict) -> str:
+    caps = catalog_caps()
+    if report_format(report) < 5:
+        die("--cap on a finding needs a format-5 report (suite 5.x); in this 4.x report, use `report score --cap`")
+    if cap not in caps or caps[cap]["benchmark"] != bid:
+        mine = "; ".join(f"{k}: {c['when']} → max {c['max']}" for k, c in caps.items() if c["benchmark"] == bid)
+        die(f"{cap}: not one of {bid}'s caps ({mine or 'it has none'})")
+    return cap
 
 
 def cmd_finding_update(args) -> int:
@@ -2430,6 +2535,11 @@ def cmd_finding_update(args) -> int:
             f.pop("sensitive", None)
     if args.paths:
         f["paths"] = list(dict.fromkeys(list(f.get("paths", []) or []) + [repo_relative(p) for p in args.paths]))
+    if args.cap is not None:
+        if args.cap:
+            f["cap"] = finding_cap_or_die(args.cap, f.get("benchmark_id"), report)
+        else:
+            f.pop("cap", None)
     new_ev = evidence_from_args(args)
     if args.replace_evidence:
         if not new_ev:
@@ -2470,10 +2580,20 @@ def cmd_report_score(args) -> int:
         b["rationale"] = args.rationale or None
     if args.weight_note is not None:
         b["weight_note"] = args.weight_note or None
+    caps = catalog_caps()
+    for v in args.cap or []:
+        c = resolve_cap(v, b["id"], caps)
+        if c is None or (c["id"] and c["benchmark"] != b["id"]):
+            die(f"{v}: not one of {b['id']}'s caps ({', '.join(k for k, c in caps.items() if c['benchmark'] == b['id']) or 'it has none'})")
     for key, vals in (("caps_applied", args.cap), ("gaming_flags", args.gaming_flag)):
         for v in vals or []:
             if v not in b[key]:
                 b[key].append(v)
+    if limits_enforced(report):
+        too_high = over_limit(b, score_limits(report, cfg).get(b["id"]))
+        if too_high:
+            die(f"{b['id']}: {b['score']} is above its limit of {min(w['max'] for w in too_high)}: "
+                + "; ".join(f"{w['why']} → max {w['max']}" for w in too_high))
     save_edit(args, report, cfg)
     msg = f"{b['id']} {b['name']}: " + ("not applicable" if b["score"] is None else f"{b['score']} ({b['confidence']} confidence)")
     if b.get("target") is not None:
@@ -4247,8 +4367,14 @@ def render_report_md(report: dict, cfg: dict, catalog: dict | None = None) -> st
             out.append(f"- Finding {fid} ({f.get('severity')}, {f.get('status')}): {f.get('title')}" + (f" ({'; '.join(evs)})" if evs else ""))
         for e in b.get("enforcement", []):
             out.append(f"- Enforced by: {evidence_line(e)}")
-        for c in b.get("caps_applied", []):
-            out.append(f"- Cap applied: {c}")
+        if report_format(report) >= 5:
+            lim = (roll.get("limits") or {}).get(b.get("id"))
+            held = [w for w in (lim or {}).get("why", []) if w["kind"] in ("cap", "critical")]
+            if held:
+                out.append(f"- Limit: at most {min(w['max'] for w in held)} while {'; '.join(w['why'] for w in held)}")
+        else:
+            for c in b.get("caps_applied", []):
+                out.append(f"- Cap applied: {c}")
         for a in b.get("path_to_target", []):
             out.append(f"- Next: **{a['id']}** → {a.get('expected_new_score')} (effort {a.get('effort')}): {a.get('action')}"
                        + (" *(needs a decision)*" if a.get("requires_human_decision") else ""))
@@ -5486,6 +5612,7 @@ def main(argv=None) -> int:
     q.add_argument("--id", help="reuse an ID from the previous report (default: next free ID)")
     q.add_argument("--paths", nargs="+", metavar="GLOB", help="areas the finding concerns, for zones when there's no code evidence")
     q.add_argument("--sensitive", action="store_true", help="details must not be public (security); see `redact`")
+    q.add_argument("--cap", metavar="CAP_ID", help="the rubric cap this finding triggers, e.g. E1-cap-1: it holds while the finding is open")
     evidence_args(q)
     q.set_defaults(fn=cmd_finding_add)
     q = fsub.add_parser("update", help="change a finding or add evidence to it")
@@ -5500,6 +5627,7 @@ def main(argv=None) -> int:
     g.add_argument("--sensitive", dest="sensitive", action="store_true", default=None)
     g.add_argument("--not-sensitive", dest="sensitive", action="store_false")
     q.add_argument("--replace-evidence", action="store_true", help="replace the evidence instead of adding to it")
+    q.add_argument("--cap", metavar="CAP_ID", help="the rubric cap this finding triggers ('' removes it)")
     evidence_args(q)
     q.set_defaults(fn=cmd_finding_update)
 
@@ -5513,7 +5641,8 @@ def main(argv=None) -> int:
     q.add_argument("--rationale", help="one line: why this score (shown in the scorecard)")
     q.add_argument("--why", help="what changed since the previous report")
     q.add_argument("--weight-note", help="if the configured weight looks wrong for this code, say why")
-    q.add_argument("--cap", action="append", help="a cap you applied (repeatable)")
+    q.add_argument("--cap", action="append", metavar="CAP_ID",
+                   help="a rubric cap that holds for this benchmark, e.g. E1-cap-1 (repeatable). Better: put it on the finding that triggers it")
     q.add_argument("--gaming-flag", action="append", help="a gaming pattern you found (repeatable)")
     q.set_defaults(fn=cmd_report_score)
 

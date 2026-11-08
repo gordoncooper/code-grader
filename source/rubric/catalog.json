@@ -1,6 +1,6 @@
 {
   "suite_version": "5.0.0",
-  "_comment": "Benchmark catalog: IDs, names and pillars. Weights, gates, targets and maturity rules live in config/defaults.toml.",
+  "_comment": "Benchmark catalog: IDs, names, pillars and score caps. The caps are the rubric files' \"Caps:\" lines (a test keeps them the same). Weights, gates, targets and maturity rules live in config/defaults.toml.",
   "pillars": {
     "A": {
       "name": "Correctness & Trust",
@@ -36,31 +36,86 @@
       "id": "A1",
       "name": "Correctness & Functional Behavior",
       "pillar": "A",
-      "conditional": false
+      "conditional": false,
+      "caps": [
+        {
+          "id": "A1-cap-1",
+          "when": "Failing build or tests",
+          "max": 4
+        },
+        {
+          "id": "A1-cap-2",
+          "when": "A bug that corrupts or loses data",
+          "max": 3
+        }
+      ]
     },
     {
       "id": "A2",
       "name": "Security & Privacy",
       "pillar": "A",
-      "conditional": false
+      "conditional": false,
+      "caps": [
+        {
+          "id": "A2-cap-1",
+          "when": "Exploitable vulnerability or committed live secret",
+          "max": 2
+        },
+        {
+          "id": "A2-cap-2",
+          "when": "Reachable high or critical CVE",
+          "max": 4
+        }
+      ]
     },
     {
       "id": "A3",
       "name": "Robustness & Error Handling",
       "pillar": "A",
-      "conditional": false
+      "conditional": false,
+      "caps": [
+        {
+          "id": "A3-cap-1",
+          "when": "Catch-all blocks that swallow errors in core paths",
+          "max": 4
+        }
+      ]
     },
     {
       "id": "A4",
       "name": "Idempotence & Determinism",
       "pillar": "A",
-      "conditional": false
+      "conditional": false,
+      "caps": [
+        {
+          "id": "A4-cap-1",
+          "when": "Retry or redelivery can double-charge, double-send or duplicate records with real-world consequences",
+          "max": 3
+        },
+        {
+          "id": "A4-cap-2",
+          "when": "Setup or migration fails or corrupts on a second run",
+          "max": 5
+        }
+      ]
     },
     {
       "id": "A5",
       "name": "Durability & Recoverability",
       "pillar": "A",
-      "conditional": false
+      "conditional": false,
+      "caps": [
+        {
+          "id": "A5-cap-1",
+          "when": "Important state written non-atomically or held only in memory",
+          "max": 4
+        },
+        {
+          "id": "A5-cap-2",
+          "when": "Persistent production data with no backup",
+          "max": 5
+        }
+      ]
     },
     {
       "id": "B1",
@@ -72,7 +127,14 @@
       "id": "B2",
       "name": "Modularity & Decoupling",
       "pillar": "B",
-      "conditional": false
+      "conditional": false,
+      "caps": [
+        {
+          "id": "B2-cap-1",
+          "when": "Circular dependencies between major modules",
+          "max": 5
+        }
+      ]
     },
     {
       "id": "B3",
@@ -120,19 +182,45 @@
       "id": "C4",
       "name": "Test Suite Quality",
       "pillar": "C",
-      "conditional": false
+      "conditional": false,
+      "caps": [
+        {
+          "id": "C4-cap-1",
+          "when": "Tests not run in CI",
+          "max": 7
+        },
+        {
+          "id": "C4-cap-2",
+          "when": "Coverage inflated by assertion-free tests",
+          "max": 4
+        }
+      ]
     },
     {
       "id": "D1",
       "name": "Feature Completeness",
       "pillar": "D",
-      "conditional": false
+      "conditional": false,
+      "caps": [
+        {
+          "id": "D1-cap-1",
+          "when": "Any advertised core feature that is missing or broken",
+          "max": 5
+        }
+      ]
     },
     {
       "id": "D2",
       "name": "Gap Coverage",
       "pillar": "D",
-      "conditional": false
+      "conditional": false,
+      "caps": [
+        {
+          "id": "D2-cap-1",
+          "when": "Any critical gap",
+          "max": 4
+        }
+      ]
     },
     {
       "id": "D3",
@@ -150,13 +238,32 @@
       "id": "E1",
       "name": "Adopter Friendliness",
       "pillar": "E",
-      "conditional": false
+      "conditional": false,
+      "caps": [
+        {
+          "id": "E1-cap-1",
+          "when": "Quickstart fails",
+          "max": 4
+        },
+        {
+          "id": "E1-cap-2",
+          "when": "No license in a distributed or open project",
+          "max": 5
+        }
+      ]
     },
     {
       "id": "E2",
       "name": "Documentation",
       "pillar": "E",
-      "conditional": false
+      "conditional": false,
+      "caps": [
+        {
+          "id": "E2-cap-1",
+          "when": "Wrong setup instructions",
+          "max": 5
+        }
+      ]
     },
     {
       "id": "E3",
@@ -168,13 +275,32 @@
       "id": "E4",
       "name": "Native Tooling & Ecosystem Fit",
       "pillar": "E",
-      "conditional": false
+      "conditional": false,
+      "caps": [
+        {
+          "id": "E4-cap-1",
+          "when": "A custom build or test harness where a standard exists, with no documented reason",
+          "max": 6
+        }
+      ]
     },
     {
       "id": "F1",
       "name": "Ease of Deployability",
       "pillar": "F",
-      "conditional": false
+      "conditional": false,
+      "caps": [
+        {
+          "id": "F1-cap-1",
+          "when": "Manual, undocumented deploy steps",
+          "max": 4
+        },
+        {
+          "id": "F1-cap-2",
+          "when": "No rollback path for a production service",
+          "max": 6
+        }
+      ]
     },
     {
       "id": "F2",
@@ -198,7 +324,14 @@
       "id": "F5",
       "name": "Portability",
       "pillar": "F",
-      "conditional": false
+      "conditional": false,
+      "caps": [
+        {
+          "id": "F5-cap-1",
+          "when": "Machine-specific assumptions in core paths",
+          "max": 4
+        }
+      ]
     },
     {
       "id": "F6",
@@ -210,19 +343,40 @@
       "id": "X1",
       "name": "Accessibility, UX & Internationalization",
       "pillar": "X",
-      "conditional": true
+      "conditional": true,
+      "caps": [
+        {
+          "id": "X1-cap-1",
+          "when": "Core flows not keyboard-operable",
+          "max": 4
+        }
+      ]
     },
     {
       "id": "X2",
       "name": "Public API Stability & Upgradeability",
       "pillar": "X",
-      "conditional": true
+      "conditional": true,
+      "caps": [
+        {
+          "id": "X2-cap-1",
+          "when": "Breaking changes shipped in minor or patch releases",
+          "max": 4
+        }
+      ]
     },
     {
       "id": "X3",
       "name": "Concurrency Safety",
       "pillar": "X",
-      "conditional": true
+      "conditional": true,
+      "caps": [
+        {
+          "id": "X3-cap-1",
+          "when": "A demonstrable data race on shared mutable state",
+          "max": 3
+        }
+      ]
     },
     {
       "id": "X4",

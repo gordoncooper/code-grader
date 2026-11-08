@@ -41,6 +41,13 @@ Major release, in progress: a beta for agents first, then the pages for people. 
 - The grader and PR-check prompts, the glossary (*noticed finding*) and the Review page (status filter; evidence without line numbers) follow suit.
 - A public copy keeps each withheld finding's fingerprint, computed from the full report before `redact` withheld its evidence. Editing the public copy never overwrites it.
 
+**Enforced score limits**
+- **The rubric's caps are data.** Each cap now has an ID in the rubric, e.g. "Quickstart fails → max 4 (`E1-cap-1`)". `rubric/catalog.json` lists every benchmark's caps, and a test keeps the two the same.
+- **A finding can carry the cap it triggers:** `report finding add … --cap E1-cap-1` (or `finding update --cap`). The cap holds while that finding is open, and lifts when it's fixed or accepted. A cap with no single finding behind it goes on the benchmark (`report score … --cap E1-cap-1`). D2's "any critical gap" applies by itself.
+- **Every benchmark gets a computed limit:** the lowest of its caps, max 5 with an open effective-critical finding, max 8 without strengths and max 9 without enforcement. `rollup.limits` lists every benchmark held below 10, and why.
+- **Format-5 reports are held to their limits.** `report score` refuses a score above one and says why, and `validate` (with `report check` and `gradekit ci`) fails it. `report.md` shows each benchmark's limit. 4.x reports, and reports migrated from 4.x, keep warnings, as before.
+- The scoring rules don't change; they're enforced now. The scoring version stays 4.2.0.
+
 **Moving a project to 5.x with `gradekit migrate`**
 - `gradekit migrate --project NAME` sets the pin (`suite = "5"`), changing only that line of `project.toml`. With `--reports`, it also upgrades the project's 4.x reports to format 5:
   - every judgment, score and stored rollup is unchanged, and `migrated.from` records the version that wrote the report;

@@ -43,4 +43,4 @@
   - **4–6:** Some value; big gaps; heavy mocking.
   - **7–8:** Critical paths well tested; roughly 70%+ branch coverage on core logic; deterministic.
   - **9–10:** Tests read as a specification; failure paths covered; mutations caught; gated in CI.
-- **Caps:** Tests not run in CI → max 7. Coverage inflated by assertion-free tests → max 4.
+- **Caps:** Tests not run in CI → max 7 (`C4-cap-1`). Coverage inflated by assertion-free tests → max 4 (`C4-cap-2`).

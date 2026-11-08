@@ -13,7 +13,7 @@
   - **4–6:** Happy paths work; edge cases often mishandled.
   - **7–8:** Edge cases mostly handled; a few latent bugs found on careful reading.
   - **9–10:** No defects found on careful review; edge cases handled deliberately and covered by tests.
-- **Caps:** Failing build or tests → max 4. A bug that corrupts or loses data → max 3.
+- **Caps:** Failing build or tests → max 4 (`A1-cap-1`). A bug that corrupts or loses data → max 3 (`A1-cap-2`).
 
 ## A2. Security & Privacy
 - **Measures:** Resistance to misuse and attack, and responsible handling of personal data. Covers input validation; injection (SQL, shell, path, template); authentication and authorization; secrets handling; cryptography; deserialization; SSRF; XSS/CSRF; secure defaults; least privilege; collecting only the personal data needed; retention; no sensitive data in logs or errors.
@@ -24,7 +24,7 @@
   - **4–6:** No obvious exploit, but validation is inconsistent and defaults are unsafe.
   - **7–8:** Trust boundaries validated, queries parameterized, secrets externalized; minor hardening gaps.
   - **9–10:** Defense in depth, centralized authorization, privacy by design, security scanning gated in CI.
-- **Caps:** Exploitable vulnerability or committed live secret → max 2. Reachable high or critical CVE → max 4.
+- **Caps:** Exploitable vulnerability or committed live secret → max 2 (`A2-cap-1`). Reachable high or critical CVE → max 4 (`A2-cap-2`).
 
 ## A3. Robustness & Error Handling
 - **Measures:** Behavior when things go wrong: malformed input, dependency outages, slow networks, resource exhaustion, partial failures. Explicit error handling, useful error context, timeouts, retries with backoff and jitter, circuit breakers where warranted, resource cleanup, graceful degradation, bounded queues and buffers.
@@ -35,7 +35,7 @@
   - **4–6:** Handling is inconsistent; vague messages; missing timeouts.
   - **7–8:** Consistent strategy; errors carry context; external calls bounded; cleanup reliable.
   - **9–10:** A uniform error model; failures are contained, observable and recoverable; failure paths are tested, including injected faults.
-- **Caps:** Catch-all blocks that swallow errors in core paths → max 4.
+- **Caps:** Catch-all blocks that swallow errors in core paths → max 4 (`A3-cap-1`).
 
 ## A4. Idempotence & Determinism
 - **Measures:**
@@ -48,7 +48,7 @@
   - **4–6:** Some operations safe to repeat; others not; tests occasionally nondeterministic.
   - **7–8:** All externally triggered mutations and scripts are safe to re-run; time and randomness are injectable.
   - **9–10:** Idempotence is designed in and tested (replay or redelivery tests); builds are reproducible; zero flaky tests.
-- **Caps:** Retry or redelivery can double-charge, double-send or duplicate records with real-world consequences → max 3. Setup or migration fails or corrupts on a second run → max 5.
+- **Caps:** Retry or redelivery can double-charge, double-send or duplicate records with real-world consequences → max 3 (`A4-cap-1`). Setup or migration fails or corrupts on a second run → max 5 (`A4-cap-2`).
 
 ## A5. Durability & Recoverability
 - **Measures:** Data and state survive crashes, restarts, deploys and power loss, and the system can recover. Covers atomic writes (write to a temp file then rename; fsync where it matters), transactions around multi-step writes, no important state held only in memory, crash-consistent file formats, versioned and reversible migrations, backups with a *tested* restore, defined RPO and RTO for production data, and clean resume after a restart (checkpointing for long jobs).
@@ -59,4 +59,4 @@
   - **4–6:** Mostly safe; some non-atomic writes or in-memory-only state; backups untested.
   - **7–8:** Atomic, transactional writes; reliable resume; backups exist.
   - **9–10:** Crash-consistency is designed in and tested (kill tests, chaos tests); restore drills are documented and automated.
-- **Caps:** Important state written non-atomically or held only in memory → max 4. Persistent production data with no backup → max 5.
+- **Caps:** Important state written non-atomically or held only in memory → max 4 (`A5-cap-1`). Persistent production data with no backup → max 5 (`A5-cap-2`).
