@@ -18,6 +18,22 @@ Reports:
   redact           Strip hidden-check details so a report can be shared with improvers.
   rollup-repo      Combine per-component reports for a monorepo.
 
+Writing a report (graders):
+  report new       Start a report: all 35 benchmarks with weights and targets from the config.
+  report cite      Print an evidence object for FILE:LINES with the exact quote.
+  report finding   Add or update a finding (next free ID, quotes copied from the code).
+  report score     Score a benchmark, or mark it limited / not applicable.
+  report strength | enforcement | action | gap | feature | flag | ran | set
+  report check     List what's missing or wrong; --write stores the rollup when it's complete.
+  carry            Start the next report from the last one: IDs kept, citations moved to the new code.
+  report match     Suggest which earlier finding each new one is, to keep its ID.
+  doctor           Preflight: Python, kit, config, code, git and push access, the suite website.
+  deliver          Hand back a finished report: pr (git steps printed, or run), save or return.
+  index            Grading repos: projects/index.json, every project's latest score, history and decisions waiting.
+  ci               Grading repos: check a pull request and write its summary comment and labels.
+  glossary         The suite's terms and what they mean.
+  render           Markdown from data: report.md, the PR title and body, the PR-check comment, the improvement log.
+
 Projects: in a grading repo, pass --project NAME (folder projects/NAME/) and commands find the
 project's settings, decisions, accepted findings and latest report themselves; `diff` compares
 the latest two reports. --project-dir works for a project folder anywhere.
@@ -27,18 +43,26 @@ effective-config JSON produced by `resolve --out`.
 The website runs this same file in the browser (Pyodide) through web_api().
 
 Python 3.11+ (uses tomllib); standard library only. Uses `jsonschema` when installed.
-Exit codes: 0 ok, 1 invalid/failed check, 2 regression (diff --fail-on-regression),
-3 unstable runs (stability --strict), 4 calibration failed.
+Every command takes --json: one JSON object on stdout, {ok, exit_code, command, result, text}
+(with "error" when it failed), so agents never parse text.
+
+Exit codes: 0 ok, 1 invalid/failed check/error, 2 regression (diff --fail-on-regression),
+3 unstable runs (stability --strict), 4 calibration failed, 5 report not finished (report check),
+64 bad arguments.
 """
 from __future__ import annotations
 
 import argparse
+import contextlib
 import copy
 import hashlib
+import io
 import json
+import os
 import re
 import statistics
 import sys
+import tempfile
 from pathlib import Path
 
 try:
@@ -53,6 +77,7 @@ SUITE_DIR = Path(__file__).resolve().parent.parent
 CATALOG_PATH = SUITE_DIR / "rubric" / "catalog.json"
 DEFAULTS_PATH = SUITE_DIR / "config" / "defaults.toml"
 SCHEMA_PATH = SUITE_DIR / "schema" / "report.schema.json"
+GLOSSARY_PATH = SUITE_DIR / "rubric" / "glossary.json"
 PROJECT_FILE, DECISIONS_FILE, DISPOSITIONS_FILE = "project.toml", "decisions.json", "dispositions.json"
 PILLARS = ["A", "B", "C", "D", "E", "F", "X"]
 OPEN_STATUSES = {"new", "open", "regressed"}
@@ -170,6 +195,9 @@ def deep_merge(base: dict, over: dict) -> dict:
             out[k] = copy.deepcopy(v)
     return out
 
+
+# Publishing settings never change scores, so they are not part of the config fingerprint.
+PUBLISHING_DEFAULTS = {"public": True, "sensitive_benchmarks": ["A2"], "warn_at": "major"}
 
 HASHED_KEYS = ("suite_version", "preset", "answers", "weights", "gates", "zones", "targets", "maturity", "priorities")
 
@@ -340,6 +368,14 @@ def resolve_layers(layers: list[tuple[str, dict]], component: str | None = None,
         if not isinstance(d.get("approved"), bool):
             errors.append(f"decisions #{i} ({d.get('action_id')}): approved must be true or false")
     review = {"allow_agent_decisions": False, **(merged.get("review", {}) or {})}
+    publishing = {**PUBLISHING_DEFAULTS, **(merged.get("publishing", {}) or {})}
+    if not isinstance(publishing.get("public"), bool):
+        errors.append("publishing.public must be true or false")
+    if publishing.get("warn_at") not in SEVERITIES:
+        errors.append(f"publishing.warn_at must be one of {', '.join(SEVERITIES)}")
+    for bid in publishing.get("sensitive_benchmarks") or []:
+        if bid not in ids:
+            errors.append(f"publishing.sensitive_benchmarks: unknown benchmark '{bid}'")
 
     if errors:
         die(f"{len(errors)} configuration error(s):\n" + "\n".join(f"  - {e}" for e in errors))
@@ -365,6 +401,7 @@ def resolve_layers(layers: list[tuple[str, dict]], component: str | None = None,
         "dispositions": dispositions,
         "decisions": decisions,
         "review": review,
+        "publishing": publishing,
         "warnings": warnings,
     }
     cfg["hash"] = config_hash(cfg)
@@ -415,24 +452,32 @@ def org_for(pdir: Path) -> Path | None:
     return None
 
 
-def report_order_key(folder: str, report_text: str | None = None) -> tuple:
-    """Oldest first. Folders are <date>-<commit>, so the name orders by day; reports from the same day are
-    ordered by run.date, which graders write as a full UTC timestamp (a date alone sorts before any time)."""
-    run_date = ""
-    if report_text:
-        try:
-            run_date = str((json.loads(report_text).get("run") or {}).get("date") or "")
-        except ValueError:
-            pass
-    return (folder[:10], run_date, folder)
+def order_report_folders(folders: list[str], run_dates: dict | None = None) -> tuple[list[str], list[str]]:
+    """Report folders oldest first, and the folders whose run.date is still needed to order them.
+    Only reports sharing a day need their run.date read (the folder name orders the rest)."""
+    by_day: dict[str, list[str]] = {}
+    for f in folders:
+        by_day.setdefault(f[:10], []).append(f)
+    rd = run_dates or {}
+    need = [f for group in by_day.values() if len(group) > 1 for f in group if f not in rd]
+    return sorted(folders, key=lambda f: (f[:10], str(rd.get(f) or ""), f)), need
+
+
+def run_date_of(text: str | None) -> str:
+    try:
+        return str((json.loads(text or "").get("run") or {}).get("date") or "")
+    except (ValueError, AttributeError):
+        return ""
 
 
 def report_folders(pdir: Path) -> list[Path]:
     root = pdir / "reports"
     if not root.is_dir():
         return []
-    found = [d for d in root.iterdir() if d.is_dir() and (d / "report.json").exists()]
-    return sorted(found, key=lambda d: report_order_key(d.name, (d / "report.json").read_text(encoding="utf-8", errors="replace")))
+    found = {d.name: d for d in root.iterdir() if d.is_dir() and (d / "report.json").exists()}
+    _, need = order_report_folders(list(found))
+    dates = {f: run_date_of((found[f] / "report.json").read_text(encoding="utf-8", errors="replace")) for f in need}
+    return [found[f] for f in order_report_folders(list(found), dates)[0]]
 
 
 def load_config(args, report: dict | None = None, quiet: bool = False) -> dict:
@@ -693,6 +738,21 @@ def validate_report(report: dict, cfg: dict, catalog: dict) -> tuple[list[str], 
                 errors.append(f"hidden-check leak: '{n}' appears outside holdout.private_details")
     if report.get("mode") == "full" and any(b.get("carried_forward") for b in report["benchmarks"]):
         warnings.append("full-mode report has carried_forward benchmarks; full audits should grade everything")
+
+    sens = sensitive_ids(report)
+    for loc, ev, _ in iter_evidence(report):
+        if ev.get("type") == "withheld" and loc.removeprefix("finding ") not in sens:
+            errors.append(f"{loc}: withheld evidence is only for findings marked sensitive (redact adds it; graders cite real evidence)")
+    pub = cfg.get("publishing") or PUBLISHING_DEFAULTS
+    if pub.get("public"):
+        floor = SEVERITIES.index(pub.get("warn_at", "major")) if pub.get("warn_at") in SEVERITIES else 1
+        for fid, f in findings.items():
+            if (f.get("benchmark_id") in (pub.get("sensitive_benchmarks") or []) and f.get("status") in OPEN_STATUSES
+                    and f.get("severity") in SEVERITIES and SEVERITIES.index(f["severity"]) >= floor and fid not in sens):
+                warnings.append(f"finding {fid} ({f.get('benchmark_id')}, {f.get('severity')}) isn't marked sensitive; "
+                                f"this grading repo is public, so mark it \"sensitive\": true unless its details are harmless")
+        if sens and not (report.get("publishing") or {}).get("redacted"):
+            warnings.append(f"{len(sens)} sensitive finding(s); run `gradekit redact --in-place` before committing this report")
     return errors, warnings
 
 
@@ -701,11 +761,14 @@ def cmd_validate(args) -> int:
     report = load_json(args.report)
     cfg = load_config(args, report)
     errors, warnings = validate_report(report, cfg, catalog)
+    if args.publish:
+        errors += [f"publish: {e}" for e in publish_problems(report)]
     for w in cfg.get("warnings", []) + warnings:
         print(f"warning: {w}")
     for e in errors:
         print(f"ERROR:   {e}")
     print(f"\n{len(errors)} error(s), {len(warnings)} warning(s)")
+    args._result = {"valid": not errors, "errors": errors, "warnings": cfg.get("warnings", []) + warnings, "config_hash": cfg["hash"]}
     return 1 if errors else 0
 
 
@@ -778,7 +841,7 @@ def verify_evidence(report: dict, read_lines, tolerance: int = 2) -> dict:
     carried = {b["id"] for b in report.get("benchmarks", []) if b.get("carried_forward")}
     checked = skipped = 0
     failures: list[str] = []
-    other = {"command": 0, "absence": 0}
+    other = {"command": 0, "absence": 0, "withheld": 0}
     for loc, ev, bid in iter_evidence(report):
         etype = ev.get("type")
         if etype != "code":
@@ -792,7 +855,7 @@ def verify_evidence(report: dict, read_lines, tolerance: int = 2) -> dict:
         if problem:
             failures.append(f"{loc}: {problem}")
     return {"checked": checked, "failures": failures, "skipped_carried_forward": skipped,
-            "command": other.get("command", 0), "absence": other.get("absence", 0)}
+            "command": other.get("command", 0), "absence": other.get("absence", 0), "withheld": other.get("withheld", 0)}
 
 
 def cmd_verify_evidence(args) -> int:
@@ -808,7 +871,8 @@ def cmd_verify_evidence(args) -> int:
         print(f"FAIL: {f}")
     print(f"\ncode citations checked: {res['checked']}, failed: {len(res['failures'])}, "
           f"skipped (carried forward): {res['skipped_carried_forward']}; command: {res['command']}, "
-          f"absence: {res['absence']} (not machine-checkable)")
+          f"absence: {res['absence']} (not machine-checkable)" + (f"; withheld: {res['withheld']}" if res["withheld"] else ""))
+    args._result = res
     return 1 if res["failures"] else 0
 
 
@@ -1094,10 +1158,12 @@ def cmd_rollup(args) -> int:
         print(f"warning: report config hash {report['config']['hash']} ≠ {cfg['hash']}; scoring with the latter")
     roll = apply_rollup(report, cfg)
     print_rollup(roll)
+    out = None
     if args.write or args.out:
         out = args.out or args.report
         write_json(out, report)
         print(f"\nwrote rollup to {out}")
+    args._result = {"rollup": roll, "written": out}
     return 1 if roll["weight_issues"] else 0
 
 
@@ -1181,6 +1247,8 @@ def cmd_stability(args) -> int:
     if args.out:
         write_json(args.out, res["report"])
         print(f"wrote consensus report to {args.out}")
+    args._result = {"rows": res["rows"], "unstable": res["unstable"], "overall_by_run": res["overall_by_run"], "notes": res["notes"],
+                    "consensus_overall": roll["overall_score"], "consensus_level": roll["maturity"]["current_level"], "written": args.out}
     return 3 if (args.strict and res["unstable"]) else 0
 
 
@@ -1300,6 +1368,7 @@ def cmd_diff(args) -> int:
         for r in d["regressions"]:
             print(f"  - {r}")
     print(f"\nverdict: {d['verdict']}")
+    args._result = d
     return 2 if (args.fail_on_regression and d["regressions"]) else 0
 
 
@@ -1335,6 +1404,8 @@ def cmd_calibrate(args) -> int:
     print(f"\nwithin tolerance: {pct:.0f}% (need ≥ {crit['within_tolerance_pct']}%)  MAE: {mae:.2f} (need ≤ {crit['mae_max']})  "
           f"bias: {bias:+.2f} ({'grader runs generous' if bias > 0.25 else 'grader runs harsh' if bias < -0.25 else 'no clear bias'})")
     print("calibration: PASS" if ok else "calibration: FAIL")
+    args._result = {"pass": ok, "within_tolerance_pct": round(pct, 1), "mae": round(mae, 3), "bias": round(bias, 3),
+                    "compared": total, "applicability_mismatches": mism, "criteria": crit}
     return 0 if ok else 4
 
 
@@ -1346,13 +1417,165 @@ def strip_private(obj):
     return obj
 
 
+# =========================================================================== publishing
+# A grading repo may be public. Findings marked "sensitive": true (usually security issues) keep
+# everything scoring needs (id, benchmark, severity, status and the files they concern, so zones,
+# gates, scores and priorities come out the same) and lose what would help an attacker: the title,
+# quotes, commands and the wording of the actions that fix them. The full report is kept privately.
+
+WITHHELD_NOTE = "Details withheld from the public report; whoever ran the grade has the private copy."
+FINDING_KEEP = ("id", "benchmark_id", "severity", "status", "first_seen_commit", "disposition")
+LEAK_MIN = 12        # shortest withheld string worth searching for
+LEAK_LINE_MIN = 24   # lines of a withheld quote searched for on their own
+
+
+def sensitive_ids(report: dict) -> set[str]:
+    return {f.get("id") for f in report.get("findings", []) if f.get("sensitive") is True}
+
+
+def _withheld_text(f: dict) -> list[tuple[str, bool]]:
+    """(text, is_quoted_code) pairs worth searching for. Quoted code is only a leak outside other
+    findings' own quotes: another finding may cite the same public line for an unrelated reason."""
+    out = [(f.get("title"), False), (f.get("disposition_concern"), False)]
+    for ev in f.get("evidence", []):
+        for key in ("quote", "excerpt", "command", "note", "searched"):
+            val = ev.get(key)
+            quoted = key in ("quote", "excerpt")
+            out.append((val, quoted))
+            if quoted and isinstance(val, str):
+                out += [(ln, True) for ln in val.splitlines() if len(norm(ln)) >= LEAK_LINE_MIN]
+    return [(norm(t), q) for t, q in out if isinstance(t, str) and len(norm(t)) >= LEAK_MIN and t != WITHHELD_NOTE]
+
+
+def _without_quotes(obj):
+    if isinstance(obj, dict):
+        return {k: _without_quotes(v) for k, v in obj.items() if k not in ("quote", "excerpt")}
+    if isinstance(obj, list):
+        return [_without_quotes(v) for v in obj]
+    return obj
+
+
+def _ids_text(ids) -> str:
+    ids = sorted(ids)
+    return ("issue " if len(ids) == 1 else "issues ") + ", ".join(ids)
+
+
+def redact_report(report: dict, catalog: dict | None = None) -> tuple[dict, list[str]]:
+    """The copy of a report that is safe to publish, and any places where withheld text still shows."""
+    names = {b["id"]: b["name"] for b in (catalog or load_catalog())["benchmarks"]}
+    public = strip_private(copy.deepcopy(report))
+    if "holdout" in public:
+        public["holdout"]["private_details"] = "[redacted]"
+    ids = sensitive_ids(report)
+    secrets: list[tuple[str, str, bool]] = []
+    findings = []
+    for f in public.get("findings", []):
+        if f.get("id") not in ids:
+            findings.append(f)
+            continue
+        secrets += [(f["id"], t, q) for t, q in _withheld_text(f)]
+        files = [repo_relative(ev["file"]) for ev in f.get("evidence", []) if ev.get("type") == "code" and ev.get("file")]
+        paths = list(dict.fromkeys(list(f.get("paths", []) or []) + files))
+        swap = {"title": f"{names.get(f.get('benchmark_id'), f.get('benchmark_id'))} issue (details withheld)",
+                "evidence": [{"type": "withheld", "note": WITHHELD_NOTE}], "sensitive": True}
+        if paths:
+            swap["paths"] = paths
+        g = {k: swap.get(k, v) for k, v in f.items() if k in FINDING_KEEP or k in swap}
+        g.update({k: v for k, v in swap.items() if k not in g})
+        findings.append(g)
+    if "findings" in public:
+        public["findings"] = findings
+
+    reworded: dict[str, dict] = {}
+    for b in public.get("benchmarks", []):
+        for act in b.get("path_to_target", []) or []:
+            hit = ids.intersection(act.get("resolves", []) or [])
+            if not hit:
+                continue
+            for key in ("action", "decision_question"):
+                if isinstance(act.get(key), str):
+                    secrets.append((f"action {act.get('id')}", norm(act[key]), False))
+            act["action"] = f"Fix withheld {_ids_text(hit)}. The private copy has the details."
+            if act.get("decision_question"):
+                act["decision_question"] = f"Approve the planned fix for withheld {_ids_text(hit)}? The private copy has the details."
+            reworded[act.get("id")] = {"action": act["action"], "decision_question": act.get("decision_question"),
+                                       "why_first": f"Fixes withheld {_ids_text(hit)}."}
+
+    def patch(obj):
+        if isinstance(obj, dict):
+            new = reworded.get(obj.get("action_id")) if isinstance(obj.get("action_id"), str) else None
+            for k, v in obj.items():
+                obj[k] = new[k] if new and k in new and k in ("action", "decision_question", "why_first") else patch(v)
+            return obj
+        if isinstance(obj, list):
+            return [patch(v) for v in obj]
+        return obj
+    for key in ("top_priorities", "rollup"):
+        if public.get(key):
+            public[key] = patch(public[key])
+    public["publishing"] = {"redacted": True, "withheld": sorted(ids)}
+
+    leaks: list[str] = []
+    if secrets:
+        places = [(f"benchmark {b.get('id')}", b) for b in public.get("benchmarks", [])]
+        places += [(f"finding {f.get('id')}", f) for f in public.get("findings", []) if f.get("id") not in ids]
+        places += [(k, v) for k, v in public.items() if k not in ("benchmarks", "findings")]
+        texts = [(where, norm(all_text(v)), norm(all_text(_without_quotes(v)))) for where, v in places]
+        for owner, secret, quoted in dict.fromkeys(secrets):
+            for where, text, prose in texts:
+                if secret in (prose if quoted else text):
+                    leaks.append(f"{owner}: withheld text still appears in {where}: \"{secret[:60]}{'…' if len(secret) > 60 else ''}\"")
+    return public, leaks
+
+
+def publish_problems(report: dict, require_redacted: bool = True) -> list[str]:
+    """Reasons a report is not yet safe to commit to a public grading repo."""
+    errors = []
+    if require_redacted and not (report.get("publishing") or {}).get("redacted"):
+        errors.append("not redacted: run `gradekit redact --in-place` on it first")
+    for f in report.get("findings", []):
+        if f.get("sensitive") is True and any(ev.get("type") != "withheld" for ev in f.get("evidence", [])):
+            errors.append(f"finding {f.get('id')} is sensitive but still carries its evidence")
+    private = (report.get("holdout") or {}).get("private_details")
+    if isinstance(private, list) and private:
+        errors.append("holdout.private_details still lists hidden-check results")
+    rest = copy.deepcopy(report)
+    (rest.get("holdout") or {}).pop("private_details", None)
+    if strip_private(rest) != rest:
+        errors.append("report still has private_* fields")
+    return errors
+
+
+def private_path(path: str) -> str:
+    return re.sub(r"\.json$", "", path) + ".private.json"
+
+
 def cmd_redact(args) -> int:
-    shared = strip_private(copy.deepcopy(load_json(args.report)))
-    if "holdout" in shared:
-        shared["holdout"]["private_details"] = "[redacted]"
-    out = args.out or re.sub(r"\.json$", "", args.report) + ".shared.json"
-    write_json(out, shared)
-    print(f"wrote redacted report to {out}")
+    report = load_json(args.report)
+    if (report.get("publishing") or {}).get("redacted"):
+        die(f"{args.report} is already redacted" + (f"; the full report is {private_path(args.report)}" if args.in_place else ""))
+    public, leaks = redact_report(report)
+    if leaks:
+        for leak in leaks:
+            print(f"LEAK: {leak}")
+        print("\nnothing written. Reword those places generically (or name only the finding ID) and run redact again.")
+        args._result = {"leaks": leaks, "written": []}
+        return 1
+    withheld = public["publishing"]["withheld"]
+    if args.in_place:
+        priv = private_path(args.report)
+        write_json(priv, report)
+        write_json(args.report, public)
+        written = {"public": args.report, "private": priv}
+        print(f"wrote the full report to {priv}\nwrote the public report to {args.report}")
+        print(f"keep {Path(priv).name} out of the repo (grading repos ignore *.private.json); hand it to whoever fixes the code.")
+    else:
+        out = args.out or re.sub(r"\.json$", "", args.report) + ".shared.json"
+        write_json(out, public)
+        print(f"wrote redacted report to {out}")
+        written = {"public": out}
+    args._result = {"leaks": [], "withheld": withheld, "written": written}
+    print(f"withheld {len(withheld)} sensitive finding(s)" + (f": {', '.join(withheld)}" if withheld else ""))
     return 0
 
 
@@ -1377,10 +1600,12 @@ def cmd_rollup_repo(args) -> int:
         print(f"{x['component']:<20} {str(x['preset']):<14} {x['weight']:>6} {str(x['overall']):>7} {x['level']}{fg}")
     print(f"\nrepo overall (component-weighted): {overall}")
     print(f"repo maturity (lowest component): {lowest['level']}  ← limited by '{lowest['component']}'")
+    summary = {"computed_by": "gradekit.py rollup-repo", "overall_score": overall,
+               "maturity": lowest["level"], "limited_by": lowest["component"], "components": rows}
     if args.out:
-        write_json(args.out, {"computed_by": "gradekit.py rollup-repo", "overall_score": overall,
-                              "maturity": lowest["level"], "limited_by": lowest["component"], "components": rows})
+        write_json(args.out, summary)
         print(f"wrote {args.out}")
+    args._result = {**summary, "written": args.out}
     return 0
 
 
@@ -1405,6 +1630,8 @@ def cmd_resolve(args) -> int:
         print(f"  final weight           {w['weight']}")
         if bid in cfg["gates"]["benchmarks"]:
             print(f"  GATE because: {', '.join(cfg['gates']['why'][bid])}")
+        args._result = {"benchmark": bid, **w, "gate": bid in cfg["gates"]["benchmarks"],
+                        "gate_why": cfg["gates"]["why"].get(bid, [])}
         return 0
     comp = f" · component {cfg['component']['name']}" if cfg.get("component") else ""
     print(f"Effective config {cfg['hash']} · preset {cfg['preset']}{comp}")
@@ -1436,6 +1663,7 @@ def cmd_resolve(args) -> int:
     if args.out:
         write_json(args.out, cfg)
         print(f"\nwrote {args.out}")
+    args._result = {"config": cfg, "written": args.out}
     return 0
 
 
@@ -1471,6 +1699,8 @@ def cmd_presets(args) -> int:
                 cells.append(f"{str(w) + ('g' if bid in cfgs[n]['gates']['benchmarks'] else ' '):>9}")
             print(f"{bid:<4} {defaults['weights']['base'][bid]:>4} " + " ".join(cells))
         print("\n(g = gate)")
+    args._result = {"presets": names, "weights": {n: {b["id"]: cfgs[n]["weights"][b["id"]]["weight"] for b in catalog["benchmarks"]} for n in names},
+                    "gates": {n: cfgs[n]["gates"]["benchmarks"] for n in names}}
     return 0
 
 
@@ -1558,7 +1788,7 @@ def render_project_toml(data: dict, defaults: dict | None = None, path: str = "p
     out.append("")
 
     zones = d.pop("zones", []) or []
-    out.append("# Criticality zones: the first match wins, so list specific zones first.")
+    out.append("# Zones: the first match wins, so list specific zones first.")
     out.append("# hot = matters most (money, auth, data writes); cold = matters least (scripts, examples).")
     if zones:
         out.append("")
@@ -1608,6 +1838,13 @@ def render_project_toml(data: dict, defaults: dict | None = None, path: str = "p
     else:
         out += ["# Let agent reviewers approve decision questions (default: humans only):", "# [review]",
                 "# allow_agent_decisions = true", ""]
+
+    publishing = d.pop("publishing", None)
+    if publishing:
+        _emit_table("publishing", publishing, out)
+    else:
+        out += ["# Only trusted people can read this grading repo, so security details may stay in reports",
+                "# (default: treat it as public and withhold them):", "# [publishing]", "# public = false", ""]
 
     for comp in d.pop("components", []) or []:
         _emit_table("components", comp, out, array=True)
@@ -1665,17 +1902,51 @@ projects/
     └── reports/
         └── <date>-<commit>/   one folder per report                        (graders, via pull request)
             ├── report.json
-            └── report.md
+            ├── report.md
+            └── report.private.json   full report with security details   (never committed)
 ```
 
 - Graders open a pull request per report, on a branch named `report/<project>/<date>-<commit>`.
 - Decision answers go on that same pull request, or in a follow-up `decisions/<project>/<date>` pull request.
 - `org.toml` at the root (optional) holds house rules shared by every project.
+- Pull requests are checked by `gradekit ci` if the repo has the grading check (`gradekit init --ci github|gitlab`): one
+  new report folder, or settings changes, per pull request; decisions and dispositions are append-only.
+- `projects/index.json` lists every project's latest score, history and decisions waiting. It's made by `gradekit index`
+  (CI rebuilds it after merges); don't edit it.
+- This repo may be public. Before committing a report, graders run `gradekit redact --in-place`, which withholds
+  the details of sensitive (security) findings, and `gradekit validate --publish`. The full report stays out of
+  the repo as `report.private.json`.
 """
+
+PRIVATE_IGNORE = "*.private.json"
 
 
 def slug(name: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", str(name).lower()).strip("-") or "project"
+
+
+CI_DIR = SUITE_DIR / "ci"
+
+
+def install_ci(root: Path, host: str, site: str | None, force: bool = False) -> Path:
+    """Add the grading check to a grading repo. Returns the file written."""
+    text = (CI_DIR / f"{host}-grading.yml").read_text(encoding="utf-8")
+    if site:
+        text = text.replace("__SUITE_SITE__", site.rstrip("/"))
+    if host == "github":
+        dest = root / ".github" / "workflows" / "grading.yml"
+    else:
+        dest = root / ".gitlab-ci.yml"
+        if dest.exists() and "grading-check:" not in dest.read_text(encoding="utf-8"):
+            dest = root / ".gitlab" / "grading.yml"
+            print(f"note: .gitlab-ci.yml exists; add this to it:\n  include:\n    - local: .gitlab/grading.yml")
+    if dest.exists() and not force:
+        print(f"{dest} exists; left as it is (use --force to replace it)")
+        return dest
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.write_text(text, encoding="utf-8")
+    print(f"wrote {dest}" + ("" if site else "  (set SUITE_SITE in the CI settings: your suite website's address)"))
+    return dest
 
 
 def cmd_init(args) -> int:
@@ -1725,8 +1996,2632 @@ def cmd_init(args) -> int:
         if not (root / "README.md").exists():
             (root / "README.md").write_text(GRADING_REPO_README, encoding="utf-8")
             print(f"wrote {root / 'README.md'}")
+        ignore = root / ".gitignore"
+        lines = ignore.read_text(encoding="utf-8").splitlines() if ignore.exists() else []
+        if PRIVATE_IGNORE not in lines:
+            ignore.write_text("\n".join(lines + ["# full reports with withheld security details; never commit them", PRIVATE_IGNORE]) + "\n",
+                              encoding="utf-8")
+            print(f"{'updated' if lines else 'wrote'} {ignore}")
+    ci_file = None
+    if getattr(args, "ci", None):
+        if root is None:
+            die("--ci needs --project (it sets up a grading repo)")
+        ci_file = install_ci(root, args.ci, args.site, args.force)
     print(f"next: edit {out}, then run: gradekit resolve " + (f"--project {name}" if pdir else f"--config {out}"))
+    args._result = {"project": name, "project_toml": str(out), "project_dir": str(pdir) if pdir else None,
+                    "ci": str(ci_file) if ci_file else None}
     return 0
+
+
+# =========================================================================== report authoring
+# Graders build reports with these commands instead of typing JSON: weights, targets, quotes and
+# IDs all come from the tool. Every command re-normalizes the report against the effective config.
+
+EXIT_INCOMPLETE = 5
+REPORT_LISTS = ("commands_run", "feature_inventory", "gap_register", "findings", "integrity_flags",
+                "top_priorities", "limitations")
+CONFIDENCE = ("high", "medium", "low")
+
+
+def utc_now() -> str:
+    import datetime
+    return datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def blank_benchmark(b: dict, cfg: dict) -> dict:
+    cw = cfg["weights"][b["id"]]["weight"]
+    return {"id": b["id"], "name": b["name"], "pillar": b["pillar"], "applicability": "full", "applicability_reason": None,
+            "config_weight": cw, "weight": cw, "weight_note": None, "score": None, "confidence": None,
+            "carried_forward": False, "caps_applied": [], "finding_ids": [], "strengths": [], "enforcement": [],
+            "gaming_flags": [], "target": None, "path_to_target": [], "previous_score": None, "change_explanation": None}
+
+
+def normalize_report(report: dict, cfg: dict, catalog: dict | None = None) -> dict:
+    """Fill everything the tool knows: every benchmark (catalog order), names, pillars, weights, targets
+    and finding_ids. Never touches a grader's judgments (scores, findings, evidence, prose)."""
+    catalog = catalog or load_catalog()
+    for key in REPORT_LISTS:
+        report.setdefault(key, [])
+    report.setdefault("metrics", {})
+    report.setdefault("scope_examined", "")
+    report.setdefault("holdout", {"run": False, "checks_run": None, "pass_rate": None, "private_details": None})
+    have = benchmarks_by_id(report)
+    benches = []
+    for c in catalog["benchmarks"]:
+        b = have.get(c["id"]) or blank_benchmark(c, cfg)
+        b.update({"name": c["name"], "pillar": c["pillar"], "config_weight": cfg["weights"][c["id"]]["weight"]})
+        b["weight"] = expected_weight(b.get("applicability"), b["config_weight"])
+        if b.get("applicability") == "not_applicable":
+            b["score"], b["confidence"] = None, None
+        for key in ("caps_applied", "finding_ids", "strengths", "enforcement", "gaming_flags", "path_to_target"):
+            b.setdefault(key, [])
+        benches.append(b)
+    report["benchmarks"] = benches + [b for bid, b in have.items() if bid not in {c["id"] for c in catalog["benchmarks"]}]
+    by_id = benchmarks_by_id(report)
+    for f in report["findings"]:
+        b = by_id.get(f.get("benchmark_id"))
+        if b is not None and f.get("id") not in b["finding_ids"]:
+            b["finding_ids"].append(f.get("id"))
+    for bid, tv in compute_targets(report, cfg).items():
+        if bid in by_id:
+            by_id[bid]["target"] = tv
+    return report
+
+
+def project_dir_for_report(path) -> Path | None:
+    """projects/NAME/reports/<folder>/report.json (or …/<folder>/runs/run-N.json) → projects/NAME."""
+    p = Path(path).resolve().parent
+    for cand in (p.parent, p.parent.parent):
+        if cand.name == "reports" and (cand.parent / PROJECT_FILE).exists():
+            return cand.parent
+    return None
+
+
+def authoring_config(args, report: dict) -> dict:
+    if not (getattr(args, "config", None) or getattr(args, "project", None) or getattr(args, "project_dir", None)):
+        pdir = project_dir_for_report(args.report)
+        if pdir:
+            args.project_dir = str(pdir)
+    return load_config(args, report, quiet=True)
+
+
+def parse_cite(spec: str) -> tuple[str, int, int]:
+    m = re.fullmatch(r"(.+):(\d+)(?:-(\d+))?", spec.strip())
+    if not m:
+        die(f"--cite takes FILE:LINE or FILE:START-END, got '{spec}'")
+    start, end = int(m.group(2)), int(m.group(3) or m.group(2))
+    if start < 1 or end < start:
+        die(f"bad line range in '{spec}'")
+    return repo_relative(m.group(1)), start, end
+
+
+def repo_reader(repo: str | None):
+    if not repo:
+        die("--cite needs --repo (the code checkout, or a zip of it) to read the quote from")
+    path = Path(repo)
+    if path.suffix == ".zip" and path.is_file():
+        return zip_reader(str(path))
+    if not path.is_dir():
+        die(f"repo not found: {repo}")
+    return fs_reader(path)
+
+
+def cite(spec: str, read_lines, note: str | None = None) -> dict:
+    """An evidence object whose quote is copied from the file, so it always verifies."""
+    rel, start, end = parse_cite(spec)
+    if Path(rel).is_absolute() or ".." in Path(rel).parts:
+        die(f"cite a path inside the repo: {rel}")
+    lines = read_lines(rel)
+    if isinstance(lines, str):
+        die(lines)
+    if end > len(lines):
+        die(f"{rel} has {len(lines)} lines; cited {start}-{end}")
+    quote = "\n".join(lines[start - 1:end]).strip("\n")
+    if not quote.strip():
+        die(f"{rel}:{start}-{end} is blank; cite the lines that show the problem")
+    ev = {"type": "code", "file": rel, "lines": str(start) if start == end else f"{start}-{end}", "quote": quote}
+    if note:
+        ev["note"] = note
+    return ev
+
+
+def read_text_arg(value: str | None) -> str | None:
+    """'@path' reads a file, '-' reads stdin; anything else is the text itself."""
+    if value is None:
+        return None
+    if value == "-":
+        return sys.stdin.read()
+    if value.startswith("@"):
+        try:
+            return Path(value[1:]).read_text(encoding="utf-8")
+        except OSError as exc:
+            die(f"cannot read {value[1:]}: {exc}")
+    return value
+
+
+def evidence_from_args(args, required: bool = False) -> list[dict]:
+    out = []
+    note = getattr(args, "note", None)
+    cites = getattr(args, "cite", None) or []
+    if cites:
+        read = repo_reader(getattr(args, "repo", None))
+        out += [cite(c, read, note) for c in cites]
+    if getattr(args, "command", None):
+        excerpt = read_text_arg(getattr(args, "excerpt", None))
+        if not (excerpt or "").strip():
+            die("--command needs --excerpt (the relevant output; '@file' or '-' for stdin)")
+        out.append({"type": "command", "command": args.command, "excerpt": excerpt.strip("\n"), **({"note": note} if note else {})})
+    if getattr(args, "absence", None):
+        if not getattr(args, "method", None):
+            die("--absence needs --method (how you searched)")
+        out.append({"type": "absence", "searched": args.absence, "method": args.method, **({"note": note} if note else {})})
+    if required and not out:
+        die("give evidence: --cite FILE:LINES (with --repo), --command CMD --excerpt TEXT, or --absence WHAT --method HOW")
+    return out
+
+
+def recorded_ids(report: dict) -> set[str]:
+    """The IDs a report gives its findings and gaps. Only these: text that mentions an ID ("confirmed A1-001")
+    doesn't take it."""
+    ids = {str(f.get("id")) for f in report.get("findings") or [] if isinstance(f, dict) and f.get("id")}
+    ids |= {str(g.get("id")) for g in report.get("gap_register") or [] if isinstance(g, dict) and g.get("id")}
+    return ids
+
+
+def known_ids(report_path, report: dict, pattern: str) -> set[str]:
+    """IDs matching pattern in this report and every report of its project, so new IDs never reuse old ones."""
+    ids = recorded_ids(report)
+    pdir = project_dir_for_report(report_path)
+    if pdir:
+        for folder in report_folders(pdir):
+            for f in [folder / "report.json", *sorted((folder / "runs").glob("*.json"))]:
+                if f.exists() and f.resolve() != Path(report_path).resolve():
+                    try:
+                        ids |= recorded_ids(json.loads(f.read_text(encoding="utf-8", errors="replace")))
+                    except json.JSONDecodeError:
+                        continue
+    return {i for i in ids if re.fullmatch(pattern.replace(r"\b", ""), i)}
+
+
+def next_id(prefix: str, sep: str, taken: set[str], width: int = 3) -> str:
+    nums = [int(i.rsplit(sep, 1)[1]) for i in taken if i.startswith(prefix + sep) and i.rsplit(sep, 1)[1].isdigit()]
+    return f"{prefix}{sep}{str(max(nums, default=0) + 1).zfill(width)}"
+
+
+def benchmark_or_die(report: dict, bid: str) -> dict:
+    b = benchmarks_by_id(report).get(str(bid).upper())
+    if b is None:
+        die(f"unknown benchmark '{bid}'")
+    return b
+
+
+def finding_or_die(report: dict, fid: str) -> dict:
+    f = next((f for f in report.get("findings", []) if f.get("id") == fid), None)
+    if f is None:
+        die(f"no finding {fid} in this report")
+    return f
+
+
+def emit(args, result: dict, text: str) -> None:
+    """Every command's output: text for people; with --json, main() wraps `result` in the envelope."""
+    args._result = result
+    if text:
+        print(text)
+
+
+# ---------------------------------------------------------------- commands
+
+def cmd_report_new(args) -> int:
+    if args.mode == "pr" and not args.base_commit:
+        die("--mode pr needs --base-commit")
+    m = re.fullmatch(r"(\d+)/(\d+)", args.run or "1/1")
+    if not m or not 1 <= int(m.group(1)) <= int(m.group(2)):
+        die(f"--run takes N/COUNT, e.g. 2/3; got '{args.run}'")
+    run_index, run_count = int(m.group(1)), int(m.group(2))
+    cfg = load_config(args, quiet=True)
+    pdir = project_dir_from_args(args)
+    commit = args.commit.strip()
+    now = utc_now()
+    if args.out:
+        out = Path(args.out)
+    elif pdir:
+        folder = pdir / "reports" / f"{now[:10]}-{commit[:7]}"
+        out = folder / ("report.json" if run_count == 1 else f"runs/run-{run_index}.json")
+    else:
+        die("give --project NAME (or --project-dir), or --out FILE")
+    if out.exists() and not args.force:
+        die(f"{out} exists (use --force to start it again)")
+    catalog = load_catalog()
+    previous = {}
+    if pdir:
+        older = [f for f in report_folders(pdir) if (f / "report.json").resolve() != out.resolve()]
+        if older:
+            previous = benchmarks_by_id(load_json(older[-1] / "report.json"))
+    project = (cfg.get("project") or {}).get("name") or (pdir.name if pdir else None)
+    report = {
+        "suite_version": catalog["suite_version"], "mode": args.mode,
+        "run": {"project": project, "commit": commit, "base_commit": args.base_commit, "date": now, "grader": args.grader,
+                "run_index": run_index, "run_count": run_count, "suite_source": args.suite_source},
+        "component": ({"name": cfg["component"]["name"], "path": cfg["component"].get("path"), "weight": cfg["component"].get("weight", 1)}
+                      if cfg.get("component") else None),
+        "config": {"hash": cfg["hash"], "preset": cfg["preset"], "source": " + ".join(cfg["sources"][1:]) or None,
+                   "component": (cfg.get("component") or {}).get("name")},
+        "commands_run": [], "scope_examined": "", "metrics": {}, "feature_inventory": [], "gap_register": [],
+        "findings": [], "benchmarks": [blank_benchmark(c, cfg) for c in catalog["benchmarks"]], "integrity_flags": [],
+        "holdout": {"run": False, "checks_run": None, "pass_rate": None, "private_details": None},
+        "rollup": None, "top_priorities": [], "limitations": [],
+    }
+    for b in report["benchmarks"]:
+        b["previous_score"] = (previous.get(b["id"]) or {}).get("score")
+    normalize_report(report, cfg, catalog)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    write_json(out, report)
+    emit(args, {"report": str(out), "commit": commit, "config_hash": cfg["hash"], "previous": bool(previous)},
+         f"wrote {out}\nnext: add findings and scores with `gradekit report finding add` / `report score`, then `gradekit report check {out}`")
+    return 0
+
+
+def load_for_edit(args) -> tuple[dict, dict]:
+    report = load_json(args.report)
+    cfg = authoring_config(args, report)
+    return report, cfg
+
+
+def save_edit(args, report: dict, cfg: dict) -> None:
+    normalize_report(report, cfg)
+    write_json(args.report, report)
+
+
+def cmd_report_cite(args) -> int:
+    ev = cite(args.spec, repo_reader(args.repo), args.note)
+    args._result = ev
+    print(json.dumps(ev, indent=None if args.compact else 2, ensure_ascii=False))
+    return 0
+
+
+def cmd_finding_add(args) -> int:
+    report, cfg = load_for_edit(args)
+    bench = benchmark_or_die(report, args.benchmark)
+    bid = bench["id"]
+    if args.id:
+        if not re.fullmatch(rf"{bid}-\d{{3,}}", args.id):
+            die(f"--id must look like {bid}-007")
+        if any(f.get("id") == args.id for f in report["findings"]):
+            die(f"{args.id} is already in this report; use `report finding update`")
+        fid = args.id
+    else:
+        fid = next_id(bid, "-", known_ids(args.report, report, rf"\b{bid}-\d{{3,}}\b"))
+    f = {"id": fid, "benchmark_id": bid, "title": args.title, "severity": args.severity, "status": args.status,
+         "first_seen_commit": args.first_seen or (report.get("run") or {}).get("commit"),
+         "evidence": evidence_from_args(args, required=True), "disposition": None, "disposition_concern": None}
+    if args.paths:
+        f["paths"] = [repo_relative(p) for p in args.paths]
+    if args.sensitive:
+        f["sensitive"] = True
+    report["findings"].append(f)
+    save_edit(args, report, cfg)
+    emit(args, {"id": fid, "finding": f}, f"added {fid} ({args.severity}): {args.title}")
+    return 0
+
+
+def cmd_finding_update(args) -> int:
+    report, cfg = load_for_edit(args)
+    f = finding_or_die(report, args.id)
+    for key in ("title", "severity", "status"):
+        if getattr(args, key) is not None:
+            f[key] = getattr(args, key)
+    if args.disposition_concern is not None:
+        f["disposition_concern"] = args.disposition_concern or None
+    if args.sensitive is not None:
+        if args.sensitive:
+            f["sensitive"] = True
+        else:
+            f.pop("sensitive", None)
+    if args.paths:
+        f["paths"] = list(dict.fromkeys(list(f.get("paths", []) or []) + [repo_relative(p) for p in args.paths]))
+    new_ev = evidence_from_args(args)
+    if args.replace_evidence:
+        if not new_ev:
+            die("--replace-evidence needs new evidence")
+        f["evidence"] = new_ev
+    else:
+        f["evidence"] = f.get("evidence", []) + new_ev
+    save_edit(args, report, cfg)
+    emit(args, {"id": f["id"], "finding": f}, f"updated {f['id']}")
+    return 0
+
+
+def cmd_report_score(args) -> int:
+    report, cfg = load_for_edit(args)
+    b = benchmark_or_die(report, args.benchmark)
+    if args.applicability:
+        b["applicability"] = args.applicability
+    if args.reason is not None:
+        b["applicability_reason"] = args.reason or None
+    if b["applicability"] in ("limited", "not_applicable") and not (b.get("applicability_reason") or "").strip():
+        die(f"{b['id']} is {b['applicability']}: give --reason (based on the project's purpose, not its quality)")
+    if b["applicability"] == "not_applicable":
+        if args.score is not None:
+            die("a not_applicable benchmark has no score")
+        b["score"], b["confidence"] = None, None
+    else:
+        if args.score is not None:
+            b["score"] = args.score
+        if args.confidence:
+            b["confidence"] = args.confidence
+        if b.get("score") is None or b.get("confidence") is None:
+            die(f"{b['id']} needs --score and --confidence")
+    if args.score is not None or args.applicability:
+        b["carried_forward"] = False
+    if args.why is not None:
+        b["change_explanation"] = args.why or None
+    if args.rationale is not None:
+        b["rationale"] = args.rationale or None
+    if args.weight_note is not None:
+        b["weight_note"] = args.weight_note or None
+    for key, vals in (("caps_applied", args.cap), ("gaming_flags", args.gaming_flag)):
+        for v in vals or []:
+            if v not in b[key]:
+                b[key].append(v)
+    save_edit(args, report, cfg)
+    msg = f"{b['id']} {b['name']}: " + ("not applicable" if b["score"] is None else f"{b['score']} ({b['confidence']} confidence)")
+    if b.get("target") is not None:
+        msg += f", target {b['target']}"
+    emit(args, {"benchmark": b}, msg)
+    return 0
+
+
+def cmd_report_strength(args) -> int:
+    report, cfg = load_for_edit(args)
+    b = benchmark_or_die(report, args.benchmark)
+    b["strengths"].append({"note": args.text, "evidence": evidence_from_args(args, required=True)})
+    save_edit(args, report, cfg)
+    emit(args, {"benchmark_id": b["id"], "strengths": len(b["strengths"])}, f"{b['id']}: {len(b['strengths'])} strength(s)")
+    return 0
+
+
+def cmd_report_enforcement(args) -> int:
+    report, cfg = load_for_edit(args)
+    b = benchmark_or_die(report, args.benchmark)
+    b["enforcement"] += evidence_from_args(args, required=True)
+    save_edit(args, report, cfg)
+    emit(args, {"benchmark_id": b["id"], "enforcement": len(b["enforcement"])}, f"{b['id']}: {len(b['enforcement'])} enforcement item(s)")
+    return 0
+
+
+def cmd_report_action(args) -> int:
+    report, cfg = load_for_edit(args)
+    b = benchmark_or_die(report, args.benchmark)
+    findings = {f.get("id") for f in report["findings"]} | {g.get("id") for g in report["gap_register"]}
+    for fid in args.resolves:
+        if fid not in findings:
+            die(f"--resolves {fid}: no such finding or gap in this report")
+    aid = next_id(f"{b['id']}-act", "-", {a.get("id", "") for x in report["benchmarks"] for a in x["path_to_target"]}, width=1)
+    act = {"id": aid, "action": args.action, "resolves": args.resolves, "expected_new_score": args.new_score,
+           "effort": args.effort, "requires_human_decision": bool(args.decision), "decision_question": args.decision}
+    if args.optional:
+        act["optional"] = True
+    b["path_to_target"].append(act)
+    save_edit(args, report, cfg)
+    emit(args, {"id": aid, "action": act}, f"added {aid}" + (" (needs a human decision)" if args.decision else ""))
+    return 0
+
+
+def cmd_report_gap(args) -> int:
+    report, cfg = load_for_edit(args)
+    for bid in args.benchmarks:
+        benchmark_or_die(report, bid)
+    gid = next_id("GAP", "-", known_ids(args.report, report, r"\bGAP-\d{3,}\b"))
+    gap = {"id": gid, "gap": args.gap, "severity": args.severity, "necessity": args.necessity, "status": args.status,
+           "rationale": args.rationale or "", "benchmark_ids": [b.upper() for b in args.benchmarks]}
+    report["gap_register"].append(gap)
+    save_edit(args, report, cfg)
+    emit(args, {"id": gid, "gap": gap}, f"added {gid}: {args.gap}")
+    return 0
+
+
+def cmd_report_feature(args) -> int:
+    report, cfg = load_for_edit(args)
+    evidence = evidence_from_args(args)
+    same = [f for f in report["feature_inventory"] if str(f.get("feature", "")).strip().lower() == args.feature.strip().lower()]
+    if same:   # the same feature again updates it, e.g. when `carry` says its citation needs new evidence
+        feat = same[0]
+        feat.update({"source": args.source or feat.get("source"), "status": args.status})
+        if evidence:
+            feat["evidence"] = evidence
+        save_edit(args, report, cfg)
+        emit(args, {"feature": feat, "updated": True},
+             f"updated feature '{feat['feature']}' ({args.status}{', new evidence' if evidence else ''})")
+        return 0
+    feat = {"feature": args.feature, "source": args.source, "status": args.status, "evidence": evidence}
+    report["feature_inventory"].append(feat)
+    save_edit(args, report, cfg)
+    emit(args, {"feature": feat}, f"added feature '{args.feature}' ({args.status})")
+    return 0
+
+
+def cmd_report_flag(args) -> int:
+    report, cfg = load_for_edit(args)
+    flag = {"description": args.description, "evidence": evidence_from_args(args, required=True)}
+    report["integrity_flags"].append(flag)
+    save_edit(args, report, cfg)
+    emit(args, {"integrity_flag": flag}, "added integrity flag (caps maturity at L1 for this run)")
+    return 0
+
+
+def cmd_report_ran(args) -> int:
+    report, cfg = load_for_edit(args)
+    entry = {"command": args.command_text, "exit_code": args.exit_code, "result_summary": args.summary}
+    report["commands_run"].append(entry)
+    save_edit(args, report, cfg)
+    emit(args, {"command": entry}, f"recorded `{args.command_text}`")
+    return 0
+
+
+SETTABLE = ("summary", "scope_examined", "project_context_inferred", "metrics", "metrics_notes", "limitations", "holdout",
+            "top_priorities", "run")
+
+
+def cmd_report_set(args) -> int:
+    report, cfg = load_for_edit(args)
+    parts = args.key.split(".")
+    if parts[0] not in SETTABLE:
+        die(f"`report set` covers {', '.join(SETTABLE)}; use the other report commands for findings, scores and evidence")
+    try:
+        value = json.loads(args.value)
+    except json.JSONDecodeError:
+        value = args.value
+    node = report
+    for p in parts[:-1]:
+        node = node.setdefault(p, {})
+        if not isinstance(node, dict):
+            die(f"{args.key}: {p} is not an object")
+    last = parts[-1]
+    if args.append:
+        node.setdefault(last, [])
+        if not isinstance(node[last], list):
+            die(f"{args.key} is not a list")
+        node[last].append(value)
+    else:
+        node[last] = value
+    save_edit(args, report, cfg)
+    emit(args, {"key": args.key, "value": node[last]}, f"set {args.key}")
+    return 0
+
+
+def report_todo(report: dict) -> list[str]:
+    """What a grader still has to do before the report is finished."""
+    todo = []
+    for b in report.get("benchmarks", []):
+        if b.get("applicability") != "not_applicable" and (b.get("score") is None or b.get("confidence") is None):
+            todo.append(f"{b['id']} {b['name']}: score it (`report score REPORT {b['id']} --score N --confidence C`), "
+                        f"or mark it not applicable with a reason")
+    if not str(report.get("scope_examined") or "").strip():
+        todo.append("say what you examined: `report set REPORT scope_examined \"...\"`")
+    if not report.get("commands_run"):
+        todo.append("record the commands you ran: `report ran REPORT --command-text CMD --summary TEXT`")
+    if not report.get("limitations"):
+        todo.append("list limitations (or 'None'): `report set REPORT limitations \"...\" --append`")
+    return todo
+
+
+def cmd_report_check(args) -> int:
+    report, cfg = load_for_edit(args)
+    normalize_report(report, cfg)
+    errors, warnings = validate_report(report, cfg, load_catalog())
+    todo = report_todo(report)
+    todo_ids = {t.split(" ", 1)[0] for t in todo}
+    # A blank benchmark fails several rules at once; the to-do list says it once.
+    errors = [e for e in errors if not any(e.startswith(f"{bid}: applicable benchmark") for bid in todo_ids)]
+    evidence = None
+    if args.repo:
+        evidence = verify_evidence(report, repo_reader(args.repo), args.tolerance)
+        errors += [f"citation: {f}" for f in evidence["failures"]]
+    roll = None
+    if not todo:
+        roll = compute_rollup(report, cfg)
+        errors += [f"weight: {w}" for w in roll["weight_issues"]]
+    if args.write:
+        if roll is not None:
+            apply_rollup(report, cfg)
+            report["run"]["date"] = utc_now()
+        write_json(args.report, report)
+    status = "errors" if errors else "incomplete" if todo else "ready"
+    result = {"status": status, "errors": errors, "warnings": cfg.get("warnings", []) + warnings, "todo": todo,
+              "evidence": evidence, "overall_score": roll and roll["overall_score"],
+              "level": roll and roll["maturity"]["current_level"]}
+    lines = [f"ERROR:   {e}" for e in errors] + [f"warning: {w}" for w in result["warnings"]] + [f"todo:    {t}" for t in todo]
+    if evidence:
+        lines.append(f"citations: {evidence['checked']} checked, {len(evidence['failures'])} failed")
+    if roll:
+        lines.append(f"overall {roll['overall_score']}, maturity {roll['maturity']['current_level']}" +
+                     ("" if args.write else "  (run with --write to store the rollup and stamp the finish time)"))
+    lines.append(f"\n{status}: {len(errors)} error(s), {len(result['warnings'])} warning(s), {len(todo)} to do")
+    emit(args, result, "\n".join(lines))
+    return 1 if errors else EXIT_INCOMPLETE if todo else 0
+
+
+
+# =========================================================================== carry forward
+# The next report starts from the last one: findings keep their IDs, and every code citation is
+# moved to where the same code is now. Benchmarks the change touches are cleared for re-grading.
+
+ALWAYS_REGRADE = ("A1", "A3", "C1", "C2", "C3", "C4")   # pr-review.md: any source change
+
+
+def _stripped(lines: list[str]) -> list[str]:
+    return [ln.strip() for ln in lines]
+
+
+def relocate_evidence(ev: dict, read_lines) -> tuple[dict, str]:
+    """Move a code citation to the same code in another version of the repo.
+    Returns (evidence, outcome): unchanged | moved | changed (the cited line itself changed) | lost.
+    Quotes may be part of a line, as graders write them; they're kept unless the code changed."""
+    if ev.get("type") != "code":
+        return ev, "unchanged"
+    lines = read_lines(str(ev.get("file", "")))
+    if isinstance(lines, str):
+        return ev, "lost"
+    m = re.fullmatch(r"(\d+)(?:-(\d+))?", str(ev.get("lines", "")))
+    quote = norm(str(ev.get("quote", "")))
+    if not m or not quote:
+        return ev, "lost"
+    start, end = int(m.group(1)), int(m.group(2) or m.group(1))
+    span = end - start
+    if end <= len(lines) and quote in norm("\n".join(lines[start - 1:end])):
+        return ev, "unchanged"
+
+    def label(n):
+        return str(n) if span == 0 else f"{n}-{n + span}"
+
+    hits = [i for i in range(max(1, len(lines) - span)) if quote in norm("\n".join(lines[i:i + span + 1]))]
+    if hits:
+        n = min(hits, key=lambda i: (abs(i + 1 - start), i)) + 1
+        return dict(ev, lines=label(n)), "moved"
+    first = next((norm(x) for x in str(ev.get("quote", "")).splitlines() if norm(x)), "")
+    key = first.split("(")[0] + "(" if "(" in first else first[:24]
+    if len(key.strip()) >= 8:
+        hits = [i for i in range(len(lines)) if key in norm(lines[i])]
+        if hits:
+            n = min(hits, key=lambda i: (abs(i + 1 - start), i)) + 1
+            e = min(len(lines), n + span)
+            return dict(ev, lines=str(n) if e == n else f"{n}-{e}", quote="\n".join(lines[n - 1:e]).strip("\n")), "changed"
+    return ev, "lost"
+
+
+def evidence_files(items) -> set[str]:
+    out = set()
+    for ev in items:
+        if ev.get("type") == "code" and ev.get("file"):
+            out.add(repo_relative(ev["file"]))
+    return out
+
+
+def benchmark_files(report: dict) -> dict[str, set[str]]:
+    files: dict[str, set[str]] = {}
+    for loc, ev, bid in iter_evidence(report):
+        if bid and ev.get("type") == "code" and ev.get("file"):
+            files.setdefault(bid, set()).add(repo_relative(ev["file"]))
+    for f in report.get("findings", []):
+        for p in f.get("paths", []) or []:
+            files.setdefault(f.get("benchmark_id"), set()).add(repo_relative(p))
+    return files
+
+
+def suggest_touched(baseline: dict, changed: list[str], cfg: dict) -> tuple[list[str], list[str]]:
+    """Benchmarks to re-grade for a change (pr-review.md step 1, the parts a tool can see), with reasons."""
+    if not changed:
+        return [], []
+    changed = [repo_relative(c) for c in changed]
+    touched, why = set(ALWAYS_REGRADE), [f"{', '.join(ALWAYS_REGRADE)}: any change to the code"]
+    for bid, files in benchmark_files(baseline).items():
+        hit = sorted(c for c in changed for f in files if c == f or glob_to_regex(f).match(c))
+        if hit:
+            touched.add(bid)
+            why.append(f"{bid}: cites {', '.join(dict.fromkeys(hit))}")
+    hot = sorted(c for c in changed if zone_for_path(c, cfg)[1] == "hot")
+    if hot:
+        touched.update(cfg["gates"]["benchmarks"])
+        why.append(f"gates ({', '.join(cfg['gates']['benchmarks'])}): hot-zone files changed ({', '.join(hot)})")
+    order = [b["id"] for b in load_catalog()["benchmarks"]]
+    cites = sorted(why[1:], key=lambda w: order.index(w.split(":")[0]) if w.split(":")[0] in order else 99)
+    return [b for b in order if b in touched], why[:1] + cites
+
+
+def git_changed_files(repo: str, base: str, head: str) -> list[str] | None:
+    import subprocess
+    try:
+        r = subprocess.run(["git", "-C", repo, "diff", "--name-only", f"{base}...{head}"], capture_output=True, text=True, timeout=60)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return [ln.strip() for ln in r.stdout.splitlines() if ln.strip()] if r.returncode == 0 else None
+
+
+def carry_report(baseline: dict, read_lines, cfg: dict, commit: str, mode: str, base_commit: str | None,
+                 touched: list[str] | None) -> tuple[dict, dict]:
+    """The next report, started from `baseline`. touched=None means a full re-grade (every benchmark)."""
+    r = copy.deepcopy(baseline)
+    for key in ("rollup", "publishing"):
+        r.pop(key, None)
+    r["suite_version"] = load_catalog()["suite_version"]
+    r["mode"] = mode
+    r["run"] = {**(baseline.get("run") or {}), "commit": commit, "base_commit": base_commit, "date": utc_now()}
+    r["config"] = {**(baseline.get("config") or {}), "hash": cfg["hash"], "preset": cfg["preset"]}
+    r["top_priorities"] = []
+    r["commands_run"] = []
+    r["integrity_flags"] = []
+    regrade = set(touched) if touched is not None else {b["id"] for b in r.get("benchmarks", [])}
+    if mode == "pr":
+        r["limitations"] = ["PR quick mode: benchmarks marked carried_forward were not re-graded."]
+    else:
+        r["limitations"], r["metrics"], r["metrics_notes"] = [], {}, {}
+        r["scope_examined"] = ""
+    r.pop("summary", None)
+    stats = {"unchanged": 0, "moved": 0, "changed": [], "lost": []}
+
+    def move(loc, items):
+        out = []
+        for ev in items:
+            new, outcome = relocate_evidence(ev, read_lines)
+            if outcome in ("unchanged", "moved"):
+                stats[outcome] += 1
+            else:
+                stats[outcome].append(f"{loc}: {ev.get('file')}:{ev.get('lines')}")
+            out.append(new)
+        return out
+
+    for f in r.get("findings", []):
+        f["evidence"] = move(f"finding {f.get('id')}", f.get("evidence", []))
+        if f.get("status") == "new":
+            f["status"] = "open"
+    for b in r.get("benchmarks", []):
+        b["previous_score"] = b.get("score")
+        b["change_explanation"] = None
+        for i, s in enumerate(b.get("strengths", [])):
+            s["evidence"] = move(f"{b['id']} strength #{i + 1}", s.get("evidence", []))
+        b["enforcement"] = move(f"{b['id']} enforcement", b.get("enforcement", []))
+        if b["id"] in regrade:
+            b["carried_forward"] = False
+            if b.get("applicability") != "not_applicable":
+                b["score"], b["confidence"] = None, None
+            b["gaming_flags"] = []
+        else:
+            b["carried_forward"] = True
+    for feat in r.get("feature_inventory", []):
+        feat["evidence"] = move(f"feature '{feat.get('feature')}'", feat.get("evidence", []) or [])
+    normalize_report(r, cfg)
+    return r, stats
+
+
+def cmd_carry(args) -> int:
+    baseline = load_json(args.baseline)
+    if (baseline.get("publishing") or {}).get("withheld") and not args.allow_withheld:
+        die(f"{args.baseline} is a public copy: {', '.join(baseline['publishing']['withheld'])} have their evidence withheld. "
+            f"Carry from the full report ({private_path(args.baseline)}), or pass --allow-withheld to keep them as they are.")
+    if args.mode == "pr" and not args.base_commit:
+        die("--mode pr needs --base-commit (the pull request's base)")
+    args.report = args.baseline
+    cfg = authoring_config(args, baseline)
+    read = repo_reader(args.repo)
+    changed = list(args.changed or [])
+    notes = []
+    if args.mode == "pr" and not changed and args.base_commit:
+        found = git_changed_files(args.repo, args.base_commit, args.commit)
+        if found is None:
+            notes.append("couldn't list the changed files with git; pass --changed FILE… or --touched ID…")
+        changed = found or []
+    if args.mode == "full":
+        touched, why = None, ["full mode: every benchmark is re-graded"]
+    else:
+        touched, why = suggest_touched(baseline, changed, cfg)
+        extra = [t.upper() for t in args.touched or [] if t.upper() not in touched]
+        for t in extra:
+            if t not in {b["id"] for b in load_catalog()["benchmarks"]}:
+                die(f"--touched: unknown benchmark '{t}'")
+        if extra:
+            touched += extra
+            why.append(f"--touched: {', '.join(extra)}")
+    report, stats = carry_report(baseline, read, cfg, args.commit, args.mode, args.base_commit, touched)
+    pdir = project_dir_for_report(args.baseline) or project_dir_from_args(args)
+    if args.out:
+        out = Path(args.out)
+    elif args.mode == "full" and pdir:
+        out = pdir / "reports" / f"{report['run']['date'][:10]}-{args.commit[:7]}" / "report.json"
+    else:
+        die("give --out FILE (PR reports are written outside the grading repo)")
+    if out.exists() and not args.force:
+        die(f"{out} exists (use --force to replace it)")
+    out.parent.mkdir(parents=True, exist_ok=True)
+    write_json(out, report)
+    regrade = [b["id"] for b in report["benchmarks"] if not b.get("carried_forward")]
+    result = {"report": str(out), "regrade": regrade, "why": why, "changed_files": changed, "notes": notes,
+              "evidence": {"unchanged": stats["unchanged"], "moved": stats["moved"], "changed": stats["changed"], "lost": stats["lost"]}}
+    lines = [f"wrote {out}", f"re-grade: {', '.join(regrade) or 'nothing'}"] + [f"  {w}" for w in why]
+    lines.append(f"citations: {stats['unchanged']} unchanged, {stats['moved']} moved, {len(stats['changed'])} on lines that changed, "
+                 f"{len(stats['lost'])} not found")
+    lines += [f"  changed: {c} (check the finding still applies)" for c in stats["changed"]]
+    lines += [f"  not found: {c} (fixed, moved elsewhere, or needs new evidence)" for c in stats["lost"]]
+    lines += [f"note: {n}" for n in notes]
+    lines.append(f"next: grade the benchmarks listed, update finding statuses, then `gradekit report check {out} --repo {args.repo}`")
+    emit(args, result, "\n".join(lines))
+    return 0
+
+
+# ---------------------------------------------------------------- matching findings across reports
+
+STOPWORDS = {"the", "and", "for", "not", "with", "are", "but", "has", "have", "into", "from", "this", "that", "when", "its",
+             "can", "does", "per", "all", "any", "one", "only", "out", "too", "via", "without", "missing", "no"}
+
+
+def _tokens(text: str) -> set[str]:
+    return {w for w in re.findall(r"[a-z0-9_]+", str(text).lower()) if len(w) >= 3 and w not in STOPWORDS}
+
+
+def _jaccard(a: set, b: set) -> float:
+    return len(a & b) / len(a | b) if a and b else 0.0
+
+
+def finding_fingerprint(f: dict) -> dict:
+    files = evidence_files(f.get("evidence", [])) | {repo_relative(p) for p in f.get("paths", []) or []}
+    quotes = {norm(ln) for ev in f.get("evidence", []) if ev.get("type") == "code" for ln in str(ev.get("quote", "")).splitlines()
+              if len(norm(ln)) >= 12}
+    text = " ".join([f.get("title") or ""] + [str(ev.get(k) or "") for ev in f.get("evidence", []) for k in ("note", "searched")])
+    return {"benchmark": f.get("benchmark_id"), "files": files, "quotes": quotes, "words": _tokens(text)}
+
+
+def finding_similarity(a: dict, b: dict) -> float:
+    fa, fb = finding_fingerprint(a), finding_fingerprint(b)
+    if fa["benchmark"] != fb["benchmark"]:
+        return 0.0
+    score = 0.45 * _jaccard(fa["words"], fb["words"]) + 0.35 * _jaccard(fa["files"], fb["files"])
+    score += 0.2 if fa["quotes"] & fb["quotes"] else 0.0
+    if not fa["files"] and not fb["files"]:
+        score += 0.2 * _jaccard(fa["words"], fb["words"])
+    return round(min(score, 1.0), 2)
+
+
+def match_findings(report: dict, baseline: dict, threshold: float = 0.35) -> list[dict]:
+    """Pairs of (finding written fresh in this report, earlier finding it probably is)."""
+    old_by_id = {f.get("id"): f for f in baseline.get("findings", [])}
+    fresh = [f for f in report.get("findings", []) if f.get("id") not in old_by_id]
+    have = {f.get("id") for f in report.get("findings", [])}
+    missing = [f for f in baseline.get("findings", []) if f.get("id") not in have and f.get("status") != "fixed"]
+    pairs = []
+    for f in fresh:
+        scored = sorted(((finding_similarity(f, o), o) for o in missing), key=lambda x: -x[0])
+        scored = [(s, o) for s, o in scored if s >= threshold]
+        if scored:
+            best, o = scored[0]
+            pairs.append({"new": f["id"], "old": o["id"], "similarity": best, "old_title": o.get("title"), "new_title": f.get("title"),
+                          "ambiguous": len(scored) > 1 and scored[1][0] >= best - 0.1})
+    claimed: dict[str, dict] = {}
+    for p in sorted(pairs, key=lambda p: -p["similarity"]):
+        if p["old"] in claimed:
+            p["ambiguous"] = True
+        else:
+            claimed[p["old"]] = p
+    return pairs
+
+
+def rename_finding(report: dict, old_id: str, new_id: str, first_seen: str | None) -> None:
+    for f in report.get("findings", []):
+        if f.get("id") == old_id:
+            f["id"] = new_id
+            if first_seen:
+                f["first_seen_commit"] = first_seen
+            if f.get("status") == "new":
+                f["status"] = "open"
+    for b in report.get("benchmarks", []):
+        b["finding_ids"] = [new_id if i == old_id else i for i in b.get("finding_ids", [])]
+        for a in b.get("path_to_target", []):
+            a["resolves"] = [new_id if i == old_id else i for i in a.get("resolves", [])]
+
+
+def cmd_report_match(args) -> int:
+    report, cfg = load_for_edit(args)
+    baseline = load_json(args.baseline)
+    pairs = match_findings(report, baseline, args.threshold)
+    applied = []
+    if args.apply:
+        old = {f.get("id"): f for f in baseline.get("findings", [])}
+        for p in pairs:
+            if p["similarity"] >= args.apply_at and not p["ambiguous"]:
+                rename_finding(report, p["new"], p["old"], old[p["old"]].get("first_seen_commit"))
+                applied.append(p)
+        if applied:
+            save_edit(args, report, cfg)
+    lines = [f"{p['new']} looks like {p['old']} ({p['similarity']:.2f}{', ambiguous' if p['ambiguous'] else ''}): "
+             f"\"{p['new_title']}\" ~ \"{p['old_title']}\"" for p in pairs] or ["no likely matches"]
+    if args.apply:
+        lines.append(f"renamed {len(applied)}: " + (", ".join(f"{p['new']} → {p['old']}" for p in applied) or "none")
+                     + f" (only unambiguous matches ≥ {args.apply_at})")
+    else:
+        lines.append("to keep an earlier ID: `report match … --apply`, or re-add the finding with `finding add --id OLD-ID`")
+    emit(args, {"matches": pairs, "applied": [{"from": p["new"], "to": p["old"]} for p in applied]}, "\n".join(lines))
+    return 0
+
+
+# =========================================================================== doctor
+# A preflight: everything a run will need, checked before an hour of grading rather than after.
+
+def _check(name, status, detail, fix=None):
+    return {"check": name, "status": status, "detail": detail, **({"fix": fix} if fix else {})}
+
+
+def _run(cmd, cwd=None, timeout=30):
+    import subprocess
+    try:
+        r = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, timeout=timeout)
+        return r.returncode, (r.stdout + r.stderr).strip()
+    except FileNotFoundError:
+        return None, "not installed"
+    except (OSError, subprocess.SubprocessError) as exc:
+        return None, str(exc)
+
+
+def doctor_checks(args) -> list[dict]:
+    import shutil
+    out = []
+    v = sys.version_info
+    out.append(_check("python", "ok" if v >= (3, 11) else "fail", f"Python {v.major}.{v.minor}.{v.micro}",
+                      None if v >= (3, 11) else "gradekit needs Python 3.11 or later (it uses tomllib)"))
+    try:
+        catalog = load_catalog()
+        load_json(SCHEMA_PATH)
+        load_toml(DEFAULTS_PATH)
+        out.append(_check("kit", "ok", f"suite {catalog['suite_version']} at {SUITE_DIR}"))
+    except Exception as exc:   # noqa: BLE001 - any failure here means a broken kit
+        out.append(_check("kit", "fail", f"can't load the kit at {SUITE_DIR}: {exc}", "download the kit again"))
+        return out
+    try:
+        import jsonschema  # type: ignore  # noqa: F401
+        out.append(_check("jsonschema", "ok", "installed: full schema checks"))
+    except ImportError:
+        out.append(_check("jsonschema", "warn", "not installed: validate skips the structural schema check",
+                          "pip install jsonschema (optional)"))
+    tmp = Path(tempfile.gettempdir())
+    try:
+        with tempfile.NamedTemporaryFile(dir=tmp, prefix="gradekit-doctor-") as fh:
+            fh.write(b"ok")
+        out.append(_check("temp", "ok", f"can write to {tmp}"))
+    except OSError as exc:
+        out.append(_check("temp", "fail", f"can't write to {tmp}: {exc}", "set TMPDIR to a writable folder"))
+
+    if args.site:
+        out += doctor_site(args.site, catalog)
+
+    pdir = project_dir_from_args(args)
+    if pdir or getattr(args, "config", None):
+        try:
+            cfg = load_config(args, quiet=True)
+            warn = cfg.get("warnings", [])
+            out.append(_check("config", "warn" if warn else "ok",
+                              f"{cfg['hash']} · preset {cfg['preset']}" + (f" · {len(warn)} warning(s): {'; '.join(warn)}" if warn else "")))
+        except GradekitError as exc:
+            out.append(_check("config", "fail", str(exc), "fix project.toml; `gradekit resolve` shows the details"))
+            cfg = None
+        if pdir:
+            for fname in (DECISIONS_FILE, DISPOSITIONS_FILE):
+                f = pdir / fname
+                if f.exists():
+                    try:
+                        load_json(f)
+                    except GradekitError as exc:
+                        out.append(_check(fname, "fail", str(exc), f"fix the JSON in {f}"))
+            reports = pdir / "reports"
+            try:
+                reports.mkdir(parents=True, exist_ok=True)
+                with tempfile.NamedTemporaryFile(dir=reports, prefix=".gradekit-doctor-"):
+                    pass
+                out.append(_check("project folder", "ok", f"can write to {reports}"))
+            except OSError as exc:
+                out.append(_check("project folder", "fail", f"can't write to {reports}: {exc}", "check the folder's permissions"))
+            found = report_folders(pdir)
+            out.append(_check("previous report", "ok", f"{found[-1].name} (start with `gradekit carry`)") if found
+                       else _check("previous report", "ok", "none: this is the first report (start with `gradekit report new`)"))
+
+    if args.repo:
+        repo = Path(args.repo)
+        if repo.suffix == ".zip" and repo.is_file():
+            out.append(_check("code repo", "ok", f"zip {repo}"))
+        elif repo.is_dir():
+            n = sum(1 for _ in repo.rglob("*") if ".git" not in _.parts)
+            rc, head = _run(["git", "-C", str(repo), "rev-parse", "HEAD"]) if shutil.which("git") else (None, "")
+            out.append(_check("code repo", "ok", f"{repo} · {n} files" + (f" · commit {head[:12]}" if rc == 0 else " · not a git checkout")))
+        else:
+            out.append(_check("code repo", "fail", f"not found: {repo}", "pass the code checkout (or a zip of it) with --repo"))
+
+    if args.delivery == "pr":
+        out += doctor_git(args, pdir)
+    return out
+
+
+def doctor_site(site: str, catalog: dict) -> list[dict]:
+    import urllib.request
+    url = site.rstrip("/") + "/manifest.json"
+    try:
+        with urllib.request.urlopen(url, timeout=20) as resp:
+            man = json.loads(resp.read().decode("utf-8"))
+    except Exception as exc:   # noqa: BLE001 - any network failure is the finding
+        return [_check("suite website", "fail", f"can't fetch {url}: {exc}",
+                       "check the address, and that this sandbox may reach it (network allowlist or proxy)")]
+    out = []
+    ver = man.get("version")
+    out.append(_check("suite website", "ok" if ver == catalog["suite_version"] else "warn",
+                      f"{site} serves {ver}; this kit is {catalog['suite_version']}",
+                      None if ver == catalog["suite_version"] else "use the kit the website serves (its download link), so prompts and tools match"))
+    if ver == catalog["suite_version"]:
+        changed = []
+        for f in man.get("files", []):
+            rel = str(f.get("path", ""))
+            if rel.startswith("suite/"):
+                local = SUITE_DIR / rel[len("suite/"):]
+                if local.is_file() and hashlib.sha256(local.read_bytes()).hexdigest() != f.get("sha256"):
+                    changed.append(rel[len("suite/"):])
+        out.append(_check("kit files", "warn" if changed else "ok",
+                          f"{len(changed)} differ from the website's copy: {', '.join(changed[:5])}" if changed else "match the website's copy",
+                          "download the kit again if you didn't change these on purpose" if changed else None))
+    return out
+
+
+def doctor_git(args, pdir) -> list[dict]:
+    import shutil
+    out = []
+    if not shutil.which("git"):
+        return [_check("git", "fail", "not installed", "pr delivery needs git; or use --delivery save or return")]
+    root = pdir or Path(args.grading_repo or ".")
+    rc, top = _run(["git", "-C", str(root), "rev-parse", "--show-toplevel"])
+    if rc != 0:
+        return [_check("grading repo", "fail", f"{root} is not in a git checkout",
+                       "clone the grading repo, or use --delivery save or return")]
+    out.append(_check("grading repo", "ok", top))
+    name = _run(["git", "-C", top, "config", "user.name"])[1]
+    email = _run(["git", "-C", top, "config", "user.email"])[1]
+    out.append(_check("git identity", "ok" if name and email else "fail", f"{name or '?'} <{email or '?'}>",
+                      None if name and email else "git config user.name … && git config user.email …"))
+    rc, url = _run(["git", "-C", top, "remote", "get-url", args.remote])
+    if rc != 0:
+        out.append(_check("remote", "fail", f"no remote '{args.remote}'", f"git remote add {args.remote} URL, or pass --remote"))
+        return out
+    rc, msg = _run(["git", "-C", top, "ls-remote", "--symref", args.remote, "HEAD"], timeout=60)
+    if rc != 0:
+        out.append(_check("remote read", "fail", f"can't read {url}: {msg.splitlines()[-1] if msg else ''}",
+                          "check the address and the credentials this sandbox uses"))
+        return out
+    head = re.search(r"ref: refs/heads/(\S+)\s+HEAD", msg)
+    out.append(_check("remote read", "ok", f"{url} (default branch {head.group(1) if head else 'unknown'})"))
+    probe = f"refs/heads/gradekit-doctor-{os.getpid()}"
+    rc, msg = _run(["git", "-C", top, "push", "--dry-run", "--quiet", args.remote, f"HEAD:{probe}"], timeout=60)
+    out.append(_check("remote push", "ok" if rc == 0 else "fail",
+                      "push allowed (dry run)" if rc == 0 else f"push refused (dry run): {msg.splitlines()[-1] if msg else ''}",
+                      None if rc == 0 else "the grader needs permission to push branches to the grading repo"))
+    if args.open:
+        tool = {"github": "gh", "gitlab": "glab"}[args.open]
+        rc, msg = _run([tool, "auth", "status"])
+        out.append(_check(tool, "ok" if rc == 0 else "fail",
+                          "signed in" if rc == 0 else (msg.splitlines()[-1].strip(" -") if msg else "not signed in"),
+                          None if rc == 0 else f"{tool} auth login, or open the pull request by hand (drop --open)"))
+    return out
+
+
+def cmd_doctor(args) -> int:
+    checks = doctor_checks(args)
+    mark = {"ok": "ok  ", "warn": "warn", "fail": "FAIL"}
+    lines = []
+    for c in checks:
+        lines.append(f"{mark[c['status']]}  {c['check']:<16} {c['detail']}")
+        if c.get("fix"):
+            lines.append(f"      {'':<16} → {c['fix']}")
+    fails = [c for c in checks if c["status"] == "fail"]
+    warns = [c for c in checks if c["status"] == "warn"]
+    lines.append(f"\n{'ready' if not fails else 'not ready'}: {len(fails)} problem(s), {len(warns)} warning(s)")
+    emit(args, {"ready": not fails, "checks": checks}, "\n".join(lines))
+    return 1 if fails else 0
+
+
+# =========================================================================== deliver
+# Hands a finished report back in one of the grader's three deliveries (pr, save, return). The
+# preparation is the same for all: finished, redacted if the grading repo is public, safe to
+# publish, report.md rendered. For pr, the git steps are printed, or run with --run. Pushing and
+# opening the pull request are separate opt-ins, because those depend on where the repo is hosted.
+
+def git_out(cwd, *args, check=True) -> str:
+    import subprocess
+    try:
+        r = subprocess.run(["git", "-C", str(cwd), *args], capture_output=True, text=True, timeout=120)
+    except (OSError, subprocess.SubprocessError) as exc:
+        die(f"git {' '.join(args)}: {exc}")
+    if check and r.returncode != 0:
+        die(f"git {' '.join(args)} failed: {(r.stderr or r.stdout).strip()}")
+    return r.stdout.strip() if r.returncode == 0 else ""
+
+
+def default_branch(root, remote: str) -> str:
+    ref = git_out(root, "symbolic-ref", "--quiet", "--short", f"refs/remotes/{remote}/HEAD", check=False)
+    if ref:
+        return ref
+    for cand in (f"{remote}/main", f"{remote}/master", "main", "master"):
+        if git_out(root, "rev-parse", "--verify", "--quiet", cand, check=False):
+            return cand
+    die("can't tell the grading repo's default branch; pass --base BRANCH")
+
+
+def prepare_delivery(args, report: dict, cfg: dict) -> dict:
+    """Everything every delivery needs. Returns the file paths, or dies with what's left to do."""
+    normalize_report(report, cfg)
+    errors, _ = validate_report(report, cfg, load_catalog())
+    todo = report_todo(report)
+    if args.repo:
+        errors += [f"citation: {f}" for f in verify_evidence(report, repo_reader(args.repo), 2)["failures"]]
+    if errors or todo:
+        args._exit = 1 if errors else EXIT_INCOMPLETE
+        raise DeliveryBlocked(errors, todo)
+    if not report.get("rollup") or report["rollup"].get("config_hash") != cfg["hash"]:
+        apply_rollup(report, cfg)
+    write_json(args.report, report)
+    files = {"report": args.report, "private": None}
+    public = bool((cfg.get("publishing") or PUBLISHING_DEFAULTS).get("public"))
+    if public and not (report.get("publishing") or {}).get("redacted"):
+        pub, leaks = redact_report(report)
+        if leaks:
+            args._exit = 1
+            raise DeliveryBlocked([f"leak: {x}" for x in leaks], [])
+        priv = private_path(args.report)
+        write_json(priv, report)
+        write_json(args.report, pub)
+        report = pub
+    if Path(private_path(args.report)).exists():
+        files["private"] = private_path(args.report)
+    if public:
+        problems = publish_problems(report)
+        if problems:
+            args._exit = 1
+            raise DeliveryBlocked([f"publish: {p}" for p in problems], [])
+    md = re.sub(r"\.json$", "", args.report) + ".md"
+    Path(md).write_text(render_report_md(report, cfg), encoding="utf-8")
+    files["markdown"] = md
+    files["report_obj"] = report
+    return files
+
+
+class DeliveryBlocked(Exception):
+    def __init__(self, errors, todo):
+        super().__init__("report not ready")
+        self.errors, self.todo = errors, todo
+
+
+def cmd_deliver(args) -> int:
+    report = load_json(args.report)
+    cfg = authoring_config(args, report)
+    if (args.push or args.open) and not args.run:
+        die("--push and --open need --run")
+    if args.open and not args.push:
+        die("--open needs --push (the branch must be on the host first)")
+    try:
+        files = prepare_delivery(args, report, cfg)
+    except DeliveryBlocked as b:
+        lines = [f"ERROR: {e}" for e in b.errors] + [f"todo:  {t}" for t in b.todo]
+        lines.append(f"\nnot delivered: {len(b.errors)} error(s), {len(b.todo)} to do (`gradekit report check` lists the same)")
+        emit(args, {"delivered": False, "errors": b.errors, "todo": b.todo}, "\n".join(lines))
+        return args._exit
+    report = files.pop("report_obj")
+    folder = Path(args.report).resolve().parent
+    if folder.name == "runs":
+        die("deliver the consensus report.json, not one run (see `gradekit stability`)")
+    pr = render_report_pr(report, cfg, args.site, args.grading_repo_url, args.branch, folder.name)
+    result = {"delivered": False, "delivery": args.delivery, "files": files, "title": pr["title"]}
+    lines = [f"ready: {files['report']}" + (f" (public copy; full report in {files['private']})" if files["private"] else ""),
+             f"wrote {files['markdown']}"]
+    private_note = (f"keep {files['private']} private: never commit it or paste it into a pull request; "
+                    f"hand it to whoever fixes the code") if files["private"] else None
+
+    if args.delivery == "return":
+        blocks = [("report.json", Path(files["report"]).read_text(encoding="utf-8"), "json"),
+                  ("report.md", Path(files["markdown"]).read_text(encoding="utf-8"), "markdown")]
+        if files["private"]:
+            blocks.append(("report.private.json (private: don't commit)", Path(files["private"]).read_text(encoding="utf-8"), "json"))
+        result.update(delivered=True, blocks=[{"name": n, "content": c} for n, c, _ in blocks])
+        lines.append("\nReturn these in your final message, each in its own fenced block:")
+        for name, content, lang in blocks:
+            lines += ["", f"**{name}**", f"````{lang}", content.rstrip("\n"), "````"]
+        emit(args, result, "\n".join(lines))
+        return 0
+
+    if args.delivery == "save":
+        result["delivered"] = True
+        result["folder"] = str(folder)
+        lines.append(f"saved in {folder}")
+        if private_note:
+            lines.append(private_note)
+        emit(args, result, "\n".join(lines))
+        return 0
+
+    # ---- pr
+    root = Path(git_out(folder, "rev-parse", "--show-toplevel"))
+    rel = folder.relative_to(root.resolve()).as_posix()
+    base = args.base or default_branch(root, args.remote)
+    branch = pr["branch"]
+    base_name = base.split("/", 1)[1] if base.startswith(args.remote + "/") else base
+    if branch in (base, base_name):
+        die("refusing to deliver onto the default branch; reports go through a pull request")
+    body_file = Path(args.body_file) if args.body_file else Path(tempfile.gettempdir()) / f"gradekit-{branch.replace('/', '_')}.md"
+    body_file.write_text(pr["body"], encoding="utf-8")
+    msg = f"{pr['title']}\n\n{(report.get('summary') or '').strip()}".strip()
+    only = [rel, f":(exclude){rel}/**/*.private.json", f":(exclude){rel}/*.private.json"]   # never the private report
+    steps = [["git", "-C", str(root), "switch", "-c", branch, base],
+             ["git", "-C", str(root), "add", "--", *only],
+             ["git", "-C", str(root), "commit", "-m", msg, "--", *only]]
+    if args.push:
+        steps.append(["git", "-C", str(root), "push", "-u", args.remote, branch])
+    if args.open == "github":
+        steps.append(["gh", "pr", "create", "--base", base_name, "--head", branch,
+                      "--title", pr["title"], "--body-file", str(body_file)])
+    elif args.open == "gitlab":
+        steps.append(["glab", "mr", "create", "--source-branch", branch, "--target-branch", base_name,
+                      "--title", pr["title"], "--description", pr["body"], "--yes"])
+    result.update(branch=branch, base=base_name, body_file=str(body_file), commands=[shell_join(s) for s in steps])
+    if not args.run:
+        lines += ["", f"pull request: {pr['title']}", f"branch {branch} from {base}; body in {body_file}", "",
+                  "run these (or `gradekit deliver … --run`), then open a pull request from that branch with that title and body:"]
+        lines += [f"  {shell_join(s)}" for s in steps]
+        if private_note:
+            lines += ["", private_note]
+        emit(args, result, "\n".join(lines))
+        return 0
+
+    import subprocess
+    current = git_out(root, "rev-parse", "--abbrev-ref", "HEAD")
+    if current == branch:
+        steps = steps[1:]          # already on the report branch (a re-run)
+    elif git_out(root, "rev-parse", "--verify", "--quiet", f"refs/heads/{branch}", check=False):
+        die(f"branch {branch} already exists; switch to it, or delete it, and run again")
+    url = None
+    for s in steps:
+        r = subprocess.run(s, capture_output=True, text=True, cwd=str(root), timeout=300)
+        if r.returncode != 0:
+            msg_ = (r.stderr or r.stdout).strip()
+            if s[3:5] == ["commit", "-m"] and re.search(r"nothing (added )?to commit", r.stdout + r.stderr):
+                continue
+            if "user.email" in msg_ or "Author identity unknown" in msg_:
+                msg_ += "\n(set the committer: git config user.name … and git config user.email …)"
+            die(f"`{shell_join(s)}` failed:\n{msg_}")
+        found = re.findall(r"https?://\S+", r.stdout)
+        if s[0] in ("gh", "glab") and found:
+            url = found[-1]
+    staged = git_out(root, "show", "--name-only", "--format=", "HEAD").splitlines()
+    leaked = [f for f in staged if f.endswith(".private.json")]
+    if leaked:
+        die(f"a private report was committed ({', '.join(leaked)}): undo with `git reset --soft HEAD~1` before pushing")
+    result.update(delivered=True, commit=git_out(root, "rev-parse", "HEAD"), pushed=bool(args.push), url=url)
+    lines += ["", f"pull request title: {pr['title']}", f"committed {rel} on {branch}" + (f" and pushed to {args.remote}" if args.push else "")]
+    if url:
+        lines.append(f"pull request: {url}")
+    elif args.push:
+        lines.append(f"open a pull request from {branch} into {base_name} with that title and the body in {body_file}")
+    else:
+        lines.append(f"next: push {branch} and open a pull request into {base_name} with that title and the body in {body_file}")
+    if private_note:
+        lines.append(private_note)
+    emit(args, result, "\n".join(lines))
+    return 0
+
+
+def shell_join(parts) -> str:
+    import shlex
+    return " ".join(shlex.quote(str(p)) for p in parts)
+
+
+# =========================================================================== index (grading repos)
+# projects/index.json: one file with every project's latest score, maturity, history and the
+# decisions waiting, for dashboards and the Review page. Derived from the reports, so it's
+# deterministic (no timestamps of its own): `index --check` tells whether it's up to date.
+
+INDEX_FILE = "index.json"
+INDEX_ABOUT = ("Generated by `gradekit index` from the reports, project.toml and decisions.json files. Don't edit it: "
+               "CI rebuilds it when reports or decisions change.")
+
+
+def build_index(root: Path) -> dict:
+    projects = []
+    pdirs = sorted(d for d in (root / "projects").iterdir() if d.is_dir() and (d / PROJECT_FILE).exists()) if (root / "projects").is_dir() else []
+    for pdir in pdirs:
+        entry: dict = {"name": pdir.name, "problems": []}
+        try:
+            cfg = load_config(argparse.Namespace(project_dir=str(pdir), config=None, component=None), quiet=True)
+            proj = cfg.get("project") or {}
+            entry.update({"description": proj.get("description"), "preset": cfg["preset"], "code_repo": proj.get("code_repo"),
+                          "path": proj.get("path"), "config_hash": cfg["hash"]})
+        except GradekitError as exc:
+            cfg = None
+            entry["problems"].append(f"config: {exc}")
+        history = []
+        for folder in report_folders(pdir):
+            try:
+                r = load_json(folder / "report.json")
+            except GradekitError as exc:
+                entry["problems"].append(f"{folder.name}: {exc}")
+                continue
+            roll = r.get("rollup") or {}
+            run = r.get("run") or {}
+            history.append({"folder": folder.name, "date": str(run.get("date") or "")[:10], "commit": str(run.get("commit") or "")[:7],
+                            "mode": r.get("mode"), "overall": roll.get("overall_score"),
+                            "level": (roll.get("maturity") or {}).get("current_level"), "_report": r})
+        latest = None
+        pending = []
+        full = [h for h in history if h["mode"] != "pr"]
+        if full and cfg is not None:
+            h = full[-1]
+            r = h["_report"]
+            try:
+                roll = compute_rollup(r, cfg)
+                zones = roll["finding_zones"]
+                counts = {s: 0 for s in SEVERITIES[::-1]}
+                for f in r.get("findings", []):
+                    if f.get("status") in OPEN_STATUSES:
+                        sev = (zones.get(f.get("id")) or {}).get("effective_severity", f.get("severity"))
+                        if sev in counts:
+                            counts[sev] += 1
+                latest = {"folder": h["folder"], "date": h["date"], "commit": h["commit"],
+                          "overall": h["overall"], "level": h["level"], "next_level": roll["maturity"].get("next_level"),
+                          "failed_gates": [g["benchmark_id"] for g in roll["gates"] if g["status"] == "failed"],
+                          "open_findings": counts}
+                pending = [{"action_id": p["action_id"], "question": p.get("decision_question"), "folder": h["folder"]}
+                           for p in roll["priorities"]
+                           if p.get("requires_human_decision") and (p.get("decision") or {}).get("status") == "pending"]
+            except GradekitError as exc:
+                entry["problems"].append(f"{h['folder']}: {exc}")
+        entry.update({"latest": latest, "pending_decisions": pending,
+                      "history": [{k: v for k, v in h.items() if k != "_report"} for h in history]})
+        projects.append(entry)
+    return {"_about": INDEX_ABOUT, "suite_version": load_catalog()["suite_version"], "projects": projects}
+
+
+def index_text(root: Path) -> str:
+    return json.dumps(build_index(root), indent=2, ensure_ascii=False) + "\n"
+
+
+def cmd_index(args) -> int:
+    root = Path(args.grading_repo or ".")
+    if not (root / "projects").is_dir():
+        die(f"{root} has no projects/ folder (is it a grading repo?)")
+    out = Path(args.out) if args.out else root / "projects" / INDEX_FILE
+    text = index_text(root)
+    data = json.loads(text)
+    current = out.read_text(encoding="utf-8") if out.exists() else None
+    up_to_date = current == text
+    summary = [f"{p['name']}: " + (f"{dash(p['latest']['overall'])} ({p['latest']['level']})" if p["latest"] else "no report yet")
+               + (f", {len(p['pending_decisions'])} decision(s) waiting" if p["pending_decisions"] else "")
+               + (f"  [problems: {'; '.join(p['problems'])}]" if p["problems"] else "") for p in data["projects"]]
+    if args.check:
+        emit(args, {"up_to_date": up_to_date, "path": str(out), "index": data},
+             "\n".join(summary + ["", f"{out} is up to date" if up_to_date else f"{out} is out of date: run `gradekit index`"]))
+        return 0 if up_to_date else 1
+    if not up_to_date:
+        out.write_text(text, encoding="utf-8")
+    emit(args, {"written": str(out), "changed": not up_to_date, "index": data},
+         "\n".join(summary + ["", f"{'wrote' if not up_to_date else 'unchanged:'} {out}"]))
+    return 0
+
+
+# =========================================================================== ci (grading repos)
+# Checks a pull request to a grading repo. One kind of change per pull request:
+#   report    one new report folder (report.json, report.md, runs/*.json), nothing else
+#   settings  a project's project.toml, decisions.json, dispositions.json (append-only), org.toml
+# Writes a summary comment and labels; the host's CI posts them (see ci/ in the kit).
+
+CI_MARKER = "<!-- gradekit-ci -->"
+REPORT_FOLDER_FILES = re.compile(r"(report\.json|report\.md|runs/[^/]+\.json)")
+SETTINGS_FILES = {PROJECT_FILE, DECISIONS_FILE, DISPOSITIONS_FILE, "reports/.gitkeep"}
+ROOT_SETTINGS = {"org.toml", "README.md", ".gitignore"}
+CI_LABELS = {"report": "grading: report", "settings": "grading: settings", "problems": "grading: needs changes"}
+
+
+def git_changes(root, base: str, head: str) -> list[tuple[str, str]]:
+    out = git_out(root, "diff", "--no-renames", "--name-status", f"{base}...{head}")
+    return [(ln.split("\t", 1)[0][0], ln.split("\t", 1)[1]) for ln in out.splitlines() if "\t" in ln]
+
+
+def classify_change(changes: list[tuple[str, str]]) -> dict:
+    """What kind of grading change this is, and anything about its shape that's wrong."""
+    problems, report_folders_, settings, other = [], set(), {}, []
+    for status, path in changes:
+        if path == f"projects/{INDEX_FILE}":
+            continue   # derived; checked against `gradekit index` in ci_check
+        parts = path.split("/")
+        if parts[0] == "projects" and len(parts) >= 4 and parts[2] == "reports" and len(parts) >= 5:
+            folder = (parts[1], parts[3])
+            rest = "/".join(parts[4:])
+            report_folders_.add(folder)
+            if path.endswith(".private.json"):
+                problems.append(f"{path} is a private report: it must never be committed (remove it from the pull request)")
+            elif not REPORT_FOLDER_FILES.fullmatch(rest):
+                problems.append(f"{path}: a report folder holds only report.json, report.md and runs/*.json")
+            elif status != "A":
+                problems.append(f"{path} is {'deleted' if status == 'D' else 'changed'}: reports are never edited after they're committed")
+        elif parts[0] == "projects" and len(parts) >= 3 and "/".join(parts[2:]) in SETTINGS_FILES:
+            settings.setdefault(parts[1], []).append((status, "/".join(parts[2:])))
+        elif path in ROOT_SETTINGS:
+            settings.setdefault("", []).append((status, path))
+        else:
+            other.append(path)
+    kinds = (["report"] if report_folders_ else []) + (["settings"] if settings else [])
+    if len(report_folders_) > 1:
+        problems.append("a pull request adds one report: " + ", ".join(f"projects/{p}/reports/{f}" for p, f in sorted(report_folders_)))
+    if len(kinds) > 1:
+        problems.append("a report pull request changes only its report folder; send the settings changes "
+                        f"({', '.join(p for p in sorted(settings) if p) or 'root files'}) separately")
+    projects_ = sorted({p for p, _ in report_folders_} | {p for p in settings if p})
+    if len(projects_) > 1:
+        problems.append(f"one project per pull request (this one touches {', '.join(projects_)})")
+    if other and kinds:
+        problems.append("grading changes come on their own; this also changes " + ", ".join(other[:8]) + ("…" if len(other) > 8 else ""))
+    kind = kinds[0] if len(kinds) == 1 else ("mixed" if kinds else "other")
+    folder = sorted(report_folders_)[0] if report_folders_ else None
+    return {"kind": kind, "project": folder[0] if folder else (projects_[0] if projects_ else None),
+            "folder": folder[1] if folder else None, "settings": settings, "other": other, "problems": problems}
+
+
+def file_at(root, rev: str, path: str) -> str | None:
+    import subprocess
+    r = subprocess.run(["git", "-C", str(root), "show", f"{rev}:{path}"], capture_output=True, text=True)
+    return r.stdout if r.returncode == 0 else None
+
+
+def config_at(root, rev: str, project: str) -> dict | None:
+    """The project's effective config as it was at rev (None if it didn't exist)."""
+    toml = file_at(root, rev, f"projects/{project}/{PROJECT_FILE}")
+    if toml is None:
+        return None
+    with tempfile.TemporaryDirectory() as tmp:
+        pdir = Path(tmp) / "projects" / project
+        pdir.mkdir(parents=True)
+        (pdir / PROJECT_FILE).write_text(toml, encoding="utf-8")
+        for name in (DECISIONS_FILE, DISPOSITIONS_FILE):
+            t = file_at(root, rev, f"projects/{project}/{name}")
+            if t is not None:
+                (pdir / name).write_text(t, encoding="utf-8")
+        org = file_at(root, rev, "org.toml")
+        if org is not None:
+            (Path(tmp) / "org.toml").write_text(org, encoding="utf-8")
+        try:
+            return load_config(argparse.Namespace(project_dir=str(pdir), config=None, component=None), quiet=True)
+        except GradekitError:
+            return None
+
+
+def append_only(old_text: str | None, new_text: str, key: str, name: str) -> list[str]:
+    try:
+        new = parse_list_text(new_text, key, name)
+        old = parse_list_text(old_text, key, name) if old_text else []
+    except GradekitError as exc:
+        return [str(exc)]
+    for i, entry in enumerate(old):
+        if i >= len(new) or new[i] != entry:
+            return [f"{name} is append-only: entry {i + 1} was changed or removed (add a new entry instead; the newest wins)"]
+    return []
+
+
+def ci_check(root: Path, base: str, head: str, changes: list[tuple[str, str]], site: str | None = None,
+             repo_url: str | None = None, branch: str | None = None) -> dict:
+    shape = classify_change(changes)
+    problems, warnings = list(shape["problems"]), []
+    summary: dict = {}
+    mb = git_out(root, "merge-base", base, head, check=False) or base
+    project = shape["project"]
+    pdir = root / "projects" / project if project else None
+
+    if shape["kind"] == "report" and pdir is not None:
+        folder = shape["folder"]
+        rel = f"projects/{project}/reports/{folder}"
+        if file_at(root, mb, f"{rel}/report.json") is not None:
+            problems.append(f"{rel} already exists on the base branch: reports are never edited after they're committed")
+        rpath = root / rel / "report.json"
+        if not rpath.exists():
+            problems.append(f"{rel} has no report.json")
+        else:
+            try:
+                report = load_json(rpath)
+                cfg = load_config(argparse.Namespace(project_dir=str(pdir), config=None, component=None), report, quiet=True)
+                errors, warns = validate_report(report, cfg, load_catalog())
+                problems += [f"report: {e}" for e in errors]
+                warnings += [f"report: {w}" for w in cfg.get("warnings", []) + warns if "run `gradekit redact" not in w]
+                if (cfg.get("publishing") or PUBLISHING_DEFAULTS).get("public"):
+                    problems += [f"publish: {e}" for e in publish_problems(report)]
+                run = report.get("run") or {}
+                commit = str(run.get("commit") or "")
+                if commit and not folder.endswith("-" + commit[:7]):
+                    problems.append(f"the folder is {folder}, but the report grades commit {commit[:7]} (expected <date>-{commit[:7]})")
+                roll = compute_rollup(report, cfg)
+                stored = report.get("rollup") or {}
+                if not stored:
+                    problems.append("report has no rollup: run `gradekit rollup --write` (or `report check --write`)")
+                elif (stored.get("overall_score"), (stored.get("maturity") or {}).get("current_level")) != (
+                        roll["overall_score"], roll["maturity"]["current_level"]):
+                    problems.append(f"the stored rollup ({stored.get('overall_score')}, {(stored.get('maturity') or {}).get('current_level')}) "
+                                    f"doesn't match the report ({roll['overall_score']}, {roll['maturity']['current_level']}): "
+                                    "never edit scores by hand; run `gradekit rollup --write`")
+                md = root / rel / "report.md"
+                if not md.exists():
+                    warnings.append("no report.md (`gradekit render report` makes it)")
+                else:
+                    try:
+                        if md.read_text(encoding="utf-8") != render_report_md(report, cfg):
+                            warnings.append("report.md differs from what `gradekit render report` makes from report.json")
+                    except GradekitError:
+                        pass
+                if (root / rel / "runs").is_dir() and not report.get("stability"):
+                    warnings.append("there are runs/ but report.json isn't their consensus (`gradekit stability … --out report.json`)")
+                pending = [p for p in roll["priorities"] if p.get("requires_human_decision") and (p.get("decision") or {}).get("status") == "pending"]
+                summary = {"project": project, "folder": folder, "commit": commit[:7], "date": str(run.get("date") or "")[:10],
+                           "overall": roll["overall_score"], "level": roll["maturity"]["current_level"],
+                           "next_level": roll["maturity"].get("next_level"),
+                           "gates": [(g["benchmark_id"], g["score"], g["status"]) for g in roll["gates"]],
+                           "pending_decisions": [(p["action_id"], p.get("decision_question")) for p in pending],
+                           "mode": report.get("mode")}
+            except GradekitError as exc:
+                problems.append(f"report: {exc}")
+
+    if shape["kind"] == "settings":
+        for proj, files in shape["settings"].items():
+            for status, name in files:
+                path = f"projects/{proj}/{name}" if proj else name
+                if status == "D" and name in (PROJECT_FILE, DECISIONS_FILE, DISPOSITIONS_FILE, "org.toml"):
+                    problems.append(f"{path} is deleted")
+                    continue
+                if name in (DECISIONS_FILE, DISPOSITIONS_FILE):
+                    key = "decisions" if name == DECISIONS_FILE else "dispositions"
+                    new_text = (root / path).read_text(encoding="utf-8")
+                    problems += append_only(file_at(root, mb, path), new_text, key, path)
+                    need = ("action_id", "approved") if key == "decisions" else ("finding_id", "decision", "reason")
+                    try:
+                        for i, e in enumerate(parse_list_text(new_text, key, path)):
+                            missing = [k for k in need if k not in e]
+                            if missing:
+                                problems.append(f"{path} entry {i + 1} needs {', '.join(missing)}")
+                    except GradekitError:
+                        pass
+        projects_ = [p for p in shape["settings"] if p] or ([project] if project else [])
+        if "" in shape["settings"] and not projects_:
+            projects_ = [d.name for d in sorted((root / "projects").iterdir()) if (d / PROJECT_FILE).exists()] if (root / "projects").is_dir() else []
+        for proj in projects_:
+            try:
+                cfg = load_config(argparse.Namespace(project_dir=str(root / "projects" / proj), config=None, component=None), quiet=True)
+                warnings += [f"{proj}: {w}" for w in cfg.get("warnings", [])]
+                before = config_at(root, mb, proj)
+                if before is None:
+                    summary.setdefault("new_projects", []).append(proj)
+                elif before["hash"] != cfg["hash"]:
+                    warnings.append(f"{proj}: the scoring config changes ({before['hash']} → {cfg['hash']}), so the next report "
+                                    "is weighted differently from earlier ones; diffs will say so")
+                summary.setdefault("configs", []).append((proj, cfg["hash"], cfg["preset"]))
+            except GradekitError as exc:
+                problems.append(f"{proj}: config: {exc}")
+
+    if any(p == f"projects/{INDEX_FILE}" for _, p in changes):
+        idx = root / "projects" / INDEX_FILE
+        if idx.exists() and idx.read_text(encoding="utf-8") != index_text(root):
+            problems.append(f"projects/{INDEX_FILE} doesn't match the reports: don't edit it; run `gradekit index` "
+                            "(or leave it out: CI rebuilds it after merging)")
+    labels = ([CI_LABELS[shape["kind"]]] if shape["kind"] in CI_LABELS else []) + ([CI_LABELS["problems"]] if problems else [])
+    result = {"kind": shape["kind"], "project": project, "folder": shape["folder"], "ok": not problems,
+              "problems": problems, "warnings": warnings, "labels": labels, "summary": summary,
+              "changed": [p for _, p in changes]}
+    result["comment"] = ci_comment(result, site, repo_url, branch)
+    return result
+
+
+def ci_comment(res: dict, site: str | None, repo_url: str | None, branch: str | None) -> str:
+    s = res["summary"]
+    head = "✅ passed" if res["ok"] else "❌ needs changes"
+    lines = [CI_MARKER, f"### Grading check: {head}", ""]
+    if res["kind"] == "report" and s:
+        lines.append(f"**Report** for `{s['project']}` at `{s['commit']}` ({s['date']}"
+                     + (", PR check" if s.get("mode") == "pr" else "") + f"): overall **{dash(s['overall'])}**, "
+                     f"maturity **{s['level']}**" + (f" (next: {s['next_level']})" if s.get("next_level") else "") + ".")
+        lines += ["", "Gates: " + " · ".join(f"{g} {dash(sc)} {st}" for g, sc, st in s["gates"])]
+        if s["pending_decisions"]:
+            lines += ["", f"**{len(s['pending_decisions'])} decision(s) waiting:**"]
+            lines += [f"- [ ] {a}: {q}" for a, q in s["pending_decisions"]]
+        link = review_link(site, repo_url, s["project"], branch) if branch else None
+        if link:
+            lines += ["", f"[Review this report{' and answer the decisions' if s['pending_decisions'] else ''}]({link})"]
+    elif res["kind"] == "settings":
+        lines.append("**Settings** change" + (f" for `{res['project']}`" if res["project"] else "") + ".")
+        for proj, h_, preset in s.get("configs", []):
+            lines.append(f"- `{proj}`: config {h_} (preset {preset})" + (" · new project" if proj in s.get("new_projects", []) else ""))
+    elif res["kind"] == "other":
+        lines.append("No grading files changed, so there was nothing to check.")
+    if res["problems"]:
+        lines += ["", "**Problems**", ""] + [f"- {p}" for p in res["problems"]]
+    if res["warnings"]:
+        items = [f"- {w}" for w in res["warnings"]]
+        if len(items) > 5:
+            lines += ["", f"<details><summary><b>{len(items)} warnings</b></summary>", ""] + items + ["", "</details>"]
+        else:
+            lines += ["", "**Warnings**", ""] + items
+    lines += ["", f"<sub>gradekit ci · suite {load_catalog()['suite_version']}</sub>", ""]
+    return "\n".join(lines)
+
+
+def cmd_ci(args) -> int:
+    root = Path(git_out(args.grading_repo or ".", "rev-parse", "--show-toplevel"))
+    if args.changed:
+        changes = [tuple(c.split(":", 1)) if re.match(r"^[AMD]:", c) else ("A", c) for c in args.changed]
+    else:
+        changes = git_changes(root, args.base, args.head)
+    res = ci_check(root, args.base, args.head, changes, args.site, args.grading_repo_url, args.branch)
+    if args.comment_file:
+        Path(args.comment_file).write_text(res["comment"], encoding="utf-8")
+    if args.labels_file:
+        Path(args.labels_file).write_text("\n".join(res["labels"]) + ("\n" if res["labels"] else ""), encoding="utf-8")
+    lines = [f"{res['kind']} change" + (f" · {res['project']}" if res["project"] else "") + (f" · {res['folder']}" if res["folder"] else "")]
+    lines += [f"PROBLEM: {p}" for p in res["problems"]] + [f"warning: {w}" for w in res["warnings"]]
+    lines.append(f"\n{'passed' if res['ok'] else 'needs changes'}; labels: {', '.join(res['labels']) or 'none'}")
+    emit(args, res, "\n".join(lines))
+    return 0 if res["ok"] else 1
+
+
+# =========================================================================== glossary
+# One vocabulary for prompts, the website and the docs (rubric/glossary.json).
+
+def load_glossary() -> dict:
+    return load_json(GLOSSARY_PATH)
+
+
+def glossary_terms() -> list[dict]:
+    return [dict(t, group=g["name"]) for g in load_glossary()["groups"] for t in g["terms"]]
+
+
+def glossary_markdown() -> str:
+    data = load_glossary()
+    out = ["# Glossary", "",
+           "The words the suite uses, and what they mean. Prompts, the website and these docs use them exactly as defined "
+           "here. When a term has alternatives to avoid, they're listed: please don't use them either.", "",
+           "Generated from `rubric/glossary.json` by `gradekit glossary --markdown`. Edit that file, not this one.", ""]
+    for g in data["groups"]:
+        out += [f"## {g['name']}", ""]
+        for t in g["terms"]:
+            out.append(f"**{t['term']}**: {t['definition']}" + (f" *Not:* {', '.join(t['avoid'])}." if t.get("avoid") else ""))
+            out.append("")
+    return "\n".join(out)
+
+
+def cmd_glossary(args) -> int:
+    terms = glossary_terms()
+    if args.markdown:
+        text = glossary_markdown()
+        if args.out:
+            Path(args.out).write_text(text, encoding="utf-8")
+            emit(args, {"written": args.out}, f"wrote {args.out}")
+        else:
+            emit(args, {"markdown": text}, text.rstrip("\n"))
+        return 0
+    if args.term:
+        want = " ".join(args.term).lower()
+        found = [t for t in terms if t["term"].lower() == want] or \
+                [t for t in terms if want in t["term"].lower() or want in [a.lower() for a in t.get("avoid", [])]]
+        if not found:
+            die(f"'{want}' isn't in the glossary (`gradekit glossary` lists every term)")
+        lines = []
+        for t in found:
+            lines.append(f"{t['term']}: {t['definition']}")
+            if want in [a.lower() for a in t.get("avoid", [])]:
+                lines.append(f"  (say '{t['term']}', not '{want}')")
+        emit(args, {"terms": found}, "\n".join(lines))
+        return 0
+    lines = []
+    group = None
+    for t in terms:
+        if t["group"] != group:
+            group = t["group"]
+            lines.append(("\n" if lines else "") + group)
+        lines.append(f"  {t['term']:<20} {t['definition']}")
+    emit(args, {"terms": terms}, "\n".join(lines))
+    return 0
+
+
+# =========================================================================== render
+# Markdown made from report data, so every report, pull request, PR check and improvement log
+# has the same layout and no hand-copied numbers. Public text never carries withheld details.
+
+def md_cell(text) -> str:
+    return str("" if text is None else text).replace("|", "\\|").replace("\n", " ").strip()
+
+
+def dash(v) -> str:
+    if v is None:
+        return "–"
+    if isinstance(v, bool):
+        return "yes" if v else "no"
+    if isinstance(v, float) and v.is_integer() and abs(v) >= 10:
+        return str(int(v))
+    return str(v)
+
+
+def report_label(report: dict) -> tuple[str, str, str]:
+    run = report.get("run") or {}
+    project = run.get("project") or (report.get("component") or {}).get("name") or "project"
+    commit = str(run.get("commit") or "?")[:7]
+    return project, commit, str(run.get("date") or "")[:10]
+
+
+def public_view(report: dict, cfg: dict) -> dict:
+    """The report as it may be shown publicly: sensitive findings withheld unless the repo is private."""
+    if not (cfg.get("publishing") or PUBLISHING_DEFAULTS).get("public") or (report.get("publishing") or {}).get("redacted"):
+        return report
+    public, leaks = redact_report(report)
+    if leaks:
+        die("withheld text still appears elsewhere in the report; fix these first (or run `gradekit redact`):\n  "
+            + "\n  ".join(leaks))
+    return public
+
+
+def rendering_rollup(report: dict, cfg: dict) -> dict:
+    roll = compute_rollup(report, cfg)
+    if roll["weight_issues"]:
+        die("weights don't match the config; run `gradekit report check` first:\n  " + "\n  ".join(roll["weight_issues"]))
+    return roll
+
+
+def evidence_line(ev: dict) -> str:
+    t = ev.get("type")
+    note = f": {ev['note']}" if ev.get("note") else ""
+    if t == "code":
+        return f"`{ev.get('file')}:{ev.get('lines')}`{note}"
+    if t == "command":
+        return f"ran `{ev.get('command')}`{note}"
+    if t == "absence":
+        return f"searched for {ev.get('searched')} ({ev.get('method')}){note}"
+    return "details withheld"
+
+
+def decisions_block(roll: dict) -> list[str]:
+    pending = [p for p in roll["priorities"] if p.get("requires_human_decision") and (p.get("decision") or {}).get("status") == "pending"]
+    if not pending:
+        return ["None."]
+    return [f"- [ ] **{p['action_id']}:** {p.get('decision_question')}" for p in pending]
+
+
+def render_report_md(report: dict, cfg: dict, catalog: dict | None = None) -> str:
+    catalog = catalog or load_catalog()
+    report = public_view(report, cfg)
+    roll = rendering_rollup(report, cfg)
+    project, commit, date = report_label(report)
+    by_id = benchmarks_by_id(report)
+    fz = roll["finding_zones"]
+    gates = {g["benchmark_id"]: g for g in roll["gates"]}
+    mat = roll["maturity"]
+    findings = report.get("findings", [])
+    out = [f"# Grading report: {project} @ {commit} ({date})", ""]
+    if report.get("mode") == "pr":
+        out += [f"*PR check against base `{str((report.get('run') or {}).get('base_commit') or '?')[:7]}`. "
+                f"Untouched benchmarks are carried forward from the last full report.*", ""]
+
+    out += ["## Summary", "", f"Overall **{dash(roll['overall_score'])}**"
+            + (" (capped by a failed gate)" if roll["overall_cap_applied"] else "")
+            + f", maturity **{mat['current_level']}**" + (f" (next: {mat['next_level']})" if mat.get("next_level") else "") + "."]
+    if str(report.get("summary") or "").strip():
+        out += ["", report["summary"].strip()]
+    out.append("")
+
+    out += ["## Gates and maturity", "", "| Gate | Score | Status |", "|---|:-:|---|"]
+    for g in roll["gates"]:
+        b = by_id.get(g["benchmark_id"], {})
+        out.append(f"| {g['benchmark_id']} {md_cell(b.get('name'))} | {dash(g['score'])} | {g['status']} ({', '.join(g['why'])}) |")
+    out.append("")
+    if mat.get("level_before_integrity_cap"):
+        out += [f"Maturity is capped at {mat['current_level']} by an integrity flag (it would be {mat['level_before_integrity_cap']}).", ""]
+    if mat.get("next_level"):
+        blockers = "; ".join(f"{x['requirement']} (now {dash(x.get('current'))})" for x in mat.get("blockers", []))
+        out += [f"Blocking {mat['next_level']}: {blockers or 'nothing'}", ""]
+
+    out += ["## Scorecard", "", "Gates are marked ★. Weight is the weight used, after applicability.", "",
+            "| ID | Benchmark | Score | Target | Weight | Confidence | Applicability | Notes |", "|---|---|:-:|:-:|:-:|---|---|---|"]
+    for pillar in PILLARS:
+        rows = [b for b in report["benchmarks"] if b.get("pillar") == pillar]
+        if not rows:
+            continue
+        for b in rows:
+            why = b.get("rationale") or b.get("change_explanation") or b.get("applicability_reason") or ""
+            out.append(f"| {b['id']}{' ★' if b['id'] in gates else ''} | {md_cell(b.get('name'))} | {dash(b.get('score'))} | "
+                       f"{dash(roll['targets'].get(b['id']))} | {b.get('weight')} | {dash(b.get('confidence'))} | "
+                       f"{b.get('applicability')} | {md_cell(why)} |")
+        pname = catalog.get("pillars", {}).get(pillar, {})
+        pname = pname.get("name") if isinstance(pname, dict) else pname
+        out.append(f"| | **{pillar}{(' ' + md_cell(pname)) if pname else ''}** | **{dash(roll['pillar_scores'].get(pillar))}** | | | | | |")
+    out += [f"| | **Overall** | **{dash(roll['overall_score'])}** | | | | | |", ""]
+
+    app = roll.get("applicability", {})
+    notes = [f"- **{bid}** limited: {by_id[bid].get('applicability_reason')}" for bid in app.get("limited", [])]
+    notes += [f"- **{bid}** not applicable: {by_id[bid].get('applicability_reason')}" for bid in app.get("not_applicable", [])]
+    notes += [f"- **{bid}** weight note: {n}" for bid, n in (app.get("weight_notes") or {}).items()]
+    out += ["## Applicability and weight notes", ""] + (notes or ["Every benchmark fully applies, and no weight looked wrong."]) + [""]
+
+    top = roll["priorities"][:10]
+    out += ["## Top priorities", ""]
+    for i, p in enumerate(top, 1):
+        dec = p.get("decision") or {}
+        tag = ""
+        if p.get("requires_human_decision"):
+            tag = f" — **decision {dec.get('status', 'pending')}:** {p.get('decision_question')}"
+        out.append(f"{i}. **{p['action_id']}** (tier {p['tier']}, {p['zone']} zone, +{p['gain']}, effort {p['effort']}): {p.get('action')}{tag}")
+    out += (["No actions."] if not top else []) + [""]
+
+    out += ["## Decisions needed", ""] + decisions_block(roll)
+    out += ["", "Answer in `decisions.json` (the suite website's *Review a report* page writes it for you).", ""]
+
+    metrics = report.get("metrics") or {}
+    if metrics:
+        mn = report.get("metrics_notes") or {}
+        out += ["## Metrics", "", "| Metric | Value | Note |", "|---|---|---|"]
+        out += [f"| {k} | {dash(v)} | {md_cell(mn.get(k))} |" for k, v in metrics.items()] + [""]
+
+    out += ["## Findings", ""]
+    if findings:
+        out += ["| ID | Severity → effective | Zone | Status | Title |", "|---|---|---|---|---|"]
+        for f in findings:
+            z = fz.get(f.get("id"), {})
+            out.append(f"| {f.get('id')} | {f.get('severity')} → {z.get('effective_severity', f.get('severity'))} | "
+                       f"{z.get('criticality', '')} | {f.get('status')} | {md_cell(f.get('title'))} |")
+        for status, label in (("fixed", "Fixed since the last report"), ("regressed", "Regressed (fixed before, back again)")):
+            ids = [f["id"] for f in findings if f.get("status") == status]
+            if ids:
+                out += ["", f"{label}: {', '.join(ids)}."]
+    else:
+        out.append("None.")
+    out.append("")
+
+    feats = report.get("feature_inventory") or []
+    gaps = report.get("gap_register") or []
+    if feats:
+        out += ["## Feature inventory", "", "| Feature | Claimed in | Status |", "|---|---|---|"]
+        out += [f"| {md_cell(x.get('feature'))} | {md_cell(x.get('source'))} | {x.get('status')} |" for x in feats] + [""]
+    if gaps:
+        out += ["## Gap register", "", "| ID | Gap | Severity | Necessity | Status | Benchmarks |", "|---|---|---|---|---|---|"]
+        out += [f"| {g.get('id')} | {md_cell(g.get('gap'))} | {g.get('severity')} | {g.get('necessity')} | {g.get('status')} | "
+                f"{', '.join(g.get('benchmark_ids', []))} |" for g in gaps] + [""]
+
+    out += ["## Benchmark detail", ""]
+    fmap = {f.get("id"): f for f in findings}
+    for b in report["benchmarks"]:
+        if b.get("applicability") == "not_applicable":
+            continue
+        out.append(f"### {b['id']} {b.get('name')}: {dash(b.get('score'))} (target {dash(roll['targets'].get(b['id']))})")
+        out.append("")
+        if b.get("carried_forward"):
+            out += ["Carried forward from the last full report.", ""]
+        for label, text in (("Why", b.get("rationale")), ("Change", b.get("change_explanation"))):
+            if text:
+                out += [f"{label}: {text}", ""]
+        for s in b.get("strengths", []):
+            out.append(f"- Strength: {s.get('note')} ({'; '.join(evidence_line(e) for e in s.get('evidence', []))})")
+        for fid in b.get("finding_ids", []):
+            f = fmap.get(fid, {})
+            evs = [evidence_line(e) for e in f.get("evidence", []) if e.get("type") != "withheld"]
+            out.append(f"- Finding {fid} ({f.get('severity')}, {f.get('status')}): {f.get('title')}" + (f" ({'; '.join(evs)})" if evs else ""))
+        for e in b.get("enforcement", []):
+            out.append(f"- Enforced by: {evidence_line(e)}")
+        for c in b.get("caps_applied", []):
+            out.append(f"- Cap applied: {c}")
+        for a in b.get("path_to_target", []):
+            out.append(f"- Next: **{a['id']}** → {a.get('expected_new_score')} (effort {a.get('effort')}): {a.get('action')}"
+                       + (" *(needs a decision)*" if a.get("requires_human_decision") else ""))
+        out.append("")
+
+    flags = report.get("integrity_flags") or []
+    gaming = [(b["id"], g) for b in report["benchmarks"] for g in b.get("gaming_flags", [])]
+    if flags or gaming:
+        out += ["## Integrity and gaming flags", ""]
+        out += [f"- Integrity: {f.get('description')} ({'; '.join(evidence_line(e) for e in f.get('evidence', []))})" for f in flags]
+        out += [f"- Gaming ({bid}): {g}" for bid, g in gaming] + [""]
+
+    out += ["## Limitations", ""]
+    out += [f"- {x}" for x in report.get("limitations") or []] or ["- None recorded."]
+    h = report.get("holdout") or {}
+    if h.get("run"):
+        out.append(f"- Hidden checks: {h.get('checks_run')} run, {h.get('pass_rate', 0):.0%} passed.")
+    out += ["", f"<sub>Rendered by gradekit from report.json (suite {report.get('suite_version')}, config {roll['config_hash']}).</sub>", ""]
+    return "\n".join(out)
+
+
+def review_link(site: str | None, grading_repo: str | None, project: str, ref: str) -> str | None:
+    if not (site and grading_repo):
+        return None
+    from urllib.parse import quote
+    return f"{site.rstrip('/')}/app/review.html?repo={quote(grading_repo, safe='/:')}&project={quote(project)}&ref={quote(ref, safe='/')}"
+
+
+def render_report_pr(report: dict, cfg: dict, site: str | None = None, grading_repo: str | None = None,
+                     branch: str | None = None, folder: str | None = None) -> dict:
+    report = public_view(report, cfg)
+    roll = rendering_rollup(report, cfg)
+    project, commit, date = report_label(report)
+    folder = folder or f"{date}-{commit}"
+    branch = branch or f"report/{project}/{folder}"
+    mat = roll["maturity"]
+    title = f"Report: {project} {date} — {dash(roll['overall_score'])} ({mat['current_level']})"
+    body = [f"Grading report for **{project}** at `{commit}`: overall **{dash(roll['overall_score'])}**"
+            + (" (capped by a failed gate)" if roll["overall_cap_applied"] else "")
+            + f", maturity **{mat['current_level']}**" + (f" (next: {mat['next_level']})." if mat.get("next_level") else ".")]
+    if str(report.get("summary") or "").strip():
+        body += ["", report["summary"].strip()]
+    body += ["", "**Gates**", ""]
+    body += [f"- {g['benchmark_id']}: {dash(g['score'])} — {g['status']}" for g in roll["gates"]]
+    blockers = "; ".join(f"{x['requirement']} (now {dash(x.get('current'))})" for x in mat.get("blockers", []))
+    if mat.get("next_level"):
+        body += ["", f"Blocking {mat['next_level']}: {blockers or 'nothing'}"]
+    body += ["", "**Decisions needed**", ""] + decisions_block(roll)
+    link = review_link(site, grading_repo, project, branch)
+    if link:
+        body += ["", f"[Review this report and answer the decisions]({link})"]
+    body += ["", f"Files: `projects/{project}/reports/{folder}/` (report.json, report.md)."]
+    return {"title": title, "body": "\n".join(body) + "\n", "branch": branch}
+
+
+def render_check_comment(diff: dict, new: dict, cfg: dict) -> str:
+    """The PR-check comment (pr-review.md step 4). Sensitive findings are always withheld: PR comments are often public."""
+    sens = sensitive_ids(new)
+    names = {b["id"]: b["name"] for b in load_catalog()["benchmarks"]}
+
+    def title(f):
+        return f"{names.get(f['id'].split('-')[0], '')} issue (details withheld)" if f["id"] in sens else f["title"]
+
+    applicable = [b for b in new.get("benchmarks", []) if b.get("applicability") != "not_applicable"]
+    regraded = [b["id"] for b in applicable if not b.get("carried_forward")]
+    fixed_by = {}
+    for f in diff["findings"]["fixed"]:
+        fixed_by.setdefault(f["id"].split("-")[0], []).append(f["id"])
+    changes = [f"{c['id']} {dash(c['old'])} → {dash(c['new'])}" + (f" ({', '.join(fixed_by[c['id']])} fixed)" if c["id"] in fixed_by else "")
+               for c in diff["score_changes"]]
+    fresh = [f for f in diff["findings"]["new"] if not f.get("pre_existing")]
+    pre = [f for f in diff["findings"]["new"] if f.get("pre_existing")]
+    roll = compute_rollup(new, cfg)
+    pending = [p for p in roll["priorities"] if p.get("requires_human_decision") and (p.get("decision") or {}).get("status") == "pending"]
+    lines = [f"**PR check: {diff['verdict']}**",
+             ("Re-graded: every applicable benchmark (full report)" if len(regraded) == len(applicable) else
+              f"Re-graded: {', '.join(regraded) or 'none'} (others carried forward)"),
+             f"Changes: {' · '.join(changes) or 'none'}",
+             f"Overall: {dash(diff['overall']['old'])} → {dash(diff['overall']['new'])} · Maturity: {diff['maturity']['old']} → {diff['maturity']['new']}",
+             "New findings: " + ("; ".join(f"{f['id']}: {title(f)}, {f['effective_severity']}, {f['zone']} zone" for f in fresh) or "none"),
+             "Regressions: " + ("; ".join(r if not any(i in r for i in sens) else r.split(":")[0] + ": details withheld" for r in diff["regressions"]) or "none")]
+    if pre:
+        lines.append("Already there before this change: " + "; ".join(f"{f['id']}: {title(f)}" for f in pre))
+    if diff.get("holdout"):
+        lines.append(f"Hidden checks: {diff['holdout']['old']:.0%} → {diff['holdout']['new']:.0%}")
+    lines.append("Decisions needed: " + ("; ".join(f"{p['action_id']}: {p.get('decision_question')}" for p in pending) or "none"))
+    lines += [f"Note: {n}" for n in diff["notes"] if not any(i in n for i in sens)]
+    return "\n".join(lines) + "\n"
+
+
+LOG_KEYS = {"done": ("action_id", "commit", "resolves", "check"), "blocked": ("action_id", "question"),
+            "skipped": ("action_id", "reason"), "behavior_changes": None, "new_issues": None}
+
+
+def log_commits(commit) -> str:
+    """An action's commit(s) in the improvement log: one SHA, several (a list, or separated by spaces or commas), or none."""
+    shas = commit if isinstance(commit, list) else re.split(r"[\s,]+", str(commit or "").strip())
+    shas = [str(s).strip()[:10] for s in shas if str(s).strip()]
+    return ", ".join(f"`{s}`" for s in shas) if shas else "`?`"
+
+
+def render_improve_log(log: dict, report: dict | None = None, cfg: dict | None = None, guard: dict | None = None) -> str:
+    for key in log:
+        if key not in LOG_KEYS and key != "notes":
+            die(f"improvement log: unknown section '{key}' (known: {', '.join(LOG_KEYS)}, notes)")
+    blocked = list(log.get("blocked") or [])
+    skipped = list(log.get("skipped") or [])
+    if report is not None and cfg is not None:
+        listed = {x.get("action_id") for x in (log.get("done") or []) + blocked + skipped}
+        for p in compute_rollup(report, cfg)["priorities"]:
+            st = (p.get("decision") or {}).get("status")
+            if p.get("requires_human_decision") and p["action_id"] not in listed:
+                if st == "pending":
+                    blocked.append({"action_id": p["action_id"], "question": p.get("decision_question")})
+                elif st == "declined":
+                    skipped.append({"action_id": p["action_id"], "reason": "decision declined"})
+    out = ["## Improvement log", ""]
+    if log.get("notes"):
+        out += [str(log["notes"]).strip(), ""]
+    if guard is not None:
+        out += render_guard(guard) + [""]
+    out += ["**Done** (claims; the next independent grading verifies them)", ""]
+    out += [f"- **{d.get('action_id')}** in {log_commits(d.get('commit'))}" + (f", resolves {', '.join(d.get('resolves') or [])}" if d.get("resolves") else "")
+            + (f". Checked with: {d['check']}" if d.get("check") else "") for d in log.get("done") or []] or ["- Nothing yet."]
+    out += ["", "**Blocked** (waiting on a decision)", ""]
+    out += [f"- **{b.get('action_id')}:** {b.get('question')}" for b in blocked] or ["- None."]
+    out += ["", "**Skipped**", ""]
+    out += [f"- **{s.get('action_id')}:** {s.get('reason')}" for s in skipped] or ["- None."]
+    for key, label in (("behavior_changes", "Behavior changes"), ("new_issues", "New issues noticed")):
+        out += ["", f"**{label}**", ""] + ([f"- {x}" for x in log.get(key) or []] or ["- None."])
+    return "\n".join(out) + "\n"
+
+
+def render_out(args, text: str, default_path: Path | None) -> None:
+    dest = args.out or (str(default_path) if default_path and not args.stdout else None)
+    if dest and dest != "-":
+        Path(dest).write_text(text, encoding="utf-8")
+        args._result = {"written": dest, "markdown": text}
+        print(f"wrote {dest}")
+    else:
+        args._result = {"written": None, "markdown": text}
+        print(text, end="")
+
+
+def cmd_render_report(args) -> int:
+    report = load_json(args.report)
+    cfg = authoring_config(args, report)
+    text = render_report_md(report, cfg)
+    render_out(args, text, Path(re.sub(r"\.json$", "", args.report) + ".md"))
+    return 0
+
+
+def cmd_render_pr(args) -> int:
+    report = load_json(args.report)
+    cfg = authoring_config(args, report)
+    folder = Path(args.report).resolve().parent.name if Path(args.report).name == "report.json" else None
+    pr = render_report_pr(report, cfg, args.site, args.grading_repo_url, args.branch, folder)
+    args._result = pr
+    print(f"{pr['title']}\n\n{pr['body']}", end="")
+    return 0
+
+
+def cmd_render_check(args) -> int:
+    old, new = load_json(args.old), load_json(args.new)
+    args.report = args.new
+    cfg = authoring_config(args, new)
+    text = render_check_comment(compute_diff(old, new, cfg, cfg), new, cfg)
+    render_out(args, text, None)
+    return 0
+
+
+def cmd_render_log(args) -> int:
+    log = load_json(args.log)
+    report, cfg = None, None
+    if args.report:
+        report = load_json(args.report)
+        cfg = authoring_config(args, report)
+    guard = None
+    if args.guard:
+        guard = load_json(args.guard)
+        if "verdict" not in guard or "items" not in guard:
+            die(f"{args.guard} isn't a `guard compare` result (it writes .git/gradekit/guard-compare.json, or --out)")
+    render_out(args, render_improve_log(log, report, cfg, guard), None)
+    return 0
+
+
+
+# =========================================================================== guard
+# The improver's proof that nothing got worse. `guard snapshot` runs the code's own checks (tests,
+# linters, type checker, build) and counts suppressions and skipped tests; `guard compare` runs the
+# very same commands again and lists what got worse. It never judges quality: the next grade does.
+
+GUARD_VERSION = 1
+GUARD_TIMEOUT = 1800
+GUARD_TAIL_LINES = 40
+
+# How a command from a report's commands_run is recognised. First match wins; anything else
+# (git log, cloc, ls…) isn't a check and is left out.
+GUARD_KIND_PATTERNS = [
+    ("types", r"\b(mypy|pyright|pytype|tsc|flow check|(npm|yarn|pnpm)( run)? (typecheck|type-check|types))\b"),
+    ("lint", r"\b(ruff|flake8|pylint|eslint|biome|golangci-lint|go vet|clippy|rubocop|shellcheck|stylelint|standardrb"
+             r"|prettier (--check|-c)|black --check|isort (--check|-c)|gofmt|cargo fmt|(npm|yarn|pnpm)( run)? lint)\b"),
+    ("audit", r"\b(pip-audit|(npm|yarn|pnpm) audit|cargo audit|govulncheck|safety check|bundle audit|osv-scanner)\b"),
+    ("coverage", r"\b(coverage (report|xml|json)|go tool cover)\b"),
+    ("tests", r"\b(pytest|unittest|nose2?|tox|nox|jest|vitest|mocha|ava|go test|cargo test|rspec|phpunit|dotnet test|ctest"
+              r"|bun test|deno test|coverage run|(npm|yarn|pnpm)( run)? test|make (test|check)"
+              r"|mvn\b.*\b(test|verify)|gradlew?\b.*\b(test|check))\b"),
+    ("build", r"\b((npm|yarn|pnpm) run build|cargo build|go build|mvn\b.*\b(package|compile|install)|gradlew?\b.*\bbuild"
+              r"|python3? -m build|dotnet build|cmake --build)\b"),
+]
+
+# Markers a change can add to make a check quieter without making the code better. Counted per line.
+GUARD_MARKERS = {
+    "suppressions": [
+        r"#\s*noqa\b", r"#\s*type:\s*ignore", r"#\s*pragma:\s*no\s*cover", r"#\s*pylint:\s*disable", r"#\s*pyright:\s*ignore",
+        r"#\s*nosec\b", r"eslint-disable", r"@ts-ignore", r"@ts-expect-error", r"@ts-nocheck", r"\bnolint\b", r"\bNOLINT",
+        r"#!?\[allow\(", r"@SuppressWarnings", r"NOSONAR", r"rubocop:disable", r"istanbul ignore", r"c8 ignore",
+        r"@phpstan-ignore", r"@psalm-suppress", r"swiftlint:disable", r"biome-ignore", r"prettier-ignore",
+    ],
+    "skipped_tests": [
+        r"@pytest\.mark\.(skip|skipif|xfail)\b", r"\bpytest\.(skip|xfail)\(", r"@unittest\.(skip|skipIf|skipUnless|expectedFailure)\b",
+        r"\b(it|test|describe|context)\.(skip|todo)\(", r"\bx(it|describe|test|context)\(", r"\bt\.Skip(f|Now)?\(",
+        r"#\[ignore\]", r"@Disabled\b", r"@Ignore\b", r"\bskip\s*:\s*true\b",
+    ],
+}
+GUARD_MARKER_RE = {k: re.compile("|".join(v)) for k, v in GUARD_MARKERS.items()}
+
+# Files that configure a gate: CI, lint, type-check, coverage and test settings. A change to one is listed
+# for review (adding a check is fine; weakening one never is). Matched on the file name, at any depth.
+GUARD_GATE_FILES = (
+    "*.gitlab-ci.yml", "azure-pipelines.yml", "Jenkinsfile", "bitbucket-pipelines.yml", ".pre-commit-config.yaml",
+    "pyproject.toml", "setup.cfg", "tox.ini", "noxfile.py", ".coveragerc", "pytest.ini", "mypy.ini", ".mypy.ini",
+    "pyrightconfig.json", "ruff.toml", ".ruff.toml", ".flake8", ".pylintrc", "pylintrc", "package.json", ".eslintrc*",
+    "eslint.config.*", "tsconfig*.json", "jest.config.*", "vitest.config.*", "biome.json", "biome.jsonc", ".golangci.y*ml",
+    "clippy.toml", ".clippy.toml", "Cargo.toml", "codecov.yml", ".codecov.yml", "sonar-project.properties", "CODEOWNERS",
+    "Makefile", ".rubocop.yml", "phpunit.xml*", "phpstan.neon*",
+)
+GUARD_GATE_DIRS = (".github/workflows", ".gitlab/ci", ".circleci", ".buildkite")
+GUARD_SKIP_DIRS = {".git", "node_modules", ".venv", "venv", "__pycache__", ".tox", ".nox", "dist", "build", "target",
+                   ".mypy_cache", ".pytest_cache", ".ruff_cache", "vendor", ".next", "coverage", "htmlcov"}
+
+# Direction of each count: which way is better.
+GUARD_HIGHER = ("passed", "packages_ok", "coverage_pct", "pylint_score")
+GUARD_LOWER = ("failed", "errors", "skipped", "xfailed", "pending", "problems", "warnings", "diagnostics", "packages_failed",
+               "vulnerabilities")
+GUARD_COUNT_ORDER = ("passed", "failed", "errors", "skipped", "xfailed", "pending", "packages_ok", "packages_failed",
+                     "problems", "warnings", "vulnerabilities", "diagnostics", "coverage_pct", "pylint_score")
+GUARD_LABEL = {"passed": "passed", "failed": "failed", "errors": "errors", "skipped": "skipped", "xfailed": "xfailed",
+               "pending": "pending", "packages_ok": "packages ok", "packages_failed": "packages failed",
+               "problems": "problems", "warnings": "warnings", "vulnerabilities": "vulnerabilities", "diagnostics": "diagnostic lines",
+               "coverage_pct": "coverage %", "pylint_score": "pylint score"}
+
+GUARD_SCORES = ("coverage_pct", "pylint_score")
+_TESTS = {"passed", "failed", "errors", "skipped", "xfailed", "pending", "packages_ok", "packages_failed"}
+_LINT = {"problems", "warnings"}
+GUARD_FAMILY = {**{k: _TESTS for k in _TESTS}, **{k: _LINT for k in _LINT}, "diagnostics": {"diagnostics"},
+                "vulnerabilities": {"vulnerabilities"}}
+
+
+def guard_count_text(k: str, v) -> str:
+    if k == "coverage_pct":
+        return f"coverage {v:g}%"
+    if k == "pylint_score":
+        return f"pylint {v:g}/10"
+    label = GUARD_LABEL[k]
+    if v == 1:
+        label = {"errors": "error", "problems": "problem", "warnings": "warning", "vulnerabilities": "vulnerability",
+                 "diagnostic lines": "diagnostic line",
+                 "packages ok": "package ok", "packages failed": "package failed"}.get(label, label)
+    return f"{v:g} {label}" if isinstance(v, float) else f"{v} {label}"
+
+
+ANSI_RE = re.compile(r"\x1b\[[0-9;?]*[ -/]*[@-~]")
+
+
+GUARD_INSTALL_RE = re.compile(r"\b(pip3?|python3? -m pip|uv pip|npm|yarn|pnpm|bun|gem|bundle|cargo|go|apt(-get)?|brew|conda|poetry)"
+                              r"\s+(install|add|ci|get|sync)\b")
+
+
+def guard_trim_note(command: str) -> str:
+    """Graders often note something after a command: `pytest -q  (venv without pytz)`. A `(…)` straight after a word
+    isn't valid shell, so it's a note, not part of the command. After `&&`, `|` or `;` it's a subshell, and stays."""
+    m = re.search(r"\s+\([^()]*\)\s*$", command)
+    if m and not re.search(r"(&&|\|\||[|;&])\s*$", command[:m.start()]):
+        return command[:m.start()].rstrip()
+    return command
+
+
+def guard_kind(command: str) -> str | None:
+    for kind, pat in GUARD_KIND_PATTERNS:
+        if re.search(pat, command):
+            return kind
+    return None
+
+
+def guard_counts(output: str) -> dict:
+    """Numbers a check's output reports, read from the summary lines of common tools. Unknown tools give {}
+    (only the exit code is compared), except that file:line diagnostics are counted."""
+    text = ANSI_RE.sub("", output).replace("\r", "")
+    c: dict = {}
+
+    def add(key, n):
+        c[key] = c.get(key, 0) + int(n)
+
+    def pairs(s, mapping):
+        for n, w in re.findall(r"(\d+) (\w+)", s):
+            key = mapping.get(w.lower())
+            if key:
+                add(key, n)
+
+    # pytest: "3 failed, 41 passed, 2 skipped in 1.20s" (with or without ===)
+    py = re.findall(r"^=*\s*((?:\d+ [a-z]+,? ?)+) in [\d.]+s\b.*$", text, re.M)
+    if py and re.search(r"\d+ (passed|failed|error|errors|skipped|deselected|xfailed|xpassed|warnings?)\b", py[-1]):
+        pairs(py[-1], {"passed": "passed", "failed": "failed", "error": "errors", "errors": "errors", "skipped": "skipped",
+                       "xfailed": "xfailed", "warning": "warnings", "warnings": "warnings"})
+    # unittest: "Ran 12 tests in 0.1s" … "FAILED (failures=1, errors=2, skipped=3)" / "OK (skipped=1)"
+    ran = re.findall(r"^Ran (\d+) tests? in ", text, re.M)
+    if ran and not py:
+        total = int(ran[-1])
+        st = re.findall(r"^(OK|FAILED)(?: \(([^)]*)\))?\s*$", text, re.M)
+        detail = dict((k.strip(), int(v)) for k, v in re.findall(r"([\w ]+)=(\d+)", st[-1][1] if st else ""))
+        failed, errors, skipped = detail.get("failures", 0), detail.get("errors", 0), detail.get("skipped", 0)
+        xf = detail.get("expected failures", 0)
+        add("passed", max(0, total - failed - errors - skipped - xf))
+        add("failed", failed), add("errors", errors), add("skipped", skipped)
+        if xf:
+            add("xfailed", xf)
+    # jest: "Tests:       1 failed, 2 skipped, 40 passed, 43 total"
+    for line in re.findall(r"^Tests:\s+(.*\d+ total)\s*$", text, re.M)[-1:]:
+        pairs(line, {"passed": "passed", "failed": "failed", "skipped": "skipped", "todo": "skipped"})
+    # vitest: " Tests  1 failed | 40 passed | 2 skipped (43)"
+    for line in re.findall(r"^\s*Tests\s+(\d+ \w+(?: \| \d+ \w+)*) \(\d+\)\s*$", text, re.M)[-1:]:
+        pairs(line, {"passed": "passed", "failed": "failed", "skipped": "skipped", "todo": "skipped"})
+    # mocha: "  40 passing (12ms)", "  1 failing", "  2 pending"
+    for word, key in (("passing", "passed"), ("failing", "failed"), ("pending", "pending")):
+        m = re.findall(rf"^\s*(\d+) {word}\b", text, re.M)
+        if m:
+            add(key, m[-1])
+    # go test: "--- FAIL: TestX", "ok  	pkg	0.1s", "FAIL	pkg	0.2s"
+    if re.search(r"^(ok|FAIL|---) ", text, re.M) and re.search(r"^(ok|FAIL)\s+\S+\s+(\d|\[)", text, re.M):
+        add("packages_ok", len(re.findall(r"^ok\s+\S+\s", text, re.M)))
+        add("packages_failed", len(re.findall(r"^FAIL\s+\S+\s+(\d|\[)", text, re.M)))
+        add("failed", len(re.findall(r"^\s*--- FAIL: ", text, re.M)))
+        if re.search(r"^\s*--- PASS: ", text, re.M):
+            add("passed", len(re.findall(r"^\s*--- PASS: ", text, re.M)))
+        if re.search(r"^\s*--- SKIP: ", text, re.M):
+            add("skipped", len(re.findall(r"^\s*--- SKIP: ", text, re.M)))
+    # cargo test: "test result: ok. 12 passed; 0 failed; 1 ignored; …" (one per test binary)
+    for p_, f_, i_ in re.findall(r"test result: \w+\. (\d+) passed; (\d+) failed; (\d+) ignored", text):
+        add("passed", p_), add("failed", f_), add("skipped", i_)
+    # rspec: "43 examples, 1 failure, 2 pending"
+    for line in re.findall(r"^(\d+ examples?, \d+ failures?(?:, \d+ pending)?)", text, re.M)[-1:]:
+        n = [int(x) for x in re.findall(r"\d+", line)]
+        add("passed", n[0] - n[1] - (n[2] if len(n) > 2 else 0)), add("failed", n[1])
+        if len(n) > 2:
+            add("pending", n[2])
+    # ruff / mypy / tsc: "Found 3 errors." ; clean runs say so
+    found = re.findall(r"^Found (\d+) errors?\b", text, re.M)
+    if found:
+        add("problems", found[-1])
+    elif re.search(r"^(All checks passed!|Success: no issues found)", text, re.M):
+        add("problems", 0)
+    # eslint: "✖ 5 problems (3 errors, 2 warnings)"
+    es = re.findall(r"✖ (\d+) problems? \((\d+) errors?, (\d+) warnings?\)", text)
+    if es:
+        add("problems", es[-1][0]), add("warnings", es[-1][2])
+    # black --check: "3 files would be reformatted, 1 file would be left unchanged."
+    bl = re.findall(r"^(?:Oh no!.*\n)?(\d+) files? would be reformatted", text, re.M)
+    if bl:
+        add("problems", bl[-1])
+    elif re.search(r"^\d+ files? would be left unchanged\.$", text, re.M):
+        add("problems", 0)
+    # pip-audit: "Found 5 known vulnerabilities in 1 package" / "No known vulnerabilities found";
+    # npm audit: "found 3 vulnerabilities" / "3 vulnerabilities (1 low, 2 high)"
+    va = re.findall(r"Found (\d+) known vulnerabilit(?:y|ies)", text) or re.findall(r"^(?:found )?(\d+) vulnerabilit(?:y|ies)\b", text, re.M | re.I)
+    if va:
+        add("vulnerabilities", va[-1])
+    elif re.search(r"No known vulnerabilities found|found 0 vulnerabilities", text):
+        add("vulnerabilities", 0)
+    # pylint: "Your code has been rated at 9.12/10"
+    pl = re.findall(r"rated at (-?[\d.]+)/10", text)
+    if pl:
+        c["pylint_score"] = float(pl[-1])
+    # coverage: coverage.py / pytest-cov TOTAL row, istanbul's "All files", go tool cover, tarpaulin
+    cov = (re.findall(r"^TOTAL\s.*?(\d+(?:\.\d+)?)%\s*$", text, re.M) or re.findall(r"^All files\s*\|\s*([\d.]+)", text, re.M)
+           or re.findall(r"^total:\s+\(statements\)\s+([\d.]+)%", text, re.M) or re.findall(r"([\d.]+)% coverage, \d+/\d+ lines", text))
+    if cov:
+        c["coverage_pct"] = float(cov[-1])
+    if not c:
+        diags = re.findall(r"^[^\s:][^:\n]*:\d+(?::\d+)?:\s|^\S+\(\d+,\d+\): (?:error|warning)", text, re.M)
+        if diags:
+            c["diagnostics"] = len(diags)
+    return c
+
+
+def guard_git_dir(code: Path) -> Path | None:
+    import subprocess
+    try:
+        r = subprocess.run(["git", "-C", str(code), "rev-parse", "--absolute-git-dir"], capture_output=True, text=True, timeout=30)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return Path(r.stdout.strip()) if r.returncode == 0 and r.stdout.strip() else None
+
+
+def guard_default(code: Path, name: str) -> Path | None:
+    """Inside .git/, so a snapshot can never be committed by accident and compare finds it by itself."""
+    g = guard_git_dir(code)
+    return g / "gradekit" / name if g else None
+
+
+def guard_files(code: Path, sub: str) -> list[str]:
+    """The code's files (tracked and new, not ignored), relative to the code folder, limited to SUB."""
+    import subprocess
+    base = code / sub if sub else code
+    files = None
+    if guard_git_dir(code):
+        try:
+            r = subprocess.run(["git", "-C", str(base), "ls-files", "-co", "--exclude-standard", "-z", "--full-name", "."],
+                               capture_output=True, timeout=120)
+            if r.returncode == 0:
+                top = git_out(code, "rev-parse", "--show-toplevel")
+                rel_code = Path(code).resolve().relative_to(Path(top).resolve()).as_posix() if top else "."
+                files = []
+                for f in r.stdout.decode("utf-8", "replace").split("\0"):
+                    if not f:
+                        continue
+                    if rel_code not in ("", "."):
+                        if not f.startswith(rel_code + "/"):
+                            continue
+                        f = f[len(rel_code) + 1:]
+                    if (code / f).is_file():
+                        files.append(f)
+        except (OSError, subprocess.SubprocessError, ValueError):
+            files = None
+    if files is None:
+        files = []
+        for root, dirs, names in os.walk(base):
+            dirs[:] = sorted(d for d in dirs if d not in GUARD_SKIP_DIRS)
+            for n in sorted(names):
+                files.append((Path(root) / n).relative_to(code).as_posix())
+    return sorted(files)
+
+
+def guard_is_gate_file(rel: str) -> bool:
+    import fnmatch
+    if any(rel == d or rel.startswith(d + "/") or f"/{d}/" in f"/{rel}" for d in GUARD_GATE_DIRS):
+        return True
+    name = rel.rsplit("/", 1)[-1]
+    return any(fnmatch.fnmatchcase(name, pat) for pat in GUARD_GATE_FILES)
+
+
+def guard_scan(code: Path, sub: str) -> tuple[dict, dict]:
+    markers = {k: {"total": 0, "files": {}} for k in GUARD_MARKERS}
+    gates = {}
+    for rel in guard_files(code, sub):
+        p = code / rel
+        try:
+            if p.stat().st_size > 2_000_000:
+                continue
+            data = p.read_bytes()
+        except OSError:
+            continue
+        if guard_is_gate_file(rel):
+            gates[rel] = hashlib.sha256(data).hexdigest()
+        if b"\0" in data[:8192]:
+            continue
+        text = data.decode("utf-8", "replace")
+        for key, rx in GUARD_MARKER_RE.items():
+            n = sum(1 for line in text.splitlines() if rx.search(line))
+            if n:
+                markers[key]["files"][rel] = n
+                markers[key]["total"] += n
+    return markers, gates
+
+
+def guard_detect(code: Path) -> list[dict]:
+    """A small fallback when no checks were given: the usual test and lint entry points the repo declares."""
+    out = []
+
+    def has(*names):
+        return any((code / n).exists() for n in names)
+
+    pyproject = (code / "pyproject.toml").read_text(encoding="utf-8", errors="replace") if has("pyproject.toml") else ""
+    if has("pytest.ini", "conftest.py", "tox.ini") or "[tool.pytest" in pyproject or (has("tests", "test") and (pyproject or has("setup.py", "setup.cfg"))):
+        out.append({"name": "tests", "command": ("python" if os.name == "nt" else "python3") + " -m pytest -q"})
+    if has("ruff.toml", ".ruff.toml") or "[tool.ruff" in pyproject:
+        out.append({"name": "lint", "command": "ruff check ."})
+    if has("package.json"):
+        try:
+            scripts = (json.loads((code / "package.json").read_text(encoding="utf-8")) or {}).get("scripts") or {}
+        except (json.JSONDecodeError, OSError):
+            scripts = {}
+        for script, name in (("test", "tests"), ("lint", "lint"), ("typecheck", "types"), ("build", "build")):
+            if script in scripts and "no test specified" not in str(scripts[script]):
+                out.append({"name": name, "command": "npm test --silent" if script == "test" else f"npm run --silent {script}"})
+    if has("go.mod"):
+        out += [{"name": "tests", "command": "go test ./..."}, {"name": "lint", "command": "go vet ./..."}]
+    if has("Cargo.toml"):
+        out += [{"name": "tests", "command": "cargo test"}, {"name": "build", "command": "cargo build"}]
+    return out
+
+
+def guard_plan(args, code: Path) -> tuple[list[dict], list[str]]:
+    """The checks to run, named, with where each one came from."""
+    checks, notes = [], []
+    for spec in args.check or []:
+        name, sep, cmd = spec.partition("=")
+        if not sep or not name.strip() or not cmd.strip():
+            die(f"--check takes NAME=COMMAND, e.g. tests=\"pytest -q\"; got '{spec}'")
+        checks.append({"name": name.strip(), "command": cmd.strip(), "from": "--check"})
+    if args.from_report:
+        rep = load_json(args.from_report)
+        skipped, installs, trimmed = [], [], []
+        for entry in rep.get("commands_run") or []:
+            raw = str(entry.get("command") or "").strip()
+            cmd = guard_trim_note(raw)
+            if cmd != raw:
+                trimmed.append(raw[len(cmd):].strip())
+            kind = guard_kind(cmd) if cmd else None
+            if kind and GUARD_INSTALL_RE.search(cmd):
+                installs.append(cmd)
+            elif kind:
+                checks.append({"name": kind, "command": cmd, "from": "report"})
+            elif cmd:
+                skipped.append(cmd)
+        if trimmed:
+            notes.append(f"dropped the grader's notes after {len(trimmed)} command(s), which aren't part of the command: {'; '.join(trimmed[:3])}")
+        if installs:
+            notes.append(f"left out {len(installs)} command(s) that install packages (the guard never installs anything): "
+                         f"{'; '.join(installs[:3])}")
+        if skipped:
+            notes.append(f"left out {len(skipped)} command(s) from the report that aren't tests, lint, types, coverage, build "
+                         f"or audit: {'; '.join(skipped[:5])}{' …' if len(skipped) > 5 else ''}")
+    if not checks:
+        checks = [{**c, "from": "detected"} for c in guard_detect(code / (args.path or ""))]
+        if checks:
+            notes.append("no checks given, so these were detected from the repo; give --check NAME=COMMAND "
+                         "(or --from-report) to choose them")
+    seen, plan, used = set(), [], {}
+    for c in checks:
+        if c["command"] in seen:
+            continue
+        seen.add(c["command"])
+        base = re.sub(r"[^\w.-]+", "-", c["name"]).strip("-") or "check"
+        used[base] = used.get(base, 0) + 1
+        plan.append({**c, "name": base if used[base] == 1 else f"{base}-{used[base]}", "kind": guard_kind(c["command"])})
+    if not plan:
+        die("no checks to run: give --check NAME=COMMAND (repeatable), e.g. --check tests=\"pytest -q\" --check lint=\"ruff check .\", "
+            "or --from-report REPORT to use the commands the grader ran")
+    return plan, notes
+
+
+def guard_run(command: str, cwd: Path, timeout: int) -> dict:
+    import subprocess
+    import time
+    env = dict(os.environ, CI=os.environ.get("CI", "true"), NO_COLOR="1", FORCE_COLOR="0", TERM="dumb", PYTHONDONTWRITEBYTECODE="1")
+    t0 = time.monotonic()
+    timed_out, code, output = False, None, ""
+    try:
+        r = subprocess.run(command, shell=True, cwd=str(cwd), env=env, capture_output=True, timeout=timeout)
+        code, output = r.returncode, (r.stdout + b"\n" + r.stderr).decode("utf-8", "replace")
+    except subprocess.TimeoutExpired as exc:
+        timed_out = True
+        output = ((exc.stdout or b"") + b"\n" + (exc.stderr or b"")).decode("utf-8", "replace")
+    except OSError as exc:
+        output = str(exc)
+    output = ANSI_RE.sub("", output)
+    lines = [ln for ln in output.rstrip().splitlines()]
+    return {"exit_code": code, "timed_out": timed_out, "seconds": round(time.monotonic() - t0, 1),
+            "counts": guard_counts(output), "output_tail": "\n".join(lines[-GUARD_TAIL_LINES:])[-6000:],
+            "output_sha256": hashlib.sha256(output.encode()).hexdigest()}
+
+
+def guard_take(code: Path, plan: list[dict], sub: str, timeout: int, say=print) -> dict:
+    import datetime
+    import platform
+    cwd = code / sub if sub else code
+    head = git_out(code, "rev-parse", "HEAD", check=False) if guard_git_dir(code) else ""
+    dirty = bool(git_out(code, "status", "--porcelain", check=False)) if head else None
+    checks = []
+    for c in plan:
+        say(f"  running {c['name']}: {c['command']}")
+        res = guard_run(c["command"], cwd, timeout)
+        checks.append({"name": c["name"], "kind": c.get("kind"), "command": c["command"], "from": c.get("from"), **res})
+    markers, gates = guard_scan(code, sub)
+    return {"guard_version": GUARD_VERSION, "taken_at": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "code": {"commit": head or None, "dirty": dirty, "path": sub or None},
+            "environment": {"python": platform.python_version(), "platform": platform.platform(terse=True)},
+            "checks": checks, "markers": markers, "gate_files": gates}
+
+
+def guard_state(res: dict | None) -> str:
+    if res is None:
+        return "not run"
+    if res.get("timed_out"):
+        return "timed out"
+    counts = res.get("counts") or {}
+    parts = [guard_count_text(k, counts[k]) for k in GUARD_COUNT_ORDER if k in counts]
+    ex = res.get("exit_code")
+    status = "ok" if ex == 0 else ("could not start" if ex is None else f"exit {ex}")
+    return f"{', '.join(parts)} ({status})" if parts else status
+
+
+def guard_check_line(res: dict) -> str:
+    return f"{res['name']}: {guard_state(res)}"
+
+
+def guard_diff(before: dict, after: dict, explain: dict, coverage_tolerance: float = 0.1) -> dict:
+    items = []
+
+    def item(key, kind, status, detail, b=None, a=None):
+        items.append({"key": key, "kind": kind, "status": status, "detail": detail, "before": b, "after": a})
+
+    after_by = {c["name"]: c for c in after.get("checks") or []}
+    for b in before.get("checks") or []:
+        name = b["name"]
+        a = after_by.get(name)
+        if a is None or a.get("command") != b.get("command"):
+            item(name, "check", "regressed", f"{name} wasn't run after with the same command; compare must run every check the snapshot ran",
+                 b.get("command"), (a or {}).get("command"))
+            continue
+        changed = False
+        if b.get("timed_out") != a.get("timed_out"):
+            changed = True
+            item(f"{name}.exit", "check", "regressed" if a.get("timed_out") else "improved",
+                 f"{name} {'now times out' if a.get('timed_out') else 'no longer times out'}", guard_state(b), guard_state(a))
+        elif (b.get("exit_code") == 0) != (a.get("exit_code") == 0):
+            changed = True
+            item(f"{name}.exit", "check", "regressed" if b.get("exit_code") == 0 else "improved",
+                 f"{name} {'now fails' if b.get('exit_code') == 0 else 'now passes'} (exit {b.get('exit_code')} → {a.get('exit_code')})",
+                 b.get("exit_code"), a.get("exit_code"))
+        bc, ac = dict(b.get("counts") or {}), dict(a.get("counts") or {})
+        for k in GUARD_COUNT_ORDER:
+            if k not in bc and k not in ac:
+                continue
+            if k not in GUARD_SCORES:   # a tool that printed a summary leaves out the zeros ("41 passed": no failures)
+                for have, other in ((bc, ac), (ac, bc)):
+                    if k in other and k not in have and have and GUARD_FAMILY.get(k) & set(have):
+                        have[k] = 0
+            if k not in bc or k not in ac:
+                if k in bc and a.get("exit_code") != 0:
+                    continue   # a crash that prints no summary is already the exit-code change
+                changed = True
+                item(f"{name}.{k}", "check", "changed", f"{name}: {GUARD_LABEL[k]} reported {'only after' if k in ac else 'only before'}",
+                     bc.get(k), ac.get(k))
+                continue
+            bv, av = bc[k], ac[k]
+            if bv == av or (k == "coverage_pct" and abs(av - bv) < coverage_tolerance):
+                continue
+            changed = True
+            worse = (av < bv) if k in GUARD_HIGHER else (av > bv)
+            item(f"{name}.{k}", "check", "regressed" if worse else "improved",
+                 f"{name}: {guard_count_text(k, bv)} → {guard_count_text(k, av)}", bv, av)
+        if not changed:
+            item(name, "check", "same", f"{name}: {guard_state(a)}", guard_state(b), guard_state(a))
+    for name, a in after_by.items():
+        if name not in {b["name"] for b in before.get("checks") or []}:
+            item(name, "check", "changed", f"{name} is new (not in the snapshot), so it isn't compared", None, guard_state(a))
+    for key in GUARD_MARKERS:
+        bm = (before.get("markers") or {}).get(key) or {"total": 0, "files": {}}
+        am = (after.get("markers") or {}).get(key) or {"total": 0, "files": {}}
+        label = key.replace("_", " ")
+        if am["total"] == bm["total"]:
+            item(key, "marker", "same", f"{label}: {am['total']}", bm["total"], am["total"])
+            continue
+        rose = sorted(f for f, n in am["files"].items() if n > bm["files"].get(f, 0))
+        where = f" (more in {', '.join(rose[:5])}{' …' if len(rose) > 5 else ''})" if rose else ""
+        item(key, "marker", "regressed" if am["total"] > bm["total"] else "improved",
+             f"{label}: {bm['total']} → {am['total']}{where if am['total'] > bm['total'] else ''}", bm["total"], am["total"])
+    bg, ag = before.get("gate_files") or {}, after.get("gate_files") or {}
+    for f in sorted(set(bg) | set(ag)):
+        if bg.get(f) != ag.get(f):
+            how = "added" if f not in bg else "removed" if f not in ag else "changed"
+            item(f"gate:{f}", "gate", "review", f"{f} {how}: check it adds checks and weakens none", None, how)
+    used = set()
+    for it in items:
+        if it["status"] != "regressed":
+            continue
+        for k in (it["key"], it["key"].split(".")[0]):
+            if k in explain:
+                it["status"], it["explanation"] = "explained", explain[k]
+                used.add(k)
+                break
+    regressions = [it["key"] for it in items if it["status"] == "regressed"]
+    return {"verdict": "FAIL" if regressions else "PASS", "regressions": regressions,
+            "explained": [{"key": it["key"], "reason": it["explanation"]} for it in items if it["status"] == "explained"],
+            "improved": [it["key"] for it in items if it["status"] == "improved"],
+            "review": [it["key"][5:] for it in items if it["status"] == "review"],
+            "unused_explanations": sorted(set(explain) - used), "items": items}
+
+
+def guard_text(diff: dict, before: dict, after: dict, commits: int | None) -> str:
+    bc, ac = (before.get("code") or {}), (after.get("code") or {})
+    span = f"{(bc.get('commit') or 'no git')[:10]} → {(ac.get('commit') or 'no git')[:10]}"
+    if commits is not None:
+        span += f" ({commits} commit{'s' if commits != 1 else ''}{', plus uncommitted changes' if ac.get('dirty') else ''})"
+    lines = [f"guard: {len(before.get('checks') or [])} check(s), {span}"]
+    mark = {"regressed": "REGRESSED", "improved": "better", "same": "same", "changed": "note", "review": "review", "explained": "explained"}
+    for it in diff["items"]:
+        lines.append(f"  [{mark[it['status']]}] {it['detail']}" + (f" (explained: {it['explanation']})" if it.get("explanation") else ""))
+    for k in diff["unused_explanations"]:
+        lines.append(f"  note: --explain {k} matched nothing that got worse")
+    if diff["regressions"]:
+        lines.append(f"verdict: FAIL, {len(diff['regressions'])} regression(s): {', '.join(diff['regressions'])}. "
+                     "Fix or revert, or if one is deliberate, say why with --explain KEY=\"why\"")
+    else:
+        lines.append("verdict: PASS, nothing got worse" + (f" ({len(diff['explained'])} explained)" if diff["explained"] else ""))
+    return "\n".join(lines)
+
+
+def cmd_guard_snapshot(args) -> int:
+    code = Path(args.code).resolve()
+    if not code.is_dir():
+        die(f"code folder not found: {args.code}")
+    if args.path and not (code / args.path).is_dir():
+        die(f"--path {args.path}: no such folder in {code}")
+    plan, notes = guard_plan(args, code)
+    out = Path(args.out) if args.out else guard_default(code, "guard-before.json")
+    if args.list:
+        emit(args, {"checks": plan, "out": str(out) if out else None, "notes": notes},
+             "\n".join([f"{c['name']}: {c['command']} (from {c['from']})" for c in plan] + [f"note: {n}" for n in notes]))
+        return 0
+    if out is None:
+        die(f"{code} isn't a git checkout, so there's no safe default place for the snapshot: give --out FILE (outside the code)")
+    for n in notes:
+        print(f"note: {n}")
+    snap = guard_take(code, plan, args.path or "", args.timeout)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    write_json(out, snap)
+    lines = [guard_check_line(c) for c in snap["checks"]]
+    for c in snap["checks"]:
+        if c["exit_code"] in (126, 127) or c["exit_code"] is None:
+            lines.append(f"warning: {c['name']} couldn't run (exit {c['exit_code']}); fix the command, or the baseline is meaningless")
+    lines.append("markers: " + ", ".join(f"{k.replace('_', ' ')} {v['total']}" for k, v in snap["markers"].items())
+                 + f"; {len(snap['gate_files'])} gate file(s) fingerprinted")
+    lines.append(f"wrote {out}" + ("" if args.out else " (inside .git, so it's never committed)"))
+    if snap["code"]["dirty"]:
+        lines.append("note: the working tree has uncommitted changes; the snapshot includes them")
+    emit(args, {"snapshot": str(out), "checks": [{k: c[k] for k in ("name", "command", "exit_code", "timed_out", "counts")} for c in snap["checks"]],
+                "markers": {k: v["total"] for k, v in snap["markers"].items()}, "gate_files": len(snap["gate_files"]), "notes": notes},
+         "\n".join(lines))
+    return 0
+
+
+def cmd_guard_compare(args) -> int:
+    code = Path(args.code).resolve()
+    before_path = Path(args.before) if args.before else guard_default(code, "guard-before.json")
+    if before_path is None:
+        die("give --before FILE: the snapshot `guard snapshot --out` wrote")
+    if not before_path.is_file():
+        die(f"no snapshot at {before_path}: run `gradekit guard snapshot` before changing anything")
+    before = load_json(before_path)
+    if before.get("guard_version") != GUARD_VERSION:
+        die(f"{before_path} isn't a guard snapshot (version {before.get('guard_version')!r})")
+    explain = {}
+    for spec in args.explain or []:
+        key, sep, why = spec.partition("=")
+        if not sep or not why.strip():
+            die(f"--explain takes KEY=REASON, e.g. tests.passed=\"removed the tests of the deleted export helper\"; got '{spec}'")
+        explain[key.strip()] = why.strip()
+    if args.after:
+        after = load_json(args.after)
+    else:
+        if not code.is_dir():
+            die(f"code folder not found: {args.code}")
+        sub = (before.get("code") or {}).get("path") or ""
+        plan = [{k: c.get(k) for k in ("name", "kind", "command", "from")} for c in before.get("checks") or []]
+        after = guard_take(code, plan, sub, args.timeout)
+    diff = guard_diff(before, after, explain, args.coverage_tolerance)
+    commits = None
+    b_commit, a_commit = (before.get("code") or {}).get("commit"), (after.get("code") or {}).get("commit")
+    if b_commit and a_commit and code.is_dir() and guard_git_dir(code):
+        n = git_out(code, "rev-list", "--count", f"{b_commit}..{a_commit}", check=False)
+        commits = int(n) if n.isdigit() else None
+    result = {**diff, "commits": commits, "before": before, "after": after}
+    out = Path(args.out) if args.out else guard_default(code, "guard-compare.json")
+    text = guard_text(diff, before, after, commits)
+    if out is not None:
+        out.parent.mkdir(parents=True, exist_ok=True)
+        write_json(out, result)
+        text += f"\nwrote {out} (for `render log --guard`)"
+    emit(args, {k: v for k, v in result.items() if k not in ("before", "after")} | {"written": str(out) if out else None}, text)
+    return 2 if diff["regressions"] else 0
+
+
+def render_guard(cmp: dict) -> list[str]:
+    before, after = cmp.get("before") or {}, cmp.get("after") or {}
+    a_by = {c["name"]: c for c in after.get("checks") or []}
+    bc, ac = before.get("code") or {}, after.get("code") or {}
+    span = f"`{(bc.get('commit') or '?')[:7]}` → `{(ac.get('commit') or '?')[:7]}`"
+    out = ["**Guard** (the code's own checks, run before and after with the same commands)", "",
+           f"Verdict: **{cmp.get('verdict', '?')}**, {span}" + (f", {cmp['commits']} commit(s)" if cmp.get("commits") is not None else "")
+           + (" plus uncommitted changes" if ac.get("dirty") else "") + ".", "",
+           "| Check | Command | Before | After | Result |", "|---|---|---|---|---|"]
+    status_of = {}
+    for it in cmp.get("items") or []:
+        if it["kind"] == "check":
+            name = it["key"].split(".")[0]
+            rank = {"regressed": 4, "explained": 3, "improved": 2, "changed": 1, "same": 0}
+            if rank.get(it["status"], 0) >= rank.get(status_of.get(name, "same"), 0):
+                status_of[name] = it["status"]
+    word = {"regressed": "**worse**", "explained": "worse, explained", "improved": "better", "changed": "changed", "same": "same"}
+    for b in before.get("checks") or []:
+        a = a_by.get(b["name"])
+        cmd = b["command"].replace("|", "\\|")
+        out.append(f"| {b['name']} | `{cmd}` | {guard_state(b)} | {guard_state(a)} | {word[status_of.get(b['name'], 'same')]} |")
+    mk = []
+    for key in GUARD_MARKERS:
+        bt = ((before.get("markers") or {}).get(key) or {}).get("total", 0)
+        at = ((after.get("markers") or {}).get(key) or {}).get("total", 0)
+        mk.append(f"{key.replace('_', ' ')} {bt} → {at}")
+    out += ["", "Markers in the code: " + "; ".join(mk) + "."]
+    if cmp.get("review"):
+        out += ["", "Gate files changed, to review (a change may add checks, never weaken one): " + ", ".join(f"`{f}`" for f in cmp["review"]) + "."]
+    if cmp.get("explained"):
+        out += ["", "Explained:"] + [f"- `{e['key']}`: {e['reason']}" for e in cmp["explained"]]
+    if cmp.get("regressions"):
+        out += ["", f"**Not explained:** {', '.join(f'`{k}`' for k in cmp['regressions'])}."]
+    return out
 
 
 # =========================================================================== web API (used by the website via Pyodide)
@@ -1755,6 +4650,10 @@ def _web_cfg(p: dict, report: dict | None = None) -> tuple[dict, str]:
     return cfg, source
 
 
+def _api_glossary(p):
+    return {"groups": load_glossary()["groups"]}
+
+
 def _api_info(p):
     merged = load_toml(DEFAULTS_PATH)
     for _, layer in _web_layers({"org_toml": p.get("org_toml")}):
@@ -1765,7 +4664,7 @@ def _api_info(p):
             "zone_settings": merged.get("zone_settings", {}), "targets": merged.get("targets", {}),
             "maturity": merged.get("maturity", {}), "review": merged.get("review", {}),
             "starter_decisions": starter_json("decisions"), "starter_dispositions": starter_json("dispositions"),
-            "grading_repo_readme": GRADING_REPO_README}
+            "grading_repo_readme": GRADING_REPO_README, "side_files": SIDE_FILES}
 
 
 def _api_build(p):
@@ -1803,7 +4702,9 @@ def _api_check(p):
     rc = report.get("config") or {}
     return {"validation": {"errors": errors, "warnings": cfg.get("warnings", []) + warnings, "notes": notes},
             "rollup": roll, "config_source": source, "config_hash_match": rc.get("hash") == cfg["hash"],
-            "config": {k: cfg.get(k) for k in ("hash", "preset", "answers", "gates", "project", "review", "zones")},
+            "publish": {"public": bool((cfg.get("publishing") or {}).get("public")), "problems": publish_problems(report, require_redacted=False),
+                        "sensitive": sorted(sensitive_ids(report))},
+            "config": {k: cfg.get(k) for k in ("hash", "preset", "answers", "gates", "project", "review", "zones", "publishing")},
             "weights": {k: v["weight"] for k, v in cfg["weights"].items()}}
 
 
@@ -1824,10 +4725,8 @@ def _api_verify_zip(p):
 
 
 def _api_redact(p):
-    shared = strip_private(copy.deepcopy(p["report"]))
-    if "holdout" in shared:
-        shared["holdout"]["private_details"] = "[redacted]"
-    return {"report": shared}
+    public, leaks = redact_report(p["report"])
+    return {"report": public, "leaks": leaks, "withheld": public["publishing"]["withheld"]}
 
 
 def _api_decisions_update(p):
@@ -1849,14 +4748,18 @@ def _api_scan_zip(p):
             "projects": scan_paths({n: (lambda n=n: zf.read(n).decode("utf-8", errors="replace")) for n in names})}
 
 
-def scan_paths(files: dict) -> dict:
-    """Group files of a grading repo (or one project folder) by project. files: path -> callable returning text."""
+SIDE_FILES = {PROJECT_FILE: "project", DECISIONS_FILE: "decisions", DISPOSITIONS_FILE: "dispositions", "org.toml": "org"}
+
+
+def scan_layout(paths: list[str]) -> list[dict]:
+    """Find the projects in a grading repo (or one project folder) from file paths alone.
+    Each: {name, root, side: {file name: path}, org: path, reports: {folder: {report: path, runs: [paths]}}}."""
     projects: dict[str, dict] = {}
     org = None
-    for path in files:
-        parts = path.split("/")
+    for path in paths:
+        parts = path.strip("/").split("/")
         if parts[-1] == "org.toml":
-            org = files[path]()
+            org = path
             continue
         if "reports" in parts:
             i = len(parts) - 1 - parts[::-1].index("reports")
@@ -1866,36 +4769,112 @@ def scan_paths(files: dict) -> dict:
         if not rest:
             continue
         key = "/".join(root)
-        name = root[-1] if root else "project"
-        proj = projects.setdefault(key, {"name": name, "root": key, "reports": {}})
-        if len(rest) == 1 and rest[0] in (PROJECT_FILE, DECISIONS_FILE, DISPOSITIONS_FILE) and "reports" not in parts:
-            proj[rest[0]] = files[path]()
+        proj = projects.setdefault(key, {"name": root[-1] if root else "project", "root": key, "side": {}, "reports": {}})
+        if len(rest) == 1 and rest[0] in SIDE_FILES and "reports" not in parts:
+            proj["side"][rest[0]] = path
         elif len(rest) == 2 and rest[1] == "report.json":
-            proj["reports"].setdefault(rest[0], {})["report"] = files[path]()
+            proj["reports"].setdefault(rest[0], {"runs": []})["report"] = path
         elif len(rest) == 3 and rest[1] == "runs" and rest[2].endswith(".json"):
-            proj["reports"].setdefault(rest[0], {}).setdefault("runs", []).append(files[path]())
-    found = [(key, proj) for key, proj in projects.items() if proj.get(PROJECT_FILE) or proj["reports"]]
+            proj["reports"].setdefault(rest[0], {"runs": []})["runs"].append(path)
+    found = [p for p in projects.values() if p["side"].get(PROJECT_FILE) or any(r.get("report") for r in p["reports"].values())]
     # Copies of the suite (any folder with tools/gradekit.py, such as bundle/bare/ or a website's suite/)
     # ship an example project. Skip projects inside them, unless they're all there is.
-    kits = [p[: -len("tools/gradekit.py")] for p in files if p == "tools/gradekit.py" or p.endswith("/tools/gradekit.py")]
-    outside = [(key, proj) for key, proj in found if not any((key + "/").startswith(k) for k in kits)]
+    clean = [x.strip("/") for x in paths]
+    kits = [x[: -len("tools/gradekit.py")] for x in clean if x == "tools/gradekit.py" or x.endswith("/tools/gradekit.py")]
+    outside = [p for p in found if not any((p["root"] + "/").startswith(k) for k in kits)]
     if not outside:  # only copies of the example: show each project once (the shortest path)
         seen: set = set()
-        outside = [(k, pr) for k, pr in sorted(found, key=lambda kv: len(kv[0])) if not (pr["name"] in seen or seen.add(pr["name"]))]
+        outside = [p for p in sorted(found, key=lambda p: len(p["root"])) if not (p["name"] in seen or seen.add(p["name"]))]
+    names: set = set()
+    for p in outside:
+        p["org"] = org
+        p["reports"] = {f: r for f, r in p["reports"].items() if r.get("report")}
+        if p["name"] in names:
+            p["name"] = p["root"]
+        names.add(p["name"])
+    return outside
+
+
+def scan_paths(files: dict) -> dict:
+    """Group files of a grading repo (or one project folder) by project, with their contents.
+    files: path -> callable returning text."""
     out = {}
-    for key, proj in outside:
-        reports = sorted(({"folder": f, **v} for f, v in proj["reports"].items() if v.get("report")),
-                         key=lambda r: report_order_key(r["folder"], r["report"]))
-        out[proj["name"] if proj["name"] not in out else key] = {
-            "root": key, "project_toml": proj.get(PROJECT_FILE), "decisions_json": proj.get(DECISIONS_FILE),
-            "dispositions_json": proj.get(DISPOSITIONS_FILE), "reports": reports, "org_toml": org}
+    for p in scan_layout(list(files)):
+        texts = {f: files[r["report"]]() for f, r in p["reports"].items()}
+        _, need = order_report_folders(list(texts))
+        order = order_report_folders(list(texts), {f: run_date_of(texts[f]) for f in need})[0]
+        side = {k: files[v]() for k, v in p["side"].items()}
+        out[p["name"]] = {
+            "root": p["root"], "project_toml": side.get(PROJECT_FILE), "decisions_json": side.get(DECISIONS_FILE),
+            "dispositions_json": side.get(DISPOSITIONS_FILE), "org_toml": files[p["org"]]() if p["org"] else None,
+            "reports": [{"folder": f, "report": texts[f], "runs": [files[x]() for x in p["reports"][f]["runs"]]} for f in order]}
     return out
+
+
+def classify_files(files: list[dict]) -> list[str]:
+    """What each loose file dropped on the Review page is, in the order given.
+    files: [{name, json (parsed, if it's JSON), error (if it didn't parse), role (if the person chose one)}].
+    The newest report (by run.date) is the one reviewed; another with the same commit is a run of it
+    (for consensus); any other report is an earlier one to compare with."""
+    roles: list[str] = []
+    fixed: list[bool] = []
+    for f in files:
+        name, data = str(f.get("name") or ""), f.get("json")
+        if f.get("role"):
+            roles.append(f["role"])
+            fixed.append(True)
+            continue
+        fixed.append(False)
+        run = (data.get("run") or {}) if isinstance(data, dict) else {}
+        if f.get("error"):
+            role = "ignore"
+        elif name in SIDE_FILES:
+            role = SIDE_FILES[name]
+        elif name.lower().endswith(".zip"):
+            role = "zip"
+        elif name.lower().endswith(".toml"):
+            role = "org" if "project" in roles else "project"
+        elif isinstance(data, dict) and isinstance(data.get("benchmarks"), list):
+            main = next((i for i, r in enumerate(roles) if r == "report"), None)
+            if main is None:
+                role = "report"
+            else:
+                mrun = (files[main].get("json") or {}).get("run") or {}
+                if run.get("commit") and run.get("commit") == mrun.get("commit"):
+                    role = "run"
+                elif not fixed[main] and str(run.get("date") or "") > str(mrun.get("date") or ""):
+                    roles[main], role = "previous", "report"
+                else:
+                    role = "previous"
+        elif isinstance(data, dict) and isinstance(data.get("decisions"), list):
+            role = "decisions"
+        elif isinstance(data, dict) and isinstance(data.get("dispositions"), list):
+            role = "dispositions"
+        else:
+            role = "ignore"
+        roles.append(role)
+    return roles
+
+
+
+def _api_scan_layout(p):
+    return {"projects": scan_layout(list(p.get("paths") or []))}
+
+
+def _api_order_reports(p):
+    ordered, need = order_report_folders(list(p.get("folders") or []), p.get("run_dates") or {})
+    return {"ordered": ordered, "need_run_dates": need}
+
+
+def _api_classify(p):
+    return {"roles": classify_files(list(p.get("files") or []))}
 
 
 WEB_API = {"info": _api_info, "build": _api_build, "parse": _api_parse, "zone_test": _api_zone_test,
            "check": _api_check, "consensus": _api_consensus, "compare": _api_compare,
            "verify_zip": _api_verify_zip, "redact": _api_redact, "decisions_update": _api_decisions_update,
-           "scan_zip": _api_scan_zip}
+           "scan_zip": _api_scan_zip, "scan_layout": _api_scan_layout, "glossary": _api_glossary, "order_reports": _api_order_reports,
+           "classify": _api_classify}
 
 
 def web_api(name: str, payload: dict) -> dict:
@@ -1913,12 +4892,7 @@ def web_api(name: str, payload: dict) -> dict:
 # =========================================================================== main
 
 def main(argv=None) -> int:
-    try:  # behave like a normal CLI when piped into `head` etc.
-        import signal
-        signal.signal(signal.SIGPIPE, signal.SIG_DFL)
-    except (AttributeError, ValueError):
-        pass
-    ap = argparse.ArgumentParser(prog="gradekit", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap = CliParser(prog="gradekit", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
 
     def with_config(p):
@@ -1939,6 +4913,8 @@ def main(argv=None) -> int:
     p.add_argument("--name", default="my-project", help="project name when writing a single file with --out")
     p.add_argument("--answer", action="append", metavar="Q=A", help="e.g. --answer data_sensitivity=financial")
     p.add_argument("--out", default="project.toml")
+    p.add_argument("--ci", choices=["github", "gitlab"], help="also add the grading check for pull requests (see the kit's ci/)")
+    p.add_argument("--site", metavar="URL", help="with --ci: your suite website's address (else set SUITE_SITE in the CI settings)")
     p.add_argument("--force", action="store_true")
     p.set_defaults(fn=cmd_init)
 
@@ -1955,6 +4931,7 @@ def main(argv=None) -> int:
 
     p = sub.add_parser("validate", help="schema + config + semantic checks")
     p.add_argument("report", nargs="?", help="report JSON (default: the project's latest report)")
+    p.add_argument("--publish", action="store_true", help="also fail unless the report is safe to commit to a public grading repo")
     with_config(p)
     p.set_defaults(fn=cmd_validate)
 
@@ -1992,10 +4969,13 @@ def main(argv=None) -> int:
     p.add_argument("expected")
     p.set_defaults(fn=cmd_calibrate)
 
-    p = sub.add_parser("redact", help="strip hidden-check details for sharing")
+    p = sub.add_parser("redact", help="make a copy safe to publish: no hidden-check details, sensitive findings withheld")
     p.add_argument("report", nargs="?", help="report JSON (default: the project's latest report)")
     p.add_argument("--project", metavar="NAME"); p.add_argument("--grading-repo", metavar="DIR"); p.add_argument("--project-dir", metavar="DIR")
-    p.add_argument("--out")
+    g = p.add_mutually_exclusive_group()
+    g.add_argument("--out", help="where to write the public copy (default: REPORT.shared.json)")
+    g.add_argument("--in-place", action="store_true",
+                   help="for grading repos: move the full report to REPORT.private.json and write the public one in its place")
     p.set_defaults(fn=cmd_redact)
 
     p = sub.add_parser("rollup-repo", help="combine per-component reports (each must already have a rollup)")
@@ -2003,7 +4983,328 @@ def main(argv=None) -> int:
     p.add_argument("--out")
     p.set_defaults(fn=cmd_rollup_repo)
 
+    # ------------------------------------------------------------ report authoring
+    p = sub.add_parser("report", help="build a report step by step (graders): new, cite, finding, score, check…",
+                       description="Build a report without typing JSON. Weights, targets, quotes and IDs come from the tool; "
+                                   "every command re-checks the report against the project's config.")
+    rsub = p.add_subparsers(dest="report_cmd", required=True, metavar="ACTION")
+
+    def report_arg(q):
+        q.add_argument("report", help="the report JSON being written")
+        with_config(q)
+
+    def evidence_args(q, cite_help="FILE:LINE or FILE:START-END; the quote is copied from the file (repeatable)"):
+        q.add_argument("--cite", action="append", metavar="FILE:LINES", help=cite_help)
+        q.add_argument("--repo", metavar="DIR_OR_ZIP", help="the code checkout (or a zip of it) that --cite reads")
+        q.add_argument("--command", metavar="CMD", help="evidence from a command you ran…")
+        q.add_argument("--excerpt", metavar="TEXT", help="…and the relevant part of its output ('@file' or '-' for stdin)")
+        q.add_argument("--absence", metavar="WHAT", help="evidence that something is missing: what you looked for…")
+        q.add_argument("--method", metavar="HOW", help="…and how you searched")
+        q.add_argument("--note", help="note on each evidence item added by this command")
+
+    q = rsub.add_parser("new", help="start a report: every benchmark with its weight and target filled in")
+    with_config(q)
+    q.add_argument("--commit", required=True, help="the commit being graded")
+    q.add_argument("--base-commit", help="pr mode: the pull request's base commit")
+    q.add_argument("--mode", choices=["full", "pr"], default="full")
+    q.add_argument("--grader", default="unknown", help="model or agent name")
+    q.add_argument("--run", metavar="N/COUNT", help="for several independent graders: e.g. 2/3 (writes runs/run-2.json)")
+    q.add_argument("--suite-source", default="local", help="where the suite came from, e.g. the AGENT.md URL and version")
+    q.add_argument("--out", metavar="FILE", help="write here instead of projects/NAME/reports/<date>-<commit>/report.json")
+    q.add_argument("--force", action="store_true", help="overwrite an existing report")
+    q.set_defaults(fn=cmd_report_new)
+
+    q = rsub.add_parser("cite", help="print an evidence object for FILE:LINES with the exact quote")
+    q.add_argument("spec", metavar="FILE:LINES")
+    q.add_argument("--repo", required=True, metavar="DIR_OR_ZIP")
+    q.add_argument("--note")
+    q.add_argument("--compact", action="store_true", help="one line")
+    q.set_defaults(fn=cmd_report_cite)
+
+    q = rsub.add_parser("finding", help="add or update a finding")
+    fsub = q.add_subparsers(dest="finding_cmd", required=True, metavar="add|update")
+    q = fsub.add_parser("add", help="add a finding; its ID is the next free one for the benchmark")
+    report_arg(q)
+    q.add_argument("--benchmark", required=True, metavar="ID")
+    q.add_argument("--title", required=True)
+    q.add_argument("--severity", required=True, choices=SEVERITIES[::-1])
+    q.add_argument("--status", default="new", choices=["new", "open", "fixed", "regressed", "accepted"])
+    q.add_argument("--first-seen", metavar="COMMIT", help="default: the graded commit")
+    q.add_argument("--id", help="reuse an ID from the previous report (default: next free ID)")
+    q.add_argument("--paths", nargs="+", metavar="GLOB", help="areas the finding concerns, for zones when there's no code evidence")
+    q.add_argument("--sensitive", action="store_true", help="details must not be public (security); see `redact`")
+    evidence_args(q)
+    q.set_defaults(fn=cmd_finding_add)
+    q = fsub.add_parser("update", help="change a finding or add evidence to it")
+    report_arg(q)
+    q.add_argument("id")
+    q.add_argument("--title")
+    q.add_argument("--severity", choices=SEVERITIES[::-1])
+    q.add_argument("--status", choices=["new", "open", "fixed", "regressed", "accepted"])
+    q.add_argument("--disposition-concern", metavar="TEXT", help="why an accepted finding should be reconsidered ('' clears it)")
+    q.add_argument("--paths", nargs="+", metavar="GLOB")
+    g = q.add_mutually_exclusive_group()
+    g.add_argument("--sensitive", dest="sensitive", action="store_true", default=None)
+    g.add_argument("--not-sensitive", dest="sensitive", action="store_false")
+    q.add_argument("--replace-evidence", action="store_true", help="replace the evidence instead of adding to it")
+    evidence_args(q)
+    q.set_defaults(fn=cmd_finding_update)
+
+    q = rsub.add_parser("score", help="score a benchmark, or mark it limited / not applicable")
+    report_arg(q)
+    q.add_argument("benchmark", metavar="ID")
+    q.add_argument("--score", type=int, choices=range(1, 11), metavar="1-10")
+    q.add_argument("--confidence", choices=CONFIDENCE)
+    q.add_argument("--applicability", choices=["full", "limited", "not_applicable"])
+    q.add_argument("--reason", help="why it's limited or not applicable (the project's purpose, not its quality)")
+    q.add_argument("--rationale", help="one line: why this score (shown in the scorecard)")
+    q.add_argument("--why", help="what changed since the previous report")
+    q.add_argument("--weight-note", help="if the configured weight looks wrong for this code, say why")
+    q.add_argument("--cap", action="append", help="a cap you applied (repeatable)")
+    q.add_argument("--gaming-flag", action="append", help="a gaming pattern you found (repeatable)")
+    q.set_defaults(fn=cmd_report_score)
+
+    q = rsub.add_parser("strength", help="add a strength (positive evidence) to a benchmark")
+    report_arg(q)
+    q.add_argument("benchmark", metavar="ID")
+    q.add_argument("--text", required=True, help="what is good")
+    evidence_args(q)
+    q.set_defaults(fn=cmd_report_strength)
+
+    q = rsub.add_parser("enforcement", help="add evidence that a benchmark's quality is enforced (CI, lint rule, test)")
+    report_arg(q)
+    q.add_argument("benchmark", metavar="ID")
+    evidence_args(q)
+    q.set_defaults(fn=cmd_report_enforcement)
+
+    q = rsub.add_parser("action", help="add a step on a benchmark's path to its target")
+    report_arg(q)
+    q.add_argument("benchmark", metavar="ID")
+    q.add_argument("--action", required=True, help="what to do")
+    q.add_argument("--resolves", nargs="*", default=[], metavar="ID", help="finding or gap IDs it resolves")
+    q.add_argument("--new-score", type=int, required=True, choices=range(1, 11), metavar="1-10", help="expected score afterwards")
+    q.add_argument("--effort", required=True, choices=["S", "M", "L"])
+    q.add_argument("--decision", metavar="QUESTION", help="a yes/no question a person must answer first")
+    q.add_argument("--optional", action="store_true", help="beyond the target; only done when asked")
+    q.set_defaults(fn=cmd_report_action)
+
+    q = rsub.add_parser("gap", help="add a gap (something the code should do but doesn't)")
+    report_arg(q)
+    q.add_argument("--gap", required=True)
+    q.add_argument("--severity", required=True, choices=SEVERITIES[::-1])
+    q.add_argument("--necessity", required=True, choices=["must-have", "nice-to-have"])
+    q.add_argument("--status", default="new", choices=["new", "open", "fixed", "regressed", "accepted"])
+    q.add_argument("--rationale")
+    q.add_argument("--benchmarks", nargs="+", required=True, metavar="ID")
+    q.set_defaults(fn=cmd_report_gap)
+
+    q = rsub.add_parser("feature", help="add a feature to the inventory (the same name again updates it: status, source, evidence)")
+    report_arg(q)
+    q.add_argument("--feature", required=True)
+    q.add_argument("--source", required=True, help="where it's claimed, e.g. README")
+    q.add_argument("--status", required=True, choices=["complete", "partial", "stub", "broken", "undocumented"])
+    evidence_args(q)
+    q.set_defaults(fn=cmd_report_feature)
+
+    q = rsub.add_parser("flag", help="record an integrity flag: repo text that tries to influence grading")
+    report_arg(q)
+    q.add_argument("--description", required=True)
+    evidence_args(q)
+    q.set_defaults(fn=cmd_report_flag)
+
+    q = rsub.add_parser("ran", help="record a command you ran")
+    report_arg(q)
+    q.add_argument("--command", "--command-text", dest="command_text", required=True, metavar="CMD",
+                   help="exactly what you ran, so others (and `guard snapshot --from-report`) can run it again; notes go in --summary")
+    q.add_argument("--exit-code", type=int)
+    q.add_argument("--summary", required=True)
+    q.set_defaults(fn=cmd_report_ran)
+
+    q = rsub.add_parser("set", help=f"set a field: {', '.join(SETTABLE)} (dotted keys, e.g. metrics.line_coverage_pct)")
+    report_arg(q)
+    q.add_argument("key")
+    q.add_argument("value", help="JSON (a number, true, an object…) or plain text")
+    q.add_argument("--append", action="store_true", help="append to a list")
+    q.set_defaults(fn=cmd_report_set)
+
+    q = rsub.add_parser("check", help="what's missing or wrong; with --write, store the rollup when it's complete")
+    report_arg(q)
+    q.add_argument("--repo", metavar="DIR_OR_ZIP", help="also verify every citation against the code")
+    q.add_argument("--tolerance", type=int, default=2)
+    q.add_argument("--write", action="store_true", help="store the rollup and the finish time")
+    q.set_defaults(fn=cmd_report_check)
+
+    q = rsub.add_parser("match", help="suggest which earlier finding each newly written finding is, to keep its ID")
+    report_arg(q)
+    q.add_argument("--baseline", required=True, help="the previous report")
+    q.add_argument("--threshold", type=float, default=0.35, help="lowest similarity to suggest (0–1)")
+    q.add_argument("--apply", action="store_true", help="rename unambiguous matches to their earlier IDs")
+    q.add_argument("--apply-at", type=float, default=0.6, help="lowest similarity --apply acts on")
+    q.set_defaults(fn=cmd_report_match)
+
+    # ------------------------------------------------------------ carry
+    p = sub.add_parser("carry", help="start the next report from the last one, with citations moved to the new code")
+    p.add_argument("baseline", help="the last report (the full one, not the public copy, if it withholds findings)")
+    p.add_argument("--repo", required=True, metavar="DIR_OR_ZIP", help="the code at the new commit")
+    p.add_argument("--commit", required=True, help="the new commit")
+    p.add_argument("--mode", choices=["pr", "full"], default="pr")
+    p.add_argument("--base-commit", help="pr mode: the pull request's base commit")
+    p.add_argument("--changed", nargs="+", metavar="FILE", help="files the change touched (default: from git, if --repo is a checkout)")
+    p.add_argument("--touched", nargs="+", metavar="ID", help="more benchmarks to re-grade, on top of those suggested from the changed files")
+    p.add_argument("--out", metavar="FILE", help="where to write (required in pr mode; full mode defaults to a new report folder)")
+    p.add_argument("--force", action="store_true")
+    p.add_argument("--allow-withheld", action="store_true", help="carry from a public copy anyway")
+    with_config(p)
+    p.set_defaults(fn=cmd_carry)
+
+    # ------------------------------------------------------------ doctor
+    p = sub.add_parser("doctor", help="preflight: check Python, the kit, the config, the code and delivery access before a run")
+    p.add_argument("--repo", metavar="DIR_OR_ZIP", help="the code to grade")
+    p.add_argument("--delivery", choices=["pr", "save", "return"], help="also check what this delivery needs (pr: git, identity, push)")
+    p.add_argument("--open", choices=["github", "gitlab"], help="pr: also check gh / glab sign-in")
+    p.add_argument("--remote", default="origin")
+    p.add_argument("--site", metavar="URL", help="the suite website: check it's reachable and serves this kit's version")
+    with_config(p)
+    p.set_defaults(fn=cmd_doctor)
+
+    # ------------------------------------------------------------ deliver
+    p = sub.add_parser("deliver", help="hand back a finished report: pr, save or return (prints the git steps, or runs them)",
+                       description="Checks the report is finished, withholds sensitive findings if the grading repo is public, "
+                                   "renders report.md, then delivers. For pr it prints the branch, commit, title and body "
+                                   "(or does the git steps with --run); pushing and opening the pull request are opt-in.")
+    p.add_argument("report", help="the finished report.json, in projects/NAME/reports/<folder>/")
+    p.add_argument("--delivery", choices=["pr", "save", "return"], default="pr")
+    p.add_argument("--repo", metavar="DIR_OR_ZIP", help="also verify every citation against the code first")
+    p.add_argument("--run", action="store_true", help="pr: create the branch and commit (otherwise just print the steps)")
+    p.add_argument("--push", action="store_true", help="pr, with --run: push the branch")
+    p.add_argument("--open", choices=["github", "gitlab"], help="pr, with --push: open it with gh or glab (needs them installed and signed in)")
+    p.add_argument("--base", metavar="BRANCH", help="pr: branch to start from and target (default: the remote's default branch)")
+    p.add_argument("--remote", default="origin")
+    p.add_argument("--branch", help="default: report/<project>/<date>-<commit>")
+    p.add_argument("--body-file", metavar="FILE", help="where to write the pull request body (default: a temp file)")
+    p.add_argument("--site", metavar="URL", help="the suite website, for a Review-page link in the body")
+    p.add_argument("--grading-repo-url", metavar="URL", help="the grading repo's address, for that link")
+    with_config(p)
+    p.set_defaults(fn=cmd_deliver)
+
+    # ------------------------------------------------------------ ci
+    p = sub.add_parser("ci", help="grading repos: check a pull request (one report, or settings), write a comment and labels",
+                       description="Run in a grading repo's CI on a pull request. Templates for GitHub Actions and GitLab CI "
+                                   "are in the kit's ci/ folder (`gradekit init --ci github|gitlab` adds one).")
+    p.add_argument("--base", required=True, help="the target branch, e.g. origin/main")
+    p.add_argument("--head", default="HEAD")
+    p.add_argument("--grading-repo", metavar="DIR", help="the grading repo checkout (default: current folder)")
+    p.add_argument("--changed", nargs="+", metavar="[A|M|D:]PATH", help="the changed files, if git can't list them")
+    p.add_argument("--site", metavar="URL", help="the suite website, for a Review-page link")
+    p.add_argument("--grading-repo-url", metavar="URL", help="this repo's address, for that link")
+    p.add_argument("--branch", help="the pull request's branch, for that link")
+    p.add_argument("--comment-file", metavar="FILE", help="write the summary comment (markdown) here")
+    p.add_argument("--labels-file", metavar="FILE", help="write the labels to set, one per line, here")
+    p.set_defaults(fn=cmd_ci)
+
+    # ------------------------------------------------------------ index
+    p = sub.add_parser("index", help="grading repos: write projects/index.json (latest scores, history, decisions waiting)")
+    p.add_argument("--grading-repo", metavar="DIR", help="grading repo root (default: current folder)")
+    p.add_argument("--out", metavar="FILE", help="default: projects/index.json")
+    p.add_argument("--check", action="store_true", help="don't write; exit 1 if the file is missing or out of date")
+    p.set_defaults(fn=cmd_index)
+
+    # ------------------------------------------------------------ glossary
+    p = sub.add_parser("glossary", help="the suite's terms and what they mean (one, or all)")
+    p.add_argument("term", nargs="*", help="a term to look up, e.g. gate or effective severity")
+    p.add_argument("--markdown", action="store_true", help="the whole glossary as GLOSSARY.md")
+    p.add_argument("--out", metavar="FILE", help="with --markdown: write it here")
+    p.set_defaults(fn=cmd_glossary)
+
+    # ------------------------------------------------------------ render
+    p = sub.add_parser("render", help="markdown from report data: report.md, PR title/body, PR-check comment, improvement log")
+    rsub = p.add_subparsers(dest="render_cmd", required=True, metavar="WHAT")
+
+    def render_dest(q, default_note):
+        q.add_argument("--out", metavar="FILE", help=f"where to write ('-' for stdout; default: {default_note})")
+        q.add_argument("--stdout", action="store_true", help="print instead of writing the default file")
+
+    q = rsub.add_parser("report", help="report.md from report.json (sensitive findings withheld in public grading repos)")
+    q.add_argument("report")
+    render_dest(q, "beside the report, e.g. report.md")
+    with_config(q)
+    q.set_defaults(fn=cmd_render_report)
+
+    q = rsub.add_parser("pr", help="the grading pull request: branch, title and body (title on the first line)")
+    q.add_argument("report")
+    q.add_argument("--site", metavar="URL", help="the suite website, for a link to its Review page")
+    q.add_argument("--grading-repo-url", metavar="URL", help="the grading repo (e.g. https://github.com/acme/grading), for that link")
+    q.add_argument("--branch", help="default: report/<project>/<date>-<commit>")
+    with_config(q)
+    q.set_defaults(fn=cmd_render_pr)
+
+    q = rsub.add_parser("check", help="the PR-check comment, comparing the baseline report with the PR report")
+    q.add_argument("old", help="baseline report (newest merged report)")
+    q.add_argument("new", help="the PR report (mode pr)")
+    render_dest(q, "stdout")
+    with_config(q)
+    q.set_defaults(fn=cmd_render_check)
+
+    q = rsub.add_parser("log", help="the improver's log, from a small JSON file (see prompts/improver.md)")
+    q.add_argument("log", help="improve-log.json")
+    q.add_argument("--report", help="the report worked from: adds pending decisions as blocked and declined ones as skipped")
+    q.add_argument("--guard", metavar="FILE", help="the `guard compare` result: adds the before → after table of the code's checks")
+    render_dest(q, "stdout")
+    with_config(q)
+    q.set_defaults(fn=cmd_render_log)
+
+    # ------------------------------------------------------------ guard
+    p = sub.add_parser("guard", help="improvers: run the code's checks before changing it, then prove nothing got worse")
+    gsub = p.add_subparsers(dest="guard_cmd", required=True, metavar="STEP")
+    q = gsub.add_parser("snapshot", help="before any change: run the checks and record the results (in .git/, never committed)")
+    q.add_argument("code", nargs="?", default=".", help="the code checkout (default: here)")
+    q.add_argument("--check", action="append", metavar="NAME=COMMAND",
+                   help='a check to run, e.g. tests="pytest -q" (repeatable; run from the code folder, or --path)')
+    q.add_argument("--from-report", metavar="REPORT", help="also use the tests, lint, type-check, coverage, build and audit commands the grader ran")
+    q.add_argument("--path", metavar="SUBDIR", help="only this part of the code (the project's `path`): checks run there, and only it is scanned")
+    q.add_argument("--timeout", type=int, default=GUARD_TIMEOUT, metavar="SEC", help=f"per check (default {GUARD_TIMEOUT})")
+    q.add_argument("--out", metavar="FILE", help="where to write it (default: .git/gradekit/guard-before.json)")
+    q.add_argument("--list", action="store_true", help="show the checks it would run, and run nothing")
+    q.set_defaults(fn=cmd_guard_snapshot)
+    q = gsub.add_parser("compare", help="after changing: run the same checks again; exit 2 if anything got worse")
+    q.add_argument("code", nargs="?", default=".", help="the code checkout (default: here)")
+    q.add_argument("--before", metavar="FILE", help="the snapshot (default: .git/gradekit/guard-before.json)")
+    q.add_argument("--after", metavar="FILE", help="compare with this snapshot instead of running the checks now")
+    q.add_argument("--explain", action="append", metavar="KEY=REASON",
+                   help='a deliberate change, e.g. tests.passed="removed the tests of the deleted export helper" (repeatable)')
+    q.add_argument("--coverage-tolerance", type=float, default=0.1, metavar="POINTS", help="coverage may move this much (default 0.1)")
+    q.add_argument("--timeout", type=int, default=GUARD_TIMEOUT, metavar="SEC", help=f"per check (default {GUARD_TIMEOUT})")
+    q.add_argument("--out", metavar="FILE", help="where to write the result (default: .git/gradekit/guard-compare.json)")
+    q.set_defaults(fn=cmd_guard_compare)
+
+    for leaf in leaf_parsers(ap):
+        leaf.add_argument("--json", action="store_true",
+                          help="print one JSON object instead: {ok, exit_code, command, result, text}")
+
     args = ap.parse_args(argv)
+    if not getattr(args, "json", False):
+        return run_command(ap, args)
+    buf = io.StringIO()
+    error = None
+    with contextlib.redirect_stdout(buf):
+        try:
+            rc = run_command(ap, args, raise_errors=True)
+        except GradekitError as e:
+            rc, error = 1, str(e)
+    out = {"ok": rc == 0, "exit_code": rc, "command": command_name(args), "result": getattr(args, "_result", None),
+           "text": buf.getvalue()}
+    if error:
+        out["error"] = error
+    print(json.dumps(out, indent=2, ensure_ascii=False))
+    return rc
+
+
+def command_name(args) -> str:
+    return " ".join(x for x in (args.cmd, getattr(args, "report_cmd", None), getattr(args, "finding_cmd", None),
+                                 getattr(args, "render_cmd", None), getattr(args, "guard_cmd", None)) if x)
+
+
+def run_command(ap, args, raise_errors: bool = False) -> int:
     if args.cmd in ("validate", "rollup", "verify-evidence", "redact") and args.report is None:
         pdir = project_dir_from_args(args)
         found = report_folders(pdir) if pdir else []
@@ -2026,9 +5327,34 @@ def main(argv=None) -> int:
     try:
         return args.fn(args)
     except GradekitError as e:
+        if raise_errors:
+            raise
         print(f"error: {e}", file=sys.stderr)
         return 1
 
 
+EXIT_USAGE = 64   # bad arguments (BSD sysexits EX_USAGE), so it never looks like diff's "regression" (2)
+
+
+class CliParser(argparse.ArgumentParser):
+    def error(self, message):
+        self.print_usage(sys.stderr)
+        self.exit(EXIT_USAGE, f"{self.prog}: error: {message}\n")
+
+
+def leaf_parsers(parser):
+    subs = [a for a in parser._actions if isinstance(a, argparse._SubParsersAction)]
+    if not subs:
+        yield parser
+    for a in subs:
+        for sp in dict.fromkeys(a.choices.values()):
+            yield from leaf_parsers(sp)
+
+
 if __name__ == "__main__":
+    try:  # behave like a normal CLI when piped into `head` etc. (only as a script: never change a host process)
+        import signal
+        signal.signal(signal.SIGPIPE, signal.SIG_DFL)
+    except (AttributeError, ValueError):
+        pass
     sys.exit(main())

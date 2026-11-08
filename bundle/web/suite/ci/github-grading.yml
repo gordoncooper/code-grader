@@ -1,0 +1,103 @@
+# Grading check for a grading repo on GitHub. Save as .github/workflows/grading.yml
+# (`gradekit init --ci github` does it).
+#   check: on each pull request that changes projects/ or org.toml, checks it with `gradekit ci`,
+#          comments a summary and sets labels.
+#   index: when reports or decisions land on the default branch, rebuilds projects/index.json and commits it.
+#
+# Settings → Secrets and variables → Actions → Variables: SUITE_SITE = your suite website's address.
+# Permissions: the default GITHUB_TOKEN with each job's `permissions` below. Pull requests from forks get
+# a read-only token: they're checked, but not commented on. If the default branch is protected so that
+# nothing can be pushed to it directly, allow GitHub Actions to bypass that rule, or delete the index job
+# (the Review page then reads each project's reports itself).
+name: Grading check
+
+on:
+  pull_request:
+    paths: ["projects/**", "org.toml"]
+  push:
+    paths: ["projects/**", "org.toml"]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+    env:
+      SUITE_SITE: ${{ vars.SUITE_SITE || '__SUITE_SITE__' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Get the grading kit
+        run: |
+          curl -fsSL "${SUITE_SITE%/}/suite/ci/fetch-kit.py" -o "$RUNNER_TEMP/fetch-kit.py"
+          echo "KIT=$(python3 "$RUNNER_TEMP/fetch-kit.py" "$SUITE_SITE" "$RUNNER_TEMP/kit")" >> "$GITHUB_ENV"
+
+      - name: Check the change
+        id: check
+        continue-on-error: true
+        run: |
+          python3 "$KIT/tools/gradekit.py" ci --base "origin/${{ github.base_ref }}" \
+            --site "$SUITE_SITE" --grading-repo-url "${{ github.server_url }}/${{ github.repository }}" \
+            --branch "${{ github.head_ref }}" --comment-file "$RUNNER_TEMP/comment.md" --labels-file "$RUNNER_TEMP/labels.txt"
+
+      - name: Comment and label
+        if: always() && github.event.pull_request.head.repo.full_name == github.repository
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          [ -f "$RUNNER_TEMP/comment.md" ] || exit 0
+          gh pr comment "$PR" --edit-last --body-file "$RUNNER_TEMP/comment.md" 2>/dev/null \
+            || gh pr comment "$PR" --body-file "$RUNNER_TEMP/comment.md"
+          for label in "grading: report" "grading: settings" "grading: needs changes"; do
+            if grep -qxF "$label" "$RUNNER_TEMP/labels.txt"; then
+              gh label create "$label" --color 5319e7 --force >/dev/null
+              gh pr edit "$PR" --add-label "$label"
+            else
+              gh pr edit "$PR" --remove-label "$label" 2>/dev/null || true
+            fi
+          done
+
+      - name: Result
+        if: steps.check.outcome == 'failure'
+        run: exit 1
+
+  index:
+    if: github.event_name == 'push' && github.ref_name == github.event.repository.default_branch
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      SUITE_SITE: ${{ vars.SUITE_SITE || '__SUITE_SITE__' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Get the grading kit
+        run: |
+          curl -fsSL "${SUITE_SITE%/}/suite/ci/fetch-kit.py" -o "$RUNNER_TEMP/fetch-kit.py"
+          echo "KIT=$(python3 "$RUNNER_TEMP/fetch-kit.py" "$SUITE_SITE" "$RUNNER_TEMP/kit")" >> "$GITHUB_ENV"
+
+      - name: Rebuild projects/index.json
+        run: |
+          python3 "$KIT/tools/gradekit.py" index
+          git add projects/index.json
+          git diff --cached --quiet && exit 0
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit -m "Update projects/index.json [skip ci]"
+          git push

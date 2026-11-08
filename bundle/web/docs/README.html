@@ -3,6 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'wasm-unsafe-eval'; connect-src 'self' https://cdn.jsdelivr.net https://api.github.com https://raw.githubusercontent.com; img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'; worker-src 'self' blob:">
+<meta name="referrer" content="strict-origin-when-cross-origin">
 <title>Overview &amp; reference · Code Grading Suite</title>
 <meta name="description" content="A rubric, prompts and browser tools for AI coding agents to grade codebases from 1 to 10 on 35 benchmarks and improve them.">
 <link rel="stylesheet" href="../assets/style.css">
@@ -10,16 +12,17 @@
 <link rel="alternate" type="text/markdown" href="../AGENT.md" title="Agent entry point">
 </head>
 <body>
+<a class="skip" href="#main">Skip to content</a>
 <header class="topbar">
   <button class='menu-btn' type='button'>Menu</button>
   <a class="brand" href="../index.html">Code <span>Grading</span> Suite</a>
-  <span class="ver">v4.2.2</span>
+  <span class="ver">v4.3.0</span>
   <nav class="main" aria-label="Main"><a href="../docs/GETTING-STARTED.html">Get started</a><a href="../app/setup.html">Set up</a><a href="../app/run.html">Start a run</a><a href="../app/review.html">Review</a><a href="../docs/README.html" class="active" aria-current="page">Docs</a></nav>
   <span class="spacer"></span>
   <a class="top opt" href="../AGENT.md">AGENT.md</a>
-  <a class="top opt" href="../downloads/code-grading-suite-4.2.2.zip">Download</a>
+  <a class="top opt" href="../downloads/code-grading-suite-4.3.0.zip">Download</a>
 </header>
-<div class="layout"><nav class="sidebar" aria-label="Documentation"><h4>Start</h4><a href="../docs/GETTING-STARTED.html">Getting started</a><a href="../docs/README.html" class="active" aria-current="page">Overview &amp; reference</a><a href="../docs/AGENT.html">Agent entry point</a><a href="../docs/DEPLOY.html">Hosting this site</a><h4>Configuration</h4><a href="../docs/TUNING.html">Tuning guide</a><a href="../docs/rubric/weights.html">How scoring works</a><a href="../docs/config/defaults.html">Default config</a><a href="../docs/config/project.example.html">Example project config</a><h4>Prompts</h4><a href="../docs/prompts/grader.html">Grader</a><a href="../docs/prompts/reviewer.html">Report reviewer</a><a href="../docs/prompts/improver.html">Improver</a><a href="../docs/prompts/pr-review.html">Pull-request check</a><h4>Rubric</h4><a href="../docs/rubric/A-correctness-trust.html">A · Correctness &amp; Trust</a><a href="../docs/rubric/B-design-structure.html">B · Design &amp; Structure</a><a href="../docs/rubric/C-code-health.html">C · Code Health</a><a href="../docs/rubric/D-value-fitness.html">D · Value &amp; Fitness</a><a href="../docs/rubric/E-adoption-experience.html">E · Adoption &amp; Experience</a><a href="../docs/rubric/F-operations-delivery.html">F · Operations &amp; Delivery</a><a href="../docs/rubric/X-conditional.html">X · Conditional</a><h4>Guides</h4><a href="../docs/calibration/README.html">Calibration</a><a href="../docs/holdout/README.html">Hidden checks</a><a href="../docs/CHANGELOG.html">Changelog</a></nav><main class="doc"><div class="docbar"><a class="btn" href="../suite/README.md">View raw .md</a><button class="btn" type="button" data-copy="../suite/README.md">Copy raw URL for an agent</button></div><details class="toc"><summary>On this page</summary><ul><li><a href="#the-pieces">The pieces</a></li><li><a href="#where-things-live">Where things live</a></li><li><a href="#the-cycle">The cycle</a></li><li><a href="#ground-rules">Ground rules</a></li><li><a href="#key-concepts">Key concepts</a></li><li><a href="#command-line-reference">Command-line reference</a></li><li><a href="#whats-in-the-kit">What&#x27;s in the kit</a></li><li><a href="#calibration-and-monorepos">Calibration and monorepos</a></li><li><a href="#versioning">Versioning</a></li></ul></details><h1 id="code-grading-suite-v422">Code Grading Suite v4.2.2<a class="anchor" href="#code-grading-suite-v422" aria-label="Link to this section">#</a></h1>
+<div class="layout"><nav class="sidebar" aria-label="Documentation"><h4>Start</h4><a href="../docs/GETTING-STARTED.html">Getting started</a><a href="../docs/README.html" class="active" aria-current="page">Overview &amp; reference</a><a href="../docs/GLOSSARY.html">Glossary</a><a href="../docs/AGENT.html">Agent entry point</a><a href="../docs/DEPLOY.html">Hosting this site</a><h4>Configuration</h4><a href="../docs/TUNING.html">Tuning guide</a><a href="../docs/rubric/weights.html">How scoring works</a><a href="../docs/config/defaults.html">Default config</a><a href="../docs/config/project.example.html">Example project config</a><h4>Prompts</h4><a href="../docs/prompts/grader.html">Grader</a><a href="../docs/prompts/reviewer.html">Report reviewer</a><a href="../docs/prompts/improver.html">Improver</a><a href="../docs/prompts/pr-review.html">PR check</a><h4>Rubric</h4><a href="../docs/rubric/A-correctness-trust.html">A · Correctness &amp; Trust</a><a href="../docs/rubric/B-design-structure.html">B · Design &amp; Structure</a><a href="../docs/rubric/C-code-health.html">C · Code Health</a><a href="../docs/rubric/D-value-fitness.html">D · Value &amp; Fitness</a><a href="../docs/rubric/E-adoption-experience.html">E · Adoption &amp; Experience</a><a href="../docs/rubric/F-operations-delivery.html">F · Operations &amp; Delivery</a><a href="../docs/rubric/X-conditional.html">X · Conditional</a><h4>Guides</h4><a href="../docs/calibration/README.html">Calibration</a><a href="../docs/holdout/README.html">Hidden checks</a><a href="../docs/CHANGELOG.html">Changelog</a></nav><main class="doc" id="main"><div class="docbar"><a class="btn" href="../suite/README.md">View raw .md</a><button class="btn" type="button" data-copy="../suite/README.md">Copy raw URL for an agent</button></div><details class="toc"><summary>On this page</summary><ul><li><a href="#the-pieces">The pieces</a></li><li><a href="#where-things-live">Where things live</a></li><li><a href="#the-cycle">The cycle</a></li><li><a href="#ground-rules">Ground rules</a></li><li><a href="#key-concepts">Key concepts</a></li><li><a href="#command-line-reference">Command-line reference</a></li><li><a href="#whats-in-the-kit">What&#x27;s in the kit</a></li><li><a href="#ci-for-grading-repos">CI for grading repos</a></li><li><a href="#calibration-and-monorepos">Calibration and monorepos</a></li><li><a href="#versioning">Versioning</a></li></ul></details><h1 id="code-grading-suite-v430">Code Grading Suite v4.3.0<a class="anchor" href="#code-grading-suite-v430" aria-label="Link to this section">#</a></h1>
 <p>A kit for having AI agents grade a codebase from 1 to 10 on <strong>35 benchmarks</strong> (29 core in 6 pillars, plus 6 that apply only to some projects), and then improve it against those grades. It is built so that <strong>rising scores mean better code</strong>, not just code tuned to the rubric.</p>
 <p><strong>New here? Start with <a href="../docs/GETTING-STARTED.html">Getting started</a>.</strong> It walks through a full cycle using the website, with nothing to install. This page is the reference.</p>
 <h2 id="the-pieces">The pieces<a class="anchor" href="#the-pieces" aria-label="Link to this section">#</a></h2>
@@ -49,13 +52,13 @@
 </tr>
 <tr>
 <td><strong><code>gradekit.py</code></strong></td>
-<td>Does all the arithmetic and checking: weights, gates, zones, validation, evidence checks, roll-ups, ranked priorities, consensus, comparisons. Use it from the command line (Python 3.11+, standard library only), or let the website run it.</td>
+<td>Does all the arithmetic and checking: weights, gates, zones, validation, evidence checks, the rollup, ranked priorities, consensus, comparisons. Use it from the command line (Python 3.11+, standard library only), or let the website run it.</td>
 </tr>
 </tbody>
 </table>
 <h2 id="where-things-live">Where things live<a class="anchor" href="#where-things-live" aria-label="Link to this section">#</a></h2>
 <p>Code repos stay untouched. Grading lives in <strong>one central grading repo</strong> (or local folders with the same layout):</p>
-<pre><code>grading/
+<pre tabindex="0"><code>grading/
 ├── README.md
 ├── org.toml                         optional house rules for every project
 └── projects/
@@ -124,13 +127,14 @@
 <li><strong>Graders are independent.</strong> Use a fresh session every time, ideally a different model from the improver, and never the session that did the improving.</li>
 <li><strong>Graders run sandboxed.</strong> They run the repo's own scripts, so give them a disposable environment with no production credentials.</li>
 <li><strong>People own the project files</strong> (<code>project.toml</code>, <code>decisions.json</code>, <code>dispositions.json</code>). Graders only add report folders, by PR; they never push to the grading repo's default branch. An agent reviewer may append decisions only if <code>[review] allow_agent_decisions = true</code>.</li>
+<li><strong>Keep security details out of public reports.</strong> A grading repo is treated as public. Graders mark findings that would help an attacker as sensitive, and <code>gradekit redact --in-place</code> withholds their details from the committed report without changing any score. The full report, <code>report.private.json</code>, is never committed. Set <code>[publishing] public = false</code> if only trusted people can read the grading repo (<a href="../docs/TUNING.html">TUNING.md</a>).</li>
 <li><strong>Trust <code>gradekit</code>'s numbers.</strong> Weights, gates, effective severities, pillar scores, the overall score, targets, maturity and priorities always come from <code>gradekit</code>, never from the grader's own arithmetic.</li>
 </ol>
 <h2 id="key-concepts">Key concepts<a class="anchor" href="#key-concepts" aria-label="Link to this section">#</a></h2>
 <ul>
 <li><strong>Weights.</strong> Each benchmark counts 1 (minor) to 3 (critical). Weights start from base values and move with the project's answers to eight questions, e.g. &quot;handles money&quot; raises Security, Idempotence and Durability.</li>
 <li><strong>Gates.</strong> Correctness and Security always, plus whatever the answers add. A gate at or below 3 caps the overall score at 4.0: an average can't make up for a security hole.</li>
-<li><strong>Criticality zones.</strong> Hot code (money, auth, data writes) counts more than cold code (scripts, examples). Findings are one severity higher in hot zones and one lower in cold, and hot-zone work is ranked first.</li>
+<li><strong>Zones.</strong> Hot code (money, auth, data writes) counts more than cold code (scripts, examples). Findings are one severity higher in hot zones and one lower in cold, and hot-zone work is ranked first.</li>
 <li><strong>Applicability.</strong> Every benchmark is classified <code>full</code>, <code>limited</code> (counts at weight 1) or <code>not_applicable</code> (excluded), each with a reason. The decision is based on the project's purpose, never on current quality.</li>
 <li><strong>Targets.</strong> <code>proportional</code> (default: 10 / 9 / 8 by weight), <code>maximal</code> or <code>level:L3</code>, plus per-benchmark overrides. Improvers stop at the target.</li>
 <li><strong>Maturity ladder.</strong> L0 Not viable → L1 Prototype → L2 Usable → L3 Production-ready → L4 Exemplary. Each report names the exact blockers.</li>
@@ -142,26 +146,80 @@
 <p>All of these are tunable: see <a href="../docs/TUNING.html">TUNING.md</a>, and <a href="../docs/rubric/weights.html">rubric/weights.md</a> for how the numbers combine.</p>
 <h2 id="command-line-reference">Command-line reference<a class="anchor" href="#command-line-reference" aria-label="Link to this section">#</a></h2>
 <p>Run from the root of the grading repo; <code>--project NAME</code> finds the project's settings, decisions, accepted findings and latest report. For a project folder anywhere else, use <code>--project-dir PATH</code>.</p>
-<pre><code class="language-bash">K=&quot;python3 SUITE_DIR/tools/gradekit.py&quot;
+<pre tabindex="0"><code class="language-bash">K=&quot;python3 SUITE_DIR/tools/gradekit.py&quot;
 $K init --project orders-api --code-repo URL --preset service   # create projects/orders-api/
 $K resolve  --project orders-api [--explain A4]                 # weights, gates, zones (and why)
 $K presets                                                       # compare presets side by side
-$K validate --project orders-api                                 # schema, config and rule checks (latest report)
+$K doctor --project orders-api --repo CODE --delivery pr         # preflight: is everything a run needs in place?
+$K report new --project orders-api --commit SHA                   # graders: start a report (weights and targets filled in)
+$K report finding add REPORT --benchmark A3 --cite src/x.py:40 --repo CODE …   # quotes copied from the code; see `report --help`
+$K report check REPORT --repo CODE [--write]                     # what's missing or wrong; --write stores the rollup
+$K carry LAST_REPORT --repo CODE --commit SHA [--mode full|pr …]  # next report from the last: IDs kept, citations moved
+$K report match REPORT --baseline LAST_REPORT [--apply]           # which earlier finding each new one is
+$K deliver REPORT --delivery pr|save|return [--run --push --open github|gitlab]   # hand back a finished report
+$K index [--check]                                               # grading repos: projects/index.json (scores, history, decisions waiting)
+$K ci --base origin/main                                         # grading repos: check a pull request (see ci/README.md)
+$K render report REPORT                                          # report.md from report.json
+$K render pr REPORT                                             # the grading pull request's branch, title and body
+$K render check BASELINE PR_REPORT                               # the PR-check comment
+$K render log improve-log.json --report REPORT --guard CMP      # the improver's log, with the guard's table
+$K guard snapshot CODE --from-report REPORT [--check NAME=CMD]  # improvers: the code's checks before any change
+$K guard compare CODE [--explain KEY=REASON]                    # …and after: exit 2 if anything got worse
+$K validate --project orders-api [--publish]                     # schema, config and rule checks (latest report); --publish: safe to commit?
 $K verify-evidence --project orders-api --repo CODE_DIR_OR_ZIP   # every quoted line exists
 $K rollup   --project orders-api [--write]                       # gates, maturity, targets, ranked priorities
 $K diff     --project orders-api [--fail-on-regression]          # latest vs previous report
 $K stability projects/orders-api/reports/&lt;folder&gt;/runs/run-*.json --project orders-api --out projects/orders-api/reports/&lt;folder&gt;/report.json
 $K calibrate report.json expected.json                           # grader drift check
-$K redact report.json                                            # strip hidden-check details
+$K redact report.json [--in-place]                               # withhold sensitive findings and hidden-check details
 </code></pre>
+<p><strong>For agents and scripts:</strong> add <code>--json</code> to any command to get exactly one JSON object on stdout: <code>{&quot;ok&quot;, &quot;exit_code&quot;, &quot;command&quot;, &quot;result&quot;, &quot;text&quot;}</code>, plus <code>&quot;error&quot;</code> when the command failed. <code>result</code> holds the command's data (validation errors, the rollup, a diff, the path written…) and <code>text</code> holds what it would have printed.</p>
+<table>
+<thead>
+<tr>
+<th style="text-align:center">Exit code</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center">0</td>
+<td>OK</td>
+</tr>
+<tr>
+<td style="text-align:center">1</td>
+<td>Failed check, invalid report or other error</td>
+</tr>
+<tr>
+<td style="text-align:center">2</td>
+<td>Regression (<code>diff --fail-on-regression</code>, <code>guard compare</code>)</td>
+</tr>
+<tr>
+<td style="text-align:center">3</td>
+<td>Unstable runs (<code>stability --strict</code>)</td>
+</tr>
+<tr>
+<td style="text-align:center">4</td>
+<td>Calibration failed (<code>calibrate</code>)</td>
+</tr>
+<tr>
+<td style="text-align:center">5</td>
+<td>Report not finished yet (<code>report check</code>)</td>
+</tr>
+<tr>
+<td style="text-align:center">64</td>
+<td>Bad arguments (the usage message says which)</td>
+</tr>
+</tbody>
+</table>
 <p>Try it on the bundled example grading repo:</p>
-<pre><code class="language-bash">cd examples/grading-repo
+<pre tabindex="0"><code class="language-bash">cd examples/grading-repo
 python3 ../../tools/gradekit.py rollup --project orders-api
 python3 ../../tools/gradekit.py diff --project orders-api
 python3 ../../tools/gradekit.py verify-evidence --project orders-api --repo ../sample-repo
 </code></pre>
 <h2 id="whats-in-the-kit">What's in the kit<a class="anchor" href="#whats-in-the-kit" aria-label="Link to this section">#</a></h2>
-<pre><code>code-grading-suite/
+<pre tabindex="0"><code>code-grading-suite/
 ├── GETTING-STARTED.md      operator tutorial and common setups
 ├── README.md               this reference
 ├── TUNING.md               customizing weights, gates, zones, targets
@@ -174,13 +232,18 @@ python3 ../../tools/gradekit.py verify-evidence --project orders-api --repo ../s
 ├── tools/
 │   ├── gradekit.py         the engine (CLI + the browser API)
 │   ├── build_web.py        builds the website
+│   ├── vendor_pyodide.py   puts the Python runtime inside a built website (no CDN)
 │   └── web/                website sources (pages, styles, scripts)
+├── ci/                     the grading check for grading repos (GitHub Actions, GitLab CI, any host)
 ├── calibration/            checking graders against known scores
 ├── holdout/                writing hidden checks
 └── examples/
     ├── sample-repo/        a tiny code repo
     └── grading-repo/       an example grading repo with two reports for it
 </code></pre>
+<h2 id="ci-for-grading-repos">CI for grading repos<a class="anchor" href="#ci-for-grading-repos" aria-label="Link to this section">#</a></h2>
+<p><code>gradekit ci</code> checks every pull request to a grading repo. Each one must be a single kind of change: either one new report folder, or a project's settings. It validates the report, its rollup and its folder name, and makes sure no private report or withheld detail is published. It keeps <code>decisions.json</code> and <code>dispositions.json</code> append-only. Then it comments a summary with a link to the Review page, and labels the pull request.</p>
+<p>To add it, run <code>gradekit init --project NAME --ci github|gitlab --site URL</code>. It works on other hosts too. <a href="../suite/ci/README.md">ci/README.md</a> covers setup and the permissions each host needs.</p>
 <h2 id="calibration-and-monorepos">Calibration and monorepos<a class="anchor" href="#calibration-and-monorepos" aria-label="Link to this section">#</a></h2>
 <ul>
 <li><strong>Calibration:</strong> before relying on the suite, and after big config or model changes, grade 2–3 reference repos with hand-set expected scores. See <a href="../docs/calibration/README.html">calibration/README.md</a>.</li>
@@ -188,7 +251,7 @@ python3 ../../tools/gradekit.py verify-evidence --project orders-api --repo ../s
 </ul>
 <h2 id="versioning">Versioning<a class="anchor" href="#versioning" aria-label="Link to this section">#</a></h2>
 <p>See <a href="../docs/CHANGELOG.html">CHANGELOG.md</a>. Scores are comparable only between reports with the same <strong>major</strong> suite version.</p>
-<nav class="pager"><a href="../docs/GETTING-STARTED.html"><small>Previous</small>Getting started</a><a href="../docs/AGENT.html" style="margin-left:auto;text-align:right"><small>Next</small>Agent entry point</a></nav></main></div>
+<nav class="pager"><a href="../docs/GETTING-STARTED.html"><small>Previous</small>Getting started</a><a href="../docs/GLOSSARY.html" style="margin-left:auto;text-align:right"><small>Next</small>Glossary</a></nav></main></div>
 <script src="../assets/site.js"></script>
 </body>
 </html>

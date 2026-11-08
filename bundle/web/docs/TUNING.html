@@ -3,6 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'wasm-unsafe-eval'; connect-src 'self' https://cdn.jsdelivr.net https://api.github.com https://raw.githubusercontent.com; img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'; worker-src 'self' blob:">
+<meta name="referrer" content="strict-origin-when-cross-origin">
 <title>Tuning guide · Code Grading Suite</title>
 <meta name="description" content="A rubric, prompts and browser tools for AI coding agents to grade codebases from 1 to 10 on 35 benchmarks and improve them.">
 <link rel="stylesheet" href="../assets/style.css">
@@ -10,31 +12,32 @@
 <link rel="alternate" type="text/markdown" href="../AGENT.md" title="Agent entry point">
 </head>
 <body>
+<a class="skip" href="#main">Skip to content</a>
 <header class="topbar">
   <button class='menu-btn' type='button'>Menu</button>
   <a class="brand" href="../index.html">Code <span>Grading</span> Suite</a>
-  <span class="ver">v4.2.2</span>
+  <span class="ver">v4.3.0</span>
   <nav class="main" aria-label="Main"><a href="../docs/GETTING-STARTED.html">Get started</a><a href="../app/setup.html">Set up</a><a href="../app/run.html">Start a run</a><a href="../app/review.html">Review</a><a href="../docs/README.html" class="active" aria-current="page">Docs</a></nav>
   <span class="spacer"></span>
   <a class="top opt" href="../AGENT.md">AGENT.md</a>
-  <a class="top opt" href="../downloads/code-grading-suite-4.2.2.zip">Download</a>
+  <a class="top opt" href="../downloads/code-grading-suite-4.3.0.zip">Download</a>
 </header>
-<div class="layout"><nav class="sidebar" aria-label="Documentation"><h4>Start</h4><a href="../docs/GETTING-STARTED.html">Getting started</a><a href="../docs/README.html">Overview &amp; reference</a><a href="../docs/AGENT.html">Agent entry point</a><a href="../docs/DEPLOY.html">Hosting this site</a><h4>Configuration</h4><a href="../docs/TUNING.html" class="active" aria-current="page">Tuning guide</a><a href="../docs/rubric/weights.html">How scoring works</a><a href="../docs/config/defaults.html">Default config</a><a href="../docs/config/project.example.html">Example project config</a><h4>Prompts</h4><a href="../docs/prompts/grader.html">Grader</a><a href="../docs/prompts/reviewer.html">Report reviewer</a><a href="../docs/prompts/improver.html">Improver</a><a href="../docs/prompts/pr-review.html">Pull-request check</a><h4>Rubric</h4><a href="../docs/rubric/A-correctness-trust.html">A · Correctness &amp; Trust</a><a href="../docs/rubric/B-design-structure.html">B · Design &amp; Structure</a><a href="../docs/rubric/C-code-health.html">C · Code Health</a><a href="../docs/rubric/D-value-fitness.html">D · Value &amp; Fitness</a><a href="../docs/rubric/E-adoption-experience.html">E · Adoption &amp; Experience</a><a href="../docs/rubric/F-operations-delivery.html">F · Operations &amp; Delivery</a><a href="../docs/rubric/X-conditional.html">X · Conditional</a><h4>Guides</h4><a href="../docs/calibration/README.html">Calibration</a><a href="../docs/holdout/README.html">Hidden checks</a><a href="../docs/CHANGELOG.html">Changelog</a></nav><main class="doc"><div class="docbar"><a class="btn" href="../suite/TUNING.md">View raw .md</a><button class="btn" type="button" data-copy="../suite/TUNING.md">Copy raw URL for an agent</button></div><details class="toc"><summary>On this page</summary><ul><li><a href="#how-configs-stack">How configs stack</a></li><li><a href="#start-a-project-in-one-minute">Start a project in one minute</a></li><li><a href="#what-you-can-tune-from-lightest-touch-to-heaviest">What you can tune, from lightest touch to heaviest</a></li><li><a href="#good-habits">Good habits</a></li></ul></details><h1 id="tuning-the-suite">Tuning the suite<a class="anchor" href="#tuning-the-suite" aria-label="Link to this section">#</a></h1>
+<div class="layout"><nav class="sidebar" aria-label="Documentation"><h4>Start</h4><a href="../docs/GETTING-STARTED.html">Getting started</a><a href="../docs/README.html">Overview &amp; reference</a><a href="../docs/GLOSSARY.html">Glossary</a><a href="../docs/AGENT.html">Agent entry point</a><a href="../docs/DEPLOY.html">Hosting this site</a><h4>Configuration</h4><a href="../docs/TUNING.html" class="active" aria-current="page">Tuning guide</a><a href="../docs/rubric/weights.html">How scoring works</a><a href="../docs/config/defaults.html">Default config</a><a href="../docs/config/project.example.html">Example project config</a><h4>Prompts</h4><a href="../docs/prompts/grader.html">Grader</a><a href="../docs/prompts/reviewer.html">Report reviewer</a><a href="../docs/prompts/improver.html">Improver</a><a href="../docs/prompts/pr-review.html">PR check</a><h4>Rubric</h4><a href="../docs/rubric/A-correctness-trust.html">A · Correctness &amp; Trust</a><a href="../docs/rubric/B-design-structure.html">B · Design &amp; Structure</a><a href="../docs/rubric/C-code-health.html">C · Code Health</a><a href="../docs/rubric/D-value-fitness.html">D · Value &amp; Fitness</a><a href="../docs/rubric/E-adoption-experience.html">E · Adoption &amp; Experience</a><a href="../docs/rubric/F-operations-delivery.html">F · Operations &amp; Delivery</a><a href="../docs/rubric/X-conditional.html">X · Conditional</a><h4>Guides</h4><a href="../docs/calibration/README.html">Calibration</a><a href="../docs/holdout/README.html">Hidden checks</a><a href="../docs/CHANGELOG.html">Changelog</a></nav><main class="doc" id="main"><div class="docbar"><a class="btn" href="../suite/TUNING.md">View raw .md</a><button class="btn" type="button" data-copy="../suite/TUNING.md">Copy raw URL for an agent</button></div><details class="toc"><summary>On this page</summary><ul><li><a href="#how-configs-stack">How configs stack</a></li><li><a href="#start-a-project-in-one-minute">Start a project in one minute</a></li><li><a href="#what-you-can-tune-from-lightest-touch-to-heaviest">What you can tune, from lightest touch to heaviest</a></li><li><a href="#good-habits">Good habits</a></li></ul></details><h1 id="tuning-the-suite">Tuning the suite<a class="anchor" href="#tuning-the-suite" aria-label="Link to this section">#</a></h1>
 <p>Every adjustable part of scoring is plain, commented TOML. You never need to touch the prompts or the code to change weights, gates, zones, targets or maturity rules.</p>
 <h2 id="how-configs-stack">How configs stack<a class="anchor" href="#how-configs-stack" aria-label="Link to this section">#</a></h2>
-<pre><code>config/defaults.toml   suite defaults: ships with the kit
+<pre tabindex="0"><code>config/defaults.toml   suite defaults: ships with the kit
 org.toml               optional: your house rules, shared by every project
 project.toml           per project: context, answers, zones, overrides
 </code></pre>
 <p>Each layer overrides the one above it. <strong>Tables merge key by key</strong> (setting one weight leaves the others alone). <strong>Lists are replaced whole</strong> (setting <code>gates.extra</code> replaces the list rather than appending to it).</p>
-<pre><code class="language-bash">gradekit resolve --config org.toml --config project.toml              # see the result
+<pre tabindex="0"><code class="language-bash">gradekit resolve --config org.toml --config project.toml              # see the result
 gradekit resolve --config org.toml --config project.toml --explain F3 # why F3 has the weight it has
 gradekit presets --config org.toml                                    # all presets side by side, with your org rules
 </code></pre>
 <p><strong>Org and project configs are owned by people.</strong> They live in your grading repo: <code>org.toml</code> at the root, and <code>project.toml</code> in each project's folder (<code>projects/&lt;name&gt;/</code>). Agents read them but never change them. Change them between grading runs rather than during one.</p>
 <h2 id="start-a-project-in-one-minute">Start a project in one minute<a class="anchor" href="#start-a-project-in-one-minute" aria-label="Link to this section">#</a></h2>
 <p>The easiest way is the website's <strong>Set up a project</strong> page: pick a preset, answer the questions, mark zones, and download the file. From the command line:</p>
-<pre><code class="language-bash">python3 SUITE_DIR/tools/gradekit.py init --preset service --name orders-api \
+<pre tabindex="0"><code class="language-bash">python3 SUITE_DIR/tools/gradekit.py init --preset service --name orders-api \
     --answer data_sensitivity=financial --project orders-api   # run from the grading repo root
 python3 SUITE_DIR/tools/gradekit.py resolve --project orders-api
 </code></pre>
@@ -42,16 +45,16 @@ python3 SUITE_DIR/tools/gradekit.py resolve --project orders-api
 <h2 id="what-you-can-tune-from-lightest-touch-to-heaviest">What you can tune, from lightest touch to heaviest<a class="anchor" href="#what-you-can-tune-from-lightest-touch-to-heaviest" aria-label="Link to this section">#</a></h2>
 <h3 id="1-answer-the-questions-per-project-most-common">1. Answer the questions (per project; most common)<a class="anchor" href="#1-answer-the-questions-per-project-most-common" aria-label="Link to this section">#</a></h3>
 <p>Eight questions: data sensitivity, audience, lifespan, failure impact, team, change rate, delivery and scale. They move the weights in well-understood ways and add gates where they matter. If a weight looks wrong, the fix is usually a more accurate answer, not an override.</p>
-<pre><code class="language-toml">[project]
+<pre tabindex="0"><code class="language-toml">[project]
 preset = &quot;service&quot;
 
 [answers]
 data_sensitivity = &quot;financial&quot;
 scale            = &quot;large&quot;
 </code></pre>
-<h3 id="2-map-criticality-zones-per-project-highest-leverage">2. Map criticality zones (per project; highest leverage)<a class="anchor" href="#2-map-criticality-zones-per-project-highest-leverage" aria-label="Link to this section">#</a></h3>
+<h3 id="2-map-zones-per-project-highest-leverage">2. Map zones (per project; highest leverage)<a class="anchor" href="#2-map-zones-per-project-highest-leverage" aria-label="Link to this section">#</a></h3>
 <p>The first matching zone wins, so list specific zones first.</p>
-<pre><code class="language-toml">[[zones]]
+<pre tabindex="0"><code class="language-toml">[[zones]]
 name = &quot;payments&quot;
 paths = [&quot;src/payments/**&quot;, &quot;src/billing/**&quot;]
 criticality = &quot;hot&quot;
@@ -65,23 +68,23 @@ why = &quot;Never runs in production&quot;
 </code></pre>
 <p>Patterns: <code>**</code> matches any number of directories, <code>*</code> matches within one directory, and a pattern ending in <code>/</code> means everything under it. Paths are relative to the repo root.</p>
 <h3 id="3-set-targets-per-project">3. Set targets (per project)<a class="anchor" href="#3-set-targets-per-project" aria-label="Link to this section">#</a></h3>
-<pre><code class="language-toml">[targets]
+<pre tabindex="0"><code class="language-toml">[targets]
 mode = &quot;level:L3&quot;          # or &quot;proportional&quot; (default) or &quot;maximal&quot;
 overrides = { F4 = 10 }    # this project must be fast, whatever the mode
 </code></pre>
 <h3 id="4-override-a-weight-per-project-needs-a-reason">4. Override a weight (per project; needs a reason)<a class="anchor" href="#4-override-a-weight-per-project-needs-a-reason" aria-label="Link to this section">#</a></h3>
-<pre><code class="language-toml">[weights.overrides]
+<pre tabindex="0"><code class="language-toml">[weights.overrides]
 F4 = { weight = 3, reason = &quot;Contractual p99 latency SLA of 50 ms&quot; }
 X6 = { weight = 0, reason = &quot;No agents maintain this repo&quot; }   # 0 = doesn't count at all
 </code></pre>
 <h3 id="5-add-or-remove-gates">5. Add or remove gates<a class="anchor" href="#5-add-or-remove-gates" aria-label="Link to this section">#</a></h3>
-<pre><code class="language-toml">[gates]
+<pre tabindex="0"><code class="language-toml">[gates]
 extra   = [&quot;C4&quot;]       # tests are non-negotiable here
 exclude = []           # removing A1 or A2 is allowed, but resolve warns loudly
 </code></pre>
 <h3 id="6-house-rules-for-every-project-orgtoml">6. House rules for every project (org.toml)<a class="anchor" href="#6-house-rules-for-every-project-orgtoml" aria-label="Link to this section">#</a></h3>
 <p>Anything in <code>defaults.toml</code> can be overridden here. Some typical examples:</p>
-<pre><code class="language-toml"># We care more about docs than the defaults do
+<pre tabindex="0"><code class="language-toml"># We care more about docs than the defaults do
 [weights.base]
 E2 = 3
 
@@ -96,7 +99,7 @@ effort_cost = { S = 1, M = 3, L = 8 }
 <p>To change maturity levels, copy the <strong>whole</strong> <code>[[maturity.levels]]</code> section from <code>defaults.toml</code> into <code>org.toml</code> and edit it there. Lists of tables are replaced whole, so restate every level, not just the one you're changing.</p>
 <h3 id="7-add-your-own-question-or-preset">7. Add your own question or preset<a class="anchor" href="#7-add-your-own-question-or-preset" aria-label="Link to this section">#</a></h3>
 <p>Questions and presets are just data, so add as many as you like. <code>resolve</code> checks every benchmark ID you mention.</p>
-<pre><code class="language-toml">[questions.realtime]
+<pre tabindex="0"><code class="language-toml">[questions.realtime]
 prompt  = &quot;Does it have hard real-time or latency requirements?&quot;
 default = &quot;no&quot;
 options.no  = { label = &quot;No&quot;, effects = {} }
@@ -109,7 +112,7 @@ answers = { delivery = &quot;service&quot;, failure_impact = &quot;revenue_loss&
 <h3 id="8-accepted-findings-and-decisions-per-project">8. Accepted findings and decisions (per project)<a class="anchor" href="#8-accepted-findings-and-decisions-per-project" aria-label="Link to this section">#</a></h3>
 <p>These live in two files next to <code>project.toml</code>. Both are <strong>append-only</strong>: add new entries at the end and never edit old ones. For decisions, the newest answer to a question wins.</p>
 <p><code>dispositions.json</code>: findings you accept as-is. They stop lowering the score.</p>
-<pre><code class="language-json">{
+<pre tabindex="0"><code class="language-json">{
   &quot;dispositions&quot;: [
     {&quot;finding_id&quot;: &quot;B5-001&quot;, &quot;decision&quot;: &quot;won't fix&quot;,
      &quot;reason&quot;: &quot;One payment provider is a deliberate constraint through 2027&quot;,
@@ -118,7 +121,7 @@ answers = { delivery = &quot;service&quot;, failure_impact = &quot;revenue_loss&
 }
 </code></pre>
 <p><code>decisions.json</code>: answers to a report's decision questions.</p>
-<pre><code class="language-json">{
+<pre tabindex="0"><code class="language-json">{
   &quot;decisions&quot;: [
     {&quot;action_id&quot;: &quot;D1-act-1&quot;,
      &quot;question&quot;: &quot;Implement CSV and XLSX export, or drop the export claim from the README?&quot;,
@@ -129,12 +132,28 @@ answers = { delivery = &quot;service&quot;, failure_impact = &quot;revenue_loss&
 </code></pre>
 <p>The <strong>Review a report</strong> page writes the updated <code>decisions.json</code> for you. Neither file affects the config fingerprint, so reports stay comparable.</p>
 <p>To let agent reviewers approve decision questions (the default is people only), set this in <code>project.toml</code>:</p>
-<pre><code class="language-toml">[review]
+<pre tabindex="0"><code class="language-toml">[review]
 allow_agent_decisions = true
 </code></pre>
-<h3 id="9-monorepos">9. Monorepos<a class="anchor" href="#9-monorepos" aria-label="Link to this section">#</a></h3>
+<h3 id="9-public-grading-repos-and-security-findings">9. Public grading repos and security findings<a class="anchor" href="#9-public-grading-repos-and-security-findings" aria-label="Link to this section">#</a></h3>
+<p>A grading repo is treated as public by default. Graders mark findings whose details would help an attacker with <code>&quot;sensitive&quot;: true</code>, and <code>gradekit redact --in-place</code> then splits the report:</p>
+<ul>
+<li><code>report.json</code>, the public report. Each sensitive finding keeps its ID, benchmark, severity, status and the files it concerns, so scores, gates, zones and priorities are exactly what the full report gives. Its title, quotes and commands are replaced by &quot;details withheld&quot;, and so is the wording of the actions and decision questions that fix it.</li>
+<li><code>report.private.json</code>, the full report. Never commit it (grading repos ignore <code>*.private.json</code>). Hand it to whoever fixes the code, through whatever private channel you already use.</li>
+</ul>
+<p><code>gradekit validate --publish</code> fails until a report is safe to commit. In a public grading repo, <code>validate</code> also warns about open security (A2) findings of major severity or worse that aren't marked sensitive. To change which benchmarks and severities it watches:</p>
+<pre tabindex="0"><code class="language-toml">[publishing]
+sensitive_benchmarks = [&quot;A2&quot;, &quot;A1&quot;]
+warn_at = &quot;critical&quot;
+</code></pre>
+<p>If only trusted people can read the grading repo, turn withholding off:</p>
+<pre tabindex="0"><code class="language-toml">[publishing]
+public = false
+</code></pre>
+<p>None of this changes scores, so it doesn't change the config fingerprint.</p>
+<h3 id="10-monorepos">10. Monorepos<a class="anchor" href="#10-monorepos" aria-label="Link to this section">#</a></h3>
 <p>Give each part its own project, with a <code>path</code> naming its subfolder:</p>
-<pre><code class="language-toml">[project]
+<pre tabindex="0"><code class="language-toml">[project]
 name      = &quot;shop-web&quot;
 code_repo = &quot;https://github.com/acme/shop&quot;
 path      = &quot;apps/web&quot;

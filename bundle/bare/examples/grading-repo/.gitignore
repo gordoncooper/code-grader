@@ -1,0 +1,2 @@
+# full reports with withheld security details; never commit them
+*.private.json

@@ -1,4 +1,4 @@
-# EXAMPLE project configuration for the Code Grading Suite (v4.2.2)
+# EXAMPLE project configuration for the Code Grading Suite (v4.3.0)
 # In a grading repo this file lives at projects/<name>/project.toml.
 # People own this file. Agents read it but don't change it.
 # Answers to decision questions go in decisions.json, accepted findings in dispositions.json.
@@ -65,6 +65,11 @@ F4 = { weight = 3, reason = "Checkout calls this synchronously; p99 latency budg
 # Let agent reviewers approve decision questions (default: humans only):
 # [review]
 # allow_agent_decisions = true
+
+# Only trusted people can read this grading repo, so security details may stay in reports
+# (default: treat the grading repo as public and withhold them):
+# [publishing]
+# public = false
 
 # Monorepos (advanced): one combined score via components. Usually simpler: one project per part,
 # each with its own `path`.

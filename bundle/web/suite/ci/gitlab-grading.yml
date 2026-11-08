@@ -1,0 +1,57 @@
+# Grading check for a grading repo on GitLab. Add to .gitlab-ci.yml (`gradekit init --ci gitlab`
+# writes it, or `include:` this file).
+#   grading-check: on each merge request that changes projects/ or org.toml, checks it with `gradekit ci`,
+#                  and comments a summary and sets labels if it may.
+#   grading-index: when reports or decisions land on the default branch, rebuilds projects/index.json
+#                  and commits it (only with GRADING_BOT_TOKEN).
+#
+# Settings → CI/CD → Variables:
+#   SUITE_SITE          your suite website's address
+#   GRADING_BOT_TOKEN   optional: a project access token with the `api` and `write_repository` scopes, and a role
+#                       that may push to the default branch (Maintainer if it's protected). It's used to comment,
+#                       label and commit the index. Without it the check still runs; the summary is in the job log.
+variables:
+  SUITE_SITE: "__SUITE_SITE__"
+
+.grading-kit:
+  image: python:3.12
+  before_script:
+    - curl -fsSL "${SUITE_SITE%/}/suite/ci/fetch-kit.py" -o /tmp/fetch-kit.py
+    - KIT=$(python3 /tmp/fetch-kit.py "$SUITE_SITE" /tmp/kit)
+
+grading-check:
+  extends: .grading-kit
+  variables:
+    GIT_DEPTH: 0
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes: ["projects/**/*", "org.toml"]
+  script:
+    - git fetch --quiet origin "$CI_MERGE_REQUEST_TARGET_BRANCH_NAME"
+    - status=0
+    - >
+      python3 "$KIT/tools/gradekit.py" ci --base "origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME"
+      --site "$SUITE_SITE" --grading-repo-url "$CI_PROJECT_URL" --branch "$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME"
+      --comment-file /tmp/comment.md --labels-file /tmp/labels.txt || status=$?
+    - cat /tmp/comment.md
+    - |
+      if [ -n "${GRADING_BOT_TOKEN:-}" ]; then
+        api="$CI_API_V4_URL/projects/$CI_PROJECT_ID/merge_requests/$CI_MERGE_REQUEST_IID"
+        curl -fsS -X POST -H "PRIVATE-TOKEN: $GRADING_BOT_TOKEN" --data-urlencode "body@/tmp/comment.md" "$api/notes" >/dev/null
+        add=$(paste -sd, /tmp/labels.txt)
+        curl -fsS -X PUT -H "PRIVATE-TOKEN: $GRADING_BOT_TOKEN" --data-urlencode "remove_labels=grading: report,grading: settings,grading: needs changes" "$api" >/dev/null
+        [ -z "$add" ] || curl -fsS -X PUT -H "PRIVATE-TOKEN: $GRADING_BOT_TOKEN" --data-urlencode "add_labels=$add" "$api" >/dev/null
+      fi
+    - exit $status
+
+grading-index:
+  extends: .grading-kit
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $GRADING_BOT_TOKEN
+      changes: ["projects/**/*", "org.toml"]
+  script:
+    - python3 "$KIT/tools/gradekit.py" index
+    - git add projects/index.json
+    - git diff --cached --quiet && exit 0
+    - git -c user.name="grading bot" -c user.email="grading-bot@$CI_SERVER_HOST" commit -m "Update projects/index.json [skip ci]"
+    - git push "https://oauth2:${GRADING_BOT_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git" "HEAD:${CI_DEFAULT_BRANCH}"

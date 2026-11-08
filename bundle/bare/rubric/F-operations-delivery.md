@@ -1,4 +1,4 @@
-<!-- Part of the Code Grading Suite v4.2.2. Read together with prompts/grader.md, which holds the scoring rules, anti-gaming rules and output format. -->
+<!-- Part of the Code Grading Suite v4.3.0. Read together with prompts/grader.md, which holds the scoring rules, anti-gaming rules and output format. -->
 
 # Pillar F rubric: Operations & Delivery
 
@@ -47,11 +47,11 @@
 
 ## F4. Performance, Efficiency & Scalability
 - **Measures:** Appropriate algorithms and data structures; efficient I/O (no N+1 queries; batching and streaming); sensible memory and CPU use; caching where justified; no blocking calls in async code; no unbounded growth; graceful behavior at 10× expected load; optimization based on measurement.
-- **Assess:** Review hot paths. Look for queries inside loops, whole datasets loaded into memory, missing indexes and quadratic loops over large inputs. Run benchmarks or profilers if they exist.
+- **Assess:** Review the busiest code paths. Look for queries inside loops, whole datasets loaded into memory, missing indexes and quadratic loops over large inputs. Run benchmarks or profilers if they exist.
 - **Anchors:**
   - **1–3:** Will fail at expected scale.
   - **4–6:** OK now; clear inefficiencies.
-  - **7–8:** Efficient hot paths; no known scaling cliffs.
+  - **7–8:** Efficient busy paths; no known scaling cliffs.
   - **9–10:** Performance budgets defined and guarded by benchmarks or load tests in CI, without hurting clarity.
 
 ## F5. Portability

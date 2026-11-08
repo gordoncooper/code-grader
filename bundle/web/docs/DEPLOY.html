@@ -3,6 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'wasm-unsafe-eval'; connect-src 'self' https://cdn.jsdelivr.net https://api.github.com https://raw.githubusercontent.com; img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'; worker-src 'self' blob:">
+<meta name="referrer" content="strict-origin-when-cross-origin">
 <title>Hosting this site · Code Grading Suite</title>
 <meta name="description" content="A rubric, prompts and browser tools for AI coding agents to grade codebases from 1 to 10 on 35 benchmarks and improve them.">
 <link rel="stylesheet" href="../assets/style.css">
@@ -10,31 +12,32 @@
 <link rel="alternate" type="text/markdown" href="../AGENT.md" title="Agent entry point">
 </head>
 <body>
+<a class="skip" href="#main">Skip to content</a>
 <header class="topbar">
   <button class='menu-btn' type='button'>Menu</button>
   <a class="brand" href="../index.html">Code <span>Grading</span> Suite</a>
-  <span class="ver">v4.2.2</span>
+  <span class="ver">v4.3.0</span>
   <nav class="main" aria-label="Main"><a href="../docs/GETTING-STARTED.html">Get started</a><a href="../app/setup.html">Set up</a><a href="../app/run.html">Start a run</a><a href="../app/review.html">Review</a><a href="../docs/README.html" class="active" aria-current="page">Docs</a></nav>
   <span class="spacer"></span>
   <a class="top opt" href="../AGENT.md">AGENT.md</a>
-  <a class="top opt" href="../downloads/code-grading-suite-4.2.2.zip">Download</a>
+  <a class="top opt" href="../downloads/code-grading-suite-4.3.0.zip">Download</a>
 </header>
-<div class="layout"><nav class="sidebar" aria-label="Documentation"><h4>Start</h4><a href="../docs/GETTING-STARTED.html">Getting started</a><a href="../docs/README.html">Overview &amp; reference</a><a href="../docs/AGENT.html">Agent entry point</a><a href="../docs/DEPLOY.html" class="active" aria-current="page">Hosting this site</a><h4>Configuration</h4><a href="../docs/TUNING.html">Tuning guide</a><a href="../docs/rubric/weights.html">How scoring works</a><a href="../docs/config/defaults.html">Default config</a><a href="../docs/config/project.example.html">Example project config</a><h4>Prompts</h4><a href="../docs/prompts/grader.html">Grader</a><a href="../docs/prompts/reviewer.html">Report reviewer</a><a href="../docs/prompts/improver.html">Improver</a><a href="../docs/prompts/pr-review.html">Pull-request check</a><h4>Rubric</h4><a href="../docs/rubric/A-correctness-trust.html">A · Correctness &amp; Trust</a><a href="../docs/rubric/B-design-structure.html">B · Design &amp; Structure</a><a href="../docs/rubric/C-code-health.html">C · Code Health</a><a href="../docs/rubric/D-value-fitness.html">D · Value &amp; Fitness</a><a href="../docs/rubric/E-adoption-experience.html">E · Adoption &amp; Experience</a><a href="../docs/rubric/F-operations-delivery.html">F · Operations &amp; Delivery</a><a href="../docs/rubric/X-conditional.html">X · Conditional</a><h4>Guides</h4><a href="../docs/calibration/README.html">Calibration</a><a href="../docs/holdout/README.html">Hidden checks</a><a href="../docs/CHANGELOG.html">Changelog</a></nav><main class="doc"><div class="docbar"><a class="btn" href="../suite/DEPLOY.md">View raw .md</a><button class="btn" type="button" data-copy="../suite/DEPLOY.md">Copy raw URL for an agent</button></div><details class="toc"><summary>On this page</summary><ul><li><a href="#1-build-the-site">1. Build the site</a></li><li><a href="#2-upload-it">2. Upload it</a></li><li><a href="#3-make-sure-file-types-are-served-correctly">3. Make sure file types are served correctly</a></li><li><a href="#4-check-it">4. Check it</a></li><li><a href="#5-point-an-agent-at-it">5. Point an agent at it</a></li><li><a href="#self-hosting-the-python-runtime">Self-hosting the Python runtime</a></li><li><a href="#security-notes">Security notes</a></li></ul></details><h1 id="hosting-the-suite-on-a-web-server">Hosting the suite on a web server<a class="anchor" href="#hosting-the-suite-on-a-web-server" aria-label="Link to this section">#</a></h1>
+<div class="layout"><nav class="sidebar" aria-label="Documentation"><h4>Start</h4><a href="../docs/GETTING-STARTED.html">Getting started</a><a href="../docs/README.html">Overview &amp; reference</a><a href="../docs/GLOSSARY.html">Glossary</a><a href="../docs/AGENT.html">Agent entry point</a><a href="../docs/DEPLOY.html" class="active" aria-current="page">Hosting this site</a><h4>Configuration</h4><a href="../docs/TUNING.html">Tuning guide</a><a href="../docs/rubric/weights.html">How scoring works</a><a href="../docs/config/defaults.html">Default config</a><a href="../docs/config/project.example.html">Example project config</a><h4>Prompts</h4><a href="../docs/prompts/grader.html">Grader</a><a href="../docs/prompts/reviewer.html">Report reviewer</a><a href="../docs/prompts/improver.html">Improver</a><a href="../docs/prompts/pr-review.html">PR check</a><h4>Rubric</h4><a href="../docs/rubric/A-correctness-trust.html">A · Correctness &amp; Trust</a><a href="../docs/rubric/B-design-structure.html">B · Design &amp; Structure</a><a href="../docs/rubric/C-code-health.html">C · Code Health</a><a href="../docs/rubric/D-value-fitness.html">D · Value &amp; Fitness</a><a href="../docs/rubric/E-adoption-experience.html">E · Adoption &amp; Experience</a><a href="../docs/rubric/F-operations-delivery.html">F · Operations &amp; Delivery</a><a href="../docs/rubric/X-conditional.html">X · Conditional</a><h4>Guides</h4><a href="../docs/calibration/README.html">Calibration</a><a href="../docs/holdout/README.html">Hidden checks</a><a href="../docs/CHANGELOG.html">Changelog</a></nav><main class="doc" id="main"><div class="docbar"><a class="btn" href="../suite/DEPLOY.md">View raw .md</a><button class="btn" type="button" data-copy="../suite/DEPLOY.md">Copy raw URL for an agent</button></div><details class="toc"><summary>On this page</summary><ul><li><a href="#1-build-the-site">1. Build the site</a></li><li><a href="#2-upload-it">2. Upload it</a></li><li><a href="#3-make-sure-file-types-are-served-correctly">3. Make sure file types are served correctly</a></li><li><a href="#4-check-it">4. Check it</a></li><li><a href="#5-point-an-agent-at-it">5. Point an agent at it</a></li><li><a href="#self-hosting-the-python-runtime">Self-hosting the Python runtime</a></li><li><a href="#security-notes">Security notes</a></li></ul></details><h1 id="hosting-the-suite-on-a-web-server">Hosting the suite on a web server<a class="anchor" href="#hosting-the-suite-on-a-web-server" aria-label="Link to this section">#</a></h1>
 <p>The website has three parts: documentation, the agent entry point (<code>AGENT.md</code> plus the raw kit files), and three browser tools (<strong>Set up a project</strong>, <strong>Start a run</strong>, <strong>Review a report</strong>). It is all static files, so any web server works.</p>
 <p>The web version is a folder of static files. There's no server code, database or build step on the server itself. Copy it to any web server and point coding agents at its <code>AGENT.md</code>.</p>
 <h2 id="1-build-the-site">1. Build the site<a class="anchor" href="#1-build-the-site" aria-label="Link to this section">#</a></h2>
 <p>The ready-built site comes in <code>code-grading-suite-web.zip</code>. If you've edited the kit (rubric wording, weights, prompts), rebuild it:</p>
-<pre><code class="language-bash">python3 tools/build_web.py --out ../web
+<pre tabindex="0"><code class="language-bash">python3 tools/build_web.py --out ../web
 </code></pre>
 <p>This regenerates everything from the kit, including checksums. The builder needs Python 3.11+. Rendered HTML pages need <code>markdown-it-py</code> or <code>markdown</code> (<code>pip install markdown-it-py</code>). Without it, the builder still works but shows docs as plain preformatted text. Agents read the raw <code>.md</code> files either way.</p>
 <h2 id="2-upload-it">2. Upload it<a class="anchor" href="#2-upload-it" aria-label="Link to this section">#</a></h2>
 <p>Copy the <em>contents</em> of the built folder to a directory on your server, for example <code>/var/www/grading/</code> so it is served at <code>https://your-server/grading/</code>. Any path works because every link in the site is relative.</p>
-<p><strong>Recommended: one directory per version.</strong> Deploy to <code>/grading/v4.2.2/</code> and point agents at that exact URL. An improvement loop that runs for weeks then can't have its rubric change underneath it. To also offer a &quot;latest&quot; URL, copy (or symlink) the newest version to <code>/grading/latest/</code>.</p>
+<p><strong>Recommended: one directory per version.</strong> Deploy to <code>/grading/v4.3.0/</code> and point agents at that exact URL. An improvement loop that runs for weeks then can't have its rubric change underneath it. To also offer a &quot;latest&quot; URL, copy (or symlink) the newest version to <code>/grading/latest/</code>.</p>
 <h2 id="3-make-sure-file-types-are-served-correctly">3. Make sure file types are served correctly<a class="anchor" href="#3-make-sure-file-types-are-served-correctly" aria-label="Link to this section">#</a></h2>
 <p>Agents fetch <code>.md</code>, <code>.json</code> and <code>.py</code> files directly. Some servers send <code>.md</code> as a binary download, or without UTF-8, which garbles characters like <code>→</code> and <code>≥</code>. The configs below fix that.</p>
 <p><strong>Apache:</strong> the included <code>.htaccess</code> handles it (needs <code>AllowOverride FileInfo</code>, plus <code>mod_headers</code> for the security header).</p>
 <p><strong>nginx:</strong></p>
-<pre><code class="language-nginx">location /grading/ {
+<pre tabindex="0"><code class="language-nginx">location /grading/ {
     root /var/www;                      # files live in /var/www/grading/
     charset utf-8;
     charset_types text/markdown text/plain application/json text/css application/javascript;
@@ -45,7 +48,7 @@
 }
 </code></pre>
 <p><strong>Caddy:</strong></p>
-<pre><code>your-server.example.com {
+<pre tabindex="0"><code>your-server.example.com {
     root * /var/www
     file_server
     @md path *.md
@@ -55,37 +58,69 @@
 }
 </code></pre>
 <p><strong>Quick local test:</strong></p>
-<pre><code class="language-bash">cd web &amp;&amp; python3 -m http.server 8000
+<pre tabindex="0"><code class="language-bash">cd web &amp;&amp; python3 -m http.server 8000
 # then open http://localhost:8000/
 </code></pre>
 <h2 id="4-check-it">4. Check it<a class="anchor" href="#4-check-it" aria-label="Link to this section">#</a></h2>
-<pre><code class="language-bash">BASE=https://your-server/grading/v4.2.2
+<pre tabindex="0"><code class="language-bash">BASE=https://your-server/grading/v4.3.0
 curl -sI &quot;$BASE/AGENT.md&quot; | grep -i content-type     # expect text/markdown; charset=utf-8
 curl -s  &quot;$BASE/SHA256SUMS&quot; -o SHA256SUMS
-curl -s  &quot;$BASE/downloads/code-grading-suite-4.2.2.zip&quot; -o code-grading-suite-4.2.2.zip
+curl -s  &quot;$BASE/downloads/code-grading-suite-4.3.0.zip&quot; -o code-grading-suite-4.3.0.zip
 sha256sum -c SHA256SUMS --ignore-missing              # expect: OK
 </code></pre>
 <h2 id="5-point-an-agent-at-it">5. Point an agent at it<a class="anchor" href="#5-point-an-agent-at-it" aria-label="Link to this section">#</a></h2>
 <p>Open the site's landing page. It shows ready-to-copy instructions for the grader, improver and pull-request roles, with your server's URL already filled in. For example:</p>
 <blockquote>
-<p>Grade the code in this repository using the Code Grading Suite at https://your-server/grading/v4.2.2/AGENT.md. Act as the <strong>grader</strong>. …</p>
+<p>Grade the code in this repository using the Code Grading Suite at https://your-server/grading/v4.3.0/AGENT.md. Act as the <strong>grader</strong>. …</p>
 </blockquote>
 <h2 id="self-hosting-the-python-runtime">Self-hosting the Python runtime<a class="anchor" href="#self-hosting-the-python-runtime" aria-label="Link to this section">#</a></h2>
-<p>The <strong>Set up a project</strong> and <strong>Review a report</strong> pages run the suite's own <code>gradekit.py</code> in the browser using <a href="https://pyodide.org">Pyodide</a> (Python compiled to WebAssembly). By default, Pyodide is loaded from the jsDelivr CDN the first time a page needs it: about 10 MB, cached afterwards. Your files are never uploaded; only the runtime is downloaded.</p>
-<p>To avoid the CDN (for an air-gapped network, a strict content-security policy, or just to remove the dependency):</p>
+<p>The <strong>Set up a project</strong> and <strong>Review a report</strong> pages run the suite's own <code>gradekit.py</code> in the browser using <a href="https://pyodide.org">Pyodide</a> (Python compiled to WebAssembly). By default, Pyodide is loaded from the jsDelivr CDN the first time a page needs it: about 12 MB, cached afterwards. Your files are never uploaded; only the runtime is downloaded.</p>
+<p><strong>Every runtime file is checked before it runs.</strong> <code>assets/engine-config.js</code> pins the SHA-384 hash of each Pyodide core file: the loader, the WebAssembly, the standard library and the lock file. The browser refuses any file that doesn't match, and packages are checked against the lock file. A compromised or changed CDN can't run code on these pages; the pill says <em>Engine unavailable</em> and why. The suite's own files (<code>suite/tools/gradekit.py</code> and the rest) are checked against this site's <code>manifest.json</code> in the same way, so a half-finished deploy is caught too.</p>
+<p>To avoid the CDN (for an air-gapped network, a host that allows only its own origin, or just to remove the dependency), the easiest way is the <strong>web-with-Pyodide download</strong>: each release has a <code>code-grading-suite-web-pyodide-vX.Y.Z.zip</code>, the same site with Pyodide already in <code>pyodide/</code>. Deploy it like the plain site; it loads nothing from a CDN.</p>
+<p>To do the same to a site you've built or already deployed, run the kit's <code>tools/vendor_pyodide.py</code> on it from any machine with internet access, once:</p>
+<pre tabindex="0"><code class="language-bash">python3 tools/vendor_pyodide.py path/to/site                       # downloads the pinned Pyodide from the CDN
+python3 tools/vendor_pyodide.py path/to/site --from ./pyodide-0.29.3  # or uses files you already have
+</code></pre>
+<p>It copies Pyodide's core files and the packages the pages use into <code>pyodide/</code>. It refuses any file that doesn't match its pinned hash or Pyodide's lock file. Then it points <code>assets/engine-config.js</code> at the local copy and updates <code>manifest.json</code> and <code>SHA256SUMS</code>. The pages still check every file as they load it.</p>
+<p>To set it up by hand instead:</p>
 <ol>
 <li>Download the Pyodide release named in <code>assets/engine-config.js</code> from the Pyodide GitHub releases page. The &quot;core&quot; archive is enough to run everything. <strong>Review a report</strong> also uses Pyodide's <code>jsonschema</code> package (and its dependencies) for the full report-format check; it's in the full archive. Without it, the page still checks every scoring rule and notes that the structural schema check was skipped.</li>
 <li>Unpack it into a folder on your server, e.g. <code>/grading/pyodide/</code>.</li>
-<li>Edit <code>assets/engine-config.js</code> and set <code>pyodideIndexURL</code> to that folder, e.g. <code>&quot;../pyodide/&quot;</code> or <code>&quot;/grading/pyodide/&quot;</code>.</li>
+<li>Edit <code>assets/engine-config.js</code> and set <code>pyodideIndexURL</code> to that folder, e.g. <code>&quot;../pyodide/&quot;</code> or <code>&quot;/grading/pyodide/&quot;</code>. Keep the same Pyodide version: the pinned hashes still apply. A different version needs its own <code>pyodideIntegrity</code> hashes (<code>openssl dgst -sha384 -binary FILE | base64</code> for each file).</li>
+<li>Keep it on the same server as the site. The pages' content-security policy (below) allows scripts only from the site itself and <code>cdn.jsdelivr.net</code>.</li>
 </ol>
 <p>Serve <code>.wasm</code> files as <code>application/wasm</code> (most servers already do).</p>
 <p><strong>First visit after deploying:</strong> open <strong>Set up a project</strong> and check that the pill in the top-right corner says <em>Engine ready</em>. If it says <em>Engine unavailable</em>, the message on the page explains why: usually the CDN is blocked, or the page was opened as a local file instead of from a server.</p>
 <h2 id="security-notes">Security notes<a class="anchor" href="#security-notes" aria-label="Link to this section">#</a></h2>
 <ul>
-<li><strong>Serve it from a server you control, over HTTPS.</strong> Agents treat this site as their instructions. Anyone who can change these files can change how your code is graded.</li>
-<li><strong>Keep the site and the grading repo separate.</strong> The site holds only the suite. Project settings, decisions and reports belong in your grading repo.</li>
-<li><strong>Access control is optional.</strong> The prompts aren't secret. If you put the site behind authentication, agents need credentials to fetch it (e.g. <code>curl -u</code> from a shell), and some agents' built-in web tools can't sign in. A private network address the agents can reach is often simpler.</li>
-<li><strong>Don't block agents with <code>robots.txt</code>.</strong> Some agents' web tools respect it and would refuse to fetch the suite. If you don't want search engines indexing the site, use a non-public URL or an <code>X-Robots-Tag: noindex</code> header instead.</li>
+<li>
+<p><strong>Content-security policy.</strong> Every page carries a strict policy in a <code>&lt;meta&gt;</code> tag, so it works on any host:</p>
+<ul>
+<li><strong>scripts:</strong> only from the site and <code>cdn.jsdelivr.net</code>, never inline, and nothing may <code>eval</code>. Pyodide only needs to compile WebAssembly (<code>'wasm-unsafe-eval'</code>);</li>
+<li><strong>connections:</strong> only to the site, jsDelivr and GitHub (the Review page reads public grading repos);</li>
+<li><strong>forms and plugins:</strong> none.</li>
+</ul>
+<p>The <code>.htaccess</code> file sends the same policy as a header, plus <code>frame-ancestors 'none'</code> so other sites can't frame the pages. On other hosts, send it as a header if you can (for example, Netlify's <code>_headers</code> file or a CloudFront response-headers policy). If you load Pyodide or reports from somewhere else, add that origin to <code>script-src</code> and <code>connect-src</code> in both places.</p>
+</li>
+<li>
+<p><strong>Check what you deploy.</strong> Each release lists its files' checksums in <code>SHA256SUMS</code>, and the zips carry signed build provenance. Check them before you deploy:</p>
+<pre tabindex="0"><code class="language-bash">sha256sum -c SHA256SUMS --ignore-missing
+gh attestation verify code-grading-suite-web-vX.Y.Z.zip --repo OWNER/REPO   # the repo you download releases from
+</code></pre>
+<p>The built site also has its own <code>SHA256SUMS</code> and <code>manifest.json</code> for every file.</p>
+</li>
+<li>
+<p><strong>Serve it from a server you control, over HTTPS.</strong> Agents treat this site as their instructions. Anyone who can change these files can change how your code is graded.</p>
+</li>
+<li>
+<p><strong>Keep the site and the grading repo separate.</strong> The site holds only the suite. Project settings, decisions and reports belong in your grading repo.</p>
+</li>
+<li>
+<p><strong>Access control is optional.</strong> The prompts aren't secret. If you put the site behind authentication, agents need credentials to fetch it (e.g. <code>curl -u</code> from a shell), and some agents' built-in web tools can't sign in. A private network address the agents can reach is often simpler.</p>
+</li>
+<li>
+<p><strong>Don't block agents with <code>robots.txt</code>.</strong> Some agents' web tools respect it and would refuse to fetch the suite. If you don't want search engines indexing the site, use a non-public URL or an <code>X-Robots-Tag: noindex</code> header instead.</p>
+</li>
 </ul>
 <nav class="pager"><a href="../docs/AGENT.html"><small>Previous</small>Agent entry point</a><a href="../docs/TUNING.html" style="margin-left:auto;text-align:right"><small>Next</small>Tuning guide</a></nav></main></div>
 <script src="../assets/site.js"></script>

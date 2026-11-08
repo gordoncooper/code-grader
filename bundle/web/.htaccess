@@ -11,6 +11,9 @@ AddType "application/javascript; charset=utf-8" .mjs
 AddType "image/svg+xml" .svg
 <IfModule mod_headers.c>
   Header set X-Content-Type-Options "nosniff"
+  Header set Referrer-Policy "strict-origin-when-cross-origin"
+  # The pages carry the same policy in a <meta> tag; as a header it can also stop other sites framing them.
+  Header set Content-Security-Policy "default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'wasm-unsafe-eval'; connect-src 'self' https://cdn.jsdelivr.net https://api.github.com https://raw.githubusercontent.com; img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'; worker-src 'self' blob:; frame-ancestors 'none'"
   <FilesMatch "\.(md|py|json|txt|sql|toml)$">
     Header set Access-Control-Allow-Origin "*"
   </FilesMatch>

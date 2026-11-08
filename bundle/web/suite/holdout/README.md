@@ -1,4 +1,4 @@
-# Hidden checks (the holdout set)
+# Hidden checks
 
 When agents optimize against a visible rubric, scores can rise without the code actually improving. Hidden checks are a small set of tests and probes that **improving agents never see**. If visible scores rise while the hidden-check pass rate stays flat or falls, the code is being tuned to the rubric. `gradekit diff` flags this as **divergence**.
 

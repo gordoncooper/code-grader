@@ -3,6 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'wasm-unsafe-eval'; connect-src 'self' https://cdn.jsdelivr.net https://api.github.com https://raw.githubusercontent.com; img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'; worker-src 'self' blob:">
+<meta name="referrer" content="strict-origin-when-cross-origin">
 <title>Set up a project · Code Grading Suite</title>
 <meta name="description" content="A rubric, prompts and browser tools for AI coding agents to grade codebases from 1 to 10 on 35 benchmarks and improve them.">
 <link rel="stylesheet" href="../assets/style.css">
@@ -10,16 +12,17 @@
 <link rel="alternate" type="text/markdown" href="../AGENT.md" title="Agent entry point">
 </head>
 <body>
+<a class="skip" href="#main">Skip to content</a>
 <header class="topbar">
   
   <a class="brand" href="../index.html">Code <span>Grading</span> Suite</a>
-  <span class="ver">v4.2.2</span>
+  <span class="ver">v4.3.0</span>
   <nav class="main" aria-label="Main"><a href="../docs/GETTING-STARTED.html">Get started</a><a href="../app/setup.html" class="active" aria-current="page">Set up</a><a href="../app/run.html">Start a run</a><a href="../app/review.html">Review</a><a href="../docs/README.html">Docs</a></nav>
   <span class="spacer"></span>
   <a class="top opt" href="../AGENT.md">AGENT.md</a>
-  <a class="top opt" href="../downloads/code-grading-suite-4.2.2.zip">Download</a>
+  <a class="top opt" href="../downloads/code-grading-suite-4.3.0.zip">Download</a>
 </header>
-<div class="app">
+<main id="main"><div class="app">
   <header class="app-head">
     <div>
       <div class="eyebrow">Tool 1 of 3</div>
@@ -39,7 +42,7 @@
           <label><input type="radio" name="start" value="edit"><span>Edit an existing project.toml</span></label>
         </div>
         <div id="load-existing" hidden style="margin-top:14px">
-          <div class="drop" id="toml-drop" tabindex="0" role="button" aria-label="Choose a project.toml file"><b>Drop your project.toml here</b> or click to choose it</div>
+          <div class="drop" id="toml-drop"><b>Drop your project.toml here</b>, or <button type="button" class="link" data-choose>choose it</button></div>
           <input type="file" id="toml-file" accept=".toml,text/plain" hidden>
           <div class="field" style="margin-top:10px"><label for="toml-paste">…or paste it</label><textarea id="toml-paste" rows="5" placeholder="[project]&#10;name = &quot;my-project&quot;&#10;…"></textarea></div>
           <div class="row-btns"><button class="btn primary" type="button" id="toml-load">Load into the form</button><span class="kbd-note">Comments aren't kept. Accepted findings, decisions and components are.</span></div>
@@ -74,19 +77,19 @@
       </section>
 
       <section class="card">
-        <h2><span class="num">3</span>Pick a starting point</h2>
+        <h2 data-term="preset"><span class="num">3</span>Pick a starting point</h2>
         <p class="hint">A preset fills in typical answers below. You can change any of them afterwards.</p>
         <div class="choices" id="presets"></div>
       </section>
 
       <section class="card">
-        <h2><span class="num">4</span>Answer eight questions</h2>
+        <h2 data-term="answers"><span class="num">4</span>Answer eight questions</h2>
         <p class="hint">Each answer nudges specific weights up or down, and some make a benchmark a <b>gate</b> (non-negotiable). The chips show what each answer does.</p>
         <div id="questions"></div>
       </section>
 
       <section class="card">
-        <h2><span class="num">5</span>Mark critical code</h2>
+        <h2 data-term="zone"><span class="num">5</span>Mark hot and cold zones</h2>
         <p class="hint"><b>Hot</b> zones (money, auth, data writes) count more: problems there are one severity higher, and fixes rank first. <b>Cold</b> zones (scripts, examples) count less. Everything else is normal. The first matching zone wins, so put specific ones first.</p>
         <div id="zones"></div>
         <div class="row-btns" style="margin-top:10px">
@@ -99,7 +102,7 @@
       </section>
 
       <section class="card">
-        <h2><span class="num">6</span>Targets and fine-tuning</h2>
+        <h2 data-term="target"><span class="num">6</span>Targets and fine-tuning</h2>
         <p class="hint">Targets tell improving agents where to stop. Most projects can leave this as it is.</p>
         <div class="grid2">
           <div class="field"><label for="t-mode">Target</label>
@@ -111,32 +114,33 @@
           <div class="field" id="t-level-wrap" hidden><label for="t-level">Level</label>
             <select id="t-level"><option value="L2">L2 Usable / Beta</option><option value="L3" selected>L3 Production-ready</option><option value="L4">L4 Exemplary</option></select></div>
         </div>
-        <details class="advanced"><summary>Advanced: overrides, extra gates, agent decisions</summary>
+        <details class="advanced"><summary>Advanced: overrides, extra gates, agent decisions, publishing</summary>
           <div class="field" style="margin-top:12px"><span class="label">Weight overrides</span><small>Only when an answer can't express it. Each needs a reason.</small><div id="w-overrides"></div><div><button class="btn" type="button" id="add-wover">+ Weight override</button></div></div>
           <div class="field"><span class="label">Target overrides</span><div id="t-overrides"></div><div><button class="btn" type="button" id="add-tover">+ Target override</button></div></div>
           <div class="field"><label for="extra-gate">Extra gates</label><small>Make more benchmarks non-negotiable for this project.</small><div class="row-btns"><select id="extra-gate" style="max-width:320px"></select></div><div id="extra-gates" class="effects" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px"></div></div>
           <label style="display:flex;gap:8px;align-items:center;font-size:.9rem"><input type="checkbox" id="agent-decisions"> Let agent reviewers approve decision questions (default: humans only)</label>
+          <label style="display:flex;gap:8px;align-items:center;font-size:.9rem;margin-top:8px"><input type="checkbox" id="private-repo"> Only trusted people can read the grading repo, so reports may keep security details (default: withhold them, as for a public repo)</label>
         </details>
       </section>
 
       <section class="card" id="output">
         <h2><span class="num">7</span>Your file</h2>
         <div id="build-status"></div>
-        <pre class="out-pre" id="toml-out" aria-label="Generated project.toml">Loading…</pre>
+        <pre class="out-pre" id="toml-out" tabindex="0" role="region" aria-label="Generated project.toml">Loading…</pre>
         <div class="row-btns" style="margin-top:10px">
           <button class="btn primary" type="button" id="dl-toml">Download project.toml</button>
           <button class="btn" type="button" id="copy-toml">Copy</button>
         </div>
         <h3 style="margin:22px 0 6px;font-size:1rem">Where to put it</h3>
-        <nav class="tabs" id="where-tabs" style="margin-top:6px">
+        <div class="tabs" id="where-tabs" style="margin-top:6px" aria-label="Where the grading files go">
           <button type="button" data-tab="repo">In the grading repo</button>
           <button type="button" data-tab="local">In a local folder</button>
-        </nav>
+        </div>
         <div class="panel" id="panel-repo">
           <ol class="steps-mini">
             <li>In your grading repo, create the folder <code class="proj-path-full">projects/…/</code> and put <code>project.toml</code> in it. On GitHub: <b>Add file → Upload files</b>, then type the folder path in front of the file name.</li>
-            <li>New project? Add two starter files next to it: <button class="btn" type="button" id="dl-decisions" style="padding:2px 9px">decisions.json</button> <button class="btn" type="button" id="dl-dispositions" style="padding:2px 9px">dispositions.json</button></li>
-            <li>New grading repo? Add a README that explains the layout: <button class="btn" type="button" id="dl-readme" style="padding:2px 9px">README.md</button></li>
+            <li>New project? Add two starter files next to it: <button class="btn" type="button" id="dl-decisions" style="padding:3px 10px">decisions.json</button> <button class="btn" type="button" id="dl-dispositions" style="padding:3px 10px">dispositions.json</button></li>
+            <li>New grading repo? Add a README that explains the layout: <button class="btn" type="button" id="dl-readme" style="padding:3px 10px">README.md</button></li>
           </ol>
           <p class="kbd-note">Permissions: you need write access to the grading repo. Changing settings later? Edit the file the same way; it's best done between grading runs.</p>
         </div>
@@ -150,17 +154,18 @@
       <div class="card" id="preview">
         <h2 style="font-size:1.1rem">What this means</h2>
         <div id="pv-status" class="kbd-note">Loading the engine…</div>
-        <div style="margin-top:12px"><span class="label">Gates (non-negotiable)</span><div id="pv-gates" class="row-btns" style="margin-top:6px"></div></div>
-        <div style="margin-top:14px"><span class="label">Weights</span><div class="kbd-note">Darker = counts more. ↑↓ = moved by your answers. Outlined = gate. Click one to see why.</div><div id="pv-weights" class="wgrid" style="margin-top:8px"></div></div>
+        <div style="margin-top:12px"><span class="label" data-term="gate">Gates (non-negotiable)</span><div id="pv-gates" class="row-btns" style="margin-top:6px"></div></div>
+        <div style="margin-top:14px"><span class="label" data-term="weight">Weights</span><div class="kbd-note">Darker = counts more. ↑↓ = moved by your answers. Outlined = gate. Click one to see why.</div><div id="pv-weights" class="wgrid" style="margin-top:8px"></div></div>
         <div id="pv-explain"></div>
       </div>
     </aside>
   </div>
 </div>
-
+</main>
 <script src="../assets/site.js"></script>
 <script src="../assets/engine-config.js"></script>
 <script src="../assets/engine.js"></script>
+<script src="../assets/glossary.js"></script>
 <script src="../assets/common.js"></script>
 <script src="../assets/setup.js"></script>
 </body>

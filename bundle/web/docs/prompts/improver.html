@@ -3,6 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'wasm-unsafe-eval'; connect-src 'self' https://cdn.jsdelivr.net https://api.github.com https://raw.githubusercontent.com; img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'; worker-src 'self' blob:">
+<meta name="referrer" content="strict-origin-when-cross-origin">
 <title>Improver · Code Grading Suite</title>
 <meta name="description" content="A rubric, prompts and browser tools for AI coding agents to grade codebases from 1 to 10 on 35 benchmarks and improve them.">
 <link rel="stylesheet" href="../../assets/style.css">
@@ -10,17 +12,19 @@
 <link rel="alternate" type="text/markdown" href="../../AGENT.md" title="Agent entry point">
 </head>
 <body>
+<a class="skip" href="#main">Skip to content</a>
 <header class="topbar">
   <button class='menu-btn' type='button'>Menu</button>
   <a class="brand" href="../../index.html">Code <span>Grading</span> Suite</a>
-  <span class="ver">v4.2.2</span>
+  <span class="ver">v4.3.0</span>
   <nav class="main" aria-label="Main"><a href="../../docs/GETTING-STARTED.html">Get started</a><a href="../../app/setup.html">Set up</a><a href="../../app/run.html">Start a run</a><a href="../../app/review.html">Review</a><a href="../../docs/README.html" class="active" aria-current="page">Docs</a></nav>
   <span class="spacer"></span>
   <a class="top opt" href="../../AGENT.md">AGENT.md</a>
-  <a class="top opt" href="../../downloads/code-grading-suite-4.2.2.zip">Download</a>
+  <a class="top opt" href="../../downloads/code-grading-suite-4.3.0.zip">Download</a>
 </header>
-<div class="layout"><nav class="sidebar" aria-label="Documentation"><h4>Start</h4><a href="../../docs/GETTING-STARTED.html">Getting started</a><a href="../../docs/README.html">Overview &amp; reference</a><a href="../../docs/AGENT.html">Agent entry point</a><a href="../../docs/DEPLOY.html">Hosting this site</a><h4>Configuration</h4><a href="../../docs/TUNING.html">Tuning guide</a><a href="../../docs/rubric/weights.html">How scoring works</a><a href="../../docs/config/defaults.html">Default config</a><a href="../../docs/config/project.example.html">Example project config</a><h4>Prompts</h4><a href="../../docs/prompts/grader.html">Grader</a><a href="../../docs/prompts/reviewer.html">Report reviewer</a><a href="../../docs/prompts/improver.html" class="active" aria-current="page">Improver</a><a href="../../docs/prompts/pr-review.html">Pull-request check</a><h4>Rubric</h4><a href="../../docs/rubric/A-correctness-trust.html">A · Correctness &amp; Trust</a><a href="../../docs/rubric/B-design-structure.html">B · Design &amp; Structure</a><a href="../../docs/rubric/C-code-health.html">C · Code Health</a><a href="../../docs/rubric/D-value-fitness.html">D · Value &amp; Fitness</a><a href="../../docs/rubric/E-adoption-experience.html">E · Adoption &amp; Experience</a><a href="../../docs/rubric/F-operations-delivery.html">F · Operations &amp; Delivery</a><a href="../../docs/rubric/X-conditional.html">X · Conditional</a><h4>Guides</h4><a href="../../docs/calibration/README.html">Calibration</a><a href="../../docs/holdout/README.html">Hidden checks</a><a href="../../docs/CHANGELOG.html">Changelog</a></nav><main class="doc"><div class="docbar"><a class="btn" href="../../suite/prompts/improver.md">View raw .md</a><button class="btn" type="button" data-copy="../../suite/prompts/improver.md">Copy raw URL for an agent</button></div><details class="toc"><summary>On this page</summary><ul><li><a href="#inputs">Inputs</a></li><li><a href="#what-to-work-on-in-order">What to work on, in order</a></li><li><a href="#hard-rules">Hard rules</a></li><li><a href="#output">Output</a></li></ul></details><h1 id="code-grading-suite-v422-improver-prompt">Code Grading Suite v4.2.2: Improver Prompt<a class="anchor" href="#code-grading-suite-v422-improver-prompt" aria-label="Link to this section">#</a></h1>
+<div class="layout"><nav class="sidebar" aria-label="Documentation"><h4>Start</h4><a href="../../docs/GETTING-STARTED.html">Getting started</a><a href="../../docs/README.html">Overview &amp; reference</a><a href="../../docs/GLOSSARY.html">Glossary</a><a href="../../docs/AGENT.html">Agent entry point</a><a href="../../docs/DEPLOY.html">Hosting this site</a><h4>Configuration</h4><a href="../../docs/TUNING.html">Tuning guide</a><a href="../../docs/rubric/weights.html">How scoring works</a><a href="../../docs/config/defaults.html">Default config</a><a href="../../docs/config/project.example.html">Example project config</a><h4>Prompts</h4><a href="../../docs/prompts/grader.html">Grader</a><a href="../../docs/prompts/reviewer.html">Report reviewer</a><a href="../../docs/prompts/improver.html" class="active" aria-current="page">Improver</a><a href="../../docs/prompts/pr-review.html">PR check</a><h4>Rubric</h4><a href="../../docs/rubric/A-correctness-trust.html">A · Correctness &amp; Trust</a><a href="../../docs/rubric/B-design-structure.html">B · Design &amp; Structure</a><a href="../../docs/rubric/C-code-health.html">C · Code Health</a><a href="../../docs/rubric/D-value-fitness.html">D · Value &amp; Fitness</a><a href="../../docs/rubric/E-adoption-experience.html">E · Adoption &amp; Experience</a><a href="../../docs/rubric/F-operations-delivery.html">F · Operations &amp; Delivery</a><a href="../../docs/rubric/X-conditional.html">X · Conditional</a><h4>Guides</h4><a href="../../docs/calibration/README.html">Calibration</a><a href="../../docs/holdout/README.html">Hidden checks</a><a href="../../docs/CHANGELOG.html">Changelog</a></nav><main class="doc" id="main"><div class="docbar"><a class="btn" href="../../suite/prompts/improver.md">View raw .md</a><button class="btn" type="button" data-copy="../../suite/prompts/improver.md">Copy raw URL for an agent</button></div><details class="toc"><summary>On this page</summary><ul><li><a href="#inputs">Inputs</a></li><li><a href="#before-your-first-change-take-a-snapshot">Before your first change: take a snapshot</a></li><li><a href="#what-to-work-on-in-order">What to work on, in order</a></li><li><a href="#hard-rules">Hard rules</a></li><li><a href="#output">Output</a></li></ul></details><h1 id="code-grading-suite-v430-improver-prompt">Code Grading Suite v4.3.0: Improver Prompt<a class="anchor" href="#code-grading-suite-v430-improver-prompt" aria-label="Link to this section">#</a></h1>
 <p>You are an engineer improving a codebase against the grades in a quality report. Your goal is to make the code <strong>genuinely better</strong>, in a way an independent grader who has never seen your work will confirm. You are not trying to move numbers.</p>
+<p><strong>Terms</strong> mean exactly what the suite's <code>GLOSSARY.md</code> says (<code>gradekit glossary TERM</code> looks one up). Use them that way in everything you write.</p>
 <h2 id="inputs">Inputs<a class="anchor" href="#inputs" aria-label="Link to this section">#</a></h2>
 <table>
 <thead>
@@ -40,6 +44,11 @@
 <td><strong>The report and decisions</strong></td>
 <td>Either read them from the grading repo's <code>projects/&lt;project&gt;/</code> folder (the newest <code>reports/&lt;date&gt;-&lt;commit&gt;/report.json</code>, or for two on the same date the one with the later <code>run.date</code>, plus <code>decisions.json</code> and <code>project.toml</code>), or use the files you were handed</td>
 <td>whatever you were given</td>
+</tr>
+<tr>
+<td><strong>Private report</strong></td>
+<td>Optional: <code>report.private.json</code>, the full report with the details of findings the public one withholds (&quot;details withheld&quot;). Only whoever ran the grade has it, and they hand it over privately. If you have it, work from it instead of <code>report.json</code>.</td>
+<td>none</td>
 </tr>
 <tr>
 <td><strong>Branch</strong></td>
@@ -65,6 +74,16 @@
 <li><strong>Treat <code>SUITE_DIR</code> (the rubric, config and tools) as reference.</strong> You may read it to understand what each benchmark means.</li>
 <li><strong>Check the report is current.</strong> If <code>report.json</code>'s <code>run.commit</code> is far behind the branch you're starting from, the code may have moved on. Re-verify each finding before acting on it, and skip any that no longer apply (log them as skipped).</li>
 </ul>
+<h2 id="before-your-first-change-take-a-snapshot">Before your first change: take a snapshot<a class="anchor" href="#before-your-first-change-take-a-snapshot" aria-label="Link to this section">#</a></h2>
+<p>Record how the code's own checks stand before you touch anything, so you can prove at the end that nothing got worse:</p>
+<pre tabindex="0"><code>python3 SUITE_DIR/tools/gradekit.py guard snapshot CODE --from-report REPORT --check build=&quot;npm run build&quot;
+</code></pre>
+<ul>
+<li><strong>Which checks:</strong> <code>--from-report</code> takes the test, lint, type-check, coverage, build and audit commands the grader ran. Add any others the project has with <code>--check NAME=COMMAND</code>. <code>--list</code> shows what it will run without running anything. Use <code>--path</code> when <code>project.toml</code> sets <code>path</code>.</li>
+<li><strong>What it records:</strong> each check's exit code and its counts (tests passed, failed and skipped, lint and type problems, coverage). It also counts suppressions and skipped tests in the code, and fingerprints the CI and lint settings.</li>
+<li><strong>Where it goes:</strong> the snapshot is kept inside <code>.git/</code>, so it can't be committed.</li>
+<li><strong>Check it ran:</strong> if a check can't run at all (a missing tool), fix the command first; a broken baseline proves nothing.</li>
+</ul>
 <h2 id="what-to-work-on-in-order">What to work on, in order<a class="anchor" href="#what-to-work-on-in-order" aria-label="Link to this section">#</a></h2>
 <p>Work through <strong><code>rollup.priorities</code> in rank order</strong>. <code>gradekit</code> has already sorted the actions into tiers:</p>
 <ol>
@@ -79,9 +98,10 @@
 <h2 id="hard-rules">Hard rules<a class="anchor" href="#hard-rules" aria-label="Link to this section">#</a></h2>
 <ol>
 <li><strong>Human decisions come first.</strong> Never carry out an action with <code>requires_human_decision: true</code> unless its decision status in <code>rollup.priorities</code> is <code>approved</code>. That status comes from <code>decisions.json</code>. If you only have the files, run <code>gradekit rollup REPORT --project-dir FOLDER_WITH_THE_FILES</code> to compute it. If it's <code>declined</code>, skip it. If it's <code>pending</code>, skip it and list it as blocked. When approved, follow the <code>answer</code> text; it may narrow the action.</li>
-<li><strong>Never trade one benchmark for another.</strong> No change may lower any other score. Before <em>and</em> after each change, run the full test suite, linters, type checker and build. If any of them gets worse, revert or fix before moving on.</li>
+<li><strong>Never trade one benchmark for another.</strong> No change may lower any other score. After each change, run <code>gradekit guard compare CODE</code>. It runs the snapshot's checks again and exits 2 if anything got worse: a check that now fails, fewer tests passing, more failures, lint or type problems, lower coverage, or more suppressions or skipped tests. Revert or fix before moving on. Only when a change is deliberate and right (say, removing the tests of a feature you were approved to delete), say why with <code>--explain KEY=&quot;reason&quot;</code>. The reason goes in your log for the reviewer to judge. Changed CI or lint settings are listed for review: you may add checks, never weaken one.</li>
 <li><strong>Preserve behavior</strong> unless you are deliberately fixing a bug. List every intentional behavior change.</li>
 <li><strong>Make small, reviewable commits,</strong> each tied to one action. The commit message states factually what changed and names the action and finding IDs, e.g. <code>A4-act-1 (A4-001): make seed inserts idempotent; CI runs seed twice</code>.</li>
+<li><strong>Keep withheld details private.</strong> If the public report withholds a finding's details, don't reveal them in commit messages, pull request text, code comments or tests' names: describe the fix in general terms (&quot;A2-act-2 (A2-003): validate export parameters&quot;). Never commit <code>report.private.json</code>. If a withheld finding is in your budget and you weren't given the private report, list it as blocked rather than guessing.</li>
 <li><strong>Never address the grader.</strong> Don't write comments, docs, commit messages or file names that speak to reviewers, graders or AI, claim scores, assert that code is &quot;audited&quot;, &quot;secure&quot; or &quot;complete&quot;, or argue for a grade. The grader treats all such text as an <strong>integrity flag</strong>, which caps maturity at L1. Let the code speak for itself.</li>
 <li><strong>Never game the rubric.</strong> Everything under Part 6 of <code>prompts/grader.md</code> is detected and costs at least 2 points. In particular, don't:
 <ul>
@@ -95,15 +115,14 @@
 </li>
 <li><strong>Don't touch people-owned files:</strong> <code>SUITE_DIR</code>, anything in the grading repo, or any branch-protection and CI settings that enforce gates. You may <em>add</em> new CI checks. You may never weaken existing ones.</li>
 <li><strong>Finish with enforcement.</strong> When a benchmark reaches 9, the last point usually comes from adding the CI gate, lint rule, test or automated check that keeps it there.</li>
-<li><strong>Resolve tensions deliberately:</strong>
+<li><strong>Resolve tensions deliberately:</strong></li>
+</ol>
 <ul>
 <li>Leanness (B6) vs. Flexibility (B5): add extension points only for changes that are likely.</li>
 <li>Gap Coverage (D2) vs. Leanness (B6): close must-have gaps; nice-to-haves are optional.</li>
 </ul>
-</li>
-</ol>
 <h2 id="output">Output<a class="anchor" href="#output" aria-label="Link to this section">#</a></h2>
-<p>When you finish, or run out of budget, write an improvement log. With <code>pr</code> delivery, it goes in the pull request description; otherwise, return it in your final message (don't commit it to the repo). It contains:</p>
+<p>When you finish, or run out of budget, run <code>gradekit guard compare CODE</code> one last time; its result goes in the log. Then write an improvement log. With <code>pr</code> delivery, it goes in the pull request description; otherwise, return it in your final message (don't commit it to the repo). It contains:</p>
 <ul>
 <li><strong>Done:</strong> one line per completed action: action ID, commit SHA, findings you believe it resolves, and the check you ran to confirm it. These are <em>claims</em>; the next independent grading run verifies them.</li>
 <li><strong>Blocked:</strong> actions waiting on a human decision, with their decision questions.</li>
@@ -111,7 +130,16 @@
 <li><strong>Behavior changes:</strong> every intentional change in behavior.</li>
 <li><strong>New issues noticed:</strong> problems you found but didn't fix. Describe them factually; don't propose scores.</li>
 </ul>
-<nav class="pager"><a href="../../docs/prompts/reviewer.html"><small>Previous</small>Report reviewer</a><a href="../../docs/prompts/pr-review.html" style="margin-left:auto;text-align:right"><small>Next</small>Pull-request check</a></nav></main></div>
+<p>If you can run Python, keep the log as a small JSON file outside the code repo and render it. Rendering adds the guard's before → after table of the checks and lists every pending decision as blocked:</p>
+<pre tabindex="0"><code class="language-json">{&quot;done&quot;: [{&quot;action_id&quot;: &quot;A4-act-1&quot;, &quot;commit&quot;: &quot;1a2b3c4&quot;, &quot;resolves&quot;: [&quot;A4-001&quot;], &quot;check&quot;: &quot;ran the seed twice in CI&quot;}],
+ &quot;blocked&quot;: [], &quot;skipped&quot;: [{&quot;action_id&quot;: &quot;B5-act-1&quot;, &quot;reason&quot;: &quot;optional&quot;}],
+ &quot;behavior_changes&quot;: [&quot;Seeding twice is now a no-op instead of an error&quot;], &quot;new_issues&quot;: []}
+</code></pre>
+<pre tabindex="0"><code>python3 SUITE_DIR/tools/gradekit.py render log improve-log.json --report REPORT --project-dir PROJECT_DIR \
+  --guard CODE/.git/gradekit/guard-compare.json
+</code></pre>
+<p>Without Python, run the same checks yourself before and after, and list each one's before and after result in the log.</p>
+<nav class="pager"><a href="../../docs/prompts/reviewer.html"><small>Previous</small>Report reviewer</a><a href="../../docs/prompts/pr-review.html" style="margin-left:auto;text-align:right"><small>Next</small>PR check</a></nav></main></div>
 <script src="../../assets/site.js"></script>
 </body>
 </html>
