@@ -7,6 +7,37 @@ Versioning rules for the suite itself:
 
 After any major or minor change, re-run calibration (`calibration/README.md`) before trusting new scores.
 
+## 4.2.2
+Patch release from an end-to-end run of the whole workflow on a real repository. No scoring changes; config fingerprints and existing reports stay valid.
+
+**Fixes**
+- **Reports from the same day are ordered correctly.** Report folders are `<date>-<commit>`, so two from one day were ordered by commit hash, and "latest" could be the older one. Tools and the Review page now order same-day reports by `run.date`. Graders now write it as a UTC timestamp (e.g. `2026-11-07T21:04:00Z`); a plain date still works. The prompts explain which report counts as newest.
+- **Citation checks against a zip** no longer strip the leading dot from paths, so quotes from `.github/`, `.gitlab-ci.yml`, `.env.example` and similar files are found. Zone patterns for dot-folders now match only those folders.
+- **PR checks (`gradekit diff`):** a finding counts as new only if its ID isn't in the baseline. Findings copied over unchanged with status `new` no longer fail a PR. A problem that already existed before the change (`first_seen_commit` is the PR's base commit, or the baseline's commit) is reported as pre-existing and doesn't fail it either. `pr-review.md` explains how to record one.
+- **Review a report, from GitHub:**
+  - Reads every file at the branch's current commit, so answers committed a moment ago show up right away. Before, GitHub's file cache could serve the old `decisions.json` for several minutes.
+  - No longer logs a 404 for each report without a `runs/` folder.
+  - Says when `projects/` exists but is still empty.
+  - Explains GitHub's 60-requests-an-hour limit for anonymous users, including when it resets, instead of showing a bare 403.
+- **Review a report** loads Pyodide's `jsonschema` package for the full report-format check. If it can't, the page shows a note instead of a report warning, so a valid report reads "Valid".
+- **Set up a project:** the downloaded `project.toml` names the real project in its "Check it with" line.
+
+**Layout and usability**
+- **Phones:** pages no longer scroll sideways (wide tables and code blocks scroll inside their box), and the main navigation stays available as a second row of the top bar.
+- **Set up a project:**
+  - Gate chips sit together.
+  - Two-column fields line up.
+  - Answer dropdowns are wider and show the full answer on hover.
+  - The "Level" field appears only for the level target.
+- **Review a report:**
+  - The overview cards line up.
+  - The Load button keeps its size.
+  - The findings table keeps IDs, severities and zones on one line.
+  - The maturity ladder fits its card on phones.
+  - Decision answers use the normal text font.
+  - `code` in questions and actions is formatted.
+- Any element with the `hidden` attribute now stays hidden whatever its CSS display.
+
 ## 4.2.1
 Patch release with no scoring changes. Config fingerprints and existing reports stay valid.
 - **Review a report** with a zip or folder no longer lists the suite's own example project. When you load a whole grading repo that also contains a copy of the suite (for example in `bundle/`), projects inside that copy are skipped. You still see the example if it's the only project there. `gradekit`'s `scan_zip` behaves the same way.

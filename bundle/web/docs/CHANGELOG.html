@@ -13,13 +13,13 @@
 <header class="topbar">
   <button class='menu-btn' type='button'>Menu</button>
   <a class="brand" href="../index.html">Code <span>Grading</span> Suite</a>
-  <span class="ver">v4.2.1</span>
+  <span class="ver">v4.2.2</span>
   <nav class="main" aria-label="Main"><a href="../docs/GETTING-STARTED.html">Get started</a><a href="../app/setup.html">Set up</a><a href="../app/run.html">Start a run</a><a href="../app/review.html">Review</a><a href="../docs/README.html" class="active" aria-current="page">Docs</a></nav>
   <span class="spacer"></span>
   <a class="top opt" href="../AGENT.md">AGENT.md</a>
-  <a class="top opt" href="../downloads/code-grading-suite-4.2.1.zip">Download</a>
+  <a class="top opt" href="../downloads/code-grading-suite-4.2.2.zip">Download</a>
 </header>
-<div class="layout"><nav class="sidebar" aria-label="Documentation"><h4>Start</h4><a href="../docs/GETTING-STARTED.html">Getting started</a><a href="../docs/README.html">Overview &amp; reference</a><a href="../docs/AGENT.html">Agent entry point</a><a href="../docs/DEPLOY.html">Hosting this site</a><h4>Configuration</h4><a href="../docs/TUNING.html">Tuning guide</a><a href="../docs/rubric/weights.html">How scoring works</a><a href="../docs/config/defaults.html">Default config</a><a href="../docs/config/project.example.html">Example project config</a><h4>Prompts</h4><a href="../docs/prompts/grader.html">Grader</a><a href="../docs/prompts/reviewer.html">Report reviewer</a><a href="../docs/prompts/improver.html">Improver</a><a href="../docs/prompts/pr-review.html">Pull-request check</a><h4>Rubric</h4><a href="../docs/rubric/A-correctness-trust.html">A · Correctness &amp; Trust</a><a href="../docs/rubric/B-design-structure.html">B · Design &amp; Structure</a><a href="../docs/rubric/C-code-health.html">C · Code Health</a><a href="../docs/rubric/D-value-fitness.html">D · Value &amp; Fitness</a><a href="../docs/rubric/E-adoption-experience.html">E · Adoption &amp; Experience</a><a href="../docs/rubric/F-operations-delivery.html">F · Operations &amp; Delivery</a><a href="../docs/rubric/X-conditional.html">X · Conditional</a><h4>Guides</h4><a href="../docs/calibration/README.html">Calibration</a><a href="../docs/holdout/README.html">Hidden checks</a><a href="../docs/CHANGELOG.html" class="active" aria-current="page">Changelog</a></nav><main class="doc"><div class="docbar"><a class="btn" href="../suite/CHANGELOG.md">View raw .md</a><button class="btn" type="button" data-copy="../suite/CHANGELOG.md">Copy raw URL for an agent</button></div><details class="toc"><summary>On this page</summary><ul><li><a href="#421">4.2.1</a></li><li><a href="#420">4.2.0</a></li><li><a href="#410">4.1.0</a></li><li><a href="#400">4.0.0</a></li><li><a href="#310">3.1.0</a></li><li><a href="#300">3.0.0</a></li><li><a href="#200">2.0.0</a></li><li><a href="#100">1.0.0</a></li></ul></details><h1 id="changelog">Changelog<a class="anchor" href="#changelog" aria-label="Link to this section">#</a></h1>
+<div class="layout"><nav class="sidebar" aria-label="Documentation"><h4>Start</h4><a href="../docs/GETTING-STARTED.html">Getting started</a><a href="../docs/README.html">Overview &amp; reference</a><a href="../docs/AGENT.html">Agent entry point</a><a href="../docs/DEPLOY.html">Hosting this site</a><h4>Configuration</h4><a href="../docs/TUNING.html">Tuning guide</a><a href="../docs/rubric/weights.html">How scoring works</a><a href="../docs/config/defaults.html">Default config</a><a href="../docs/config/project.example.html">Example project config</a><h4>Prompts</h4><a href="../docs/prompts/grader.html">Grader</a><a href="../docs/prompts/reviewer.html">Report reviewer</a><a href="../docs/prompts/improver.html">Improver</a><a href="../docs/prompts/pr-review.html">Pull-request check</a><h4>Rubric</h4><a href="../docs/rubric/A-correctness-trust.html">A · Correctness &amp; Trust</a><a href="../docs/rubric/B-design-structure.html">B · Design &amp; Structure</a><a href="../docs/rubric/C-code-health.html">C · Code Health</a><a href="../docs/rubric/D-value-fitness.html">D · Value &amp; Fitness</a><a href="../docs/rubric/E-adoption-experience.html">E · Adoption &amp; Experience</a><a href="../docs/rubric/F-operations-delivery.html">F · Operations &amp; Delivery</a><a href="../docs/rubric/X-conditional.html">X · Conditional</a><h4>Guides</h4><a href="../docs/calibration/README.html">Calibration</a><a href="../docs/holdout/README.html">Hidden checks</a><a href="../docs/CHANGELOG.html" class="active" aria-current="page">Changelog</a></nav><main class="doc"><div class="docbar"><a class="btn" href="../suite/CHANGELOG.md">View raw .md</a><button class="btn" type="button" data-copy="../suite/CHANGELOG.md">Copy raw URL for an agent</button></div><details class="toc"><summary>On this page</summary><ul><li><a href="#422">4.2.2</a></li><li><a href="#421">4.2.1</a></li><li><a href="#420">4.2.0</a></li><li><a href="#410">4.1.0</a></li><li><a href="#400">4.0.0</a></li><li><a href="#310">3.1.0</a></li><li><a href="#300">3.0.0</a></li><li><a href="#200">2.0.0</a></li><li><a href="#100">1.0.0</a></li></ul></details><h1 id="changelog">Changelog<a class="anchor" href="#changelog" aria-label="Link to this section">#</a></h1>
 <p>Versioning rules for the suite itself:</p>
 <ul>
 <li><strong>Major:</strong> any change that can move scores, i.e. new or removed benchmarks, changed anchors, caps, weights, targets or maturity rules. Scores from different major versions are <strong>not comparable</strong>. <code>gradekit diff</code> won't treat their deltas as regressions.</li>
@@ -27,6 +27,47 @@
 <li><strong>Patch:</strong> typos, formatting, documentation.</li>
 </ul>
 <p>After any major or minor change, re-run calibration (<code>calibration/README.md</code>) before trusting new scores.</p>
+<h2 id="422">4.2.2<a class="anchor" href="#422" aria-label="Link to this section">#</a></h2>
+<p>Patch release from an end-to-end run of the whole workflow on a real repository. No scoring changes; config fingerprints and existing reports stay valid.</p>
+<p><strong>Fixes</strong></p>
+<ul>
+<li><strong>Reports from the same day are ordered correctly.</strong> Report folders are <code>&lt;date&gt;-&lt;commit&gt;</code>, so two from one day were ordered by commit hash, and &quot;latest&quot; could be the older one. Tools and the Review page now order same-day reports by <code>run.date</code>. Graders now write it as a UTC timestamp (e.g. <code>2026-11-07T21:04:00Z</code>); a plain date still works. The prompts explain which report counts as newest.</li>
+<li><strong>Citation checks against a zip</strong> no longer strip the leading dot from paths, so quotes from <code>.github/</code>, <code>.gitlab-ci.yml</code>, <code>.env.example</code> and similar files are found. Zone patterns for dot-folders now match only those folders.</li>
+<li><strong>PR checks (<code>gradekit diff</code>):</strong> a finding counts as new only if its ID isn't in the baseline. Findings copied over unchanged with status <code>new</code> no longer fail a PR. A problem that already existed before the change (<code>first_seen_commit</code> is the PR's base commit, or the baseline's commit) is reported as pre-existing and doesn't fail it either. <code>pr-review.md</code> explains how to record one.</li>
+<li><strong>Review a report, from GitHub:</strong>
+<ul>
+<li>Reads every file at the branch's current commit, so answers committed a moment ago show up right away. Before, GitHub's file cache could serve the old <code>decisions.json</code> for several minutes.</li>
+<li>No longer logs a 404 for each report without a <code>runs/</code> folder.</li>
+<li>Says when <code>projects/</code> exists but is still empty.</li>
+<li>Explains GitHub's 60-requests-an-hour limit for anonymous users, including when it resets, instead of showing a bare 403.</li>
+</ul>
+</li>
+<li><strong>Review a report</strong> loads Pyodide's <code>jsonschema</code> package for the full report-format check. If it can't, the page shows a note instead of a report warning, so a valid report reads &quot;Valid&quot;.</li>
+<li><strong>Set up a project:</strong> the downloaded <code>project.toml</code> names the real project in its &quot;Check it with&quot; line.</li>
+</ul>
+<p><strong>Layout and usability</strong></p>
+<ul>
+<li><strong>Phones:</strong> pages no longer scroll sideways (wide tables and code blocks scroll inside their box), and the main navigation stays available as a second row of the top bar.</li>
+<li><strong>Set up a project:</strong>
+<ul>
+<li>Gate chips sit together.</li>
+<li>Two-column fields line up.</li>
+<li>Answer dropdowns are wider and show the full answer on hover.</li>
+<li>The &quot;Level&quot; field appears only for the level target.</li>
+</ul>
+</li>
+<li><strong>Review a report:</strong>
+<ul>
+<li>The overview cards line up.</li>
+<li>The Load button keeps its size.</li>
+<li>The findings table keeps IDs, severities and zones on one line.</li>
+<li>The maturity ladder fits its card on phones.</li>
+<li>Decision answers use the normal text font.</li>
+<li><code>code</code> in questions and actions is formatted.</li>
+</ul>
+</li>
+<li>Any element with the <code>hidden</code> attribute now stays hidden whatever its CSS display.</li>
+</ul>
 <h2 id="421">4.2.1<a class="anchor" href="#421" aria-label="Link to this section">#</a></h2>
 <p>Patch release with no scoring changes. Config fingerprints and existing reports stay valid.</p>
 <ul>

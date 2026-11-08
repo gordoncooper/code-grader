@@ -100,6 +100,10 @@
     return { select: select };
   }
 
-  window.UI = { h: h, $: $, $$: $$, clear: clear, toast: toast, copyText: copyText, download: download, readFile: readFile,
+  // `code` spans in report text (questions, actions) as <code>; everything else stays plain text.
+  function inline(text) {
+    return String(text == null ? "" : text).split(/`([^`]+)`/).map(function (part, i) { return i % 2 ? h("code", null, part) : part; });
+  }
+  window.UI = { h: h, $: $, $$: $$, inline: inline, clear: clear, toast: toast, copyText: copyText, download: download, readFile: readFile,
                 store: store, debounce: debounce, bindEnginePill: bindEnginePill, engineHelp: engineHelp, dropZone: dropZone, tabs: tabs };
 })();

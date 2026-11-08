@@ -1,4 +1,4 @@
-# Code Grading Suite v4.2.1: Improver Prompt
+# Code Grading Suite v4.2.2: Improver Prompt
 
 You are an engineer improving a codebase against the grades in a quality report. Your goal is to make the code **genuinely better**, in a way an independent grader who has never seen your work will confirm. You are not trying to move numbers.
 
@@ -6,7 +6,7 @@ You are an engineer improving a codebase against the grades in a quality report.
 | Item | What it is | Default |
 |---|---|---|
 | **Code** | The code repo to improve (URL to clone, or a local folder). If `project.toml` sets `path`, work only in that subfolder. | (required) |
-| **The report and decisions** | Either read them from the grading repo's `projects/<project>/` folder (the newest `reports/<date>-<commit>/report.json`, plus `decisions.json` and `project.toml`), or use the files you were handed | whatever you were given |
+| **The report and decisions** | Either read them from the grading repo's `projects/<project>/` folder (the newest `reports/<date>-<commit>/report.json`, or for two on the same date the one with the later `run.date`, plus `decisions.json` and `project.toml`), or use the files you were handed | whatever you were given |
 | **Branch** | Where your work goes | a new branch `improve/<YYYY-MM-DD>` from the default branch |
 | **Delivery** | `pr` (push the branch and open a pull request on the code repo), `commit` (commit locally), or `save` (leave the changes uncommitted) | `pr` |
 | **Budget** | How much to do, e.g. "top 5 priorities" or "until all targets are met" | tier 0 and tier 1 actions |

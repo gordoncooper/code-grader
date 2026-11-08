@@ -1,5 +1,5 @@
 {
-  "suite_version": "4.2.1",
+  "suite_version": "4.2.2",
   "_comment": "Benchmark catalog: IDs, names and pillars. Weights, gates, targets and maturity rules live in config/defaults.toml.",
   "pillars": {
     "A": {

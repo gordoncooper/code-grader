@@ -56,7 +56,8 @@
           ]
         },
         "date": {
-          "type": "string"
+          "type": "string",
+          "description": "When the grading finished: a UTC timestamp such as 2026-11-07T21:04:00Z (a plain YYYY-MM-DD date is also accepted). The report folder uses its date part; tools order reports from the same day by this value."
         },
         "grader": {
           "type": "string"

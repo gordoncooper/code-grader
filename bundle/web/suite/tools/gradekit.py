@@ -415,11 +415,24 @@ def org_for(pdir: Path) -> Path | None:
     return None
 
 
+def report_order_key(folder: str, report_text: str | None = None) -> tuple:
+    """Oldest first. Folders are <date>-<commit>, so the name orders by day; reports from the same day are
+    ordered by run.date, which graders write as a full UTC timestamp (a date alone sorts before any time)."""
+    run_date = ""
+    if report_text:
+        try:
+            run_date = str((json.loads(report_text).get("run") or {}).get("date") or "")
+        except ValueError:
+            pass
+    return (folder[:10], run_date, folder)
+
+
 def report_folders(pdir: Path) -> list[Path]:
     root = pdir / "reports"
     if not root.is_dir():
         return []
-    return sorted((d for d in root.iterdir() if d.is_dir() and (d / "report.json").exists()), key=lambda d: d.name)
+    found = [d for d in root.iterdir() if d.is_dir() and (d / "report.json").exists()]
+    return sorted(found, key=lambda d: report_order_key(d.name, (d / "report.json").read_text(encoding="utf-8", errors="replace")))
 
 
 def load_config(args, report: dict | None = None, quiet: bool = False) -> dict:
@@ -456,8 +469,16 @@ def load_config(args, report: dict | None = None, quiet: bool = False) -> dict:
 
 # =========================================================================== zones & severity
 
+def repo_relative(path) -> str:
+    """'./src/x.py' or '/src/x.py' -> 'src/x.py'. Keeps leading dots that belong to the name (.github/, .env)."""
+    p = str(path).strip()
+    while p.startswith("./"):
+        p = p[2:]
+    return p.lstrip("/")
+
+
 def glob_to_regex(pattern: str) -> re.Pattern:
-    p = pattern.strip().lstrip("./")
+    p = repo_relative(pattern)
     if p.endswith("/"):
         p += "**"
     out, i = "", 0
@@ -481,7 +502,7 @@ def glob_to_regex(pattern: str) -> re.Pattern:
 
 
 def zone_for_path(path: str, cfg: dict) -> tuple[str | None, str]:
-    path = str(path).lstrip("./")
+    path = repo_relative(path)
     for z in cfg["zones"]["list"]:
         for pat in z.get("paths", []):
             if glob_to_regex(pat).match(path):
@@ -746,7 +767,7 @@ def zip_reader(zip_path: str):
     index = {(n.split("/", 1)[1] if strip else n): n for n in names}
 
     def read(rel: str):
-        key = rel.lstrip("./")
+        key = repo_relative(rel)
         if key not in index:
             return f"file not found in archive: {rel}"
         return zf.read(index[key]).decode("utf-8", errors="replace").splitlines()
@@ -1203,11 +1224,25 @@ def compute_diff(old: dict, new: dict, cfg_old: dict, cfg_new: dict) -> dict:
         return {"id": i, "title": nf[i].get("title"), "severity": nf[i].get("severity"),
                 "effective_severity": nz.get(i, {}).get("effective_severity", nf[i].get("severity")),
                 "zone": nz.get(i, {}).get("criticality", "normal")}
-    new_ids = [brief(i) for i, f in nf.items() if i not in of or f.get("status") == "new"]
+    # New means not in the baseline. A finding carried over unchanged keeps whatever status it had
+    # (PR checks copy untouched findings as-is), so status "new" alone doesn't make it new.
+    new_ids = [brief(i) for i in nf if i not in of]
     fixed = [brief(i) for i, f in nf.items() if f.get("status") == "fixed" and of.get(i, {}).get("status") != "fixed"]
     regressed = [brief(i) for i, f in nf.items() if f.get("status") == "regressed"]
+    # A problem first seen at the baseline's commit (or a PR's base commit) existed before this change:
+    # report it, but don't count it against the change.
+    before = [c for c in (old.get("run", {}).get("commit"), new.get("run", {}).get("base_commit")) if c]
+
+    def pre_existing(i):
+        seen = str(nf[i].get("first_seen_commit") or "")
+        return bool(seen) and any(seen.startswith(c) or c.startswith(seen) for c in before)
+
     for f in new_ids:
-        if f["effective_severity"] in ("critical", "major"):
+        f["pre_existing"] = pre_existing(f["id"])
+        if f["pre_existing"]:
+            notes.append(f"pre-existing problem first recorded now (not caused by this change): {f['id']} "
+                         f"({f['effective_severity']}, {f['zone']} zone): {f['title']}")
+        elif f["effective_severity"] in ("critical", "major"):
             regressions.append(f"new {f['effective_severity']} finding {f['id']} ({f['zone']} zone): {f['title']}")
     for f in regressed:
         regressions.append(f"finding regressed {f['id']}: {f['title']}")
@@ -1735,7 +1770,9 @@ def _api_info(p):
 
 def _api_build(p):
     defaults = load_toml(DEFAULTS_PATH)
-    text = render_project_toml(p.get("project") or {}, defaults, path=p.get("path") or "projects/<name>/project.toml")
+    name = ((p.get("project") or {}).get("project") or {}).get("name")
+    path = p.get("path") or f"projects/{slug(name) if name else '<name>'}/project.toml"
+    text = render_project_toml(p.get("project") or {}, defaults, path=path)
     try:
         cfg, _ = _web_cfg({"org_toml": p.get("org_toml"), "project_toml": text})
         return {"toml": text, "config": cfg, "config_error": None}
@@ -1760,9 +1797,11 @@ def _api_check(p):
     report = p["report"]
     cfg, source = _web_cfg(p, report)
     errors, warnings = validate_report(report, cfg, load_catalog())
+    notes = [w for w in warnings if w.startswith("jsonschema not installed")]  # about this browser, not the report
+    warnings = [w for w in warnings if w not in notes]
     roll = compute_rollup(report, cfg)
     rc = report.get("config") or {}
-    return {"validation": {"errors": errors, "warnings": cfg.get("warnings", []) + warnings},
+    return {"validation": {"errors": errors, "warnings": cfg.get("warnings", []) + warnings, "notes": notes},
             "rollup": roll, "config_source": source, "config_hash_match": rc.get("hash") == cfg["hash"],
             "config": {k: cfg.get(k) for k in ("hash", "preset", "answers", "gates", "project", "review", "zones")},
             "weights": {k: v["weight"] for k, v in cfg["weights"].items()}}
@@ -1845,7 +1884,8 @@ def scan_paths(files: dict) -> dict:
         outside = [(k, pr) for k, pr in sorted(found, key=lambda kv: len(kv[0])) if not (pr["name"] in seen or seen.add(pr["name"]))]
     out = {}
     for key, proj in outside:
-        reports = [{"folder": f, **v} for f, v in sorted(proj["reports"].items()) if v.get("report")]
+        reports = sorted(({"folder": f, **v} for f, v in proj["reports"].items() if v.get("report")),
+                         key=lambda r: report_order_key(r["folder"], r["report"]))
         out[proj["name"] if proj["name"] not in out else key] = {
             "root": key, "project_toml": proj.get(PROJECT_FILE), "decisions_json": proj.get(DECISIONS_FILE),
             "dispositions_json": proj.get(DISPOSITIONS_FILE), "reports": reports, "org_toml": org}
