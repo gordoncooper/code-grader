@@ -174,6 +174,17 @@ def fingerprint_of(f: dict) -> str:
     return hashlib.sha256(json.dumps(body, ensure_ascii=False).encode()).hexdigest()[:12]
 
 
+def withheld(f: dict) -> bool:
+    return any(ev.get("type") == "withheld" for ev in f.get("evidence", []) or [])
+
+
+def refresh_fingerprint(f: dict) -> None:
+    """Set a finding's fingerprint from its evidence. A public copy's withheld finding keeps the one computed from
+    the full report: the same problem stays recognizable, and nothing about it is revealed."""
+    if not withheld(f):
+        f["fingerprint"] = fingerprint_of(f)
+
+
 def suite_pin(cfg: dict) -> str | None:
     v = (cfg.get("project") or {}).get("suite")
     return None if v in (None, "") else str(v).strip()
@@ -185,7 +196,7 @@ def pin_problem(cfg: dict) -> str | None:
     if pin and pin != major(kit_version()):
         return (f"this project is pinned to suite {pin} (`suite = \"{pin}\"` in project.toml), but this kit is {kit_version()}. "
                 f"Use a {pin}.x kit (the suite website's /v{pin}/ path, or a v{pin}.x release), or move the project to "
-                f"{major(kit_version())}.x by changing the pin")
+                f"{major(kit_version())}.x with `gradekit migrate`" + (" (a pull request of its own)" if int(pin) < int(major(kit_version())) else ""))
     return None
 
 
@@ -700,12 +711,15 @@ def validate_report(report: dict, cfg: dict, catalog: dict) -> tuple[list[str], 
         if f.get("disposition") and f.get("status") != "accepted":
             warnings.append(f"finding {fid}: has a disposition but status is '{f.get('status')}'")
         if report_format(report) >= 5:
-            if f.get("fingerprint") and f["fingerprint"] != fingerprint_of(f):
+            if withheld(f):
+                pass   # computed from the full report, before its evidence was withheld
+            elif f.get("fingerprint") and f["fingerprint"] != fingerprint_of(f):
                 errors.append(f"finding {fid}: fingerprint {f['fingerprint']} doesn't match its evidence (gradekit writes it: "
                               "`report check --write` or `rollup --write`)")
             elif not f.get("fingerprint"):
                 warnings.append(f"finding {fid}: no fingerprint yet (`report check --write` or `rollup --write` adds it)")
-    if report_format(report) >= 5 and report.get("rollup") and not str((report.get("run") or {}).get("model") or "").strip():
+    if (report_format(report) >= 5 and report.get("rollup") and not report.get("migrated")
+            and not str((report.get("run") or {}).get("model") or "").strip()):
         errors.append("run.model is empty: a finished report records the model that graded it (`report set REPORT run.model NAME`)")
     fz = analyze_findings(report, cfg)
 
@@ -1187,7 +1201,7 @@ def decision_for(action: dict, cfg: dict) -> dict | None:
 def apply_rollup(report: dict, cfg: dict) -> dict:
     if report_format(report) >= 5:
         for f in report.get("findings", []):
-            f["fingerprint"] = fingerprint_of(f)
+            refresh_fingerprint(f)
     roll = compute_rollup(report, cfg)
     report["rollup"] = roll
     for b in report.get("benchmarks", []):
@@ -1501,7 +1515,7 @@ def strip_private(obj):
 # quotes, commands and the wording of the actions that fix them. The full report is kept privately.
 
 WITHHELD_NOTE = "Details withheld from the public report; whoever ran the grade has the private copy."
-FINDING_KEEP = ("id", "benchmark_id", "severity", "status", "first_seen_commit", "disposition")
+FINDING_KEEP = ("id", "benchmark_id", "severity", "status", "first_seen_commit", "disposition", "fingerprint")
 LEAK_MIN = 12        # shortest withheld string worth searching for
 LEAK_LINE_MIN = 24   # lines of a withheld quote searched for on their own
 
@@ -2151,7 +2165,7 @@ def normalize_report(report: dict, cfg: dict, catalog: dict | None = None) -> di
         if b is not None and f.get("id") not in b["finding_ids"]:
             b["finding_ids"].append(f.get("id"))
         if report_format(report) >= 5:
-            f["fingerprint"] = fingerprint_of(f)
+            refresh_fingerprint(f)
     for bid, tv in compute_targets(report, cfg).items():
         if bid in by_id:
             by_id[bid]["target"] = tv
@@ -3327,6 +3341,288 @@ def shell_join(parts) -> str:
     return " ".join(shlex.quote(str(p)) for p in parts)
 
 
+# =========================================================================== migrate (4.x → 5)
+# One pull request moves a project to this kit's major: the pin in project.toml and, with --reports, its
+# reports in format 5. The change is mechanical and deterministic, so `gradekit ci` checks a migration pull
+# request by redoing it from the base branch's files. Scores and rollups are never touched.
+
+def utc_stamp(value) -> str | None:
+    """A 4.x run.date as a format-5 UTC timestamp: '2026-11-07' → '2026-11-07T00:00:00Z'."""
+    import datetime
+    s = str(value or "").strip()
+    if re.fullmatch(r"\d{4}-\d{2}-\d{2}", s):
+        return s + "T00:00:00Z"
+    if re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", s):
+        return s
+    try:
+        d = datetime.datetime.fromisoformat(s.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if d.tzinfo is None:
+        d = d.replace(tzinfo=datetime.timezone.utc)
+    return d.astimezone(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def scoring_version_4x(kit: str) -> str:
+    """The scoring rules a 4.x kit used: 4.0.0 and 4.1.0, then 4.2.0 from 4.2.0 on."""
+    m = re.fullmatch(r"4\.(\d+)\.\d+", str(kit or ""))
+    return f"4.{min(int(m.group(1)), 2)}.0" if m else str(kit or "0")
+
+
+def migrate_report(report: dict, private: dict | None = None) -> tuple[dict, list[str]]:
+    """A 4.x report in format 5, with its judgments, scores and rollup unchanged. `private` is the full report
+    of a public copy, if there is one: its findings give the withheld ones their fingerprints."""
+    if report_format(report) >= 5:
+        return report, []
+    notes = []
+    r = {"schema_version": REPORT_FORMAT, **copy.deepcopy(report)}
+    r["suite_version"] = kit_version()
+    r["migrated"] = {"from": report.get("suite_version"), "by": kit_version()}
+    run = r["run"] = dict(r.get("run") or {})
+    date = utc_stamp(run.get("date"))
+    if date is None:
+        die(f"run.date {run.get('date')!r} isn't a date; fix it in the report first")
+    if date != run.get("date"):
+        notes.append(f"run.date {run.get('date')} → {date}")
+    run["date"] = date
+    run.setdefault("started", date)
+    for key in ("model", "session", "work_order"):
+        run.setdefault(key, None)
+    r["config"] = {**(r.get("config") or {})}
+    r["config"].setdefault("scoring_version", scoring_version_4x(report.get("suite_version")))
+    base = str(run.get("base_commit") or "")
+    full = {f.get("id"): f for f in (private or {}).get("findings", [])}
+    for f in r.get("findings", []):
+        seen = str(f.get("first_seen_commit") or "")
+        if r.get("mode") == "pr" and f.get("status") == "new" and base and seen and (seen.startswith(base) or base.startswith(seen)):
+            f["status"] = "noticed"
+            notes.append(f"{f['id']}: new → noticed (first seen at the base commit: it was already there)")
+        if withheld(f):
+            if f.get("id") in full:
+                f["fingerprint"] = fingerprint_of(full[f["id"]])
+        else:
+            f["fingerprint"] = fingerprint_of(f)
+    return r, notes
+
+
+def set_pin_text(text: str, pin: str) -> str:
+    """project.toml with `suite = "PIN"` under [project], changing only that line (comments survive)."""
+    lines = text.splitlines(keepends=True)
+    start = next((i for i, ln in enumerate(lines) if ln.strip() == "[project]"), None)
+    if start is None:
+        die("project.toml has no [project] table")
+    end = next((i for i in range(start + 1, len(lines)) if lines[i].lstrip().startswith("[")), len(lines))
+    line = f'{"suite":<15} = "{pin}"   # the suite\'s major version for this project; tools won\'t write its reports with another\n'
+    for i in range(start + 1, end):
+        if re.match(r"\s*suite\s*=", lines[i]):
+            lines[i] = line
+            return "".join(lines)
+    at = next((i + 1 for i in range(start + 1, end) if re.match(r"\s*preset\s*=", lines[i])), start + 1)
+    lines.insert(at, line)
+    return "".join(lines)
+
+
+MIGRATE_REPORT_FILES = re.compile(r"(report\.json|report\.private\.json|runs/[^/]+\.json)")
+
+
+def migration_plan(pdir: Path, cfg: dict, with_reports: bool) -> list[dict]:
+    """Every file `migrate` changes: {path, text, notes, private}. Paths are relative to the project folder."""
+    out = []
+    toml = (pdir / PROJECT_FILE).read_text(encoding="utf-8")
+    new_toml = set_pin_text(toml, major(kit_version()))
+    if new_toml != toml:
+        out.append({"path": PROJECT_FILE, "text": new_toml, "notes": [f"suite = \"{major(kit_version())}\""], "private": False})
+    if not with_reports:
+        return out
+    for folder in report_folders(pdir):
+        private_path_ = folder / "report.private.json"
+        private = load_json(private_path_) if private_path_.exists() else None
+        migrated_main = None
+        for f in [folder / "report.json", private_path_, *sorted((folder / "runs").glob("*.json"))]:
+            if not f.exists():
+                continue
+            src = load_json(f)
+            if report_format(src) >= 5:
+                continue
+            new, notes = migrate_report(src, private if f.name == "report.json" else None)
+            rel = f.relative_to(pdir).as_posix()
+            out.append({"path": rel, "text": json.dumps(new, indent=2, ensure_ascii=False) + "\n", "notes": notes,
+                        "private": f.name.endswith(".private.json"), "report": new, "before": src})
+            if f.name == "report.json":
+                migrated_main = new
+        if migrated_main is not None:
+            md = migrated_report_md(migrated_main, cfg)
+            if md is not None and (folder / "report.md").exists():
+                out.append({"path": (folder / "report.md").relative_to(pdir).as_posix(), "text": md, "notes": [], "private": False})
+    return out
+
+
+def migrated_report_md(report: dict, cfg: dict) -> str | None:
+    """report.md for a migrated report, or None to leave the old one (a report graded under an older config)."""
+    try:
+        return render_report_md(report, cfg)
+    except GradekitError:
+        return None
+
+
+def same_migration(expected: dict, actual: dict) -> bool:
+    """A migration made by another 5.x kit (5.0.1, say) differs only in which 5.x it names."""
+    e = copy.deepcopy(expected)
+    have = {f.get("id"): f for f in actual.get("findings", []) if isinstance(f, dict)}
+    for f in e.get("findings", []):   # a withheld finding's fingerprint comes from the private report, which CI never sees
+        if withheld(f) and "fingerprint" not in f and "fingerprint" in have.get(f.get("id"), {}):
+            f["fingerprint"] = have[f["id"]]["fingerprint"]
+    if major(actual.get("suite_version", "")) == major(e.get("suite_version", "")):
+        e["suite_version"] = actual.get("suite_version")
+        if isinstance(actual.get("migrated"), dict) and isinstance(e.get("migrated"), dict):
+            e["migrated"]["by"] = actual["migrated"].get("by")
+    return e == actual
+
+
+def cmd_migrate(args) -> int:
+    pdir = project_dir_from_args(args)
+    if pdir is None:
+        die("give --project NAME (in a grading repo) or --project-dir DIR")
+    cfg = load_config(args, quiet=True)
+    pin, kit = suite_pin(cfg), major(kit_version())
+    if pin and int(pin) > int(kit):
+        die(f"this project is pinned to suite {pin}, newer than this kit ({kit_version()}); use a {pin}.x kit")
+    if (args.push or args.open) and not args.run:
+        die("--push and --open need --run")
+    if args.open and not args.push:
+        die("--open needs --push (the branch must be on the host first)")
+    plan = migration_plan(pdir, cfg, args.reports)
+    lines, checks = [], []
+    for item in plan:
+        if "report" in item:
+            before, after = item["before"], item["report"]
+            b, a = (before.get("rollup") or {}), (after.get("rollup") or {})
+            same = (b.get("overall_score"), (b.get("maturity") or {}).get("current_level")) == \
+                   (a.get("overall_score"), (a.get("maturity") or {}).get("current_level"))
+            checks.append(same)
+        lines.append(f"  {item['path']}" + (" (private, never committed)" if item["private"] else "")
+                     + (f": {'; '.join(item['notes'])}" if item["notes"] else ""))
+    result = {"project": pdir.name, "pin": kit, "files": [{"path": i["path"], "notes": i["notes"], "private": i["private"]} for i in plan],
+              "scores_unchanged": all(checks), "written": False}
+    if not plan:
+        emit(args, result, f"{pdir.name} is already on suite {kit}" + ("" if args.reports else " (add --reports to also upgrade its reports)"))
+        return 0
+    head = [f"migrate {pdir.name} to suite {kit}: {len(plan)} file(s)" + ("" if args.reports else " (the pin only; --reports also upgrades its reports)")]
+    if checks:
+        head.append(f"scores and rollups: {'unchanged' if all(checks) else 'CHANGED, which a migration must never do'} in {len(checks)} report(s)")
+    if not (args.write or args.run):
+        emit(args, result, "\n".join(head + lines + ["", "dry run: nothing written. --write writes them here; --run makes a branch and commits"]))
+        return 0
+    if not all(checks):
+        die("a migrated report's stored rollup differs from the original; nothing written")
+    import subprocess
+    root = Path(git_out(pdir, "rev-parse", "--show-toplevel", check=False) or ".")
+    in_git = (root / ".git").exists()
+    branch = args.branch or f"migrate/{pdir.name}-v{kit}"
+    title = f"Migrate {pdir.name} to suite {kit}"
+    steps = []
+    if args.run:
+        if not in_git:
+            die("--run needs the grading repo to be a git checkout")
+        base = args.base or default_branch(root, args.remote)
+        if git_out(root, "status", "--porcelain", check=False):
+            die("the grading repo has uncommitted changes; commit or stash them first")
+        r = subprocess.run(["git", "-C", str(root), "switch", "-c", branch, base], capture_output=True, text=True)
+        if r.returncode != 0:
+            die(f"git switch -c {branch} {base} failed: {(r.stderr or r.stdout).strip()}")
+    elif in_git:
+        current = git_out(root, "rev-parse", "--abbrev-ref", "HEAD", check=False)
+        base_name = (args.base or default_branch(root, args.remote)).split("/")[-1]
+        if current == base_name:
+            die(f"refusing to write on {current}: a migration goes through a pull request. Switch to a branch, or use --run")
+    for item in plan:
+        (pdir / item["path"]).write_text(item["text"], encoding="utf-8")
+    result["written"] = True
+    if args.run:
+        rels = [(pdir / i["path"]).resolve().relative_to(root.resolve()).as_posix() for i in plan if not i["private"]]
+        body = "\n".join([f"Moves `{pdir.name}` to suite {kit} with `gradekit migrate`" + (" --reports" if args.reports else "") + ".", "",
+                          "- the pin: `suite = \"" + kit + "\"` in project.toml"]
+                         + (["- its reports in format 5: scores and rollups unchanged; `gradekit ci` checks this by redoing it"] if args.reports else [])
+                         + ["", "Revert this pull request to undo it."]) + "\n"
+        body_file = Path(tempfile.gettempdir()) / f"gradekit-{branch.replace('/', '_')}.md"
+        body_file.write_text(body, encoding="utf-8")
+        steps = [["git", "-C", str(root), "add", "--", *rels], ["git", "-C", str(root), "commit", "-m", title, "--", *rels]]
+        if args.push:
+            steps.append(["git", "-C", str(root), "push", "-u", args.remote, branch])
+        base_name = (args.base or default_branch(root, args.remote)).split("/")[-1]
+        if args.open == "github":
+            steps.append(["gh", "pr", "create", "--base", base_name, "--head", branch, "--title", title, "--body-file", str(body_file)])
+        elif args.open == "gitlab":
+            steps.append(["glab", "mr", "create", "--source-branch", branch, "--target-branch", base_name, "--title", title,
+                          "--description", body, "--yes"])
+        for s in steps:
+            r = subprocess.run(s, capture_output=True, text=True, timeout=300)
+            if r.returncode != 0:
+                die(f"`{shell_join(s)}` failed:\n{(r.stderr or r.stdout).strip()}")
+        result.update(branch=branch, commit=git_out(root, "rev-parse", "HEAD"), pushed=bool(args.push), title=title, body_file=str(body_file))
+        tail = [f"committed on {branch}" + (f" and pushed to {args.remote}" if args.push else "") + f"; open a pull request titled "
+                f"\"{title}\" with the body in {body_file}" if not args.open else f"opened a pull request: {title}"]
+    else:
+        tail = [f"wrote them; commit them on a branch and open a pull request titled \"{title}\""]
+    if any(i["private"] for i in plan):
+        tail.append("report.private.json files were upgraded in place; they stay out of git")
+    emit(args, result, "\n".join(head + lines + [""] + tail))
+    return 0
+
+
+def check_migration(root: Path, mb: str, changes: list[tuple[str, str]]) -> dict | None:
+    """If a pull request is a migration (only edits to one project's reports, plus its pin), check each file is
+    exactly what `gradekit migrate` makes from the base branch's version. None if it isn't one."""
+    paths = [(s, p) for s, p in changes if p != f"projects/{INDEX_FILE}"]
+    rx = re.compile(r"projects/([^/]+)/reports/([^/]+)/(report\.json|report\.md|runs/[^/]+\.json)")
+    reports = [(s, p) for s, p in paths if rx.fullmatch(p)]
+    projects_ = {p.split("/")[1] for _, p in paths if p.startswith("projects/")}
+    if not reports or len(projects_) != 1:
+        return None
+    proj = next(iter(projects_))
+    toml_path = f"projects/{proj}/{PROJECT_FILE}"
+    if any(p != toml_path and (s, p) not in reports for s, p in paths) or any(s != "M" for s, _ in reports):
+        return None
+    problems, notes = [], []
+    pdir = root / "projects" / proj
+    try:
+        cfg = load_config(argparse.Namespace(project_dir=str(pdir), config=None, component=None), quiet=True)
+    except GradekitError as exc:
+        return {"project": proj, "problems": [f"config: {exc}"], "notes": [], "reports": 0}
+    if suite_pin(cfg) != major(kit_version()):
+        problems.append(f"a migration pins the project to this suite: `suite = \"{major(kit_version())}\"` in {toml_path}")
+    if any(p == toml_path for _, p in paths):
+        before = file_at(root, mb, toml_path)
+        if before is None or set_pin_text(before, major(kit_version())) != (root / toml_path).read_text(encoding="utf-8"):
+            problems.append(f"{toml_path}: a migration changes only the `suite` line (send other settings changes on their own)")
+    expected_json = {}
+    for s, p in reports:
+        if p.endswith(".json"):
+            base_text = file_at(root, mb, p)
+            try:
+                want, _ = migrate_report(json.loads(base_text or "{}"))
+                have = load_json(root / p)
+            except (GradekitError, json.JSONDecodeError) as exc:
+                problems.append(f"{p}: {exc}")
+                continue
+            if not same_migration(want, have):
+                problems.append(f"{p} isn't what `gradekit migrate` makes from the base branch's version: reports are never "
+                                "edited by hand, so run `gradekit migrate --reports` on a fresh branch")
+            elif p.endswith("/report.json"):
+                expected_json[p.rsplit("/", 1)[0]] = have
+    for s, p in reports:
+        if p.endswith("/report.md"):
+            folder = p.rsplit("/", 1)[0]
+            rep = expected_json.get(folder) or (load_json(root / folder / "report.json") if (root / folder / "report.json").exists() else None)
+            md = migrated_report_md(rep, cfg) if rep else None
+            if md is None or md != (root / p).read_text(encoding="utf-8"):
+                problems.append(f"{p} isn't the report.md that `gradekit render report` makes from the migrated report")
+    if any(p.endswith(".private.json") for _, p in reports):
+        problems.append("a private report is in the pull request: it must never be committed")
+    return {"project": proj, "problems": problems, "notes": notes,
+            "reports": sum(1 for _, p in reports if p.endswith("/report.json"))}
+
+
 # =========================================================================== index (grading repos)
 # projects/index.json: one file with every project's latest score, maturity, history and the
 # decisions waiting, for dashboards and the Review page. Derived from the reports, so it's
@@ -3429,7 +3725,8 @@ CI_MARKER = "<!-- gradekit-ci -->"
 REPORT_FOLDER_FILES = re.compile(r"(report\.json|report\.md|runs/[^/]+\.json)")
 SETTINGS_FILES = {PROJECT_FILE, DECISIONS_FILE, DISPOSITIONS_FILE, "reports/.gitkeep"}
 ROOT_SETTINGS = {"org.toml", "README.md", ".gitignore"}
-CI_LABELS = {"report": "grading: report", "settings": "grading: settings", "problems": "grading: needs changes"}
+CI_LABELS = {"report": "grading: report", "settings": "grading: settings", "migration": "grading: migration",
+             "problems": "grading: needs changes"}
 
 
 def git_changes(root, base: str, head: str) -> list[tuple[str, str]]:
@@ -3519,10 +3816,19 @@ def append_only(old_text: str | None, new_text: str, key: str, name: str) -> lis
 
 def ci_check(root: Path, base: str, head: str, changes: list[tuple[str, str]], site: str | None = None,
              repo_url: str | None = None, branch: str | None = None) -> dict:
+    mb = git_out(root, "merge-base", base, head, check=False) or base
+    mig = check_migration(root, mb, changes)
+    if mig is not None:
+        labels = [CI_LABELS["migration"]] + ([CI_LABELS["problems"]] if mig["problems"] else [])
+        result = {"kind": "migration", "project": mig["project"], "folder": None, "ok": not mig["problems"],
+                  "problems": mig["problems"], "warnings": [], "labels": labels,
+                  "summary": {"project": mig["project"], "reports": mig["reports"], "suite": major(kit_version())},
+                  "changed": [p for _, p in changes]}
+        result["comment"] = ci_comment(result, site, repo_url, branch)
+        return result
     shape = classify_change(changes)
     problems, warnings = list(shape["problems"]), []
     summary: dict = {}
-    mb = git_out(root, "merge-base", base, head, check=False) or base
     project = shape["project"]
     pdir = root / "projects" / project if project else None
 
@@ -3645,6 +3951,9 @@ def ci_comment(res: dict, site: str | None, repo_url: str | None, branch: str | 
         link = review_link(site, repo_url, s["project"], branch) if branch else None
         if link:
             lines += ["", f"[Review this report{' and answer the decisions' if s['pending_decisions'] else ''}]({link})"]
+    elif res["kind"] == "migration":
+        lines.append(f"**Migration** of `{s['project']}` to suite {s['suite']}: the pin, and {s['reports']} report(s) in format 5. "
+                     "Each file was checked by redoing the migration from the base branch; scores and rollups are unchanged.")
     elif res["kind"] == "settings":
         lines.append("**Settings** change" + (f" for `{res['project']}`" if res["project"] else "") + ".")
         for proj, h_, preset in s.get("configs", []):
@@ -3806,6 +4115,8 @@ def provenance_line(run: dict) -> str:
     """Who graded, with what, and how long it took (format 5)."""
     who = " ".join(x for x in (str(run.get("grader") or "").strip(), f"({run['model']})" if run.get("model") else "") if x)
     parts = [f"Graded by {md_cell(who or 'unknown')}"]
+    if isinstance(run.get("_migrated_from"), str):
+        parts.append(f"with suite {run['_migrated_from']} (migrated)")
     mins = (run.get("usage") or {}).get("minutes")
     if mins is not None:
         parts.append(f"{mins:g} min")
@@ -3830,7 +4141,7 @@ def render_report_md(report: dict, cfg: dict, catalog: dict | None = None) -> st
         out += [f"*PR check against base `{str((report.get('run') or {}).get('base_commit') or '?')[:7]}`. "
                 f"Untouched benchmarks are carried forward from the last full report.*", ""]
     if report_format(report) >= 5:
-        out += [provenance_line(report.get("run") or {}), ""]
+        out += [provenance_line({**(report.get("run") or {}), "_migrated_from": (report.get("migrated") or {}).get("from")}), ""]
 
     out += ["## Summary", "", f"Overall **{dash(roll['overall_score'])}**"
             + (" (capped by a failed gate)" if roll["overall_cap_applied"] else "")
@@ -5312,6 +5623,20 @@ def main(argv=None) -> int:
     p.set_defaults(fn=cmd_doctor)
 
     # ------------------------------------------------------------ deliver
+    p = sub.add_parser("migrate", help="move a project to this suite version in one pull request: the pin, and its reports with --reports",
+                       description="A dry run unless --write (here, never on the default branch) or --run (a new branch, committed). "
+                                   "Scores and rollups never change; `gradekit ci` checks a migration by redoing it. Revert the pull request to undo.")
+    with_config(p)
+    p.add_argument("--reports", action="store_true", help="also upgrade the project's 4.x reports to format 5 (and re-render report.md)")
+    p.add_argument("--write", action="store_true", help="write the files into this checkout (not on the default branch)")
+    p.add_argument("--run", action="store_true", help="create a branch from the default branch, write the files and commit")
+    p.add_argument("--push", action="store_true", help="with --run: push the branch")
+    p.add_argument("--open", choices=["github", "gitlab"], help="with --push: open the pull request with gh or glab")
+    p.add_argument("--branch", help="default: migrate/<project>-v<major>")
+    p.add_argument("--base", metavar="BRANCH", help="branch to start from (default: the remote's default branch)")
+    p.add_argument("--remote", default="origin")
+    p.set_defaults(fn=cmd_migrate)
+
     p = sub.add_parser("deliver", help="hand back a finished report: pr, save or return (prints the git steps, or runs them)",
                        description="Checks the report is finished, withholds sensitive findings if the grading repo is public, "
                                    "renders report.md, then delivers. For pr it prints the branch, commit, title and body "

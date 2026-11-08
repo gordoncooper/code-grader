@@ -184,3 +184,22 @@ def test_report_md_says_who_graded(gk, repo):
     subprocess.run(KIT + ["report", "check", rel, "--write"], cwd=repo, env=ENV, check=True, capture_output=True)
     md = gk.render_report_md(load(repo, rel), config(gk))
     assert re.search(r"\*Graded by Claude Code \(claude-opus-5-5\) · [\d.]+ min · work order `WO-7`\*", md)
+
+
+def test_a_public_copy_keeps_its_fingerprints_valid(gk, repo):
+    """redact withholds a sensitive finding's evidence; its fingerprint, computed from the full report, stays."""
+    rel = start(repo, "--model", "m")
+    subprocess.run(KIT + ["report", "finding", "add", rel, "--benchmark", "A2", "--title", "Amount unchecked", "--severity", "major",
+                          "--sensitive", "--cite", "src/payments/api.py:5", "--repo", CODE], cwd=repo, env=ENV, check=True, capture_output=True)
+    finish(repo, rel)
+    subprocess.run(KIT + ["report", "check", rel, "--write"], cwd=repo, env=ENV, check=True, capture_output=True)
+    fp = load(repo, rel)["findings"][0]["fingerprint"]
+    subprocess.run(KIT + ["redact", rel, "--in-place"], cwd=repo, env=ENV, check=True, capture_output=True)
+    public = load(repo, rel)
+    f = public["findings"][0]
+    assert f["evidence"][0]["type"] == "withheld" and f["fingerprint"] == fp
+    errors, _ = gk.validate_report(public, config(gk), gk.load_catalog())
+    assert not [e for e in errors if "fingerprint" in e]
+    gk_args = ["report", "check", rel]
+    r = subprocess.run(KIT + gk_args, cwd=repo, env=ENV, capture_output=True, text=True)
+    assert load(repo, rel)["findings"][0]["fingerprint"] == fp, "editing the public copy never overwrites it"
