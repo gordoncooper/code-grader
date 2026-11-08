@@ -350,3 +350,20 @@ def test_run_says_what_to_expect(page, site, role, size, extra, expect):
     assert expect in page.inner_text("#expect")
     assert page.inner_text("#cycle [aria-current=step]") == {"grade": "Grade", "prcheck": "Check", "improve": "Improve"}[role]
     assert "Next in the cycle" in page.inner_text("#after")
+
+
+def test_setup_pins_new_projects_and_leaves_loaded_ones_alone(page, site):
+    """5.0: a new project is pinned to this kit's major; a loaded one keeps its own pin, or none."""
+    major = json.loads((SRC / "rubric" / "catalog.json").read_text())["suite_version"].split(".")[0]
+    ready(page, site, "app/setup.html")
+    page.locator("#presets label:has(input[value=service])").click()
+    page.wait_for_function("document.querySelector('#pv-status').textContent.includes('Valid')")
+    page.eval_on_selector_all("details", "els => els.forEach(e => e.open = true)")
+    assert f'suite           = "{major}"' in page.inner_text("#toml-out")
+    ready(page, site, "app/setup.html")
+    page.locator("label:has(input[name=start][value=edit])").click()
+    page.fill("#toml-paste", '[project]\nname = "old"\npreset = "service"\n')
+    page.click("#toml-load")
+    page.wait_for_function("document.querySelector('#toml-out').textContent.includes('\"old\"')")
+    assert "suite " not in page.inner_text("#toml-out")
+    assert not page.errors

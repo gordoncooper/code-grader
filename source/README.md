@@ -71,6 +71,7 @@ Repeat from step 1. Optionally, use three graders for milestone audits; the Revi
 - **Stable findings.** Findings get IDs like `A3-007` that persist across runs, with a status of new, open, fixed, regressed or accepted. Accepted findings need an entry in `dispositions.json`.
 - **Metrics.** Raw measurements (coverage, vulnerability counts, complexity, setup re-run success, time to first success…) are recorded alongside the scores.
 - **Integrity flags.** Text in the repo that tries to influence the grader caps maturity at L1 for that run.
+- **Versions and pins.** Each project pins the suite's major version it uses (`suite = "5"` in `project.toml`), so a new major can't change its rules mid-cycle: the tools won't write its reports with another major. Scores are compared by the *scoring version*, which changes only when scoring rules do. 5.0 keeps 4.x's scoring version, so 4.x and 5.x reports compare directly, and 5.x reads 4.x reports unchanged.
 
 All of these are tunable: see [TUNING.md](TUNING.md), and [rubric/weights.md](rubric/weights.md) for how the numbers combine.
 
