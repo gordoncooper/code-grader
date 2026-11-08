@@ -171,6 +171,9 @@ def deep_merge(base: dict, over: dict) -> dict:
     return out
 
 
+# Publishing settings never change scores, so they are not part of the config fingerprint.
+PUBLISHING_DEFAULTS = {"public": True, "sensitive_benchmarks": ["A2"], "warn_at": "major"}
+
 HASHED_KEYS = ("suite_version", "preset", "answers", "weights", "gates", "zones", "targets", "maturity", "priorities")
 
 
@@ -340,6 +343,14 @@ def resolve_layers(layers: list[tuple[str, dict]], component: str | None = None,
         if not isinstance(d.get("approved"), bool):
             errors.append(f"decisions #{i} ({d.get('action_id')}): approved must be true or false")
     review = {"allow_agent_decisions": False, **(merged.get("review", {}) or {})}
+    publishing = {**PUBLISHING_DEFAULTS, **(merged.get("publishing", {}) or {})}
+    if not isinstance(publishing.get("public"), bool):
+        errors.append("publishing.public must be true or false")
+    if publishing.get("warn_at") not in SEVERITIES:
+        errors.append(f"publishing.warn_at must be one of {', '.join(SEVERITIES)}")
+    for bid in publishing.get("sensitive_benchmarks") or []:
+        if bid not in ids:
+            errors.append(f"publishing.sensitive_benchmarks: unknown benchmark '{bid}'")
 
     if errors:
         die(f"{len(errors)} configuration error(s):\n" + "\n".join(f"  - {e}" for e in errors))
@@ -365,6 +376,7 @@ def resolve_layers(layers: list[tuple[str, dict]], component: str | None = None,
         "dispositions": dispositions,
         "decisions": decisions,
         "review": review,
+        "publishing": publishing,
         "warnings": warnings,
     }
     cfg["hash"] = config_hash(cfg)
@@ -693,6 +705,21 @@ def validate_report(report: dict, cfg: dict, catalog: dict) -> tuple[list[str], 
                 errors.append(f"hidden-check leak: '{n}' appears outside holdout.private_details")
     if report.get("mode") == "full" and any(b.get("carried_forward") for b in report["benchmarks"]):
         warnings.append("full-mode report has carried_forward benchmarks; full audits should grade everything")
+
+    sens = sensitive_ids(report)
+    for loc, ev, _ in iter_evidence(report):
+        if ev.get("type") == "withheld" and loc.removeprefix("finding ") not in sens:
+            errors.append(f"{loc}: withheld evidence is only for findings marked sensitive (redact adds it; graders cite real evidence)")
+    pub = cfg.get("publishing") or PUBLISHING_DEFAULTS
+    if pub.get("public"):
+        floor = SEVERITIES.index(pub.get("warn_at", "major")) if pub.get("warn_at") in SEVERITIES else 1
+        for fid, f in findings.items():
+            if (f.get("benchmark_id") in (pub.get("sensitive_benchmarks") or []) and f.get("status") in OPEN_STATUSES
+                    and f.get("severity") in SEVERITIES and SEVERITIES.index(f["severity"]) >= floor and fid not in sens):
+                warnings.append(f"finding {fid} ({f.get('benchmark_id')}, {f.get('severity')}) isn't marked sensitive; "
+                                f"this grading repo is public, so mark it \"sensitive\": true unless its details are harmless")
+        if sens and not (report.get("publishing") or {}).get("redacted"):
+            warnings.append(f"{len(sens)} sensitive finding(s); run `gradekit redact --in-place` before committing this report")
     return errors, warnings
 
 
@@ -701,6 +728,8 @@ def cmd_validate(args) -> int:
     report = load_json(args.report)
     cfg = load_config(args, report)
     errors, warnings = validate_report(report, cfg, catalog)
+    if args.publish:
+        errors += [f"publish: {e}" for e in publish_problems(report)]
     for w in cfg.get("warnings", []) + warnings:
         print(f"warning: {w}")
     for e in errors:
@@ -778,7 +807,7 @@ def verify_evidence(report: dict, read_lines, tolerance: int = 2) -> dict:
     carried = {b["id"] for b in report.get("benchmarks", []) if b.get("carried_forward")}
     checked = skipped = 0
     failures: list[str] = []
-    other = {"command": 0, "absence": 0}
+    other = {"command": 0, "absence": 0, "withheld": 0}
     for loc, ev, bid in iter_evidence(report):
         etype = ev.get("type")
         if etype != "code":
@@ -792,7 +821,7 @@ def verify_evidence(report: dict, read_lines, tolerance: int = 2) -> dict:
         if problem:
             failures.append(f"{loc}: {problem}")
     return {"checked": checked, "failures": failures, "skipped_carried_forward": skipped,
-            "command": other.get("command", 0), "absence": other.get("absence", 0)}
+            "command": other.get("command", 0), "absence": other.get("absence", 0), "withheld": other.get("withheld", 0)}
 
 
 def cmd_verify_evidence(args) -> int:
@@ -808,7 +837,7 @@ def cmd_verify_evidence(args) -> int:
         print(f"FAIL: {f}")
     print(f"\ncode citations checked: {res['checked']}, failed: {len(res['failures'])}, "
           f"skipped (carried forward): {res['skipped_carried_forward']}; command: {res['command']}, "
-          f"absence: {res['absence']} (not machine-checkable)")
+          f"absence: {res['absence']} (not machine-checkable)" + (f"; withheld: {res['withheld']}" if res["withheld"] else ""))
     return 1 if res["failures"] else 0
 
 
@@ -1346,13 +1375,161 @@ def strip_private(obj):
     return obj
 
 
+# =========================================================================== publishing
+# A grading repo may be public. Findings marked "sensitive": true (usually security issues) keep
+# everything scoring needs (id, benchmark, severity, status and the files they concern, so zones,
+# gates, scores and priorities come out the same) and lose what would help an attacker: the title,
+# quotes, commands and the wording of the actions that fix them. The full report is kept privately.
+
+WITHHELD_NOTE = "Details withheld from the public report; whoever ran the grade has the private copy."
+FINDING_KEEP = ("id", "benchmark_id", "severity", "status", "first_seen_commit", "disposition")
+LEAK_MIN = 12        # shortest withheld string worth searching for
+LEAK_LINE_MIN = 24   # lines of a withheld quote searched for on their own
+
+
+def sensitive_ids(report: dict) -> set[str]:
+    return {f.get("id") for f in report.get("findings", []) if f.get("sensitive") is True}
+
+
+def _withheld_text(f: dict) -> list[tuple[str, bool]]:
+    """(text, is_quoted_code) pairs worth searching for. Quoted code is only a leak outside other
+    findings' own quotes: another finding may cite the same public line for an unrelated reason."""
+    out = [(f.get("title"), False), (f.get("disposition_concern"), False)]
+    for ev in f.get("evidence", []):
+        for key in ("quote", "excerpt", "command", "note", "searched"):
+            val = ev.get(key)
+            quoted = key in ("quote", "excerpt")
+            out.append((val, quoted))
+            if quoted and isinstance(val, str):
+                out += [(ln, True) for ln in val.splitlines() if len(norm(ln)) >= LEAK_LINE_MIN]
+    return [(norm(t), q) for t, q in out if isinstance(t, str) and len(norm(t)) >= LEAK_MIN and t != WITHHELD_NOTE]
+
+
+def _without_quotes(obj):
+    if isinstance(obj, dict):
+        return {k: _without_quotes(v) for k, v in obj.items() if k not in ("quote", "excerpt")}
+    if isinstance(obj, list):
+        return [_without_quotes(v) for v in obj]
+    return obj
+
+
+def _ids_text(ids) -> str:
+    ids = sorted(ids)
+    return ("issue " if len(ids) == 1 else "issues ") + ", ".join(ids)
+
+
+def redact_report(report: dict, catalog: dict | None = None) -> tuple[dict, list[str]]:
+    """The copy of a report that is safe to publish, and any places where withheld text still shows."""
+    names = {b["id"]: b["name"] for b in (catalog or load_catalog())["benchmarks"]}
+    public = strip_private(copy.deepcopy(report))
+    if "holdout" in public:
+        public["holdout"]["private_details"] = "[redacted]"
+    ids = sensitive_ids(report)
+    secrets: list[tuple[str, str, bool]] = []
+    findings = []
+    for f in public.get("findings", []):
+        if f.get("id") not in ids:
+            findings.append(f)
+            continue
+        secrets += [(f["id"], t, q) for t, q in _withheld_text(f)]
+        files = [repo_relative(ev["file"]) for ev in f.get("evidence", []) if ev.get("type") == "code" and ev.get("file")]
+        paths = list(dict.fromkeys(list(f.get("paths", []) or []) + files))
+        swap = {"title": f"{names.get(f.get('benchmark_id'), f.get('benchmark_id'))} issue (details withheld)",
+                "evidence": [{"type": "withheld", "note": WITHHELD_NOTE}], "sensitive": True}
+        if paths:
+            swap["paths"] = paths
+        g = {k: swap.get(k, v) for k, v in f.items() if k in FINDING_KEEP or k in swap}
+        g.update({k: v for k, v in swap.items() if k not in g})
+        findings.append(g)
+    if "findings" in public:
+        public["findings"] = findings
+
+    reworded: dict[str, dict] = {}
+    for b in public.get("benchmarks", []):
+        for act in b.get("path_to_target", []) or []:
+            hit = ids.intersection(act.get("resolves", []) or [])
+            if not hit:
+                continue
+            for key in ("action", "decision_question"):
+                if isinstance(act.get(key), str):
+                    secrets.append((f"action {act.get('id')}", norm(act[key]), False))
+            act["action"] = f"Fix withheld {_ids_text(hit)}. The private copy has the details."
+            if act.get("decision_question"):
+                act["decision_question"] = f"Approve the planned fix for withheld {_ids_text(hit)}? The private copy has the details."
+            reworded[act.get("id")] = {"action": act["action"], "decision_question": act.get("decision_question"),
+                                       "why_first": f"Fixes withheld {_ids_text(hit)}."}
+
+    def patch(obj):
+        if isinstance(obj, dict):
+            new = reworded.get(obj.get("action_id")) if isinstance(obj.get("action_id"), str) else None
+            for k, v in obj.items():
+                obj[k] = new[k] if new and k in new and k in ("action", "decision_question", "why_first") else patch(v)
+            return obj
+        if isinstance(obj, list):
+            return [patch(v) for v in obj]
+        return obj
+    for key in ("top_priorities", "rollup"):
+        if public.get(key):
+            public[key] = patch(public[key])
+    public["publishing"] = {"redacted": True, "withheld": sorted(ids)}
+
+    leaks: list[str] = []
+    if secrets:
+        places = [(f"benchmark {b.get('id')}", b) for b in public.get("benchmarks", [])]
+        places += [(f"finding {f.get('id')}", f) for f in public.get("findings", []) if f.get("id") not in ids]
+        places += [(k, v) for k, v in public.items() if k not in ("benchmarks", "findings")]
+        texts = [(where, norm(all_text(v)), norm(all_text(_without_quotes(v)))) for where, v in places]
+        for owner, secret, quoted in dict.fromkeys(secrets):
+            for where, text, prose in texts:
+                if secret in (prose if quoted else text):
+                    leaks.append(f"{owner}: withheld text still appears in {where}: \"{secret[:60]}{'…' if len(secret) > 60 else ''}\"")
+    return public, leaks
+
+
+def publish_problems(report: dict, require_redacted: bool = True) -> list[str]:
+    """Reasons a report is not yet safe to commit to a public grading repo."""
+    errors = []
+    if require_redacted and not (report.get("publishing") or {}).get("redacted"):
+        errors.append("not redacted: run `gradekit redact --in-place` on it first")
+    for f in report.get("findings", []):
+        if f.get("sensitive") is True and any(ev.get("type") != "withheld" for ev in f.get("evidence", [])):
+            errors.append(f"finding {f.get('id')} is sensitive but still carries its evidence")
+    private = (report.get("holdout") or {}).get("private_details")
+    if isinstance(private, list) and private:
+        errors.append("holdout.private_details still lists hidden-check results")
+    rest = copy.deepcopy(report)
+    (rest.get("holdout") or {}).pop("private_details", None)
+    if strip_private(rest) != rest:
+        errors.append("report still has private_* fields")
+    return errors
+
+
+def private_path(path: str) -> str:
+    return re.sub(r"\.json$", "", path) + ".private.json"
+
+
 def cmd_redact(args) -> int:
-    shared = strip_private(copy.deepcopy(load_json(args.report)))
-    if "holdout" in shared:
-        shared["holdout"]["private_details"] = "[redacted]"
-    out = args.out or re.sub(r"\.json$", "", args.report) + ".shared.json"
-    write_json(out, shared)
-    print(f"wrote redacted report to {out}")
+    report = load_json(args.report)
+    if (report.get("publishing") or {}).get("redacted"):
+        die(f"{args.report} is already redacted" + (f"; the full report is {private_path(args.report)}" if args.in_place else ""))
+    public, leaks = redact_report(report)
+    if leaks:
+        for leak in leaks:
+            print(f"LEAK: {leak}")
+        print("\nnothing written. Reword those places generically (or name only the finding ID) and run redact again.")
+        return 1
+    withheld = public["publishing"]["withheld"]
+    if args.in_place:
+        priv = private_path(args.report)
+        write_json(priv, report)
+        write_json(args.report, public)
+        print(f"wrote the full report to {priv}\nwrote the public report to {args.report}")
+        print(f"keep {Path(priv).name} out of the repo (grading repos ignore *.private.json); hand it to whoever fixes the code.")
+    else:
+        out = args.out or re.sub(r"\.json$", "", args.report) + ".shared.json"
+        write_json(out, public)
+        print(f"wrote redacted report to {out}")
+    print(f"withheld {len(withheld)} sensitive finding(s)" + (f": {', '.join(withheld)}" if withheld else ""))
     return 0
 
 
@@ -1609,6 +1786,13 @@ def render_project_toml(data: dict, defaults: dict | None = None, path: str = "p
         out += ["# Let agent reviewers approve decision questions (default: humans only):", "# [review]",
                 "# allow_agent_decisions = true", ""]
 
+    publishing = d.pop("publishing", None)
+    if publishing:
+        _emit_table("publishing", publishing, out)
+    else:
+        out += ["# Only trusted people can read this grading repo, so security details may stay in reports",
+                "# (default: treat it as public and withhold them):", "# [publishing]", "# public = false", ""]
+
     for comp in d.pop("components", []) or []:
         _emit_table("components", comp, out, array=True)
 
@@ -1665,13 +1849,19 @@ projects/
     └── reports/
         └── <date>-<commit>/   one folder per report                        (graders, via pull request)
             ├── report.json
-            └── report.md
+            ├── report.md
+            └── report.private.json   full report with security details   (never committed)
 ```
 
 - Graders open a pull request per report, on a branch named `report/<project>/<date>-<commit>`.
 - Decision answers go on that same pull request, or in a follow-up `decisions/<project>/<date>` pull request.
 - `org.toml` at the root (optional) holds house rules shared by every project.
+- This repo may be public. Before committing a report, graders run `gradekit redact --in-place`, which withholds
+  the details of sensitive (security) findings, and `gradekit validate --publish`. The full report stays out of
+  the repo as `report.private.json`.
 """
+
+PRIVATE_IGNORE = "*.private.json"
 
 
 def slug(name: str) -> str:
@@ -1725,6 +1915,12 @@ def cmd_init(args) -> int:
         if not (root / "README.md").exists():
             (root / "README.md").write_text(GRADING_REPO_README, encoding="utf-8")
             print(f"wrote {root / 'README.md'}")
+        ignore = root / ".gitignore"
+        lines = ignore.read_text(encoding="utf-8").splitlines() if ignore.exists() else []
+        if PRIVATE_IGNORE not in lines:
+            ignore.write_text("\n".join(lines + ["# full reports with withheld security details; never commit them", PRIVATE_IGNORE]) + "\n",
+                              encoding="utf-8")
+            print(f"{'updated' if lines else 'wrote'} {ignore}")
     print(f"next: edit {out}, then run: gradekit resolve " + (f"--project {name}" if pdir else f"--config {out}"))
     return 0
 
@@ -1803,7 +1999,9 @@ def _api_check(p):
     rc = report.get("config") or {}
     return {"validation": {"errors": errors, "warnings": cfg.get("warnings", []) + warnings, "notes": notes},
             "rollup": roll, "config_source": source, "config_hash_match": rc.get("hash") == cfg["hash"],
-            "config": {k: cfg.get(k) for k in ("hash", "preset", "answers", "gates", "project", "review", "zones")},
+            "publish": {"public": bool((cfg.get("publishing") or {}).get("public")), "problems": publish_problems(report, require_redacted=False),
+                        "sensitive": sorted(sensitive_ids(report))},
+            "config": {k: cfg.get(k) for k in ("hash", "preset", "answers", "gates", "project", "review", "zones", "publishing")},
             "weights": {k: v["weight"] for k, v in cfg["weights"].items()}}
 
 
@@ -1824,10 +2022,8 @@ def _api_verify_zip(p):
 
 
 def _api_redact(p):
-    shared = strip_private(copy.deepcopy(p["report"]))
-    if "holdout" in shared:
-        shared["holdout"]["private_details"] = "[redacted]"
-    return {"report": shared}
+    public, leaks = redact_report(p["report"])
+    return {"report": public, "leaks": leaks, "withheld": public["publishing"]["withheld"]}
 
 
 def _api_decisions_update(p):
@@ -1955,6 +2151,7 @@ def main(argv=None) -> int:
 
     p = sub.add_parser("validate", help="schema + config + semantic checks")
     p.add_argument("report", nargs="?", help="report JSON (default: the project's latest report)")
+    p.add_argument("--publish", action="store_true", help="also fail unless the report is safe to commit to a public grading repo")
     with_config(p)
     p.set_defaults(fn=cmd_validate)
 
@@ -1992,10 +2189,13 @@ def main(argv=None) -> int:
     p.add_argument("expected")
     p.set_defaults(fn=cmd_calibrate)
 
-    p = sub.add_parser("redact", help="strip hidden-check details for sharing")
+    p = sub.add_parser("redact", help="make a copy safe to publish: no hidden-check details, sensitive findings withheld")
     p.add_argument("report", nargs="?", help="report JSON (default: the project's latest report)")
     p.add_argument("--project", metavar="NAME"); p.add_argument("--grading-repo", metavar="DIR"); p.add_argument("--project-dir", metavar="DIR")
-    p.add_argument("--out")
+    g = p.add_mutually_exclusive_group()
+    g.add_argument("--out", help="where to write the public copy (default: REPORT.shared.json)")
+    g.add_argument("--in-place", action="store_true",
+                   help="for grading repos: move the full report to REPORT.private.json and write the public one in its place")
     p.set_defaults(fn=cmd_redact)
 
     p = sub.add_parser("rollup-repo", help="combine per-component reports (each must already have a rollup)")

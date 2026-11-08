@@ -90,11 +90,12 @@
           <div class="field" id="t-level-wrap" hidden><label for="t-level">Level</label>
             <select id="t-level"><option value="L2">L2 Usable / Beta</option><option value="L3" selected>L3 Production-ready</option><option value="L4">L4 Exemplary</option></select></div>
         </div>
-        <details class="advanced"><summary>Advanced: overrides, extra gates, agent decisions</summary>
+        <details class="advanced"><summary>Advanced: overrides, extra gates, agent decisions, publishing</summary>
           <div class="field" style="margin-top:12px"><span class="label">Weight overrides</span><small>Only when an answer can't express it. Each needs a reason.</small><div id="w-overrides"></div><div><button class="btn" type="button" id="add-wover">+ Weight override</button></div></div>
           <div class="field"><span class="label">Target overrides</span><div id="t-overrides"></div><div><button class="btn" type="button" id="add-tover">+ Target override</button></div></div>
           <div class="field"><label for="extra-gate">Extra gates</label><small>Make more benchmarks non-negotiable for this project.</small><div class="row-btns"><select id="extra-gate" style="max-width:320px"></select></div><div id="extra-gates" class="effects" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px"></div></div>
           <label style="display:flex;gap:8px;align-items:center;font-size:.9rem"><input type="checkbox" id="agent-decisions"> Let agent reviewers approve decision questions (default: humans only)</label>
+          <label style="display:flex;gap:8px;align-items:center;font-size:.9rem;margin-top:8px"><input type="checkbox" id="private-repo"> Only trusted people can read the grading repo, so reports may keep security details (default: withhold them, as for a public repo)</label>
         </details>
       </section>
 

@@ -202,3 +202,66 @@ def test_review_decisions_produce_appended_json(page, site):
     out = page.inner_text("#dec-output")
     data = json.loads(out[out.index("{"):out.rindex("}") + 1])
     assert data["decisions"][-1]["approved"] is True and data["decisions"][-1]["decided_by"] == "tester@example.com"
+
+
+# --------------------------------------------------------------------------- safe publishing (4.3)
+
+def review_full_report(page, site, tmp_path, report):
+    root = tmp_path / "grading"
+    proj = root / "projects" / "orders-api"
+    shutil.copytree(PROJECT, proj)
+    (proj / "reports" / "2026-11-07-a1b2c3d" / "report.json").write_text(json.dumps(report))
+    z = zip_dir(root, tmp_path / "full.zip", "grading")
+    ready(page, site, "app/review.html")
+    page.click("[data-tab=files]")
+    page.set_input_files("#file-input", [str(z)])
+    page.wait_for_selector("#results:not([hidden])")
+
+
+def test_review_marks_withheld_findings(page, site):
+    ready(page, site, "app/review.html")
+    page.click("#sample")
+    page.wait_for_selector("#results:not([hidden])")
+    assert "Not safe to commit" not in page.inner_text("#result-banners")
+    page.click("#result-tabs button[data-tab=findings]")
+    row = page.locator("#panel-findings tr:has-text('A2-001')")
+    assert "details withheld" in row.inner_text()
+    assert not page.errors
+
+
+def test_review_offers_a_copy_safe_to_publish(page, site, tmp_path):
+    from test_publishing import full_report
+    review_full_report(page, site, tmp_path, full_report())
+    assert "Not safe to commit to a public grading repo" in page.inner_text("#result-banners")
+    page.click("#result-tabs button[data-tab=findings]")
+    assert "sensitive" in page.locator("#panel-findings tr:has-text('A3-001')").inner_text()
+    page.click("#result-tabs button[data-tab=more]")
+    with page.expect_download() as dl:
+        page.click("text=Download a copy safe to publish")
+    public = json.loads(Path(dl.value.path()).read_text())
+    assert public["publishing"]["redacted"] is True and "A3-001" in public["publishing"]["withheld"]
+    assert not page.errors
+
+
+def test_review_refuses_a_leaky_copy(page, site, tmp_path):
+    from test_publishing import full_report
+    r = full_report()
+    a3 = next(f for f in r["findings"] if f["id"] == "A3-001")
+    next(b for b in r["benchmarks"] if b["id"] == "A3")["change_explanation"] = a3["title"]
+    review_full_report(page, site, tmp_path, r)
+    page.click("#result-tabs button[data-tab=more]")
+    page.click("text=Download a copy safe to publish")
+    page.wait_for_selector("#panel-more .banner.bad")
+    assert "benchmark A3" in page.inner_text("#panel-more")
+
+
+def test_setup_private_grading_repo_option(page, site):
+    ready(page, site, "app/setup.html")
+    page.locator("#presets label:has(input[value=service])").click()
+    page.wait_for_function("document.querySelector('#pv-status').textContent.includes('Valid')")
+    page.eval_on_selector_all("details", "els => els.forEach(e => e.open = true)")
+    page.check("#private-repo")
+    page.wait_for_function("/^public = false/m.test(document.querySelector('#toml-out').textContent)")
+    page.uncheck("#private-repo")
+    page.wait_for_function("!/^public = false/m.test(document.querySelector('#toml-out').textContent)")
+    assert not page.errors

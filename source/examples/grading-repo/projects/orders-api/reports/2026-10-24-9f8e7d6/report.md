@@ -76,7 +76,7 @@ Answer in `decisions.json` (the suite website's *Review a report* page writes it
 | ID | Severity → effective | Zone | Status | Title |
 |---|---|---|---|---|
 | A1-001 | major → critical | hot | new | Discount ignored for single-item orders |
-| A2-001 | major → critical | hot | new | No input validation on charge amount |
+| A2-001 | major → critical | hot | new | Security & Privacy issue (details withheld) |
 | A3-001 | critical → critical | hot | new | Stock reservation errors swallowed |
 | A4-001 | major → minor | cold | new | Seed script not re-runnable |
 | A4-002 | minor → major | hot | new | Wall-clock time read inside domain logic |

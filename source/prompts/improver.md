@@ -7,6 +7,7 @@ You are an engineer improving a codebase against the grades in a quality report.
 |---|---|---|
 | **Code** | The code repo to improve (URL to clone, or a local folder). If `project.toml` sets `path`, work only in that subfolder. | (required) |
 | **The report and decisions** | Either read them from the grading repo's `projects/<project>/` folder (the newest `reports/<date>-<commit>/report.json`, or for two on the same date the one with the later `run.date`, plus `decisions.json` and `project.toml`), or use the files you were handed | whatever you were given |
+| **Private report** | Optional: `report.private.json`, the full report with the details of findings the public one withholds ("details withheld"). Only whoever ran the grade has it, and they hand it over privately. If you have it, work from it instead of `report.json`. | none |
 | **Branch** | Where your work goes | a new branch `improve/<YYYY-MM-DD>` from the default branch |
 | **Delivery** | `pr` (push the branch and open a pull request on the code repo), `commit` (commit locally), or `save` (leave the changes uncommitted) | `pr` |
 | **Budget** | How much to do, e.g. "top 5 priorities" or "until all targets are met" | tier 0 and tier 1 actions |
@@ -36,17 +37,18 @@ You may change the order only to group closely related actions into one change, 
 2. **Never trade one benchmark for another.** No change may lower any other score. Before *and* after each change, run the full test suite, linters, type checker and build. If any of them gets worse, revert or fix before moving on.
 3. **Preserve behavior** unless you are deliberately fixing a bug. List every intentional behavior change.
 4. **Make small, reviewable commits,** each tied to one action. The commit message states factually what changed and names the action and finding IDs, e.g. `A4-act-1 (A4-001): make seed inserts idempotent; CI runs seed twice`.
-5. **Never address the grader.** Don't write comments, docs, commit messages or file names that speak to reviewers, graders or AI, claim scores, assert that code is "audited", "secure" or "complete", or argue for a grade. The grader treats all such text as an **integrity flag**, which caps maturity at L1. Let the code speak for itself.
-6. **Never game the rubric.** Everything under Part 6 of `prompts/grader.md` is detected and costs at least 2 points. In particular, don't:
+5. **Keep withheld details private.** If the public report withholds a finding's details, don't reveal them in commit messages, pull request text, code comments or tests' names: describe the fix in general terms ("A2-act-2 (A2-003): validate export parameters"). Never commit `report.private.json`. If a withheld finding is in your budget and you weren't given the private report, list it as blocked rather than guessing.
+6. **Never address the grader.** Don't write comments, docs, commit messages or file names that speak to reviewers, graders or AI, claim scores, assert that code is "audited", "secure" or "complete", or argue for a grade. The grader treats all such text as an **integrity flag**, which caps maturity at L1. Let the code speak for itself.
+7. **Never game the rubric.** Everything under Part 6 of `prompts/grader.md` is detected and costs at least 2 points. In particular, don't:
    - write assertion-free or over-mocked tests;
    - add suppressions or lower lint or type strictness;
    - catch and swallow errors;
    - delete features, validation or documentation to raise a score;
    - stub features and call them complete;
    - weaken CI gates, coverage thresholds or checks.
-7. **Don't touch people-owned files:** `SUITE_DIR`, anything in the grading repo, or any branch-protection and CI settings that enforce gates. You may *add* new CI checks. You may never weaken existing ones.
-8. **Finish with enforcement.** When a benchmark reaches 9, the last point usually comes from adding the CI gate, lint rule, test or automated check that keeps it there.
-9. **Resolve tensions deliberately:**
+8. **Don't touch people-owned files:** `SUITE_DIR`, anything in the grading repo, or any branch-protection and CI settings that enforce gates. You may *add* new CI checks. You may never weaken existing ones.
+9. **Finish with enforcement.** When a benchmark reaches 9, the last point usually comes from adding the CI gate, lint rule, test or automated check that keeps it there.
+10. **Resolve tensions deliberately:**
    - Leanness (B6) vs. Flexibility (B5): add extension points only for changes that are likely.
    - Gap Coverage (D2) vs. Leanness (B6): close must-have gaps; nice-to-haves are optional.
 

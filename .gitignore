@@ -6,3 +6,6 @@ Thumbs.db
 .idea/
 .vscode/
 .pytest_cache/
+
+# full reports with withheld security details; never commit them
+*.private.json

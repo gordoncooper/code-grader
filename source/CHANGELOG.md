@@ -7,6 +7,21 @@ Versioning rules for the suite itself:
 
 After any major or minor change, re-run calibration (`calibration/README.md`) before trusting new scores.
 
+## 4.3.0 (unreleased)
+Minor release: tools that let agents run the whole cycle without custom scripts, and safer publishing. No scoring changes; config fingerprints and existing reports stay valid.
+
+**Safe publishing for public grading repos**
+- Graders mark findings whose details would help an attacker (an exploitable vulnerability, a leaked secret) with `"sensitive": true`.
+- `gradekit redact --in-place` splits a report into a public `report.json` and a full `report.private.json`, which is never committed (`gradekit init` adds `*.private.json` to the grading repo's `.gitignore`). In the public report, a sensitive finding keeps its ID, benchmark, severity, status and the files it concerns, so scores, gates, zones and priorities are exactly the same; its title, quotes and commands, and the wording of the actions and decision questions that fix it, are withheld. `redact` refuses to write anything while withheld text still appears elsewhere in the report, and says where.
+- `gradekit redact` (without `--in-place`) withholds sensitive findings too, as well as hidden-check details.
+- `gradekit validate --publish` fails until a report is safe to commit. In a public grading repo, `validate` also warns about open security findings of major severity or worse that aren't marked sensitive.
+- New `[publishing]` settings: `public` (default true), `sensitive_benchmarks` and `warn_at`. They don't affect scores or the config fingerprint. See TUNING.md.
+- Report format: optional `sensitive` on findings, a `withheld` evidence type (written only by `redact`) and a `publishing` block.
+- The grader, improver and PR-check prompts say how to handle sensitive findings. `verify-evidence` counts withheld evidence separately.
+- **Review a report** marks sensitive and withheld findings, warns when a report isn't safe to commit to a public grading repo, and downloads a copy that is (refusing, with the places to fix, if withheld text still shows elsewhere).
+- **Set up a project** has an option for grading repos that only trusted people can read.
+- The example grading repo's security finding A2-001 is now withheld, as a grader would publish it.
+
 ## 4.2.2
 Patch release from an end-to-end run of the whole workflow on a real repository. No scoring changes; config fingerprints and existing reports stay valid.
 

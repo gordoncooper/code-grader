@@ -157,7 +157,30 @@ To let agent reviewers approve decision questions (the default is people only), 
 allow_agent_decisions = true
 ```
 
-### 9. Monorepos
+### 9. Public grading repos and security findings
+A grading repo is treated as public by default. Graders mark findings whose details would help an attacker with `"sensitive": true`, and `gradekit redact --in-place` then splits the report:
+
+- `report.json`, the public report. Each sensitive finding keeps its ID, benchmark, severity, status and the files it concerns, so scores, gates, zones and priorities are exactly what the full report gives. Its title, quotes and commands are replaced by "details withheld", and so is the wording of the actions and decision questions that fix it.
+- `report.private.json`, the full report. Never commit it (grading repos ignore `*.private.json`). Hand it to whoever fixes the code, through whatever private channel you already use.
+
+`gradekit validate --publish` fails until a report is safe to commit. In a public grading repo, `validate` also warns about open security (A2) findings of major severity or worse that aren't marked sensitive. To change which benchmarks and severities it watches:
+
+```toml
+[publishing]
+sensitive_benchmarks = ["A2", "A1"]
+warn_at = "critical"
+```
+
+If only trusted people can read the grading repo, turn withholding off:
+
+```toml
+[publishing]
+public = false
+```
+
+None of this changes scores, so it doesn't change the config fingerprint.
+
+### 10. Monorepos
 Give each part its own project, with a `path` naming its subfolder:
 
 ```toml
