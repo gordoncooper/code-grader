@@ -1,4 +1,4 @@
-# Code Grading Suite v4.2.2: PR Check
+# Code Grading Suite v4.3.0: PR Check
 
 A lightweight grading pass for a single change. It catches backsliding between full audits at a fraction of the cost. **Everything in `prompts/grader.md` still applies**: integrity and safety rules, scoring rules, evidence format, finding IDs and anti-gaming rules. This file only changes the scope and adds a verdict.
 

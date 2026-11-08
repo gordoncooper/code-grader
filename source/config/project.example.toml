@@ -1,4 +1,4 @@
-# EXAMPLE project configuration for the Code Grading Suite (v4.2.2)
+# EXAMPLE project configuration for the Code Grading Suite (v4.3.0)
 # In a grading repo this file lives at projects/<name>/project.toml.
 # People own this file. Agents read it but don't change it.
 # Answers to decision questions go in decisions.json, accepted findings in dispositions.json.

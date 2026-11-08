@@ -4,7 +4,7 @@ This is the central grading repo. Coding agents grade a codebase on 35 benchmark
 
 This repo also holds the **Code Grading Suite** itself (the prompts, rubric, config and the `gradekit` tool) and its website, so one clone gives an agent everything it needs.
 
-> **This repo is public.** Anyone can read the reports here, including security findings and quoted code. Only grade code here that you're happy to show, or scrub reports first with `gradekit redact`.
+> **This repo is public.** Anyone can read the reports here, including quoted code. Graders publish safely by default: before delivering, `gradekit redact --in-place` withholds the details of sensitive findings (security problems, say) and hidden checks, keeping the full report as `report.private.json`, which is never committed. Scores stay the same. Only grade code here that you're happy to show.
 
 ## Website
 
