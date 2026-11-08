@@ -59,3 +59,15 @@ When you finish, or run out of budget, write an improvement log. With `pr` deliv
 - **Skipped:** actions you didn't do, with the reason.
 - **Behavior changes:** every intentional change in behavior.
 - **New issues noticed:** problems you found but didn't fix. Describe them factually; don't propose scores.
+
+If you can run Python, keep the log as a small JSON file outside the code repo and render it, which also lists every pending decision as blocked:
+
+```json
+{"done": [{"action_id": "A4-act-1", "commit": "1a2b3c4", "resolves": ["A4-001"], "check": "ran the seed twice in CI"}],
+ "blocked": [], "skipped": [{"action_id": "B5-act-1", "reason": "optional"}],
+ "behavior_changes": ["Seeding twice is now a no-op instead of an error"], "new_issues": []}
+```
+
+```
+python3 SUITE_DIR/tools/gradekit.py render log improve-log.json --report REPORT --project-dir PROJECT_DIR
+```

@@ -391,6 +391,10 @@
           }
         }
       }
+    },
+    "summary": {
+      "type": "string",
+      "description": "3–5 sentences: overall health, biggest risks and strengths. Shown at the top of report.md and the grading pull request"
     }
   },
   "$defs": {
@@ -774,6 +778,13 @@
             "string",
             "null"
           ]
+        },
+        "rationale": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "One line: why this score. Shown in the scorecard"
         }
       }
     }

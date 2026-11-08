@@ -2358,5 +2358,6 @@
     "withheld": [
       "A2-001"
     ]
-  }
+  },
+  "summary": "An early baseline: a committed API key, almost no tests and a thin README."
 }
