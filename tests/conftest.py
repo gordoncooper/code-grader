@@ -142,12 +142,33 @@ class PageErrors(list):
         return page
 
 
-@pytest.fixture
-def page(browser):
-    ctx = browser.new_context(viewport={"width": 1320, "height": 1000}, accept_downloads=True)
+def _page(browser, strict):
+    ctx = browser.new_context(viewport={"width": 1320, "height": 1000}, accept_downloads=True, bypass_csp=not strict)
     p = ctx.new_page()
     errors = PageErrors()
     errors.watch(p)
     p.errors = errors
+    if strict:
+        # Record content-security-policy violations, which the browser reports as events.
+        p.add_init_script("document.addEventListener('securitypolicyviolation', e => "
+                          "(window.__csp = window.__csp || []).push(e.violatedDirective + ' ' + e.blockedURI))")
+    return ctx, p
+
+
+@pytest.fixture
+def page(browser):
+    """A page for driving the site. Tests may inject scripts (axe-core, string predicates), so the pages'
+    content-security policy is bypassed here; strict_page enforces it."""
+    ctx, p = _page(browser, strict=False)
+    yield p
+    ctx.close()
+
+
+@pytest.fixture
+def strict_page(browser):
+    """A page with the site's content-security policy enforced, as visitors get it. Only use selector
+    waits (wait_for_selector) here: string predicates count as eval and are blocked."""
+    ctx, p = _page(browser, strict=True)
+    p.csp_violations = lambda: p.evaluate("window.__csp || []")
     yield p
     ctx.close()

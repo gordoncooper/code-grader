@@ -21,7 +21,7 @@ def setup_empty(page, site):
 def setup_filled(page, site):
     engine_ready(page, site, "app/setup.html")
     page.locator("#presets label:has(input[value=service])").click()
-    page.wait_for_function("document.querySelector('#pv-status').textContent.includes('Valid')")
+    page.wait_for_selector("#pv-status:has-text('Valid')")
     page.eval_on_selector_all("details", "els => els.forEach(e => e.open = true)")
 
 

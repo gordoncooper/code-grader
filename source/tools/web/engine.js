@@ -17,20 +17,55 @@
     listeners.forEach(function (fn) { try { fn(state); } catch (e) { /* ignore */ } });
   }
 
-  function loadScript(src) {
+  function loadScript(src, integrity) {
     return new Promise(function (resolve, reject) {
       var s = document.createElement("script");
       s.src = src; s.async = true;
+      if (integrity) { s.integrity = integrity; s.crossOrigin = "anonymous"; }
       s.onload = resolve;
       s.onerror = function () { reject(new Error("couldn't load " + src)); };
       document.head.appendChild(s);
     });
   }
 
+  function hexToBase64(hex) {
+    var bin = "";
+    for (var i = 0; i < hex.length; i += 2) bin += String.fromCharCode(parseInt(hex.substr(i, 2), 16));
+    return btoa(bin);
+  }
+
+  // The suite's own files are checked against this site's manifest.json, so a half-finished deploy or a
+  // changed file is caught instead of run.
+  var manifest = null;
+  async function suiteHashes() {
+    if (manifest) return manifest;
+    manifest = {};
+    try {
+      var res = await fetch(new URL("manifest.json", SITE).href, { cache: "no-cache" });
+      if (res.ok) (await res.json()).files.forEach(function (f) { manifest[f.path] = "sha256-" + hexToBase64(f.sha256); });
+    } catch (e) { /* no manifest: files are still served from this site */ }
+    return manifest;
+  }
   async function fetchText(path) {
-    var res = await fetch(new URL("suite/" + path, SITE).href, { cache: "no-cache" });
+    var hashes = await suiteHashes(), opts = { cache: "no-cache" };
+    if (hashes["suite/" + path]) opts.integrity = hashes["suite/" + path];
+    var res;
+    try { res = await fetch(new URL("suite/" + path, SITE).href, opts); }
+    catch (e) { throw new Error("suite/" + path + " doesn't match this site's manifest.json (redeploy the whole site)"); }
     if (!res.ok) throw new Error("couldn't fetch suite/" + path + " (" + res.status + ")");
     return res.text();
+  }
+
+  // Pyodide's own loader fetches its files with plain fetch(); while it loads (and for packages
+  // later), known files get the pinned hash added, so the browser verifies them.
+  function verifyPyodideFetches(index, hashes) {
+    var orig = window.fetch;
+    window.fetch = function (input, init) {
+      var url = typeof input === "string" ? input : (input && input.url) || String(input);
+      var h = url.indexOf(index) === 0 ? hashes[url.slice(index.length).split("?")[0]] : null;
+      if (h && !(init && init.integrity)) init = Object.assign({}, init || {}, { integrity: h });
+      return orig.call(this, input, init);
+    };
   }
 
   async function startPyodide() {
@@ -38,8 +73,32 @@
     var index = cfg.pyodideIndexURL || "https://cdn.jsdelivr.net/pyodide/v0.29.3/full/";
     if (!/\/$/.test(index)) index += "/";
     setStatus("loading", "Loading Python…");
-    if (typeof window.loadPyodide !== "function") await loadScript(index + "pyodide.js");
-    var py = await window.loadPyodide({ indexURL: index });
+    var pins = cfg.pyodideIntegrity;
+    var options = { indexURL: index };
+    if (pins) {
+      // Pyodide's lock file (checked) gives the hash of every package; add those to the pins.
+      var lockRes = await fetch(index + "pyodide-lock.json", { integrity: pins["pyodide-lock.json"] }).catch(function () {
+        throw new Error("Pyodide's files at " + index + " don't match the pinned hashes in engine-config.js");
+      });
+      var lock = await lockRes.json(), hashes = Object.assign({}, pins);
+      Object.keys(lock.packages || {}).forEach(function (n) {
+        var pkg = lock.packages[n];
+        if (pkg.file_name && pkg.sha256 && !/^[a-z]+:/.test(pkg.file_name)) hashes[pkg.file_name] = "sha256-" + hexToBase64(pkg.sha256);
+      });
+      verifyPyodideFetches(index, hashes);
+      options.lockFileContents = lock;
+      options.packageBaseUrl = index;
+      try {
+        if (typeof window.loadPyodide !== "function") await loadScript(index + "pyodide.js", pins["pyodide.js"]);
+        // Loaded here, checked, so Pyodide doesn't load it again unchecked.
+        if (typeof window._createPyodideModule !== "function") await loadScript(index + "pyodide.asm.js", pins["pyodide.asm.js"]);
+      } catch (e) {
+        throw new Error("Pyodide's files at " + index + " don't match the pinned hashes in engine-config.js");
+      }
+    } else if (typeof window.loadPyodide !== "function") {
+      await loadScript(index + "pyodide.js");
+    }
+    var py = await window.loadPyodide(options);
     setStatus("loading", "Loading gradekit…");
     var texts = await Promise.all(SUITE_FILES.map(fetchText));
     SUITE_FILES.forEach(function (path, i) {

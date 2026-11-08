@@ -53,6 +53,22 @@ Minor release: tools that let agents run the whole cycle without custom scripts,
   - `fetch-kit.py`, which downloads the kit from your suite website and refuses it unless it matches the published checksum.
 - `gradekit init --ci github|gitlab --site URL` installs the check. It never overwrites an existing `.gitlab-ci.yml`.
 
+**Supply-chain trust**
+- **Pyodide is pinned and checked.** `assets/engine-config.js` holds the SHA-384 hash of every Pyodide core file: the loader, its WebAssembly runtime, the standard library and the lock file. The pages load them with subresource integrity, so the browser refuses any file that doesn't match. Packages are checked against the (checked) lock file. A changed CDN or a wrong self-hosted copy stops the engine with a clear message instead of running.
+- **The kit's own files** that the pages run (`gradekit.py`, the config, catalog and schema) are checked against the site's `manifest.json`, so a half-finished deploy or an edited file is refused.
+- **A strict content-security policy on every page**, as a `<meta>` tag so it works on any host:
+  - scripts only from the site and jsDelivr, never inline, and no `eval`;
+  - connections only to the site, jsDelivr and GitHub;
+  - no forms or plugins.
+
+  `.htaccess` also sends it as a header, with `frame-ancestors 'none'`.
+- **Signed releases:** every release has `SHA256SUMS`, and its zips carry signed build provenance (Sigstore, keyless). The release notes show how to check both.
+- **New tests:**
+  - every page carries the policy, and every page and state works under it with no violations;
+  - the real engine starts under it with every file verified;
+  - tampered Pyodide files and an edited kit file are refused;
+  - the pins match the published Pyodide.
+
 **One vocabulary**
 - **`rubric/glossary.json`** defines the suite's 44 terms, from *benchmark* and *gate* to *effective severity*, *accepted finding* and *PR check*. It also lists alternatives to avoid.
 - **Generated from it:**
