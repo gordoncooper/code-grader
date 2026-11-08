@@ -303,3 +303,50 @@ def test_review_lists_projects_from_the_index(page, site, tmp_path):
     page.wait_for_selector("#results:not([hidden])")
     assert "Loaded orders-api" in page.inner_text("#gh-status")
     assert not [e for e in page.errors if "status of 404" not in e], "optional files (org.toml…) may 404"
+
+
+# --------------------------------------------------------------------------- Start a run remembers projects (4.3)
+
+def test_run_remembers_each_project(page, site):
+    page.goto(site + "app/run.html", wait_until="networkidle")
+    page.fill("#code-loc", "https://github.com/acme/orders-api")
+    page.fill("#gdir-loc", "https://github.com/acme/grading")
+    page.select_option("#size", "large")
+    page.check("input[name=delivery][value=save]", force=True)
+    page.fill("#extras input[type=text]", "abc1234")          # commit: a per-run detail, not remembered
+    page.wait_for_selector("#saved-projects button:has-text('orders-api')")
+    # another project
+    page.fill("#code-loc", "https://github.com/acme/billing")
+    page.fill("#gdir-loc", "/srv/grading/billing")
+    page.select_option("#size", "small")
+    page.wait_for_selector("#saved-projects button:has-text('billing')")
+    page.reload(wait_until="networkidle")
+    page.click("#saved-projects button:has-text('orders-api')")
+    assert page.input_value("#code-loc") == "https://github.com/acme/orders-api"
+    assert page.input_value("#gdir-loc") == "https://github.com/acme/grading"
+    assert page.input_value("#size") == "large"
+    assert page.is_checked("input[name=delivery][value=save]"), "the delivery chosen for this project and task"
+    assert page.input_value("#extras input[type=text]") == "", "the commit is per run"
+    assert "Project: orders-api" in page.inner_text("#prompt-out")
+    page.click("#saved-projects [aria-label='Forget billing']")
+    assert page.locator("#saved-projects button:has-text('billing')").count() == 0
+    assert not page.errors
+
+
+@pytest.mark.parametrize("role, size, extra, expect", [
+    ("grade", "small", None, "about 20–40 min."),
+    ("grade", "medium", "three", "45 min to 1.5 h per grader"),
+    ("prcheck", "large", None, "about 15–40 min."),
+    ("improve", "medium", "all", "about 2–4 h."),
+])
+def test_run_says_what_to_expect(page, site, role, size, extra, expect):
+    page.goto(site + "app/run.html", wait_until="networkidle")
+    page.check(f"input[name=role][value={role}]", force=True)
+    page.select_option("#size", size)
+    if extra == "three":
+        page.locator("label:has-text('How many graders') select").select_option("3")
+    if extra == "all":
+        page.locator("label:has-text('How much') select").select_option("all")
+    assert expect in page.inner_text("#expect")
+    assert page.inner_text("#cycle [aria-current=step]") == {"grade": "Grade", "prcheck": "Check", "improve": "Improve"}[role]
+    assert "Next in the cycle" in page.inner_text("#after")

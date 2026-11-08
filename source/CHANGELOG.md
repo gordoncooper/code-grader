@@ -53,6 +53,11 @@ Minor release: tools that let agents run the whole cycle without custom scripts,
   - `fetch-kit.py`, which downloads the kit from your suite website and refuses it unless it matches the published checksum.
 - `gradekit init --ci github|gitlab --site URL` installs the check. It never overwrites an existing `.gitlab-ci.yml`.
 
+**Start a run remembers your projects**
+- **Saved settings:** each project's settings are kept in your browser: where the agent runs, where the code and grading files are, the suite, the number of graders, the improver's budget and source, guidance, code size, and the delivery you chose for each task. A **Your projects** row restores them in one click. Per-run details (commit, pull request, branch, report) start empty each time. Up to 8 projects are kept, and each can be forgotten.
+- **What to expect:** a rough agent time for the task and code size (for example, grading a medium codebase takes about 45 min to 1.5 h, and a PR check 10–25 min), what drives the cost, and your part.
+- **Where you are in the cycle:** grade → decide → improve → check, with what comes next.
+
 **Accessibility**
 - Every page now passes axe-core's WCAG 2.2 AA and best-practice rules, at desktop and phone width, in every state tested: each Review tab with a report loaded, Setup filled in, Start a run with three graders, and every docs page. Fixed along the way:
   - **Tabs** follow the ARIA tabs pattern: a tab list, tab panels, one tab in the Tab order, and arrow keys, Home and End to move between tabs.
