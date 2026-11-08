@@ -83,7 +83,8 @@ GLOSSARY_PATH = SUITE_DIR / "rubric" / "glossary.json"
 PROJECT_FILE, DECISIONS_FILE, DISPOSITIONS_FILE = "project.toml", "decisions.json", "dispositions.json"
 PILLARS = ["A", "B", "C", "D", "E", "F", "X"]
 OPEN_STATUSES = {"new", "noticed", "open", "regressed"}
-FINDING_STATUSES = ["new", "noticed", "open", "fixed", "regressed", "accepted"]   # noticed: format 5 only
+FINDING_STATUSES = ["new", "noticed", "open", "fixed", "regressed", "accepted", "withdrawn"]   # noticed, withdrawn: format 5
+DISPUTES_FILE = "disputes.json"
 GAP_STATUSES = ["new", "open", "fixed", "regressed", "accepted"]
 SEVERITIES = ["minor", "major", "critical"]
 HEAT = {"cold": 0, "normal": 1, "hot": 2}
@@ -1498,6 +1499,9 @@ def compute_diff(old: dict, new: dict, cfg_old: dict, cfg_new: dict) -> dict:
             regressions.append(f"new {f['effective_severity']} finding {f['id']} ({f['zone']} zone): {f['title']}")
     for f in regressed:
         regressions.append(f"finding regressed {f['id']}: {f['title']}")
+    for i, f in nf.items():
+        if f.get("status") == "withdrawn" and of.get(i, {}).get("status") != "withdrawn":
+            notes.append(f"withdrawn after a dispute: {i} ({(f.get('dispute') or {}).get('note') or 'no note'})")
     for i, f in of.items():
         if i not in nf and f.get("status") in OPEN_STATUSES:
             notes.append(f"open finding {i} disappeared without a 'fixed' status (finding IDs must be stable)")
@@ -1763,7 +1767,57 @@ def cmd_redact(args) -> int:
     return 0
 
 
+def repo_rollup(paths: list) -> dict:
+    """The repo-wide result of a monorepo's reports: overall weighted by component weight, maturity the lowest."""
+    rows = []
+    for path in paths:
+        r = load_json(path)
+        roll = r.get("rollup")
+        if not roll:
+            die(f"{path} has no rollup; run `gradekit report check --write` (or `rollup --write`) on it first")
+        comp = r.get("component") or {}
+        if comp.get("name") == "repo":
+            continue
+        rows.append({"component": comp.get("name") or Path(path).stem, "weight": comp.get("weight", 1) or 1,
+                     "preset": (r.get("config") or {}).get("preset"), "overall": roll["overall_score"],
+                     "level": roll["maturity"]["current_level"], "failed_gates": [g["benchmark_id"] for g in roll["gates"] if g["status"] == "failed"]})
+    if not rows:
+        die("no component reports (components/NAME.json) to combine")
+    scored = [(x["overall"], x["weight"]) for x in rows if x["overall"] is not None]
+    tw = sum(w for _, w in scored)
+    overall = round(sum(s * w for s, w in scored) / tw, 1) if tw else None
+    lowest = min(rows, key=lambda x: level_num(x["level"]))
+    return {"computed_by": "gradekit.py rollup-repo", "overall_score": overall, "maturity": lowest["level"],
+            "limited_by": lowest["component"], "components": rows}
+
+
+def component_reports(folder: Path) -> list[Path]:
+    """A report folder's components/NAME.json (never the private copies)."""
+    d = folder / "components"
+    return sorted(p for p in d.glob("*.json") if not p.name.endswith(".private.json")) if d.is_dir() else []
+
+
+def folder_reports(folder: Path) -> list[Path]:
+    return [folder / "report.json", *component_reports(folder)]
+
+
 def cmd_rollup_repo(args) -> int:
+    if len(args.reports) == 1 and Path(args.reports[0]).is_dir():
+        folder = Path(args.reports[0])
+        if not (folder / "components").is_dir():
+            die(f"{folder} has no components/ folder")
+        summary = repo_rollup(folder_reports(folder)[1:])
+        if args.write:
+            main_path = folder / "report.json"
+            r = load_json(main_path)
+            r["repo_rollup"] = summary
+            write_json(main_path, r)
+            print(f"stored the repo-wide result in {main_path} (repo_rollup)")
+        for x in summary["components"]:
+            print(f"{x['component']:<20} {x['weight']:>6} {str(x['overall']):>7} {x['level']}")
+        print(f"\nrepo overall (component-weighted): {summary['overall_score']}; maturity (lowest component): {summary['maturity']}")
+        args._result = {**summary, "written": str(folder / "report.json") if args.write else None}
+        return 0
     rows = []
     for path in args.reports:
         r = load_json(path)
@@ -2408,6 +2462,9 @@ def emit(args, result: dict, text: str) -> None:
 
 # ---------------------------------------------------------------- commands
 
+REPO_LEVEL = ("B3", "E3", "E4", "F2", "F6", "X6")   # in a monorepo, what the whole repository shares (grader Part 9)
+
+
 def cmd_report_new(args) -> int:
     if args.mode == "pr" and not args.base_commit:
         die("--mode pr needs --base-commit")
@@ -2415,9 +2472,15 @@ def cmd_report_new(args) -> int:
     if not m or not 1 <= int(m.group(1)) <= int(m.group(2)):
         die(f"--run takes N/COUNT, e.g. 2/3; got '{args.run}'")
     run_index, run_count = int(m.group(1)), int(m.group(2))
+    repo_level = getattr(args, "component", None) == "repo"
+    if repo_level:
+        args.component = None
     cfg = load_config(args, quiet=True)
     if pin_problem(cfg):
         die(pin_problem(cfg))
+    comp = (cfg.get("component") or {}).get("name")
+    if (comp or repo_level) and run_count > 1:
+        die("several runs per component aren't supported yet: grade each component once (--run 1/1)")
     pdir = project_dir_from_args(args)
     commit = args.commit.strip()
     now = utc_now()
@@ -2425,7 +2488,7 @@ def cmd_report_new(args) -> int:
         out = Path(args.out)
     elif pdir:
         folder = pdir / "reports" / f"{now[:10]}-{commit[:7]}"
-        out = folder / ("report.json" if run_count == 1 else f"runs/run-{run_index}.json")
+        out = folder / (f"components/{slug(comp)}.json" if comp else "report.json" if run_count == 1 else f"runs/run-{run_index}.json")
     else:
         die("give --project NAME (or --project-dir), or --out FILE")
     if out.exists() and not args.force:
@@ -2433,9 +2496,10 @@ def cmd_report_new(args) -> int:
     catalog = load_catalog()
     previous = {}
     if pdir:
-        older = [f for f in report_folders(pdir) if (f / "report.json").resolve() != out.resolve()]
+        rel_name = f"components/{slug(comp)}.json" if comp else "report.json"
+        older = [f for f in report_folders(pdir) if (f / rel_name).exists() and (f / rel_name).resolve() != out.resolve()]
         if older:
-            previous = benchmarks_by_id(load_json(older[-1] / "report.json"))
+            previous = benchmarks_by_id(load_json(older[-1] / rel_name))
     project = (cfg.get("project") or {}).get("name") or (pdir.name if pdir else None)
     report = {
         "schema_version": REPORT_FORMAT, "suite_version": catalog["suite_version"], "mode": args.mode,
@@ -2453,6 +2517,14 @@ def cmd_report_new(args) -> int:
     }
     for b in report["benchmarks"]:
         b["previous_score"] = (previous.get(b["id"]) or {}).get("score")
+    if repo_level or comp:   # grader Part 9: the repo report grades what the whole repo shares; components grade the rest
+        if repo_level:
+            report["component"] = {"name": "repo", "path": "."}
+        for b in report["benchmarks"]:
+            shared = b["id"] in REPO_LEVEL
+            if shared != bool(repo_level):
+                b.update(applicability="not_applicable", score=None, confidence=None,
+                         applicability_reason="graded per component" if repo_level else "graded at repo level")
     normalize_report(report, cfg, catalog)
     out.parent.mkdir(parents=True, exist_ok=True)
     write_json(out, report)
@@ -2720,7 +2792,7 @@ def cmd_report_set(args) -> int:
     return 0
 
 
-def report_todo(report: dict) -> list[str]:
+def report_todo(report: dict, pdir: Path | None = None) -> list[str]:
     """What a grader still has to do before the report is finished."""
     todo = []
     for b in report.get("benchmarks", []):
@@ -2735,6 +2807,12 @@ def report_todo(report: dict) -> list[str]:
         todo.append("list limitations (or 'None'): `report set REPORT limitations \"...\" --append`")
     if report_format(report) >= 5 and not str((report.get("run") or {}).get("model") or "").strip():
         todo.append("record the model that graded: `report set REPORT run.model NAME` (or `report new --model`)")
+    if report_format(report) >= 5 and pdir is not None:
+        ids = {f.get("id") for f in report.get("findings", [])}
+        for d in open_disputes(pdir, report):
+            if d.get("finding_id") in ids:
+                todo.append(f"answer the dispute on {d['finding_id']} ({d.get('by')}: {d.get('reason')}): "
+                            f"`report finding answer REPORT {d['finding_id']} --uphold|--withdraw --note \"why\"`")
     return todo
 
 
@@ -2742,10 +2820,11 @@ def cmd_report_check(args) -> int:
     report, cfg = load_for_edit(args)
     normalize_report(report, cfg)
     errors, warnings = validate_report(report, cfg, load_catalog())
-    note = work_order_note(project_dir_for_report(args.report), report)
+    pdir_ = project_dir_for_report(args.report) or project_dir_from_args(args)
+    note = work_order_note(pdir_, report)
     if note:
         warnings.append(note)
-    todo = report_todo(report)
+    todo = report_todo(report, pdir_)
     todo_ids = {t.split(" ", 1)[0] for t in todo}
     # A blank benchmark fails several rules at once; the to-do list says it once.
     errors = [e for e in errors if not any(e.startswith(f"{bid}: applicable benchmark") for bid in todo_ids)]
@@ -3303,7 +3382,7 @@ def prepare_delivery(args, report: dict, cfg: dict) -> dict:
     """Everything every delivery needs. Returns the file paths, or dies with what's left to do."""
     normalize_report(report, cfg)
     errors, _ = validate_report(report, cfg, load_catalog())
-    todo = report_todo(report)
+    todo = report_todo(report, project_dir_for_report(args.report))
     if args.repo:
         errors += [f"citation: {f}" for f in verify_evidence(report, repo_reader(args.repo), 2)["failures"]]
     if errors or todo:
@@ -3333,8 +3412,34 @@ def prepare_delivery(args, report: dict, cfg: dict) -> dict:
     md = re.sub(r"\.json$", "", args.report) + ".md"
     Path(md).write_text(render_report_md(report, cfg), encoding="utf-8")
     files["markdown"] = md
+    files["components"] = prepare_components(Path(args.report).parent, public, args)
     files["report_obj"] = report
     return files
+
+
+def prepare_components(folder: Path, public: bool, args) -> list[str]:
+    """A monorepo report's components/NAME.json: each finished, redacted when public, with its report.md."""
+    done = []
+    for cp in component_reports(folder):
+        r = load_json(cp)
+        ns = argparse.Namespace(report=str(cp), config=None, project=None, project_dir=None, component=None, grading_repo=None)
+        ccfg = authoring_config(ns, r)
+        errors, _ = validate_report(r, ccfg, load_catalog())
+        todo = report_todo(r, project_dir_for_report(cp))
+        if errors or todo:
+            args._exit = 1 if errors else EXIT_INCOMPLETE
+            raise DeliveryBlocked([f"components/{cp.name}: {e}" for e in errors], [f"components/{cp.name}: {x}" for x in todo])
+        if public and not (r.get("publishing") or {}).get("redacted"):
+            pub, leaks = redact_report(r)
+            if leaks:
+                args._exit = 1
+                raise DeliveryBlocked([f"components/{cp.name}: leak: {x}" for x in leaks], [])
+            write_json(private_path(str(cp)), r)
+            write_json(cp, pub)
+            r = pub
+        cp.with_suffix(".md").write_text(render_report_md(r, ccfg), encoding="utf-8")
+        done.append(str(cp))
+    return done
 
 
 class DeliveryBlocked(Exception):
@@ -3747,6 +3852,252 @@ def check_migration(root: Path, mb: str, changes: list[tuple[str, str]]) -> dict
 
 
 
+
+# =========================================================================== disputes
+# A person who thinks a finding is wrong disputes it in projects/NAME/disputes.json (append-only). The next
+# grader must answer: uphold it (with a note saying why it stands) or withdraw it (status `withdrawn`, which
+# counts nowhere). An answer names the dispute's date, so the dispute is closed by the report that answers it.
+
+def load_disputes(pdir: Path | None) -> list[dict]:
+    return read_list_file(pdir / DISPUTES_FILE, "disputes") if pdir else []
+
+
+def answered_disputes(pdir: Path) -> set:
+    """(finding ID, dispute date) pairs some report has answered."""
+    out = set()
+    for folder in report_folders(pdir):
+        for f in folder_reports(folder):
+            if not f.exists():
+                continue
+            try:
+                r = load_json(f)
+            except GradekitError:
+                continue
+            for fd in r.get("findings", []):
+                ans = fd.get("dispute") or {}
+                if ans.get("answer") and ans.get("disputed_on"):
+                    out.add((fd.get("id"), ans["disputed_on"]))
+    return out
+
+
+def open_disputes(pdir: Path | None, report: dict | None = None) -> list[dict]:
+    """Disputes no report has answered yet. With `report`, also count its own answers (it may be the one answering)."""
+    if pdir is None:
+        return []
+    done = answered_disputes(pdir)
+    for fd in (report or {}).get("findings", []):
+        ans = fd.get("dispute") or {}
+        if ans.get("answer") and ans.get("disputed_on"):
+            done.add((fd.get("id"), ans["disputed_on"]))
+    return [d for d in load_disputes(pdir) if (d.get("finding_id"), d.get("date")) not in done]
+
+
+def cmd_dispute_add(args) -> int:
+    pdir = project_dir_from_args(args)
+    if pdir is None or not (pdir / PROJECT_FILE).exists():
+        die("give --project NAME (or --project-dir) of a project with a project.toml")
+    folders = report_folders(pdir)
+    known = {}
+    for folder in folders:
+        try:
+            known.update({f.get("id"): folder.name for f in load_json(folder / "report.json").get("findings", [])})
+        except GradekitError:
+            continue
+    if args.finding not in known:
+        die(f"no finding {args.finding} in {pdir.name}'s reports")
+    path = pdir / DISPUTES_FILE
+    data = load_json(path) if path.exists() else {"_about": "Findings people think are wrong. Append new entries; never edit old "
+                                                             "ones. The next grader answers each: upheld, or withdrawn.", "disputes": []}
+    entry = {"finding_id": args.finding, "report": args.report or known[args.finding], "reason": args.reason, "by": args.by,
+             "date": utc_now()}
+    data.setdefault("disputes", []).append(entry)
+    write_json(path, data)
+    emit(args, {"dispute": entry, "written": str(path)},
+         f"disputed {args.finding} in {path}\nThe next grader must answer it; commit {DISPUTES_FILE} in a pull request of its own.")
+    return 0
+
+
+def cmd_dispute_list(args) -> int:
+    root = Path(args.grading_repo or ".")
+    pdirs = [project_dir_from_args(args)] if (args.project or args.project_dir) else (
+        [d for d in sorted((root / "projects").iterdir()) if (d / PROJECT_FILE).exists()] if (root / "projects").is_dir() else [])
+    rows = []
+    for pdir in pdirs:
+        still = {(d.get("finding_id"), d.get("date")) for d in open_disputes(pdir)}
+        for d in load_disputes(pdir):
+            st = "open" if (d.get("finding_id"), d.get("date")) in still else "answered"
+            if args.all or st == "open":
+                rows.append({**d, "project": pdir.name, "status": st})
+    emit(args, {"disputes": rows}, "\n".join(f"{r['finding_id']}  {r['status']:<8} {r['project']}  by {r.get('by')}: {r.get('reason')}"
+                                             for r in rows) or "no open disputes")
+    return 0
+
+
+def cmd_finding_answer(args) -> int:
+    report, cfg = load_for_edit(args)
+    f = finding_or_die(report, args.id)
+    if report_format(report) < 5:
+        die("answering a dispute needs a format-5 report (suite 5.x)")
+    pdir = project_dir_for_report(args.report) or project_dir_from_args(args)
+    mine = [d for d in open_disputes(pdir, report) if d.get("finding_id") == args.id]
+    if not mine:
+        die(f"no open dispute on {args.id} in {DISPUTES_FILE}")
+    d = mine[-1]
+    f["dispute"] = {"answer": "withdrawn" if args.withdraw else "upheld", "note": args.note, "disputed_on": d["date"], "by": d.get("by")}
+    if args.withdraw:
+        f["status"] = "withdrawn"
+    save_edit(args, report, cfg)
+    emit(args, {"id": f["id"], "dispute": f["dispute"]},
+         f"{f['id']}: dispute {'withdrawn: the finding no longer counts' if args.withdraw else 'upheld'}")
+    return 0
+
+
+# =========================================================================== calibration program
+# Golden repos, frozen at a commit, with expected scores a person set; several independent grader runs each.
+# `gradekit calibration run` scores every run against its golden's expected scores, measures the spread across
+# runs, and writes calibration/results.json and RESULTS.md. The results carry a fingerprint of the scoring rules,
+# and a kit test fails when the rules change without the results being regenerated: no scoring change ships
+# unmeasured.
+
+GOLDEN_DIR = SUITE_DIR / "calibration" / "golden"
+CALIBRATION_RESULTS = SUITE_DIR / "calibration" / "results.json"
+CALIBRATION_MD = SUITE_DIR / "calibration" / "RESULTS.md"
+
+
+def calibrate_scores(scores: dict, exp: dict) -> dict:
+    """One run's {benchmark: {score, applicability}} against a golden's expected scores."""
+    crit = {"within_tolerance_pct": 90, "mae_max": 0.75, **exp.get("criteria", {})}
+    total = within = 0
+    errs, mism, deltas, rows = [], [], [], []
+    for bid, e in sorted(exp.get("expected", {}).items()):
+        b = scores.get(bid) or {}
+        actual = b.get("score")
+        if e.get("applicability") and e["applicability"] != b.get("applicability"):
+            mism.append(f"{bid}: expected {e['applicability']}, got {b.get('applicability')}")
+        if e.get("score") is None or actual is None:
+            continue
+        tol = e.get("tolerance", 1)
+        d = actual - e["score"]
+        total += 1
+        within += abs(d) <= tol
+        errs.append(abs(d))
+        deltas.append(d)
+        rows.append({"benchmark": bid, "expected": e["score"], "actual": actual, "delta": d, "within": abs(d) <= tol})
+    if not total:
+        die("no comparable benchmarks")
+    pct, mae, bias = 100 * within / total, sum(errs) / total, sum(deltas) / total
+    ok = pct >= crit["within_tolerance_pct"] and mae <= crit["mae_max"] and not mism
+    return {"pass": ok, "within_tolerance_pct": round(pct, 1), "mae": round(mae, 3), "bias": round(bias, 3), "compared": total,
+            "applicability_mismatches": mism, "criteria": crit, "rows": rows}
+
+
+def run_scores(report: dict) -> dict:
+    return {b["id"]: {"score": b.get("score"), "applicability": b.get("applicability")} for b in report.get("benchmarks", [])}
+
+
+def scoring_fingerprint() -> str:
+    """What calibration measures: the scoring version, every benchmark's rubric (measures, boundaries, anchors,
+    caps) and the computed limits. A change to any of them needs calibration to be run again."""
+    rub = parse_rubric()
+    body = {"scoring_version": load_toml(DEFAULTS_PATH).get("suite_version"),
+            "benchmarks": [{k: b.get(k) for k in ("id", "measures", "not_this", "assess", "anchors", "caps")} for b in rub["benchmarks"]],
+            "limits": [CRITICAL_MAX, NO_STRENGTH_MAX, NO_ENFORCEMENT_MAX, sorted(AUTO_CAPS)]}
+    return hashlib.sha256(json.dumps(body, sort_keys=True, ensure_ascii=False).encode()).hexdigest()[:16]
+
+
+def calibration_results(golden_dir: Path, min_runs: int = 3) -> dict:
+    goldens = []
+    for d in sorted(p for p in golden_dir.iterdir() if (p / "expected.json").exists()) if golden_dir.is_dir() else []:
+        exp = load_json(d / "expected.json")
+        runs = []
+        for f in sorted((d / "runs").glob("*.json"), key=lambda p: (len(p.name), p.name)) if (d / "runs").is_dir() else []:
+            run = load_json(f)
+            res = calibrate_scores(run.get("scores") or {}, exp)
+            runs.append({"run": f.stem, "model": run.get("model"), "graded": run.get("graded"),
+                         **{k: res[k] for k in ("pass", "within_tolerance_pct", "mae", "bias", "applicability_mismatches")}})
+        max_spread = exp.get("criteria", {}).get("max_spread", 1)
+        spread, unstable = {}, []
+        for bid in sorted(exp.get("expected", {})):
+            vals = [((load_json(f).get("scores") or {}).get(bid) or {}).get("score") for f in sorted((d / "runs").glob("*.json"))] \
+                if (d / "runs").is_dir() else []
+            vals = [v for v in vals if isinstance(v, int)]
+            if len(vals) >= 2:
+                spread[bid] = max(vals) - min(vals)
+                if spread[bid] > max_spread:
+                    unstable.append(bid)
+        enough = len(runs) >= min_runs
+        goldens.append({"name": d.name, "reference": exp.get("reference"), "set_by": exp.get("set_by"), "runs": runs,
+                        "runs_needed": min_runs, "max_spread": max_spread,
+                        "spread": {"largest": max(spread.values()) if spread else None,
+                                   "mean": round(sum(spread.values()) / len(spread), 2) if spread else None, "unstable": unstable},
+                        "pass": enough and bool(runs) and all(r["pass"] for r in runs) and not unstable,
+                        "status": "pass" if enough and all(r["pass"] for r in runs) and not unstable
+                                  else ("needs more runs" if not enough else "fail")})
+    return {"_about": "Written by `gradekit calibration run`. Don't edit: a kit test checks it matches the golden runs and the "
+                      "current scoring rules.", "scoring_version": load_toml(DEFAULTS_PATH).get("suite_version"),
+            "scoring_fingerprint": scoring_fingerprint(), "min_runs": min_runs,
+            "pass": bool(goldens) and all(g["pass"] for g in goldens), "goldens": goldens}
+
+
+def calibration_markdown(res: dict) -> str:
+    out = ["# Calibration results", "",
+           f"Generated by `gradekit calibration run` (scoring version {res['scoring_version']}, "
+           f"rules fingerprint `{res['scoring_fingerprint']}`). Don't edit.", "",
+           f"**Overall: {'PASS' if res['pass'] else 'not passed yet'}.** Each golden repo needs at least {res['min_runs']} independent runs; "
+           "every run must be within tolerance of the expected scores, and no benchmark may spread more than its golden allows across runs.", ""]
+    for g in res["goldens"]:
+        out += [f"## {g['name']}: {g['status']}", "", f"{g['reference'] or ''}" + (f". Expected scores set by {g['set_by']}." if g.get("set_by") else ""), "",
+                "| Run | Model | Within tolerance | MAE | Bias | Result |", "|---|---|:-:|:-:|:-:|---|"]
+        out += [f"| {r['run']} | {r['model'] or '?'} | {r['within_tolerance_pct']:g}% | {r['mae']:g} | {r['bias']:+g} | "
+                f"{'pass' if r['pass'] else 'fail'}{' (' + '; '.join(r['applicability_mismatches']) + ')' if r['applicability_mismatches'] else ''} |"
+                for r in g["runs"]] or ["| none yet | | | | | |"]
+        sp = g["spread"]
+        out += ["", f"Runs: {len(g['runs'])} of {g['runs_needed']}. Spread across runs: "
+                + (f"largest {sp['largest']}, mean {sp['mean']}" if sp["largest"] is not None else "needs at least two runs")
+                + (f"; above {g['max_spread']} on {', '.join(sp['unstable'])}" if sp["unstable"] else "") + ".", ""]
+    if not res["goldens"]:
+        out += ["No golden repos yet: see README.md.", ""]
+    return "\n".join(out)
+
+
+def cmd_calibration_add_run(args) -> int:
+    golden = Path(args.golden)
+    exp = load_json(golden / "expected.json")
+    report = load_json(args.report)
+    commit, want = str((report.get("run") or {}).get("commit") or ""), str(exp.get("commit") or "")
+    if want and not (commit.startswith(want) or want.startswith(commit)):
+        die(f"{args.report} grades {commit[:7]}, but this golden repo is frozen at {want[:7]}")
+    runs = golden / "runs"
+    runs.mkdir(parents=True, exist_ok=True)
+    n = 1 + max([int(m.group(1)) for f in runs.glob("run-*.json") if (m := re.fullmatch(r"run-(\d+)\.json", f.name))] or [0])
+    run = report.get("run") or {}
+    data = {"graded": run.get("date"), "commit": commit, "suite_version": report.get("suite_version"),
+            "scoring_version": scoring_version_of(report), "grader": run.get("grader"), "model": run.get("model"),
+            "session": run.get("session"), "note": args.note, "scores": run_scores(report)}
+    out = runs / f"run-{n}.json"
+    write_json(out, {k: v for k, v in data.items() if v is not None})
+    emit(args, {"written": str(out)}, f"wrote {out}; then `gradekit calibration run` to update the results")
+    return 0
+
+
+def cmd_calibration_run(args) -> int:
+    res = calibration_results(Path(args.golden_dir), args.min_runs)
+    text = json.dumps(res, indent=2, ensure_ascii=False) + "\n"
+    md = calibration_markdown(res) + "\n"
+    out, mdo = Path(args.out), Path(args.markdown)
+    if args.check:
+        stale = [str(p) for p, want in ((out, text), (mdo, md)) if not p.exists() or p.read_text(encoding="utf-8") != want]
+        emit(args, {"up_to_date": not stale, "stale": stale, "results": res},
+             "calibration results are up to date" if not stale else
+             f"out of date: {', '.join(stale)}. The scoring rules or the golden runs changed: run `gradekit calibration run`")
+        return 0 if not stale else 1
+    out.write_text(text, encoding="utf-8")
+    mdo.write_text(md, encoding="utf-8")
+    lines = [f"{g['name']}: {g['status']} ({len(g['runs'])} of {g['runs_needed']} runs)" for g in res["goldens"]]
+    emit(args, {"results": res, "written": [str(out), str(mdo)]},
+         "\n".join(lines + [f"\ncalibration: {'PASS' if res['pass'] else 'not passed yet'}; wrote {out} and {mdo}"]))
+    return 0
+
 # =========================================================================== work orders
 # A work order is the request behind a run: who asked for what (grade, review, improve or check a pull
 # request), on which commit or change, delivered how. It lives in projects/NAME/orders/<id>.json. The report
@@ -3915,10 +4266,15 @@ def build_index(root: Path) -> dict:
                         sev = (zones.get(f.get("id")) or {}).get("effective_severity", f.get("severity"))
                         if sev in counts:
                             counts[sev] += 1
+                rr = r.get("repo_rollup") or {}
                 latest = {"folder": h["folder"], "date": h["date"], "commit": h["commit"],
-                          "overall": h["overall"], "level": h["level"], "next_level": roll["maturity"].get("next_level"),
+                          "overall": rr.get("overall_score", h["overall"]), "level": rr.get("maturity", h["level"]),
+                          "next_level": roll["maturity"].get("next_level"),
                           "failed_gates": [g["benchmark_id"] for g in roll["gates"] if g["status"] == "failed"],
                           "open_findings": counts}
+                if rr:
+                    latest["components"] = [{"name": c["component"], "weight": c["weight"], "overall": c["overall"], "level": c["level"]}
+                                            for c in rr.get("components", [])]
                 pending = [{"action_id": p["action_id"], "question": p.get("decision_question"), "folder": h["folder"]}
                            for p in roll["priorities"]
                            if p.get("requires_human_decision") and (p.get("decision") or {}).get("status") == "pending"]
@@ -3927,7 +4283,12 @@ def build_index(root: Path) -> dict:
         answered = answered_orders(pdir)
         open_orders = [{"id": o.get("id"), "role": o.get("role"), "created": o.get("created"), "requested_by": o.get("requested_by")}
                        for o in load_orders(pdir) if order_status(o, answered) == "open"]
-        entry.update({"latest": latest, "pending_decisions": pending, "open_orders": open_orders,
+        try:
+            disputes_open = [{"finding_id": d.get("finding_id"), "by": d.get("by"), "date": d.get("date")} for d in open_disputes(pdir)]
+        except GradekitError as exc:
+            disputes_open = []
+            entry["problems"].append(f"{DISPUTES_FILE}: {exc}")
+        entry.update({"latest": latest, "pending_decisions": pending, "open_orders": open_orders, "open_disputes": disputes_open,
                       "history": [{k: v for k, v in h.items() if k != "_report"} for h in history]})
         projects.append(entry)
     return {"_about": INDEX_ABOUT, "suite_version": load_catalog()["suite_version"], "projects": projects}
@@ -3967,8 +4328,8 @@ def cmd_index(args) -> int:
 # Writes a summary comment and labels; the host's CI posts them (see ci/ in the kit).
 
 CI_MARKER = "<!-- gradekit-ci -->"
-REPORT_FOLDER_FILES = re.compile(r"(report\.json|report\.md|runs/[^/]+\.json)")
-SETTINGS_FILES = {PROJECT_FILE, DECISIONS_FILE, DISPOSITIONS_FILE, "reports/.gitkeep"}
+REPORT_FOLDER_FILES = re.compile(r"(report\.json|report\.md|runs/[^/]+\.json|components/[^/]+\.(?:json|md))")
+SETTINGS_FILES = {PROJECT_FILE, DECISIONS_FILE, DISPOSITIONS_FILE, DISPUTES_FILE, "reports/.gitkeep"}
 ROOT_SETTINGS = {"org.toml", "README.md", ".gitignore"}
 CI_LABELS = {"report": "grading: report", "settings": "grading: settings", "migration": "grading: migration",
              "problems": "grading: needs changes"}
@@ -4123,6 +4484,32 @@ def ci_check(root: Path, base: str, head: str, changes: list[tuple[str, str]], s
                             warnings.append("report.md differs from what `gradekit render report` makes from report.json")
                     except GradekitError:
                         pass
+                comps = component_reports(root / rel)
+                for cp in comps:
+                    try:
+                        cr = load_json(cp)
+                        ccfg = load_config(argparse.Namespace(project_dir=str(pdir), config=None, component=None), cr, quiet=True)
+                        cerr, _ = validate_report(cr, ccfg, load_catalog())
+                        problems += [f"components/{cp.name}: {e}" for e in cerr]
+                        if (ccfg.get("publishing") or PUBLISHING_DEFAULTS).get("public"):
+                            problems += [f"components/{cp.name}: publish: {e}" for e in publish_problems(cr)]
+                        croll, cst = compute_rollup(cr, ccfg), cr.get("rollup") or {}
+                        if (cst.get("overall_score"), (cst.get("maturity") or {}).get("current_level")) != (
+                                croll["overall_score"], croll["maturity"]["current_level"]):
+                            problems.append(f"components/{cp.name}: the stored rollup doesn't match its scores; run `gradekit rollup --write`")
+                    except GradekitError as exc:
+                        problems.append(f"components/{cp.name}: {exc}")
+                if comps:
+                    try:
+                        want = repo_rollup(comps)
+                        have = report.get("repo_rollup")
+                        if not have:
+                            problems.append("a monorepo report needs its repo-wide result: `gradekit rollup-repo FOLDER --write`")
+                        elif (have.get("overall_score"), have.get("maturity")) != (want["overall_score"], want["maturity"]):
+                            problems.append(f"repo_rollup ({have.get('overall_score')}, {have.get('maturity')}) doesn't match the "
+                                            f"component reports ({want['overall_score']}, {want['maturity']}): run `gradekit rollup-repo FOLDER --write`")
+                    except GradekitError as exc:
+                        problems.append(str(exc))
                 if (root / rel / "runs").is_dir() and not report.get("stability"):
                     warnings.append("there are runs/ but report.json isn't their consensus (`gradekit stability … --out report.json`)")
                 pending = [p for p in roll["priorities"] if p.get("requires_human_decision") and (p.get("decision") or {}).get("status") == "pending"]
@@ -4139,7 +4526,7 @@ def ci_check(root: Path, base: str, head: str, changes: list[tuple[str, str]], s
         for proj, files in shape["settings"].items():
             for status, name in files:
                 path = f"projects/{proj}/{name}" if proj else name
-                if status == "D" and name in (PROJECT_FILE, DECISIONS_FILE, DISPOSITIONS_FILE, "org.toml"):
+                if status == "D" and name in (PROJECT_FILE, DECISIONS_FILE, DISPOSITIONS_FILE, DISPUTES_FILE, "org.toml"):
                     problems.append(f"{path} is deleted")
                     continue
                 if ORDER_FILE.fullmatch(name):
@@ -4163,11 +4550,12 @@ def ci_check(root: Path, base: str, head: str, changes: list[tuple[str, str]], s
                             problems.append(f"{path}: a work order only changes when it's closed (status, closed); this changes "
                                             + ", ".join(sorted(changed)))
                     continue
-                if name in (DECISIONS_FILE, DISPOSITIONS_FILE):
-                    key = "decisions" if name == DECISIONS_FILE else "dispositions"
+                if name in (DECISIONS_FILE, DISPOSITIONS_FILE, DISPUTES_FILE):
+                    key = {DECISIONS_FILE: "decisions", DISPOSITIONS_FILE: "dispositions", DISPUTES_FILE: "disputes"}[name]
                     new_text = (root / path).read_text(encoding="utf-8")
                     problems += append_only(file_at(root, mb, path), new_text, key, path)
-                    need = ("action_id", "approved") if key == "decisions" else ("finding_id", "decision", "reason")
+                    need = {"decisions": ("action_id", "approved"), "dispositions": ("finding_id", "decision", "reason"),
+                            "disputes": ("finding_id", "reason", "by", "date")}[key]
                     try:
                         for i, e in enumerate(parse_list_text(new_text, key, path)):
                             missing = [k for k in need if k not in e]
@@ -5965,8 +6353,9 @@ def build_parser() -> argparse.ArgumentParser:
     p.set_defaults(fn=cmd_redact)
 
     p = sub.add_parser("rollup-repo", help="combine per-component reports (each must already have a rollup)")
-    p.add_argument("reports", nargs="+")
+    p.add_argument("reports", nargs="+", help="the component reports, or one report folder (with components/)")
     p.add_argument("--out")
+    p.add_argument("--write", action="store_true", help="with a folder: store the result in its report.json as repo_rollup")
     p.set_defaults(fn=cmd_rollup_repo)
 
     # ------------------------------------------------------------ report authoring
@@ -6039,6 +6428,14 @@ def build_parser() -> argparse.ArgumentParser:
     q.add_argument("--cap", metavar="CAP_ID", help="the rubric cap this finding triggers ('' removes it)")
     evidence_args(q)
     q.set_defaults(fn=cmd_finding_update)
+    q = fsub.add_parser("answer", help="answer a dispute on a finding: uphold it, or withdraw the finding")
+    report_arg(q)
+    q.add_argument("id")
+    g = q.add_mutually_exclusive_group(required=True)
+    g.add_argument("--uphold", action="store_true", help="the finding stands")
+    g.add_argument("--withdraw", action="store_true", help="the finding was wrong: status withdrawn, and it counts nowhere")
+    q.add_argument("--note", required=True, help="why, for the person who disputed it")
+    q.set_defaults(fn=cmd_finding_answer)
 
     q = rsub.add_parser("score", help="score a benchmark, or mark it limited / not applicable")
     report_arg(q)
@@ -6217,6 +6614,35 @@ def build_parser() -> argparse.ArgumentParser:
     p.set_defaults(fn=cmd_index)
 
     # ------------------------------------------------------------ glossary
+    p = sub.add_parser("calibration", help="the calibration program: golden repos, repeated runs, published results")
+    csub = p.add_subparsers(dest="calibration_cmd", required=True, metavar="STEP")
+    q = csub.add_parser("add-run", help="save a grader's scores for a golden repo as runs/run-N.json")
+    q.add_argument("golden", help="the golden repo's folder, e.g. calibration/golden/schedule")
+    q.add_argument("report", help="the grader's report.json for the golden commit")
+    q.add_argument("--note", help="e.g. which model or session, anything unusual")
+    q.set_defaults(fn=cmd_calibration_add_run)
+    q = csub.add_parser("run", help="score every run against its golden repo; write results.json and RESULTS.md")
+    q.add_argument("--golden-dir", default=str(GOLDEN_DIR))
+    q.add_argument("--min-runs", type=int, default=3, help="independent runs each golden repo needs (default 3)")
+    q.add_argument("--out", default=str(CALIBRATION_RESULTS))
+    q.add_argument("--markdown", default=str(CALIBRATION_MD))
+    q.add_argument("--check", action="store_true", help="only check the written results are up to date (exit 1 if not)")
+    q.set_defaults(fn=cmd_calibration_run)
+
+    p = sub.add_parser("dispute", help="say a finding is wrong (people): the next grader must answer it")
+    dsub = p.add_subparsers(dest="dispute_cmd", required=True, metavar="STEP")
+    q = dsub.add_parser("add", help="append a dispute to projects/NAME/disputes.json")
+    with_config(q)
+    q.add_argument("finding", metavar="FINDING_ID")
+    q.add_argument("--reason", required=True, help="why the finding is wrong")
+    q.add_argument("--by", required=True, help="who disputes it")
+    q.add_argument("--report", metavar="FOLDER", help="the report folder it's in (default: the newest with that finding)")
+    q.set_defaults(fn=cmd_dispute_add)
+    q = dsub.add_parser("list", help="open disputes (with --all, every one), for a project or the whole grading repo")
+    with_config(q)
+    q.add_argument("--all", action="store_true")
+    q.set_defaults(fn=cmd_dispute_list)
+
     p = sub.add_parser("order", help="work orders: the request behind a run (new, list, close)")
     osub = p.add_subparsers(dest="order_cmd", required=True, metavar="STEP")
     q = osub.add_parser("new", help="write projects/NAME/orders/<id>.json, and print the ID to give the agent")
@@ -6348,7 +6774,8 @@ def main(argv=None) -> int:
 def command_name(args) -> str:
     return " ".join(x for x in (args.cmd, getattr(args, "report_cmd", None), getattr(args, "finding_cmd", None),
                                  getattr(args, "render_cmd", None), getattr(args, "guard_cmd", None),
-                                 getattr(args, "order_cmd", None)) if x)
+                                 getattr(args, "order_cmd", None), getattr(args, "dispute_cmd", None),
+                                 getattr(args, "calibration_cmd", None)) if x)
 
 
 def run_command(ap, args, raise_errors: bool = False) -> int:

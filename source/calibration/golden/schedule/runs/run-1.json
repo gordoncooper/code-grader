@@ -1,0 +1,150 @@
+{
+  "graded": "2026-11-08T14:10:21Z",
+  "commit": "82a43db1b938d8fdf60103bd41f329e06c8d3651",
+  "suite_version": "4.3.0",
+  "scoring_version": "4.3.0",
+  "grader": "Claude Opus 5.5 (gate run)",
+  "note": "the 4.3 release gate's grade",
+  "scores": {
+    "A1": {
+      "score": 8,
+      "applicability": "full"
+    },
+    "A2": {
+      "score": 8,
+      "applicability": "full"
+    },
+    "A3": {
+      "score": 5,
+      "applicability": "full"
+    },
+    "A4": {
+      "score": 6,
+      "applicability": "full"
+    },
+    "A5": {
+      "score": null,
+      "applicability": "not_applicable"
+    },
+    "B1": {
+      "score": 7,
+      "applicability": "full"
+    },
+    "B2": {
+      "score": 7,
+      "applicability": "full"
+    },
+    "B3": {
+      "score": 8,
+      "applicability": "full"
+    },
+    "B4": {
+      "score": 5,
+      "applicability": "full"
+    },
+    "B5": {
+      "score": 6,
+      "applicability": "full"
+    },
+    "B6": {
+      "score": 9,
+      "applicability": "full"
+    },
+    "C1": {
+      "score": 7,
+      "applicability": "full"
+    },
+    "C2": {
+      "score": 7,
+      "applicability": "full"
+    },
+    "C3": {
+      "score": 8,
+      "applicability": "full"
+    },
+    "C4": {
+      "score": 8,
+      "applicability": "full"
+    },
+    "D1": {
+      "score": 9,
+      "applicability": "full"
+    },
+    "D2": {
+      "score": 8,
+      "applicability": "full"
+    },
+    "D3": {
+      "score": 9,
+      "applicability": "full"
+    },
+    "D4": {
+      "score": 8,
+      "applicability": "full"
+    },
+    "E1": {
+      "score": 4,
+      "applicability": "full"
+    },
+    "E2": {
+      "score": 5,
+      "applicability": "full"
+    },
+    "E3": {
+      "score": 5,
+      "applicability": "full"
+    },
+    "E4": {
+      "score": 7,
+      "applicability": "full"
+    },
+    "F1": {
+      "score": 6,
+      "applicability": "full"
+    },
+    "F2": {
+      "score": 7,
+      "applicability": "full"
+    },
+    "F3": {
+      "score": 7,
+      "applicability": "limited"
+    },
+    "F4": {
+      "score": 8,
+      "applicability": "full"
+    },
+    "F5": {
+      "score": 7,
+      "applicability": "full"
+    },
+    "F6": {
+      "score": 5,
+      "applicability": "full"
+    },
+    "X1": {
+      "score": null,
+      "applicability": "not_applicable"
+    },
+    "X2": {
+      "score": 7,
+      "applicability": "full"
+    },
+    "X3": {
+      "score": 7,
+      "applicability": "limited"
+    },
+    "X4": {
+      "score": null,
+      "applicability": "not_applicable"
+    },
+    "X5": {
+      "score": 9,
+      "applicability": "full"
+    },
+    "X6": {
+      "score": 5,
+      "applicability": "full"
+    }
+  }
+}

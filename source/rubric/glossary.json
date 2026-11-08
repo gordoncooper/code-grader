@@ -85,6 +85,14 @@
           "definition": "A problem first recorded in this report that was already there before: the previous report missed it. It counts as open, but a PR check never fails because of it."
         },
         {
+          "term": "dispute",
+          "definition": "A person's statement, in disputes.json, that a finding is wrong. The next grader answers it: the finding is upheld, or withdrawn."
+        },
+        {
+          "term": "withdrawn finding",
+          "definition": "A finding a grader agreed was wrong after a dispute. It stays in the report for the record, but counts nowhere."
+        },
+        {
           "term": "severity",
           "definition": "How bad a finding is: critical, major or minor, as the grader judged it."
         },

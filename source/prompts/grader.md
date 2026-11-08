@@ -279,6 +279,13 @@ Every finding, strength and enforcement claim needs at least one evidence object
 - `excerpt` must be copied exactly from the command output.
 - Use `absence` evidence to show that something is missing (no tests, no backups, no timeouts), saying what you searched and how.
 
+### Disputed findings
+A person who thinks a finding is wrong disputes it in `PROJECT_DIR/disputes.json` (`gradekit dispute add`). `report check` lists every open dispute on a finding in your report as a to-do, and you must answer each one after re-checking the code:
+- **Uphold it** when the finding stands: `report finding answer REPORT ID --uphold --note "why it stands"`.
+- **Withdraw it** when it was wrong: `report finding answer REPORT ID --withdraw --note "what you found"`. Its status becomes `withdrawn`, and it counts nowhere.
+
+Judge the code, not the person who disputed it, and never withdraw a finding just to raise a score.
+
 ### Accepted findings
 `PROJECT_DIR/dispositions.json` lists findings that people have deliberately accepted (e.g. "won't fix, by design"), keyed by `finding_id` or by a `match` description of the root cause.
 
@@ -385,10 +392,10 @@ Within each tier, actions are ordered by weight × points gained × zone multipl
 ## Part 9: Monorepos and multi-component repos
 
 If the project config defines `[[components]]` (each with a name, path, weight, and optionally its own preset, answers, zones and gates):
-- Produce **one report per component**, named `components/NAME.json` / `.md` inside your report folder, plus the `repo` report as `report.json` / `report.md`. Resolve each component's config with `gradekit resolve --project-dir PROJECT_DIR --component NAME --out /tmp/NAME.effective.json`, and put the component's name, path and weight in the report's `component` block.
+- Produce **one report per component**, named `components/NAME.json` / `.md` inside your report folder, plus the `repo` report as `report.json` / `report.md`. `gradekit report new … --component NAME` starts each one with its component's config and its `component` block filled in, and `--component repo` starts the repo report. Both mark the benchmarks graded elsewhere as `not_applicable` for you; score one anyway if a component has its own setup for it.
 - Also produce one report for a component named **`repo`**, using the project-level config. It covers concerns shared by the whole repository: B3, E3, E4, F2, F6 and X6. Mark every other benchmark `not_applicable` with the reason "graded per component."
 - In the component reports, mark those shared benchmarks `not_applicable` with the reason "graded at repo level", unless a component has its own separate setup for one of them (e.g. its own CI pipeline). In that case, grade it in the component.
-- Run `gradekit rollup --write` on each report with its own config, then `gradekit rollup-repo` to combine them. The repo-wide overall score is weighted by component weight, and the repo-wide maturity level is the **lowest** of any component's level.
+- Finish each report with `report check … --write`, then run `gradekit rollup-repo REPORT_FOLDER --write`, which stores the repo-wide result in `report.json` (`repo_rollup`). The repo-wide overall score is weighted by component weight, and the repo-wide maturity level is the **lowest** of any component's level. `deliver` redacts and renders every component report along with `report.json`, and `gradekit ci` checks each one.
 
 ---
 

@@ -221,6 +221,30 @@
                 }
               }
             }
+          },
+          "open_disputes": {
+            "type": "array",
+            "description": "Disputes (disputes.json) no report has answered yet.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "finding_id": {
+                  "type": "string"
+                },
+                "by": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "date": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              }
+            }
           }
         }
       }

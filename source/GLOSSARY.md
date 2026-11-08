@@ -36,6 +36,10 @@ Generated from `rubric/glossary.json` by `gradekit glossary --markdown`. Edit th
 
 **noticed finding**: A problem first recorded in this report that was already there before: the previous report missed it. It counts as open, but a PR check never fails because of it.
 
+**dispute**: A person's statement, in disputes.json, that a finding is wrong. The next grader answers it: the finding is upheld, or withdrawn.
+
+**withdrawn finding**: A finding a grader agreed was wrong after a dispute. It stays in the report for the record, but counts nowhere.
+
 **severity**: How bad a finding is: critical, major or minor, as the grader judged it.
 
 **effective severity**: A finding's severity after its zone: one level higher in a hot zone, one lower in a cold zone (never lower for security findings). It decides priorities.
