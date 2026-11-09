@@ -187,6 +187,42 @@
     }
   };
 
+  // ------------------------------------------------------------------ code
+  // A link to a file's lines at one commit, on GitHub, GitLab or Bitbucket (any self-hosted GitLab too: its URLs have
+  // "/-/"). Other hosts: null, and the page shows the path instead.
+  function codeLink(repoUrl, commit, file, lines) {
+    var u = String(repoUrl || "").trim().replace(/\.git$/, "").replace(/\/+$/, "");
+    if (!/^https?:\/\//.test(u) || !commit || !file) return null;
+    var m = String(lines || "").match(/^(\d+)(?:-(\d+))?$/), a = m && m[1], b = m && (m[2] || m[1]);
+    var path = String(file).split("/").map(encodeURIComponent).join("/");
+    if (/github\.com\//.test(u)) return u + "/blob/" + commit + "/" + path + (a ? "#L" + a + (b !== a ? "-L" + b : "") : "");
+    if (/bitbucket\.org\//.test(u)) return u + "/src/" + commit + "/" + path + (a ? "#lines-" + a + (b !== a ? ":" + b : "") : "");
+    if (/gitlab\./.test(u) || /\/-\//.test(u)) return u.replace(/\/-\/.*$/, "") + "/-/blob/" + commit + "/" + path + (a ? "#L" + a + (b !== a ? "-" + b : "") : "");
+    return null;
+  }
+
+  // Cited code with line numbers. With context (from a code archive), the lines around it too, cited lines marked.
+  //   UI.codeBlock({file, lines, quote, href, context: {start, text: [...], cited: [a, b]}})
+  function codeBlock(o) {
+    var rows = [], m = String(o.lines || "").match(/^(\d+)(?:-(\d+))?$/);
+    if (o.context && o.context.text) {
+      o.context.text.forEach(function (t, i) {
+        var n = o.context.start + i, hit = n >= o.context.cited[0] && n <= o.context.cited[1];
+        rows.push(h("span", { class: "ln" + (hit ? " hit" : ""), dataset: { n: String(n) } }, t || " "));
+      });
+    } else {
+      var first = m ? parseInt(m[1], 10) : null;
+      String(o.quote || "").split("\n").forEach(function (t, i) {
+        rows.push(h("span", { class: "ln hit", dataset: { n: first ? String(first + i) : "·" } }, t || " "));
+      });
+    }
+    var where = o.file + (o.lines ? ":" + o.lines : "");
+    return h("figure", { class: "code" },
+      h("figcaption", null, h("code", null, where),
+        o.href ? h("a", { href: o.href, class: "small", target: "_blank", rel: "noopener" }, "Open at the graded commit") : null),
+      h("pre", null, rows));
+  }
+
   // ------------------------------------------------------------------ saving decisions
   // Answers become entries appended to the project's decisions.json (by the engine, the same way gradekit does it),
   // with the steps to put the file in the grading repo. Used by Review and by the decisions inbox on Projects.
@@ -357,5 +393,5 @@
   window.UI = { h: h, $: $, $$: $$, inline: inline, clear: clear, toast: toast, copyText: copyText, download: download, readFile: readFile,
                 store: store, debounce: debounce, bindEnginePill: bindEnginePill, engineHelp: engineHelp, dropZone: dropZone, tabs: tabs, tabKeys: tabKeys, terms: terms,
                 banner: banner, state: state, show: show, failed: failed, skeleton: skeleton, chip: chip, badge: badge, card: card,
-                field: field, seg: seg, table: table, tabBar: tabBar, svg: svg, gh: gh, saveDecisions: saveDecisions };
+                field: field, seg: seg, table: table, tabBar: tabBar, svg: svg, gh: gh, saveDecisions: saveDecisions, codeLink: codeLink, codeBlock: codeBlock };
 })();

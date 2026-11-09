@@ -73,7 +73,9 @@ Then read the tabs in order:
 2. **Decisions:** questions only a person should answer, such as "drop this deprecated endpoint?" Choose Approve, Decline or Not yet. The page produces an updated `decisions.json`.
 3. **Priorities:** the order improvers will work in.
 4. **Compare:** what got better or worse since the previous report.
-5. **Scorecard, Findings, More:** the detail, when you want it.
+5. **Scorecard, Findings, More:** the detail, when you want it. Open a benchmark to see why it got its score, what each score band means in the rubric, and its history. Open a finding to see its code, with a link to those lines at the graded commit.
+
+**Share a view:** the page's address always points at what you're looking at. **Copy link** on a benchmark or finding gives a link straight to it, and **Print or save as PDF** gives the whole report on paper.
 
 **Save your answers.** The page shows the steps; the short version:
 - **Suggested:** on the report's PR, edit `projects/orders-api/decisions.json`, paste the updated file, commit to the PR's branch, then **merge the PR**. Merging means "accepted."

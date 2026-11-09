@@ -181,6 +181,18 @@ Major release, in progress: a beta for agents first, then the pages for people. 
 - **The index carries it all, computed by gradekit:** each report's pillar and benchmark scores; each pending decision's benchmark and action; `latest.below_target` and `latest.actions_ready`; and `cycle` (stage and waiting-on). The pages only draw them. `schema/index.schema.json` documents the new fields.
 - Review and Projects share the GitHub loader and the "save your decisions" steps (`common.js`). Every table that scrolls sideways can be focused and scrolled with the keyboard.
 
+**Review: explain every score, show evidence as code, link to any view (H6, U3, U6)**
+- **Why this score (H6):** each benchmark opens with the grader's reasoning and the limits that hold it (only the ones that bind). It also shows the rubric's words for every score band, with this score's band marked, the caps, and the benchmark's score in every report of the project.
+- **Evidence as code (U3):** quoted code is shown with its line numbers and the cited lines marked. Copying it copies only the code. Each quote links to those lines at the graded commit on GitHub, GitLab (including self-hosted) or Bitbucket, using the project's `code_repo`. With the code's zip loaded, it also shows the 3 lines around each quote; a new engine call, `code_context`, reads them, and finds a format-5 quote that has no line numbers.
+- **Findings open in place:** a finding's row expands to its evidence, any dispute, the cap it holds, and a button to its benchmark. The note about effective severity appears only for reports graded under the 4.x rules.
+- **Print or save as PDF (U3):** the whole report, every section in order, every benchmark and finding open, without the controls. Paper is light even in dark mode, and links print their address.
+- **Deep links to every view (U6):** `review.html?repo=…&ref=…&project=…&report=…&compare=…#finding=A3-001` (or `#bench=A3`, or `#tab=decisions`). They work on any host, because they're plain query and hash parameters.
+  - The address follows what you look at, and **Copy link** buttons give a link to the view, a benchmark or a finding.
+  - `?sample=1` opens the sample.
+  - A link to a report opened from files shows its view once the same files are loaded again.
+- **Projects links into Review:** each project, and each heatmap cell, opens that report at that benchmark, so every number on Projects traces to code in two clicks. Projects has deep links of its own (`?repo=…#tab=project&project=…`).
+- **PR descriptions link to the exact report,** and to its decisions when some are waiting.
+
 ## 4.3.0
 Minor release: tools that let agents run the whole cycle without custom scripts, and safer publishing. No scoring changes; config fingerprints and existing reports stay valid. Tested by running the whole cycle on a real repository (dbader/schedule) with `gradekit` commands only: it reproduced the 4.2.2 grade exactly.
 

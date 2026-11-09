@@ -277,7 +277,7 @@ table.findings td:last-child{white-space:normal;width:100%}
 .bench .chev{color:var(--muted);transition:.15s}
 .bench[open-state=open] .chev{transform:rotate(90deg)}
 .bench .body{padding:4px 4px 16px 58px;font-size:.88rem}
-.bench .body h4{margin:12px 0 4px;font-size:.8rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.bench .body h3{margin:12px 0 4px;font-family:var(--sans);font-weight:700;font-size:.8rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
 .decision{border:1px solid var(--line);border-radius:12px;padding:16px 18px;background:var(--panel)}
 .decision+.decision{margin-top:12px}
 .decision .q{display:block;border:0;padding:0;font-weight:600;font-size:1rem;margin:4px 0 6px}
@@ -441,3 +441,41 @@ table.heat td.s6{background:var(--heat-6);color:var(--heat-ink-6)}table.heat td.
 .waiting{margin:var(--s2) 0 0;padding-left:18px;font-size:.88rem}
 .levels{display:flex;flex-wrap:wrap;gap:4px}
 .inbox-project+.inbox-project{margin-top:var(--s5)}
+/* code evidence: line numbers from the data (not copied with the text), cited lines marked */
+figure.code{margin:var(--s2) 0;border:1px solid var(--line);border-radius:var(--r-md);overflow:hidden;background:var(--code)}
+figure.code figcaption{display:flex;flex-wrap:wrap;justify-content:space-between;gap:var(--s2);padding:4px 10px;border-bottom:1px solid var(--line);font-size:.78rem;background:var(--soft)}
+figure.code figcaption code{background:none;border:0;padding:0}
+figure.code pre{margin:0;border:0;border-radius:0;padding:6px 0;font-size:.78rem;overflow-x:auto;background:none;white-space:pre}
+figure.code .ln{display:block;padding:0 12px 0 0;min-height:1.4em}
+figure.code .ln::before{content:attr(data-n);display:inline-block;width:3.2em;padding-right:.8em;margin-right:.6em;text-align:right;color:var(--muted);border-right:1px solid var(--line);user-select:none}
+figure.code .ln.hit{background:color-mix(in srgb,var(--accent) 14%,transparent)}
+figure.code .ln.hit::before{color:var(--ink);font-weight:700}
+/* explain a score */
+.why{margin:var(--s2) 0;padding:var(--s2) var(--s3);border-left:3px solid var(--accent);background:var(--soft);border-radius:0 var(--r-md) var(--r-md) 0}
+.anchors{display:grid;gap:4px;margin:var(--s2) 0;padding:0;list-style:none;font-size:.85rem}
+.anchors li{display:grid;grid-template-columns:3.5em 1fr;gap:var(--s2);padding:4px 8px;border-radius:var(--r-sm);color:var(--muted)}
+.anchors li b{font-family:var(--mono);color:var(--ink)}
+.anchors li.here{background:var(--accent-soft);color:var(--ink)}
+.bench-history{display:flex;flex-wrap:wrap;gap:var(--s2);align-items:center;font-size:.85rem}
+.bench-tools{display:flex;flex-wrap:wrap;gap:var(--s2);margin-top:var(--s3)}
+.finding-detail td{background:var(--soft)}
+.target-flash{outline:2px solid var(--accent);outline-offset:2px;border-radius:var(--r-sm)}
+/* print / save as PDF: the whole report, every section, without controls */
+.print-only{display:none}
+@media print{
+  :root{--bg:#ffffff;--panel:#ffffff;--ink:#1d2321;--muted:#5d6763;--line:#e4e1d9;--soft:#f2f0ea;--accent:#0f6b5c;--accent-soft:#e3f1ed;--code:#f4f2ec;
+    --ok-bg:#e1f3ea;--ok-ink:#1d6b47;--bad-bg:#fbe4e2;--bad-ink:#a3261d;--warn-bg:#fdf1d8;--warn-ink:#7a4f00;--cold-bg:#e3eef8;--cold-ink:#2a5d8a}   /* paper is light in both modes */
+  .topbar,.skip,footer.site,.app-head,#load-card,#history-bar,#review-status,#engine-error,.tabs,.row-btns,.filters,.bench-tools,.chev,.copy-link{display:none!important}
+  .print-only{display:block}
+  .panel[hidden]{display:block!important}
+  .panel{break-before:page}
+  .panel::before{content:attr(data-title);display:block;font:700 1.4rem var(--serif);margin:0 0 var(--s3)}
+  #print-head h1{font:700 1.8rem var(--serif);margin:0}
+  #panel-overview{break-before:auto}
+  .bench .body[hidden]{display:block!important}
+  .card,.bench,figure.code,tr{break-inside:avoid}
+  a[href^="http"]::after{content:" (" attr(href) ")";font-size:.7em;color:var(--muted);word-break:break-all}
+}
+table.heat td a.cell-link{display:block;color:inherit;text-decoration:none}
+table.heat td a.cell-link:hover,table.heat td a.cell-link:focus-visible{text-decoration:underline}
+.proj-table button.name{min-height:24px;padding:2px 0}

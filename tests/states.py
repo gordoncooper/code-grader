@@ -54,6 +54,16 @@ def components(page, site):
     page.wait_for_selector("#gallery .demo")
 
 
+def review_link(hash_part):
+    """Review opened by a deep link to the sample: a finding or a benchmark, explained."""
+    def go(page, site):
+        page.goto(site + "app/review.html?sample=1&project=orders-api#" + hash_part, wait_until="networkidle")
+        page.wait_for_selector("tr.finding-detail:not([hidden]) figure.code" if hash_part.startswith("finding") else ".bench .why",
+                               timeout=120000)
+    go.__name__ = "review_" + hash_part.replace("=", "_").replace("-", "_")
+    return go
+
+
 def projects_tab(tab):
     def go(page, site):
         page.goto(site + "app/projects.html", wait_until="networkidle")
@@ -82,4 +92,5 @@ def dark(state):
 TABS = ["overview", "decisions", "priorities", "scorecard", "findings", "compare", "more"]
 STATES = ([home, docs, setup_empty, setup_filled, run_page, run_three, review_empty] + [review_tab(t) for t in TABS]
           + [components, dark(components), dark(setup_filled), dark(review_tab("findings"))]
-          + [projects_empty, projects_tab("all"), projects_tab("decisions"), projects_tab("project"), dark(projects_tab("project"))])
+          + [projects_empty, projects_tab("all"), projects_tab("decisions"), projects_tab("project"), dark(projects_tab("project"))]
+          + [review_link("finding=A1-001"), review_link("bench=A3"), dark(review_link("finding=A1-001"))])
