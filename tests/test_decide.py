@@ -128,21 +128,19 @@ def test_the_report_pr_body_is_a_checklist_decide_can_read(tmp_path):
 @pytest.mark.parametrize("name", ["github-grading.yml", "gitlab-grading.yml"])
 def test_ci_templates_record_ticked_answers_safely(name):
     import re
-    import yaml
     text = (SRC / "ci" / name).read_text()
-    doc = yaml.safe_load(text)
     call = re.search(r'gradekit\.py" decide ([^\n]+)', text).group(1)
     helptext = cli("decide", "--help", cwd=SRC).stdout
     for flag in set(re.findall(r"--[a-z-]+", call)):
         assert flag in helptext, f"{name} uses {flag}, which `gradekit decide` doesn't have"
-    assert "${{ github.event.pull_request.body }}" not in "\n".join(
-        l for l in text.splitlines() if not l.strip().startswith("BODY:")), "the description reaches the shell only through an env var"
+    body_refs = [l.strip() for l in text.splitlines() if "pull_request.body" in l]
+    assert body_refs in ([], ["BODY: ${{ github.event.pull_request.body }}"]), "the description reaches the shell only through an env var"
     if name.startswith("github"):
-        job = doc["jobs"]["decide"]
-        assert "edited" in doc[True]["pull_request"]["types"] and job["permissions"] == {"contents": "write"}
-        assert "head.repo.full_name == github.repository" in job["if"] and "changes.body" in job["if"]
-        assert "action != 'edited'" in doc["jobs"]["check"]["if"], "editing a description doesn't re-run the check"
+        job = text[text.index("\n  decide:"):text.index("\n  index:")]
+        assert "types: [opened, synchronize, reopened, edited]" in text
+        assert re.search(r"permissions:\n\s+contents: write\n", job) and "pull-requests" not in job
+        assert "head.repo.full_name == github.repository" in job and "changes.body" in job and "sender.type != 'Bot'" in job
+        assert "github.event.action != 'edited'" in text[text.index("\n  check:"):], "editing a description doesn't re-run the check"
     else:
-        rule = doc["grading-decide"]["rules"][0]
-        assert rule["when"] == "manual" and "GRADING_BOT_TOKEN" in rule["if"] and "SOURCE_PROJECT_ID == $CI_PROJECT_ID" in rule["if"]
-
+        job = text[text.index("\ngrading-decide:"):text.index("\ngrading-index:")]
+        assert "when: manual" in job and "$GRADING_BOT_TOKEN" in job and "$CI_MERGE_REQUEST_SOURCE_PROJECT_ID == $CI_PROJECT_ID" in job
