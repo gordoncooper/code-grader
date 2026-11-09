@@ -88,7 +88,7 @@ Gates are marked ★. Weight is the weight used, after applicability.
 
 - [ ] **D1-act-1:** Implement CSV and XLSX export, or drop the export claim from the README?
 
-Answer in `decisions.json` (the suite website's *Review a report* page writes it for you).
+Answers go in `decisions.json`: tick the boxes in this report's pull request (the grading CI records them), run `gradekit decide --approve ID --by NAME`, or use the suite website's *Review a report* page.
 
 ## Metrics
 

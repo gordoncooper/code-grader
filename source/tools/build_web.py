@@ -415,6 +415,7 @@ def landing(version: str, weights: dict, zip_name: str, zip_sha: str, zip_size: 
       <p class="lede">Agents score a codebase from 1 to 10 on {n_all} benchmarks, back every score with checkable evidence, and improve the code toward clear targets. You steer it all from this website, with nothing to install.</p>
       <div class="actions">
         <a class="btn primary" href="docs/GETTING-STARTED.html">Get started</a>
+        <a class="btn" href="app/review.html?sample=1&amp;tour=1">Take a guided first run</a>
         <a class="btn" href="app/setup.html">Set up a project</a>
         <a class="btn" href="app/review.html">Review a report</a>
       </div>
@@ -433,7 +434,7 @@ def landing(version: str, weights: dict, zip_name: str, zip_sha: str, zip_size: 
     <h2>Three tools, nothing to install</h2>
     <p class="sub">They run the suite's own code in your browser. Your files and reports stay on your computer and aren't uploaded anywhere.</p>
     <div class="tool-cards">
-      <a class="tool-card" href="app/setup.html"><div class="eyebrow">1 · Once per project</div><h3>Set up a project</h3><p>Pick a preset, answer eight questions, and mark hot and cold zones. Weights and gates update live, and you download <code>project.toml</code>.</p></a>
+      <a class="tool-card" href="app/setup.html"><div class="eyebrow">1 · Once per project</div><h3>Set up a project</h3><p>Give its address, say what kind of project it is, and answer three questions. Weights and gates update live, and you save <code>project.toml</code> straight to your grading repo.</p></a>
       <a class="tool-card" href="app/run.html"><div class="eyebrow">2 · Every run</div><h3>Start a run</h3><p>Choose the job, where things live and how results come back. You get the exact prompt to paste into your agent.</p></a>
       <a class="tool-card" href="app/review.html"><div class="eyebrow">3 · Every report</div><h3>Review a report</h3><p>See where the code stands, answer decision questions, compare with last time, and check the grader's citations.</p></a>
     </div>

@@ -93,8 +93,9 @@ def test_decisions_inbox_writes_decisions_json(page, site):
     page.locator(".seg label", has_text="Approve").click()
     page.fill("#panel-decisions textarea", "Drop the claim for now")
     page.click("text=Save answers for orders-api")
-    page.wait_for_selector("#panel-decisions pre", timeout=120000)
-    data = json.loads(page.inner_text("#panel-decisions pre"))
+    page.wait_for_selector("#panel-decisions details pre", state="attached", timeout=120000)
+    data = json.loads(page.text_content("#panel-decisions details pre"))
+    assert "--answer 'Drop the claim for now'" in page.inner_text("#panel-decisions .save-routes pre")
     last = data["decisions"][-1]
     assert (last["action_id"], last["approved"], last["answer"], last["decided_by"]) == ("D1-act-1", True, "Drop the claim for now", "gordon")
     assert "wasn't loaded" in page.inner_text("#panel-decisions"), "from a file, earlier answers can't be merged: say so"

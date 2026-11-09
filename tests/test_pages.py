@@ -198,9 +198,9 @@ def test_review_decisions_produce_appended_json(page, site):
     page.fill("#panel-decisions input[type=text]", "tester@example.com")
     first = page.locator("#panel-decisions .decision").first
     first.locator("label:has(input[value=approve])").click()
-    page.wait_for_timeout(500)
-    out = page.inner_text("#dec-output")
-    data = json.loads(out[out.index("{"):out.rindex("}") + 1])
+    page.wait_for_selector("#dec-output details pre", state="attached")
+    page.wait_for_timeout(300)
+    data = json.loads(page.text_content("#dec-output details pre"))
     assert data["decisions"][-1]["approved"] is True and data["decisions"][-1]["decided_by"] == "tester@example.com"
 
 

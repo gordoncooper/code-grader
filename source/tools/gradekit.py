@@ -4798,7 +4798,8 @@ def cmd_index(args) -> int:
 
 # =========================================================================== ci (grading repos)
 # Checks a pull request to a grading repo. One kind of change per pull request:
-#   report    one new report folder (report.json, report.md, runs/*.json), nothing else
+#   report    one new report folder (report.json, report.md, runs/*.json), and answers to its questions in its
+#             project's decisions.json (append-only)
 #   settings  a project's project.toml, decisions.json, dispositions.json (append-only), org.toml
 # Writes a summary comment and labels; the host's CI posts them (see ci/ in the kit).
 
@@ -4838,11 +4839,14 @@ def classify_change(changes: list[tuple[str, str]]) -> dict:
             settings.setdefault("", []).append((status, path))
         else:
             other.append(path)
-    kinds = (["report"] if report_folders_ else []) + (["settings"] if settings else [])
+    # A report's pull request may also answer that report's decision questions (the decide CI job commits them there).
+    with_answers = bool(report_folders_) and len(report_folders_) == 1 and \
+        set(settings) == {next(iter(report_folders_))[0]} and all(n == DECISIONS_FILE for _, n in settings[next(iter(report_folders_))[0]])
+    kinds = (["report"] if report_folders_ else []) + (["settings"] if settings and not with_answers else [])
     if len(report_folders_) > 1:
         problems.append("a pull request adds one report: " + ", ".join(f"projects/{p}/reports/{f}" for p, f in sorted(report_folders_)))
     if len(kinds) > 1:
-        problems.append("a report pull request changes only its report folder; send the settings changes "
+        problems.append("a report pull request changes only its report folder (and its project's decisions.json); send the settings changes "
                         f"({', '.join(p for p in sorted(settings) if p) or 'root files'}) separately")
     projects_ = sorted({p for p, _ in report_folders_} | {p for p in settings if p})
     if len(projects_) > 1:
@@ -4852,7 +4856,8 @@ def classify_change(changes: list[tuple[str, str]]) -> dict:
     kind = kinds[0] if len(kinds) == 1 else ("mixed" if kinds else "other")
     folder = sorted(report_folders_)[0] if report_folders_ else None
     return {"kind": kind, "project": folder[0] if folder else (projects_[0] if projects_ else None),
-            "folder": folder[1] if folder else None, "settings": settings, "other": other, "problems": problems}
+            "folder": folder[1] if folder else None, "settings": settings, "other": other, "problems": problems,
+            "with_answers": with_answers}
 
 
 def file_at(root, rev: str, path: str) -> str | None:
@@ -4997,7 +5002,7 @@ def ci_check(root: Path, base: str, head: str, changes: list[tuple[str, str]], s
             except GradekitError as exc:
                 problems.append(f"report: {exc}")
 
-    if shape["kind"] == "settings":
+    if shape["kind"] == "settings" or (shape["kind"] == "report" and shape["with_answers"]):
         for proj, files in shape["settings"].items():
             for status, name in files:
                 path = f"projects/{proj}/{name}" if proj else name
@@ -5038,6 +5043,7 @@ def ci_check(root: Path, base: str, head: str, changes: list[tuple[str, str]], s
                                 problems.append(f"{path} entry {i + 1} needs {', '.join(missing)}")
                     except GradekitError:
                         pass
+    if shape["kind"] == "settings":
         projects_ = [p for p in shape["settings"] if p] or ([project] if project else [])
         if "" in shape["settings"] and not projects_:
             projects_ = [d.name for d in sorted((root / "projects").iterdir()) if (d / PROJECT_FILE).exists()] if (root / "projects").is_dir() else []
@@ -5236,11 +5242,128 @@ def evidence_line(ev: dict) -> str:
     return "details withheld"
 
 
-def decisions_block(roll: dict) -> list[str]:
+def decisions_block(roll: dict, decline_boxes: bool = False) -> list[str]:
+    """The pending questions as a checklist. With decline_boxes (a report PR), each gets a second box to decline it,
+    so a person answers by ticking and the decide CI job records it."""
     pending = [p for p in roll["priorities"] if p.get("requires_human_decision") and (p.get("decision") or {}).get("status") == "pending"]
     if not pending:
         return ["None."]
-    return [f"- [ ] **{p['action_id']}:** {p.get('decision_question')}" for p in pending]
+    out = []
+    for p in pending:
+        out.append(f"- [ ] **{p['action_id']}:** {p.get('decision_question')}")
+        if decline_boxes:
+            out.append(f"  - [ ] Decline {p['action_id']} instead")
+    return out
+
+
+CHECKLIST = re.compile(r"^\s*[-*]\s*\[([ xX])\]\s*(?:\*\*)?(decline\s+)?([A-Z]\d+-act-\d+)\b", re.I | re.M)
+
+
+def checklist_answers(text: str) -> tuple[str | None, dict, list[str]]:
+    """A report PR's checklist: the project it names (`<!-- gradekit:project=NAME -->`), {action_id: approved} for each
+    ticked box (a "Decline ID" box declines), and the IDs with both boxes ticked (no answer). Unticked boxes are no answer."""
+    m = re.search(r"<!--\s*gradekit:project=([\w.-]+)\s*-->", text or "")
+    seen: dict[str, set] = {}
+    for box, decline, aid in CHECKLIST.findall(text or ""):
+        if box.strip():
+            seen.setdefault(aid, set()).add(not decline)
+    both = sorted(a for a, v in seen.items() if len(v) > 1)
+    return (m.group(1) if m else None), {a: v.pop() for a, v in seen.items() if len(v) == 1}, both
+
+
+def decision_rows(pdir: Path) -> tuple[Path | None, list[dict]]:
+    """The newest full report's decision questions, each with its status: [{action_id, question, benchmark_id, action,
+    status, decided_by, date, answer}]."""
+    folders = [f for f in report_folders(pdir) if load_json(f / "report.json").get("mode") != "pr"]
+    if not folders:
+        return None, []
+    rpath = folders[-1] / "report.json"
+    report = load_json(rpath)
+    cfg = load_config(argparse.Namespace(project_dir=str(pdir), project=None, config=None, component=None), report, quiet=True)
+    rows = []
+    for b in report.get("benchmarks", []):
+        for a in b.get("path_to_target", []):
+            if not a.get("requires_human_decision"):
+                continue
+            d = decision_for(a, cfg) or {}
+            rows.append({"action_id": a["id"], "question": a.get("decision_question"), "benchmark_id": b["id"], "action": a.get("action"),
+                         "status": d.get("status", "pending"), "decided_by": d.get("decided_by"), "date": d.get("date"),
+                         "answer": d.get("answer"), "note": d.get("note")})
+    return rpath, rows
+
+
+def project_dir_or_die(args) -> Path:
+    pdir = project_dir_from_args(args)
+    if not pdir or not (pdir / PROJECT_FILE).exists():
+        die("which project? --project-dir projects/NAME (or --project NAME in the grading repo's root)")
+    return pdir
+
+
+def cmd_decisions(args) -> int:
+    pdir = project_dir_or_die(args)
+    rpath, rows = decision_rows(pdir)
+    if args.approved:
+        rows = [r for r in rows if r["status"] == "approved"]
+        emit(args, {"report": str(rpath) if rpath else None, "approved": rows}, "\n".join(r["action_id"] for r in rows))
+        return 0
+    lines = [f"{r['action_id']} {r['status']}" + (f" by {r['decided_by']} on {r['date']}" if r.get("decided_by") else "")
+             + f": {r['question']}" + (f" ({r['note']})" if r.get("note") else "") for r in rows]
+    emit(args, {"report": str(rpath) if rpath else None, "decisions": rows},
+         "\n".join(lines) if lines else "no decision questions in the newest report")
+    return 0
+
+
+def cmd_decide(args) -> int:
+    """Record answers in decisions.json (append-only): by ID, or from a report PR's checklist."""
+    text = None
+    if args.from_checklist:
+        text = sys.stdin.read() if args.from_checklist == "-" else Path(args.from_checklist).read_text(encoding="utf-8", errors="replace")
+    named, ticked, both = checklist_answers(text) if text is not None else (None, {}, [])
+    if getattr(args, "project_dir", None) or getattr(args, "project", None):
+        pdir = project_dir_or_die(args)
+    elif named:
+        pdir = Path(args.grading_repo or ".") / "projects" / named
+        if not (pdir / PROJECT_FILE).exists():
+            die(f"the checklist names project {named}, but {pdir / PROJECT_FILE} doesn't exist (run from the grading repo's root, or give --grading-repo)")
+    else:
+        die("say which project: --project-dir projects/NAME, or a checklist with its <!-- gradekit:project=NAME --> marker")
+    wanted = dict(ticked)
+    wanted.update({a: True for a in args.approve or []})
+    wanted.update({a: False for a in args.decline or []})
+    if not wanted:
+        emit(args, {"added": [], "skipped": [], "conflicting": both},
+             "\n".join([f"{a}: both approve and decline are ticked, so no answer was recorded" for a in both])
+             or "nothing ticked or named: no decisions to record")
+        return 0
+    rpath, rows = decision_rows(pdir)
+    by_id = {r["action_id"]: r for r in rows}
+    unknown = [a for a in wanted if a not in by_id]
+    if unknown:
+        die(f"{', '.join(unknown)}: not a decision question in the newest report ({rpath or 'none'}); "
+            f"`gradekit decisions --project-dir {pdir}` lists them")
+    date = args.date or utc_now()[:10]
+    added, skipped = [], []
+    for aid, approved in wanted.items():
+        r = by_id[aid]
+        if r["status"] == ("approved" if approved else "declined"):
+            skipped.append(aid)   # already answered that way: running again on the same checklist changes nothing
+            continue
+        e = {"action_id": aid, "question": r["question"], "approved": approved}
+        if args.answer:
+            e["answer"] = args.answer
+        e.update({"decided_by": args.by, "date": date})
+        added.append(e)
+    if added:
+        f = pdir / DECISIONS_FILE
+        f.write_text(append_entries(f.read_text(encoding="utf-8") if f.exists() else None, "decisions", added), encoding="utf-8")
+    msg = [f"{'approved' if e['approved'] else 'declined'} {e['action_id']} (by {e['decided_by']})" for e in added]
+    msg += [f"{a}: already {by_id[a]['status']}" for a in skipped]
+    msg += [f"{a}: both approve and decline are ticked, so no answer was recorded" for a in both]
+    if added and args.by.lower().startswith("agent"):
+        msg.append("note: answers by an agent count only with [review] allow_agent_decisions = true in project.toml")
+    emit(args, {"file": str(pdir / DECISIONS_FILE), "added": added, "skipped": skipped, "conflicting": both},
+         "\n".join(msg) or "nothing new")
+    return 0
 
 
 def provenance_line(run: dict) -> str:
@@ -5332,7 +5455,8 @@ def render_report_md(report: dict, cfg: dict, catalog: dict | None = None) -> st
     out += (["No actions."] if not top else []) + [""]
 
     out += ["## Decisions needed", ""] + decisions_block(roll)
-    out += ["", "Answer in `decisions.json` (the suite website's *Review a report* page writes it for you).", ""]
+    out += ["", "Answers go in `decisions.json`: tick the boxes in this report's pull request (the grading CI records them), "
+            "run `gradekit decide --approve ID --by NAME`, or use the suite website's *Review a report* page.", ""]
 
     metrics = report.get("metrics") or {}
     if metrics:
@@ -5453,11 +5577,16 @@ def render_report_pr(report: dict, cfg: dict, site: str | None = None, grading_r
     blockers = "; ".join(blocker_text(x) for x in mat.get("blockers", []))
     if mat.get("next_level"):
         body += ["", f"Blocking {mat['next_level']}: {blockers or 'nothing'}"]
-    body += ["", "**Decisions needed**", ""] + decisions_block(roll)
-    link = review_link(site, grading_repo, project, branch, folder, "tab=decisions" if roll_pending(roll) else None)
+    pending = roll_pending(roll)
+    body += ["", "**Decisions needed**", ""] + decisions_block(roll, decline_boxes=pending)
+    if pending:
+        body += ["", "Tick a question's first box to approve it, or its *Decline* box to decline. The grading CI's decide job "
+                 "records each answer in `decisions.json` on this branch, under your name; without it, run "
+                 f"`gradekit decide --project {project} --from-checklist FILE --by NAME` on this description."]
+    link = review_link(site, grading_repo, project, branch, folder, "tab=decisions" if pending else None)
     if link:
         body += ["", f"[Review this report and answer the decisions]({link})"]
-    body += ["", f"Files: `projects/{project}/reports/{folder}/` (report.json, report.md)."]
+    body += ["", f"Files: `projects/{project}/reports/{folder}/` (report.json, report.md).", "", f"<!-- gradekit:project={project} -->"]
     return {"title": title, "body": "\n".join(body) + "\n", "branch": branch}
 
 
@@ -6872,6 +7001,21 @@ def build_parser() -> argparse.ArgumentParser:
     g.add_argument("--in-place", action="store_true",
                    help="for grading repos: move the full report to REPORT.private.json and write the public one in its place")
     p.set_defaults(fn=cmd_redact)
+
+    p = sub.add_parser("decisions", help="the newest report's decision questions and their answers")
+    p.add_argument("--project", metavar="NAME"); p.add_argument("--grading-repo", metavar="DIR"); p.add_argument("--project-dir", metavar="DIR")
+    p.add_argument("--approved", action="store_true", help="only the approved ones: exactly what may be acted on")
+    p.set_defaults(fn=cmd_decisions)
+
+    p = sub.add_parser("decide", help="record answers to decision questions in decisions.json (by ID, or from a PR checklist)")
+    p.add_argument("--project", metavar="NAME"); p.add_argument("--grading-repo", metavar="DIR"); p.add_argument("--project-dir", metavar="DIR")
+    p.add_argument("--approve", nargs="+", metavar="ACTION_ID")
+    p.add_argument("--decline", nargs="+", metavar="ACTION_ID")
+    p.add_argument("--from-checklist", metavar="FILE", help="a report PR's description ('-' for stdin): each ticked box approves its action")
+    p.add_argument("--by", required=True, help="who decided (a name, email or code-host login)")
+    p.add_argument("--answer", help="an answer or conditions, recorded with each decision")
+    p.add_argument("--date", metavar="YYYY-MM-DD", help="default: today (UTC)")
+    p.set_defaults(fn=cmd_decide)
 
     p = sub.add_parser("rollup-repo", help="combine per-component reports (each must already have a rollup)")
     p.add_argument("reports", nargs="+", help="the component reports, or one report folder (with components/)")

@@ -89,8 +89,40 @@ def dark(state):
     return go
 
 
+def setup_saving(page, site):
+    """Quick setup filled in, with a GitHub grading repo: the save routes, a prefilled new-file link first."""
+    setup_filled(page, site)
+    page.fill("#f-code", "https://github.com/acme/orders-api")
+    page.dispatch_event("#f-code", "input")
+    page.fill("#f-grading", "https://github.com/acme/grading")
+    page.wait_for_selector("#save-toml a.btn.primary")
+
+
+def run_order(page, site):
+    """Start a run, recording the run as a work order."""
+    run_page(page, site)
+    page.fill("#gdir-loc", "https://github.com/acme/grading")
+    page.check("#want-order")
+    page.wait_for_selector("#order-save .save-routes")
+
+
+def review_answered(page, site):
+    """A decision answered on the sample, with the ways to save it."""
+    review_tab("decisions")(page, site)
+    page.locator("#panel-decisions .seg label:has-text('Approve')").first.click()
+    page.wait_for_selector("#dec-output .save-routes pre")
+
+
+def tour(page, site):
+    """The guided first run, one step done."""
+    page.goto(site + "app/review.html?sample=1&tour=1", wait_until="networkidle")
+    page.wait_for_selector("#results:not([hidden])", timeout=120000)
+    page.wait_for_selector(".tour-bar")
+
+
 TABS = ["overview", "decisions", "priorities", "scorecard", "findings", "compare", "more"]
 STATES = ([home, docs, setup_empty, setup_filled, run_page, run_three, review_empty] + [review_tab(t) for t in TABS]
           + [components, dark(components), dark(setup_filled), dark(review_tab("findings"))]
           + [projects_empty, projects_tab("all"), projects_tab("decisions"), projects_tab("project"), dark(projects_tab("project"))]
-          + [review_link("finding=A1-001"), review_link("bench=A3"), dark(review_link("finding=A1-001"))])
+          + [review_link("finding=A1-001"), review_link("bench=A3"), dark(review_link("finding=A1-001"))]
+          + [setup_saving, run_order, review_answered, tour, dark(tour)])

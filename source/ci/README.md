@@ -9,6 +9,8 @@ These run `gradekit ci` on every pull request (merge request) to a grading repo.
 
 When reports or decisions land on the default branch, a second job rebuilds `projects/index.json` with `gradekit index` and commits it. That file holds every project's latest score, maturity, history and the decisions still waiting, and dashboards and the Review page read it. A pull request may include the index, but only if it matches what `gradekit index` makes. To check it yourself, run `gradekit index --check`.
 
+**Answering decisions by ticking boxes.** A report's pull request lists its decision questions as a checklist: a box to approve each, and a *Decline* box under it. A third job records what's ticked in that project's `decisions.json` on the pull request's branch, under the login of the person who answered, using `gradekit decide --from-checklist`. Answers already recorded aren't written again, unticked boxes are no answer, and a question with both boxes ticked is skipped. On GitHub it runs whenever the description is edited. GitLab has no event for that, so there it's a manual job: tick, then press play on `grading-decide` in the merge request's pipeline. On any host, or without CI, a person or agent can run `gradekit decide --project NAME --approve ID --by NAME` (or `--decline`), and `gradekit decisions --project NAME --approved` lists exactly what may be acted on.
+
 | File | Host | Install |
 |---|---|---|
 | `github-grading.yml` | GitHub Actions | `gradekit init --ci github --site URL`, or copy to `.github/workflows/grading.yml` |
@@ -17,8 +19,9 @@ When reports or decisions land on the default branch, a second job rebuilds `pro
 
 **Permissions:**
 - **GitHub:** the workflow's own token, with `contents: read`, `pull-requests: write` and `issues: write` (for labels). Pull requests from forks are checked but not commented on.
+- **GitHub, decide job:** `contents: write`, to commit `decisions.json` to the report's branch. Anyone who can edit the description can answer: people with write access, and the pull request's author. Pull requests from forks are skipped. A commit made with the workflow's token doesn't start another run, so the check doesn't re-run on it; `gradekit decide` checks each answer against the report itself.
 - **GitHub, index job:** `contents: write`. If the default branch doesn't allow direct pushes, let GitHub Actions bypass that rule, or delete the job.
-- **GitLab:** comments, labels and the index need a `GRADING_BOT_TOKEN` variable. It's a project access token with the `api` and `write_repository` scopes, and a role that may push to the default branch. Without it, the result is in the job log and the index isn't rebuilt.
+- **GitLab:** comments, labels and the index need a `GRADING_BOT_TOKEN` variable. It's a project access token with the `api` and `write_repository` scopes, and a role that may push to the default branch. Without it, the result is in the job log, the index isn't rebuilt and `grading-decide` doesn't appear. Anyone who may run the merge request's jobs (Developer or above) can record decisions; the token needs to be allowed to push to the merge request's branch. Merge requests from forks are skipped.
 
 **Another host:** run the same two steps in any CI that gives you a checkout with history:
 

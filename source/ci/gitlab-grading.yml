@@ -2,6 +2,10 @@
 # writes it, or `include:` this file).
 #   grading-check: on each merge request that changes projects/ or org.toml, checks it with `gradekit ci`,
 #                  and comments a summary and sets labels if it may.
+#   grading-decide: a manual job on report merge requests. Tick boxes in the description's "Decisions needed"
+#                   checklist, then press play on this job: it records the answers in that project's decisions.json
+#                   on the merge request's branch, under the login of whoever pressed play (needs GRADING_BOT_TOKEN).
+#                   GitLab has no event for a description edit, so this step is a button rather than automatic.
 #   grading-index: when reports or decisions land on the default branch, rebuilds projects/index.json
 #                  and commits it (only with GRADING_BOT_TOKEN).
 #
@@ -9,7 +13,9 @@
 #   SUITE_SITE          your suite website's address
 #   GRADING_BOT_TOKEN   optional: a project access token with the `api` and `write_repository` scopes, and a role
 #                       that may push to the default branch (Maintainer if it's protected). It's used to comment,
-#                       label and commit the index. Without it the check still runs; the summary is in the job log.
+#                       label, commit the index and record decisions. Without it the check still runs; the summary
+#                       is in the job log. Who can answer: anyone allowed to run the merge request's pipeline jobs
+#                       (Developer or above). Merge requests from forks are skipped.
 variables:
   SUITE_SITE: "__SUITE_SITE__"
 
@@ -43,6 +49,29 @@ grading-check:
         [ -z "$add" ] || curl -fsS -X PUT -H "PRIVATE-TOKEN: $GRADING_BOT_TOKEN" --data-urlencode "add_labels=$add" "$api" >/dev/null
       fi
     - exit $status
+
+grading-decide:
+  extends: .grading-kit
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $GRADING_BOT_TOKEN && $CI_MERGE_REQUEST_SOURCE_PROJECT_ID == $CI_PROJECT_ID
+      changes: ["projects/**/*"]
+      when: manual
+      allow_failure: true
+  script:
+    # The full description from the API (CI_MERGE_REQUEST_DESCRIPTION can be cut short). It's untrusted text: it's
+    # written to a file by Python and never reaches the shell.
+    - >
+      curl -fsS -H "PRIVATE-TOKEN: $GRADING_BOT_TOKEN"
+      "$CI_API_V4_URL/projects/$CI_PROJECT_ID/merge_requests/$CI_MERGE_REQUEST_IID"
+      | python3 -c 'import json,sys; open("/tmp/body.md","w").write(json.load(sys.stdin).get("description") or "")'
+    - grep -q '<!-- gradekit:project=' /tmp/body.md || { echo "not a report merge request"; exit 0; }
+    - git fetch -q origin "$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME"
+    - git switch -C "$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME" FETCH_HEAD
+    - python3 "$KIT/tools/gradekit.py" decide --from-checklist /tmp/body.md --by "$GITLAB_USER_LOGIN"
+    - git add projects/*/decisions.json
+    - git diff --cached --quiet && exit 0
+    - git -c user.name="grading bot" -c user.email="grading-bot@$CI_SERVER_HOST" commit -m "Record decisions ticked by $GITLAB_USER_LOGIN"
+    - git push "https://oauth2:${GRADING_BOT_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git" "HEAD:${CI_MERGE_REQUEST_SOURCE_BRANCH_NAME}"
 
 grading-index:
   extends: .grading-kit

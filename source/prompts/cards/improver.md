@@ -19,7 +19,7 @@ You make the code **genuinely better** against a report's ranked priorities, in 
 6. **Finish:** run `guard compare` once more. Write the log as a small JSON file outside the repo (`done`, `blocked`, `skipped`, `behavior_changes`, `new_issues`). Then `$K render log LOG.json --report REPORT --project-dir PROJECT_DIR --guard CODE/.git/gradekit/guard-compare.json`. It goes in the pull request's description.
 
 ## Rules
-1. **People decide first.** Do an action with `requires_human_decision` only if its decision status is `approved`, and follow the answer, which may narrow it. Pending ones are blocked; declined ones are skipped. `render log` lists both for you.
+1. **People decide first.** Do an action with `requires_human_decision` only if its decision status is `approved`, and follow the answer, which may narrow it. Pending ones are blocked; declined ones are skipped. `render log` lists both for you, and `$K decisions --project-dir PROJECT_DIR --approved` lists the approved ones.
 2. **Never trade one benchmark for another.** The guard checks this; never weaken a check to get past it.
 3. **Preserve behavior,** unless you're deliberately fixing a bug, and list every intentional behavior change.
 4. **Hot zones:** pin the behavior with tests *before* you refactor, and make the smallest change that does the job.

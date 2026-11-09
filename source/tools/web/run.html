@@ -70,6 +70,15 @@
         <div class="tabs mt-1 mb-3" id="prompt-tabs" aria-label="Prompt for each run" hidden></div>
         <pre id="prompt-out" class="out-pre pre-wrap" tabindex="0" role="region" aria-label="Prompt to give the agent"></pre>
         <div class="row-btns mt-3"><button class="btn primary" type="button" id="copy-prompt">Copy prompt</button></div>
+        <div class="mt-3" id="order-box">
+          <label class="check"><input type="checkbox" id="want-order"> Record this run as a work order</label>
+          <p class="kbd-note mt-1 mb-0">A small file in the grading repo that says who asked for this run and why. The report that answers it closes it, so everyone can see what's waiting.</p>
+          <div id="order-detail" hidden>
+            <div class="field mt-2"><label for="order-by">Your name or email</label><input type="text" id="order-by" placeholder="you@example.com" class="maxw-sm"></div>
+            <div class="field"><label for="order-note">Note (optional)</label><input type="text" id="order-note" placeholder="e.g. before the 2.0 release"></div>
+            <div id="order-save"></div>
+          </div>
+        </div>
         <h3 class="sub-h">What to expect</h3>
         <div id="expect"></div>
         <p class="hint fine mt-1 mb-0">Rough guides for a capable coding agent; yours may differ.</p>

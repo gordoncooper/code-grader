@@ -81,6 +81,7 @@
       var r = await fetch(new URL("suite/examples/grading-repo/projects/index.json", GK.site).href);
       if (!r.ok) throw new Error("the sample isn't on this site (" + r.status + ")");
       accept(await r.json(), { kind: "sample", label: "the sample grading repo" });
+      UI.tour.done("projects");
     } catch (err) { status("error", { title: "Couldn't load the sample", message: err.message, retry: loadSample }); }
   }
 
@@ -333,7 +334,10 @@
       try { existing = await UI.gh.getText(SRC.at.raw("projects/" + p.name + "/decisions.json")); }
       catch (e) { if (e.status === 404) existing = ""; }
     }
-    await UI.saveDecisions(out, { project: p.name, decisions: decisions, existing: existing });
+    var gh = SRC.kind === "github" ? SRC.at : null;
+    var open = (prsFor(p.name) || []).filter(function (pr) { return /^report\//.test(pr.head.ref); })[0];
+    await UI.saveDecisions(out, { project: p.name, decisions: decisions, existing: existing,
+                                  repo: gh ? gh.owner + "/" + gh.repo : null, branch: open ? open.head.ref : null });
   }
 
   // ------------------------------------------------------------------

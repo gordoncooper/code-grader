@@ -45,7 +45,7 @@ grading/
 |---|---|---|---|
 | 0. Set up (once) | You | **Set up a project** → `projects/<name>/project.toml` (+ starter `decisions.json`, `dispositions.json`) | write to grading repo |
 | 1. Grade | A fresh agent session | **Start a run** → *Grade the code*. Default: a PR adding one report folder. Or save locally, or return in chat. | read code; push branches + open PRs on grading repo |
-| 2. Review and decide | You (an agent can help) | **Review a report** → check, compare, answer decisions → updated `decisions.json` on the report PR → merge | write to grading repo |
+| 2. Review and decide | You (an agent can help) | **Review a report** → check, compare, answer decisions (tick boxes on the report PR, or `gradekit decide`) → merge | write to grading repo |
 | 3. Improve | Another fresh agent session | **Start a run** → *Improve the code*. Reads the latest report + decisions (or is handed the files), opens a PR on the code. | push branches + open PRs on code repo; read grading repo |
 | 4. Guard | An agent, or CI | **Start a run** → *Check a pull request*: PASS or FAIL against the latest merged report | read both; comment on code PR |
 
@@ -168,7 +168,7 @@ code-grading-suite/
 
 ## CI for grading repos
 
-`gradekit ci` checks every pull request to a grading repo. Each one must be a single kind of change: either one new report folder, or a project's settings. It validates the report, its rollup and its folder name, and makes sure no private report or withheld detail is published. It keeps `decisions.json` and `dispositions.json` append-only. Then it comments a summary with a link to the Review page, and labels the pull request.
+`gradekit ci` checks every pull request to a grading repo. Each one must be a single kind of change: either one new report folder, or a project's settings. It validates the report, its rollup and its folder name, and makes sure no private report or withheld detail is published. It keeps `decisions.json` and `dispositions.json` append-only, and lets a report's pull request carry answers to that report's questions (the decide job records the boxes people tick in its description). Then it comments a summary with a link to the Review page, and labels the pull request.
 
 To add it, run `gradekit init --project NAME --ci github|gitlab --site URL`. It works on other hosts too. [ci/README.md](ci/README.md) covers setup and the permissions each host needs.
 
