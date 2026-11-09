@@ -3,12 +3,12 @@
 Layout rules that hold on any machine, at four widths: no sideways scrolling, tap targets of at least
 24×24 px (WCAG 2.2 target size), no controls on top of each other, nothing cut off at the right edge.
 
-Screenshot comparison against baselines in tests/visual/. Fonts render differently from one machine to
-the next, so baselines are only compared on the platform and browser they were made with (CI's
-Linux Chromium). CI makes them on its first run and commits them to the pull request; after an
-intended change, label the pull request "update-visual" (or run the Tests workflow by hand with
-"update_visual") to remake them (UPDATE_VISUAL=1 does it locally). A failed comparison leaves the actual and diff images in tests/visual/out/, which CI
-uploads as the "visual-diff" artifact.
+Screenshot comparison against baselines that CI fetches into tests/visual/ from the visual-baselines branch
+(tests/README.md). Fonts render differently from one machine to the next, so baselines are only compared on the
+platform and browser they were made with (CI's Linux Chromium). CI makes them on its first run; after an intended
+change, label the pull request "update-visual" (or run the Tests workflow by hand with "update_visual") to remake
+them, and CI saves them in the branch's folder there (UPDATE_VISUAL=1 makes local ones). A failed comparison leaves
+the actual and diff images in tests/visual/out/, which CI uploads as the "visual-diff" artifact.
 """
 import json
 import os
@@ -129,4 +129,4 @@ def test_screenshots(browser, site, tmp_path):
                                                   "compared only on this platform and browser."}, indent=2) + "\n")
         (OUT / "NEW_BASELINES").write_text("\n".join(n for n, _, _ in SHOTS) + "\n")
         return
-    assert not failures, "\n".join(failures) + "\nIf the change is intended, refresh the baselines with UPDATE_VISUAL=1 in CI."
+    assert not failures, "\n".join(failures) + "\nIf the change is intended, add the update-visual label (or run Tests with update_visual) to remake this branch's baselines."

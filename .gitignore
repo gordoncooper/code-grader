@@ -9,3 +9,8 @@ Thumbs.db
 
 # full reports with withheld security details; never commit them
 *.private.json
+
+# screenshot baselines are fetched from the visual-baselines branch (tests/README.md), never committed here
+tests/visual/*.png
+tests/visual/baselines.json
+tests/visual/out/
