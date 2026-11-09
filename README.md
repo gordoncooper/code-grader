@@ -10,15 +10,16 @@ This repo also holds the **Code Grading Suite** itself (the prompts, rubric, con
 
 **https://gordoncooper.github.io/code-grader/**
 
-It has three browser tools and needs no installs:
+It has browser tools that need no installs (new to it? take the [guided first run](https://gordoncooper.github.io/code-grader/app/review.html?sample=1&tour=1)):
 
 | Page | What it's for |
 |---|---|
-| [Set up a project](https://gordoncooper.github.io/code-grader/app/setup.html) | Pick a preset, answer 8 questions, mark hot and cold zones, and download `project.toml` |
+| [Set up a project](https://gordoncooper.github.io/code-grader/app/setup.html) | Give the code's address, say what kind of project it is, answer 3 questions, and save `project.toml` straight to the grading repo |
 | [Start a run](https://gordoncooper.github.io/code-grader/app/run.html) | Get a ready-to-paste prompt for a grader, reviewer, improver or pull-request check |
-| [Review a report](https://gordoncooper.github.io/code-grader/app/review.html?repo=gordoncooper/code-grader) | Load a project from this repo (or from files), check the report, compare it with the last one, and answer decisions |
+| [Review a report](https://gordoncooper.github.io/code-grader/app/review.html?repo=gordoncooper/code-grader) | Load a project from this repo (or from files), check the report, see why each score is what it is, compare it with the last one, and answer decisions |
+| [Projects](https://gordoncooper.github.io/code-grader/app/projects.html?repo=gordoncooper/code-grader) | Every project at once: where each stands, its trends, what's waiting on whom, time and cost, and every decision waiting for a person |
 
-The site always serves the newest bundle in [`bundle/web/`](bundle/). It's published by [`.github/workflows/pages.yml`](.github/workflows/pages.yml) whenever that folder changes on `main`.
+The site always serves the newest bundle in [`bundle/web/`](bundle/), and each major version at its own path ([`/v4/`](https://gordoncooper.github.io/code-grader/v4/), [`/v5/`](https://gordoncooper.github.io/code-grader/v5/)), so a project pinned to a major keeps its rules. It's published by [`.github/workflows/pages.yml`](.github/workflows/pages.yml) whenever that folder changes on `main`.
 
 ## Layout
 
@@ -50,9 +51,9 @@ code-grader/
 
 | Step | Who | What lands where | Permissions needed |
 |---|---|---|---|
-| 0. Set up (once per project) | You | `projects/<name>/project.toml` plus starter `decisions.json` and `dispositions.json` | write to this repo |
+| 0. Set up (once per project) | You | `projects/<name>/project.toml` (`decisions.json` and `dispositions.json` come with the first answers) | write to this repo |
 | 1. Grade | A fresh agent session | A pull request on `report/<project>/<date>-<short-commit>` that adds one report folder. It can also save locally or return the files in chat. | read the code; push branches and open pull requests here |
-| 2. Review and decide | You, or an agent if allowed | Decisions in `decisions.json`, on the report's pull request or a follow-up `decisions/<project>/<date>` pull request. Then merge. | write to this repo |
+| 2. Review and decide | You, or an agent if allowed | Decisions in `decisions.json`: tick the boxes on the report's pull request (the grading CI records them), or `gradekit decide`, or a follow-up `decisions/<project>/<date>` pull request. Then merge. | write to this repo |
 | 3. Improve | Another fresh agent session | A pull request on the **code** repo, working from the newest merged report plus its decisions | read this repo; push branches and open pull requests on the code repo |
 | 4. Guard | An agent, or CI | PASS or FAIL as a comment on a code pull request, compared with the newest merged report | read both repos; comment on code pull requests |
 
@@ -88,7 +89,7 @@ Each version of the suite is a tagged [release](https://github.com/gordoncooper/
 
 The kit lives in [`source/`](source/). `bundle/` is generated from it by the *Kit* workflow, so a change always goes to `source/`, never to `bundle/`.
 
-1. **Start the next version.** Add a heading to `source/CHANGELOG.md` such as `## 4.3.0 (unreleased)`, and set `suite_version` in `source/rubric/catalog.json` to match. Kit PRs can then merge freely, and `bundle/` and the live site stay at the last release.
+1. **Start the next version.** Add a heading to `source/CHANGELOG.md` such as `## 5.1.0 (unreleased)`, and set `suite_version` in `source/rubric/catalog.json` to match. Kit PRs can then merge freely, and `bundle/` and the live site stay at the last release.
 2. **Release it.** In one PR, drop `(unreleased)` from the heading and update the version labels and `bundle/README.md`. CI rebuilds `bundle/` and commits it to the PR. Merging publishes the site and the release.
 
 `python3 .github/scripts/bundles.py status` shows the current state, and `smoke` runs the quick checks CI runs. If `source/` changes without a new version heading, CI stops and asks for one, so a released bundle always matches its source.

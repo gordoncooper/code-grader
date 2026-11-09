@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'wasm-unsafe-eval'; connect-src 'self' https://cdn.jsdelivr.net https://api.github.com https://raw.githubusercontent.com; img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'; worker-src 'self' blob:">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'wasm-unsafe-eval'; connect-src 'self' https://cdn.jsdelivr.net https://api.github.com https://raw.githubusercontent.com; img-src 'self' data:; style-src 'self'; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'; worker-src 'self' blob:">
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <title>Review a report · Code Grading Suite</title>
 <meta name="description" content="A rubric, prompts and browser tools for AI coding agents to grade codebases from 1 to 10 on 35 benchmarks and improve them.">
@@ -16,11 +16,11 @@
 <header class="topbar">
   
   <a class="brand" href="../index.html">Code <span>Grading</span> Suite</a>
-  <span class="ver">v4.3.0</span>
-  <nav class="main" aria-label="Main"><a href="../docs/GETTING-STARTED.html">Get started</a><a href="../app/setup.html">Set up</a><a href="../app/run.html">Start a run</a><a href="../app/review.html" class="active" aria-current="page">Review</a><a href="../docs/README.html">Docs</a></nav>
+  <span class="ver">v5.0.0</span>
+  <nav class="main" aria-label="Main"><a href="../docs/GETTING-STARTED.html">Get started</a><a href="../app/setup.html">Set up</a><a href="../app/run.html">Start a run</a><a href="../app/review.html" class="active" aria-current="page">Review</a><a href="../app/projects.html">Projects</a><a href="../docs/README.html">Docs</a></nav>
   <span class="spacer"></span>
   <a class="top opt" href="../AGENT.md">AGENT.md</a>
-  <a class="top opt" href="../downloads/code-grading-suite-4.3.0.zip">Download</a>
+  <a class="top opt" href="../downloads/code-grading-suite-5.0.0.zip">Download</a>
 </header>
 <main id="main"><div class="app">
   <header class="app-head">
@@ -34,7 +34,7 @@
   <div id="engine-error"></div>
 
   <section class="card" id="load-card">
-    <div class="tabs" id="load-tabs" style="margin-top:0" aria-label="Where the report comes from">
+    <div class="tabs mt-0" id="load-tabs" aria-label="Where the report comes from">
       <button type="button" data-tab="repo">From the grading repo</button>
       <button type="button" data-tab="files">Open files</button>
     </div>
@@ -45,7 +45,7 @@
       </div>
       <div class="grid2">
         <div class="field"><label for="gh-ref">Branch (optional)</label><input type="text" id="gh-ref" placeholder="Default branch, or a report branch like report/orders-api/2026-11-07-a1b2c3d"></div>
-        <div class="field" style="align-self:end"><button class="btn primary" type="button" id="gh-load">Load</button></div>
+        <div class="field self-end"><button class="btn primary" type="button" id="gh-load">Load</button></div>
       </div>
       <p class="kbd-note">Loads the project's settings, decisions, accepted findings and its reports. The newest report is reviewed and compared with the one before; you can pick others below. Works with public GitHub repos.</p>
       <div id="gh-status"></div>
@@ -57,25 +57,31 @@
       </div>
       <input type="file" id="file-input" multiple hidden accept=".json,.toml,.zip,application/json,application/zip,text/plain">
       <input type="file" id="folder-input" webkitdirectory multiple hidden>
-      <div class="row-btns" style="margin-top:10px"><button class="btn" type="button" id="pick-folder">Choose a folder…</button></div>
+      <div class="row-btns mt-3"><button class="btn" type="button" id="pick-folder">Choose a folder…</button></div>
       <div class="filelist" id="filelist"></div>
     </div>
-    <div class="row-btns" style="margin-top:14px">
+    <div class="row-btns mt-4">
       <button class="btn primary" type="button" id="analyze" disabled>Review</button>
       <button class="btn" type="button" id="sample">Try the sample project</button>
       <button class="btn" type="button" id="clear-files">Clear</button>
     </div>
   </section>
 
+  <div id="review-status" class="status-slot mt-4" aria-live="polite"></div>
   <div id="results" hidden>
-    <div class="card" id="history-bar" style="margin-top:18px;padding:12px 18px" hidden>
+    <div class="card compact mt-4" id="history-bar" hidden>
       <div class="row-btns">
         <span class="label" id="history-project"></span>
-        <label class="kbd-note">Report <select id="pick-report" style="width:auto;margin-left:6px"></select></label>
-        <label class="kbd-note">Compare with <select id="pick-compare" style="width:auto;margin-left:6px"></select></label>
+        <label class="kbd-note">Report <select id="pick-report" class="w-auto ml-2"></select></label>
+        <label class="kbd-note">Compare with <select id="pick-compare" class="w-auto ml-2"></select></label>
       </div>
     </div>
-    <div id="result-banners" style="margin-top:18px"></div>
+    <div class="print-only" id="print-head"></div>
+    <div id="result-banners" class="mt-4"></div>
+    <div class="row-btns mt-3" id="result-tools">
+      <button type="button" class="btn sm" id="copy-report-link">Copy a link to this view</button>
+      <button type="button" class="btn sm" id="print-report">Print or save as PDF</button>
+    </div>
     <div class="tabs" id="result-tabs" aria-label="Report sections">
       <button type="button" data-tab="overview">Overview</button>
       <button type="button" data-tab="decisions">Decisions <span class="count" id="dec-count" hidden></span></button>
@@ -85,13 +91,13 @@
       <button type="button" data-tab="compare">Compare</button>
       <button type="button" data-tab="more">More</button>
     </div>
-    <div class="panel" id="panel-overview"></div>
-    <div class="panel" id="panel-decisions" hidden></div>
-    <div class="panel" id="panel-priorities" hidden></div>
-    <div class="panel" id="panel-scorecard" hidden></div>
-    <div class="panel" id="panel-findings" hidden></div>
-    <div class="panel" id="panel-compare" hidden></div>
-    <div class="panel" id="panel-more" hidden></div>
+    <div class="panel" id="panel-overview" data-title="Overview"></div>
+    <div class="panel" id="panel-decisions" data-title="Decisions" hidden></div>
+    <div class="panel" id="panel-priorities" data-title="Priorities" hidden></div>
+    <div class="panel" id="panel-scorecard" data-title="Scorecard" hidden></div>
+    <div class="panel" id="panel-findings" data-title="Findings" hidden></div>
+    <div class="panel" id="panel-compare" data-title="Compare" hidden></div>
+    <div class="panel" id="panel-more" data-title="More" hidden></div>
   </div>
 </div>
 </main>
@@ -99,6 +105,7 @@
 <script src="../assets/engine-config.js"></script>
 <script src="../assets/engine.js"></script>
 <script src="../assets/glossary.js"></script>
+<script src="../assets/search.js"></script>
 <script src="../assets/common.js"></script>
 <script src="../assets/review.js"></script>
 </body>

@@ -8,8 +8,21 @@ Versioning rules for the suite itself:
 
 After any major or minor change, re-run calibration (`calibration/README.md`) before trusting new scores.
 
-## 5.0.0 (unreleased)
-Major release, in progress: a beta for agents first, then the pages for people. The 35 benchmarks and their anchors don't change. Severity does: graders now judge it by consequence where the code runs, and zones no longer shift it. That is a new scoring version (5.0.0), so config fingerprints change and score changes against a 4.x report aren't regressions. A 4.x report still validates and recomputes under the rules it was graded with.
+## 5.0.0
+Major release. The 35 benchmarks and their anchors don't change. **Severity does:** graders judge it by consequence where the code runs, zones no longer shift it, and a rubric cap needs a major or critical finding. That's a new scoring version (5.0.0): config fingerprints change, and a score change against a 4.x report isn't a regression. 5.x still reads 4.x reports and recomputes them under the rules they were graded with, and `gradekit migrate` moves a project over.
+
+- **For agents:**
+  - Report format 5 adds *noticed* findings, fingerprints, and who graded and what it took.
+  - Short operating cards replace reading whole prompts.
+  - `gradekit mcp` serves agents without a shell.
+  - Also new: work orders, enforced score limits, finding disputes, monorepo components in every tool, and answering decisions with `gradekit decide`.
+- **For people:**
+  - A **Projects** page for every project at once, and a Review page that explains every score.
+  - Deciding by ticking a box on the report's pull request, and saving files without pasting JSON.
+  - A quick setup, a guided first run, and a command palette (Ctrl/Cmd+K).
+  - Grading on a schedule, with time and cost on the pages.
+- **Every major at its own address** (`/v4/`, `/v5/`), so a project's rules can't change under it.
+- **Calibration** is now a program, with golden repos, spread across runs, and a rules fingerprint tests enforce. The `schedule` golden's run under the final 5.0 rules is 100% within tolerance (MAE 0.28). Calibration passes once two more independent runs agree within the allowed spread. A1's expected score is provisional until a person reviews it.
 
 **Versions and pins**
 - **Three versions, each with its own job:**

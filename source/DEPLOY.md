@@ -79,7 +79,7 @@ cd web && python3 -m http.server 8000
 BASE=https://your-server/grading/v5
 curl -sI "$BASE/AGENT.md" | grep -i content-type     # expect text/markdown; charset=utf-8
 curl -s  "$BASE/SHA256SUMS" -o SHA256SUMS
-curl -s  "$BASE/downloads/code-grading-suite-4.3.0.zip" -o code-grading-suite-4.3.0.zip
+curl -s  "$BASE/downloads/code-grading-suite-5.0.0.zip" -o code-grading-suite-5.0.0.zip
 sha256sum -c SHA256SUMS --ignore-missing              # expect: OK
 ```
 

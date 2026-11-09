@@ -12,6 +12,33 @@
   var shown=isFile?'https://your-server/path/':base;
   document.querySelectorAll('[data-base]').forEach(function(el){el.textContent=el.textContent.split('{BASE}').join(shown)});
   if(isFile){document.querySelectorAll('.file-note').forEach(function(el){el.hidden=false})}
+  // Several major versions on one site (GitHub Pages serves /v4/, /v5/ …) are listed in versions.json beside
+  // index.html. Without it (a single version on any host) nothing changes. SiteVersions resolves to null, or to
+  // {data, current, url(entry)}, where current is this page's version and url() is a version's site address.
+  var ver=document.querySelector('.topbar .ver'),shownVersion=ver?ver.textContent.replace(/^v/,'').trim():'';
+  window.SiteVersions=(isFile||!window.fetch?Promise.resolve(null):fetch(base+'versions.json',{cache:'no-cache'}).then(function(r){return r.ok?r.json():null}).catch(function(){return null})).then(function(data){
+    if(!data||!Array.isArray(data.versions)||!data.versions.length)return null;
+    var at=base+'versions.json';
+    function url(v){return new URL(v.path,at).href}
+    var current=data.versions.filter(function(v){return v.version===shownVersion})[0]||null;
+    if(ver&&data.versions.length>1){
+      var here=location.href.indexOf(base)===0?location.href.slice(base.length).split('#')[0]:'';
+      var menu=document.createElement('details');menu.className='ver-menu';
+      var sum=document.createElement('summary');sum.className='ver';sum.textContent=ver.textContent;
+      sum.setAttribute('aria-label',ver.textContent.trim()+', other versions');menu.appendChild(sum);
+      var list=document.createElement('ul');
+      data.versions.forEach(function(v){
+        var li=document.createElement('li'),a=document.createElement('a');
+        a.href=url(v)+here;a.textContent='v'+v.version+(v.version===data.latest?' (newest)':'');
+        if(v.version===shownVersion)a.setAttribute('aria-current','page');
+        li.appendChild(a);list.appendChild(li);
+      });
+      menu.appendChild(list);ver.replaceWith(menu);
+      document.addEventListener('click',function(e){if(menu.open&&!menu.contains(e.target))menu.open=false});
+      menu.addEventListener('keydown',function(e){if(e.key==='Escape'&&menu.open){menu.open=false;sum.focus()}});
+    }
+    return {data:data,current:current,url:url};
+  });
   document.querySelectorAll('[data-copy]').forEach(function(btn){
     btn.addEventListener('click',function(){
       var sel=btn.getAttribute('data-copy'),text;

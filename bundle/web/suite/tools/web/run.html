@@ -10,8 +10,8 @@
   <div class="two-col">
     <div id="run-form">
       <section class="card" id="saved-card" hidden>
-        <h2 style="font-size:1.05rem">Your projects</h2>
-        <p class="hint" style="margin:0 0 8px">Pick one to fill in its settings from last time. They're kept in this browser only.</p>
+        <h2 class="sm">Your projects</h2>
+        <p class="hint mt-0 mb-2">Pick one to fill in its settings from last time. They're kept in this browser only.</p>
         <div id="saved-projects" class="saved-list"></div>
       </section>
       <section class="card">
@@ -31,13 +31,13 @@
             <label><input type="radio" name="code" value="url" checked><span>A git repository URL</span></label>
             <label><input type="radio" name="code" value="path"><span>A folder the agent can open</span></label>
           </div>
-          <input type="text" id="code-loc" placeholder="https://github.com/you/your-repo" aria-label="Code location" style="margin-top:8px"></div>
+          <input type="text" id="code-loc" placeholder="https://github.com/you/your-repo" aria-label="Code location" class="mt-2"></div>
         <div class="field"><span class="label">The grading files are…</span>
           <div class="seg" role="radiogroup" aria-label="Where the grading files are">
             <label><input type="radio" name="gdir" value="repo" checked><span>In a grading repo</span></label>
             <label><input type="radio" name="gdir" value="local"><span>In a local folder</span></label>
           </div>
-          <input type="text" id="gdir-loc" aria-label="Grading repo or folder" style="margin-top:8px">
+          <input type="text" id="gdir-loc" aria-label="Grading repo or folder" class="mt-2">
           <small id="gdir-hint"></small></div>
         <div class="field"><label for="project-name">Project name</label>
           <input type="text" id="project-name" placeholder="orders-api">
@@ -50,7 +50,7 @@
             <label><input type="radio" name="suite" value="site" checked><span>This website</span></label>
             <label><input type="radio" name="suite" value="path"><span>A local copy</span></label>
           </div>
-          <input type="text" id="suite-loc" aria-label="Suite location" style="margin-top:8px"></div>
+          <input type="text" id="suite-loc" aria-label="Suite location" class="mt-2"></div>
       </section>
 
       <section class="card">
@@ -66,17 +66,26 @@
 
     <aside class="sticky">
       <div class="card">
-        <h2 style="font-size:1.1rem">Your prompt</h2>
-        <div class="tabs" id="prompt-tabs" style="margin:4px 0 10px" aria-label="Prompt for each run" hidden></div>
-        <pre id="prompt-out" class="out-pre" style="white-space:pre-wrap" tabindex="0" role="region" aria-label="Prompt to give the agent"></pre>
-        <div class="row-btns" style="margin-top:10px"><button class="btn primary" type="button" id="copy-prompt">Copy prompt</button></div>
-        <h3 style="font-size:.95rem;margin:20px 0 4px">What to expect</h3>
+        <h2 class="sm">Your prompt</h2>
+        <div class="tabs mt-1 mb-3" id="prompt-tabs" aria-label="Prompt for each run" hidden></div>
+        <pre id="prompt-out" class="out-pre pre-wrap" tabindex="0" role="region" aria-label="Prompt to give the agent"></pre>
+        <div class="row-btns mt-3"><button class="btn primary" type="button" id="copy-prompt">Copy prompt</button></div>
+        <div class="mt-3" id="order-box">
+          <label class="check"><input type="checkbox" id="want-order"> Record this run as a work order</label>
+          <p class="kbd-note mt-1 mb-0">A small file in the grading repo that says who asked for this run and why. The report that answers it closes it, so everyone can see what's waiting.</p>
+          <div id="order-detail" hidden>
+            <div class="field mt-2"><label for="order-by">Your name or email</label><input type="text" id="order-by" placeholder="you@example.com" class="maxw-sm"></div>
+            <div class="field"><label for="order-note">Note (optional)</label><input type="text" id="order-note" placeholder="e.g. before the 2.0 release"></div>
+            <div id="order-save"></div>
+          </div>
+        </div>
+        <h3 class="sub-h">What to expect</h3>
         <div id="expect"></div>
-        <p class="hint" style="margin:4px 0 0;font-size:.78rem">Rough guides for a capable coding agent; yours may differ.</p>
-        <h3 style="font-size:.95rem;margin:20px 0 4px">Then</h3>
+        <p class="hint fine mt-1 mb-0">Rough guides for a capable coding agent; yours may differ.</p>
+        <h3 class="sub-h">Then</h3>
         <ol class="steps-mini" id="next-steps"></ol>
         <div id="cycle"></div>
-        <p class="hint" id="after" style="margin:6px 0 0;font-size:.85rem"></p>
+        <p class="hint small mt-2 mb-0" id="after"></p>
       </div>
     </aside>
   </div>

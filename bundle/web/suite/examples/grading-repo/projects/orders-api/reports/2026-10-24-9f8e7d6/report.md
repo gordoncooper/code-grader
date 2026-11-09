@@ -16,7 +16,7 @@ An early baseline: a committed API key, almost no tests and a thin README.
 | A4 Idempotence & Determinism | 5 | passed (data_sensitivity=financial) |
 | A5 Durability & Recoverability | 4 | passed (data_sensitivity=financial) |
 
-Blocking L1: gate above 3 (now 3); overall ≥ 5.0 (now 4.0); gate ≥ 4 (now 3)
+Blocking L1: gate above 3 (A2 now 3); overall ≥ 5.0 (now 4.0); gate ≥ 4 (A2 now 3)
 
 ## Scorecard
 
@@ -88,7 +88,7 @@ Gates are marked ★. Weight is the weight used, after applicability.
 
 - [ ] **D1-act-1:** Implement CSV and XLSX export, or drop the export claim from the README?
 
-Answer in `decisions.json` (the suite website's *Review a report* page writes it for you).
+Answers go in `decisions.json`: tick the boxes in this report's pull request (the grading CI records them), run `gradekit decide --approve ID --by NAME`, or use the suite website's *Review a report* page.
 
 ## Metrics
 

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'wasm-unsafe-eval'; connect-src 'self' https://cdn.jsdelivr.net https://api.github.com https://raw.githubusercontent.com; img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'; worker-src 'self' blob:">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'wasm-unsafe-eval'; connect-src 'self' https://cdn.jsdelivr.net https://api.github.com https://raw.githubusercontent.com; img-src 'self' data:; style-src 'self'; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'; worker-src 'self' blob:">
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <title>Getting started · Code Grading Suite</title>
 <meta name="description" content="A rubric, prompts and browser tools for AI coding agents to grade codebases from 1 to 10 on 35 benchmarks and improve them.">
@@ -16,14 +16,15 @@
 <header class="topbar">
   <button class='menu-btn' type='button'>Menu</button>
   <a class="brand" href="../index.html">Code <span>Grading</span> Suite</a>
-  <span class="ver">v4.3.0</span>
-  <nav class="main" aria-label="Main"><a href="../docs/GETTING-STARTED.html" class="active" aria-current="page">Get started</a><a href="../app/setup.html">Set up</a><a href="../app/run.html">Start a run</a><a href="../app/review.html">Review</a><a href="../docs/README.html">Docs</a></nav>
+  <span class="ver">v5.0.0</span>
+  <nav class="main" aria-label="Main"><a href="../docs/GETTING-STARTED.html" class="active" aria-current="page">Get started</a><a href="../app/setup.html">Set up</a><a href="../app/run.html">Start a run</a><a href="../app/review.html">Review</a><a href="../app/projects.html">Projects</a><a href="../docs/README.html">Docs</a></nav>
   <span class="spacer"></span>
   <a class="top opt" href="../AGENT.md">AGENT.md</a>
-  <a class="top opt" href="../downloads/code-grading-suite-4.3.0.zip">Download</a>
+  <a class="top opt" href="../downloads/code-grading-suite-5.0.0.zip">Download</a>
 </header>
 <div class="layout"><nav class="sidebar" aria-label="Documentation"><h4>Start</h4><a href="../docs/GETTING-STARTED.html" class="active" aria-current="page">Getting started</a><a href="../docs/README.html">Overview &amp; reference</a><a href="../docs/GLOSSARY.html">Glossary</a><a href="../docs/AGENT.html">Agent entry point</a><a href="../docs/DEPLOY.html">Hosting this site</a><h4>Configuration</h4><a href="../docs/TUNING.html">Tuning guide</a><a href="../docs/rubric/weights.html">How scoring works</a><a href="../docs/config/defaults.html">Default config</a><a href="../docs/config/project.example.html">Example project config</a><h4>Prompts</h4><a href="../docs/prompts/grader.html">Grader</a><a href="../docs/prompts/reviewer.html">Report reviewer</a><a href="../docs/prompts/improver.html">Improver</a><a href="../docs/prompts/pr-review.html">PR check</a><h4>Rubric</h4><a href="../docs/rubric/A-correctness-trust.html">A · Correctness &amp; Trust</a><a href="../docs/rubric/B-design-structure.html">B · Design &amp; Structure</a><a href="../docs/rubric/C-code-health.html">C · Code Health</a><a href="../docs/rubric/D-value-fitness.html">D · Value &amp; Fitness</a><a href="../docs/rubric/E-adoption-experience.html">E · Adoption &amp; Experience</a><a href="../docs/rubric/F-operations-delivery.html">F · Operations &amp; Delivery</a><a href="../docs/rubric/X-conditional.html">X · Conditional</a><h4>Guides</h4><a href="../docs/calibration/README.html">Calibration</a><a href="../docs/holdout/README.html">Hidden checks</a><a href="../docs/CHANGELOG.html">Changelog</a></nav><main class="doc" id="main"><div class="docbar"><a class="btn" href="../suite/GETTING-STARTED.md">View raw .md</a><button class="btn" type="button" data-copy="../suite/GETTING-STARTED.md">Copy raw URL for an agent</button></div><details class="toc"><summary>On this page</summary><ul><li><a href="#the-idea-in-one-minute">The idea in one minute</a></li><li><a href="#where-things-live">Where things live</a></li><li><a href="#your-first-cycle">Your first cycle</a></li><li><a href="#common-setups">Common setups</a></li><li><a href="#keeping-agents-honest">Keeping agents honest</a></li><li><a href="#when-something-looks-off">When something looks off</a></li><li><a href="#prefer-the-command-line">Prefer the command line?</a></li></ul></details><h1 id="getting-started">Getting started<a class="anchor" href="#getting-started" aria-label="Link to this section">#</a></h1>
 <p>This guide takes you through a first full cycle: set up a project, have an agent grade it, review the report, and let an agent improve the code. It takes about 20 minutes of your time, plus however long your agents take. <strong>Nothing to install.</strong> You use three pages on this website and whatever coding agent you already have, cloud or local.</p>
+<p><strong>Rather click through it first?</strong> The <a href="../app/review.html?sample=1&amp;tour=1">guided first run</a> walks you around a sample project in six steps (about 10 minutes), then helps you set up your own. A bar at the top of each page shows what's done and what's next.</p>
 <h2 id="the-idea-in-one-minute">The idea in one minute<a class="anchor" href="#the-idea-in-one-minute" aria-label="Link to this section">#</a></h2>
 <p>Four jobs, each done by a separate agent session (or by you):</p>
 <table>
@@ -83,11 +84,11 @@
 <h3 id="1-set-up-the-project-about-5-minutes-once">1. Set up the project (about 5 minutes, once)<a class="anchor" href="#1-set-up-the-project-about-5-minutes-once" aria-label="Link to this section">#</a></h3>
 <p>Open <strong><a href="../app/setup.html">Set up a project</a></strong>.</p>
 <ol>
-<li><strong>Enter the code repository.</strong> The project name fills in from it (e.g. <code>orders-api</code>). For a monorepo, add a subfolder (<code>apps/web</code>) and give each part its own project.</li>
-<li><strong>Pick a preset</strong> that's closest to your project (e.g. <em>service</em>, <em>web app</em>, <em>library</em>).</li>
-<li><strong>Check the eight questions.</strong> The preset fills them in; change any that don't fit. The panel on the right shows how each answer moves the weights, and which benchmarks become <strong>gates</strong> (non-negotiable).</li>
-<li><strong>Mark hot and cold zones.</strong> Add a hot zone for anything that moves money, controls access or writes important data, and a cold zone for scripts and examples. Use <strong>Test a path</strong> to check your patterns.</li>
-<li><strong>Download <code>project.toml</code></strong> and add it to your grading repo as <code>projects/orders-api/project.toml</code>. The page also gives you starter <code>decisions.json</code> and <code>dispositions.json</code> files, and a README for a brand-new grading repo. On GitHub: <strong>Add file → Upload files</strong>. <em>Needs write access to the grading repo.</em></li>
+<li><strong>Where's the code?</strong> Enter its repository address. The project name fills in from it (e.g. <code>orders-api</code>). For a monorepo, open <em>More about the project</em>, add a subfolder (<code>apps/web</code>) and give each part its own project.</li>
+<li><strong>What kind of project is it?</strong> Pick the closest (e.g. <em>service</em>, <em>web app</em>, <em>library</em>).</li>
+<li><strong>Answer three questions:</strong> how sensitive its data is, who uses it, and what happens when it fails. Five more are filled in from your choice; change any that don't fit. The panel on the right shows how each answer moves the weights, and which benchmarks become <strong>gates</strong> (non-negotiable).</li>
+<li><strong>Advanced (optional):</strong> mark <strong>hot zones</strong>, the code that moves money, controls access or writes important data, and <strong>cold zones</strong> for scripts and examples. Use <strong>Test a path</strong> to check your patterns. Targets and overrides are here too; most projects leave them.</li>
+<li><strong>Save it.</strong> Enter your grading repo's address. On GitHub or GitLab, <strong>Open … with project.toml filled in</strong> opens the host's new-file page at <code>projects/orders-api/project.toml</code> with the file ready; choose a new branch to send it as a pull request. Or copy a prompt for an agent, or download it and upload it (GitHub: <strong>Add file → Upload files</strong>). <em>Needs write access to the grading repo.</em></li>
 </ol>
 <h3 id="2-grade-2-minutes-of-your-time">2. Grade (2 minutes of your time)<a class="anchor" href="#2-grade-2-minutes-of-your-time" aria-label="Link to this section">#</a></h3>
 <p>Open <strong><a href="../app/run.html">Start a run</a></strong> and choose <strong>Grade the code</strong>.</p>
@@ -105,15 +106,24 @@
 <p>Then read the tabs in order:</p>
 <ol>
 <li><strong>Overview:</strong> the overall score, maturity level, gates, and what blocks the next level. The checks list tells you whether to trust the report.</li>
-<li><strong>Decisions:</strong> questions only a person should answer, such as &quot;drop this deprecated endpoint?&quot; Choose Approve, Decline or Not yet. The page produces an updated <code>decisions.json</code>.</li>
+<li><strong>Decisions:</strong> questions only a person should answer, such as &quot;drop this deprecated endpoint?&quot; Choose Approve, Decline or Not yet, and the page shows how to save your answers.</li>
 <li><strong>Priorities:</strong> the order improvers will work in.</li>
 <li><strong>Compare:</strong> what got better or worse since the previous report.</li>
-<li><strong>Scorecard, Findings, More:</strong> the detail, when you want it.</li>
+<li><strong>Scorecard, Findings, More:</strong> the detail, when you want it. Open a benchmark to see why it got its score, what each score band means in the rubric, and its history. Open a finding to see its code, with a link to those lines at the graded commit.</li>
 </ol>
-<p><strong>Save your answers.</strong> The page shows the steps; the short version:</p>
+<p><strong>Share a view:</strong> the page's address always points at what you're looking at. <strong>Copy link</strong> on a benchmark or finding gives a link straight to it, and <strong>Print or save as PDF</strong> gives the whole report on paper.</p>
+<p><strong>Save your answers.</strong> Answers go in <code>projects/orders-api/decisions.json</code>. Three ways, quickest first:</p>
 <ul>
-<li><strong>Suggested:</strong> on the report's PR, edit <code>projects/orders-api/decisions.json</code>, paste the updated file, commit to the PR's branch, then <strong>merge the PR</strong>. Merging means &quot;accepted.&quot;</li>
-<li><strong>Already merged?</strong> Edit the file on the default branch and let GitHub create a small pull request on a branch named <code>decisions/orders-api/&lt;date&gt;</code>.</li>
+<li><strong>Tick the boxes on the report's PR.</strong> Its description lists each question with a box to approve it and one to decline it. The grading CI records what you tick under your login (on GitLab, then run the merge request's <em>grading-decide</em> job). Then <strong>merge the PR</strong>: merging means &quot;accepted.&quot; <em>Needs the grading CI from <code>gradekit init --ci</code> and write access.</em></li>
+<li><strong>Run <code>gradekit decide</code></strong> in the grading repo, or give the page's prompt to an agent: <code>gradekit decide --project orders-api --approve D1-act-1 --by you@example.com</code>. It checks each ID against the newest report and only ever appends.</li>
+<li><strong>Download and upload</strong> the updated <code>decisions.json</code> (GitHub: <strong>Add file → Upload files</strong>), replacing the old one.</li>
+</ul>
+<h3 id="several-projects">Several projects<a class="anchor" href="#several-projects" aria-label="Link to this section">#</a></h3>
+<p><strong><a href="../app/projects.html">Projects</a></strong> reads the grading repo's <code>projects/index.json</code> (CI keeps it current) and shows every project at once:</p>
+<ul>
+<li><strong>All projects:</strong> each one's score, level, trend, and what it's waiting on.</li>
+<li><strong>Decisions:</strong> every question waiting for a person, across projects, answered in one sitting. Each project's answers are saved the same ways as above.</li>
+<li><strong>One project:</strong> where it stands in the cycle, with its open pull requests; trends for the overall score and each pillar; and every benchmark's score in every report.</li>
 </ul>
 <p><em>Needs write access to the grading repo.</em></p>
 <h3 id="4-improve">4. Improve<a class="anchor" href="#4-improve" aria-label="Link to this section">#</a></h3>
@@ -132,6 +142,7 @@
 <p><strong>Someone else's public repo.</strong> No grading repo needed. Graders <strong>give the files back in the chat</strong>; save them into a folder and open it in the Review page. Without a <code>project.toml</code>, reports are checked against the suite defaults, which is fine for a one-off look.</p>
 <p><strong>Milestone audit.</strong> On Start a run, choose <em>three independent graders</em> and run the three prompts in three fresh sessions. They write <code>runs/run-1.json</code> and so on into the same report folder. The Review page shows where they disagreed, and lets you download the consensus as that folder's <code>report.json</code>.</p>
 <p><strong>Monorepo.</strong> One project per part, e.g. <code>shop-web</code> with <code>path = &quot;apps/web&quot;</code> and <code>shop-api</code> with <code>path = &quot;services/api&quot;</code>. Each gets its own reports and decisions.</p>
+<p><strong>Grading on a schedule.</strong> Set <strong>Grade on a schedule</strong> under <em>Advanced</em> on Set up a project (<code>[schedule]</code> in <code>project.toml</code>), e.g. every 30 days, only if the code has changed. The grading CI's scheduled job (weekly, or on demand) runs <code>gradekit due --check-code --write-orders</code>. For each project that's due, it opens a pull request adding a grade <strong>work order</strong>, and merging it records the request. Whatever runs your graders then picks up open orders. That can be you with Start a run, or an agent on its own schedule given a prompt like: <em>&quot;In the grading repo, run <code>gradekit order list --json</code>. For each open grade order, act as the GRADER for its project, with <code>Work order: ID</code>.&quot;</em> The report that answers an order closes it. <strong>Projects</strong> shows each project's schedule, when it's next due, and what its grades took in time and cost. <em>Needs the permissions in the grading CI's notes: on GitHub, letting Actions open pull requests, and a <code>CODE_READ_TOKEN</code> for private code.</em></p>
 <h2 id="keeping-agents-honest">Keeping agents honest<a class="anchor" href="#keeping-agents-honest" aria-label="Link to this section">#</a></h2>
 <ul>
 <li><strong>Every grading is a fresh session,</strong> never the agent that did the improving.</li>
@@ -188,7 +199,7 @@ $K rollup  --project orders-api              # the latest report: gates, maturit
 $K diff    --project orders-api              # the latest report vs the one before
 </code></pre>
 <p>See the <a href="README.html">overview</a> for every command, and the <a href="TUNING.html">tuning guide</a> for customizing scoring.</p>
-<nav class="pager"><a href="../docs/README.html" style="margin-left:auto;text-align:right"><small>Next</small>Overview &amp; reference</a></nav></main></div>
+<nav class="pager"><a class="next" href="../docs/README.html"><small>Next</small>Overview &amp; reference</a></nav></main></div>
 <script src="../assets/site.js"></script>
 </body>
 </html>

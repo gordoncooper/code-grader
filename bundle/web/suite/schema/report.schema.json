@@ -1,10 +1,11 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://example.invalid/code-grading-suite/report.schema.json",
-  "title": "Code Grading Suite report",
-  "description": "Suite v4.x. Structural schema; gradekit.py validate adds semantic checks (config weights, IDs, caps, enforcement, leaks).",
+  "title": "Code Grading Suite report (format 5)",
+  "description": "Report format 5 (suite 5.x). Structural schema; gradekit.py validate adds semantic checks (config weights, IDs, caps, enforcement, leaks, fingerprints). Reports without schema_version are format 4: see report-4.schema.json.",
   "type": "object",
   "required": [
+    "schema_version",
     "suite_version",
     "mode",
     "run",
@@ -22,9 +23,36 @@
     "limitations"
   ],
   "properties": {
+    "schema_version": {
+      "const": 5,
+      "description": "The report format. Reports without it are format 4 (suite 4.x), checked with report-4.schema.json."
+    },
     "suite_version": {
       "type": "string",
-      "pattern": "^4\\.\\d+\\.\\d+$"
+      "pattern": "^5\\.\\d+\\.\\d+$",
+      "description": "The kit version that wrote the report. 5.x reads 4.x reports unchanged."
+    },
+    "migrated": {
+      "type": "object",
+      "required": [
+        "from",
+        "by"
+      ],
+      "description": "Set by `gradekit migrate` on a 4.x report upgraded to format 5: its judgments, scores and rollup are unchanged.",
+      "properties": {
+        "from": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "The suite version that wrote the report"
+        },
+        "by": {
+          "type": "string",
+          "description": "The suite version that migrated it"
+        }
+      },
+      "additionalProperties": false
     },
     "mode": {
       "enum": [
@@ -35,7 +63,10 @@
     "run": {
       "type": "object",
       "required": [
-        "commit"
+        "commit",
+        "started",
+        "date",
+        "model"
       ],
       "properties": {
         "project": {
@@ -57,7 +88,8 @@
         },
         "date": {
           "type": "string",
-          "description": "When the grading finished: a UTC timestamp such as 2026-11-07T21:04:00Z (a plain YYYY-MM-DD date is also accepted). The report folder uses its date part; tools order reports from the same day by this value."
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$",
+          "description": "When the grading finished, in UTC (`report check --write` stamps it). The report folder uses its date part; tools order reports from the same day by it."
         },
         "grader": {
           "type": "string"
@@ -82,6 +114,67 @@
             "null"
           ],
           "description": "Where the suite came from: local path or hosted AGENT.md URL, plus version"
+        },
+        "started": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$",
+          "description": "When the grading started, in UTC (`report new` and `carry` stamp it)."
+        },
+        "model": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "The model that graded, e.g. claude-opus-5-5. Null until set; a finished report needs it."
+        },
+        "session": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "The agent session, as an ID or URL, so a reviewer can see who graded and check the grader didn't also improve the code."
+        },
+        "work_order": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "The work order this report answers (its ID), when the run was requested through one."
+        },
+        "usage": {
+          "type": "object",
+          "description": "What the run cost, where known. `report check --write` fills minutes from started and date.",
+          "properties": {
+            "minutes": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0
+            },
+            "tokens_in": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
+            },
+            "tokens_out": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
+            },
+            "cost_usd": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0
+            }
+          },
+          "additionalProperties": false
         }
       }
     },
@@ -135,6 +228,10 @@
             "string",
             "null"
           ]
+        },
+        "scoring_version": {
+          "type": "string",
+          "description": "The scoring rules the report was graded under (suite_version in config/defaults.toml). Reports are compared for regressions only within one scoring major. Absent before 5.0, where the report's suite_version says it."
         }
       }
     },
@@ -158,6 +255,38 @@
           },
           "result_summary": {
             "type": "string"
+          },
+          "workdir": {
+            "type": "string",
+            "description": "Where it ran, when that isn't the code checkout"
+          },
+          "env": {
+            "type": "string",
+            "description": "What it ran with (interpreter, virtualenv, tools)"
+          },
+          "output": {
+            "type": "object",
+            "description": "`report ran --output`: a fingerprint of what the command printed (one short hash per distinct line), so `report check` can tell whether excerpts were copied from it",
+            "properties": {
+              "lines": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "line_hashes": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{10}$"
+                }
+              },
+              "too_long": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "lines"
+            ],
+            "additionalProperties": false
           }
         }
       }
@@ -395,6 +524,30 @@
     "summary": {
       "type": "string",
       "description": "3–5 sentences: overall health, biggest risks and strengths. Shown at the top of report.md and the grading pull request"
+    },
+    "repo_rollup": {
+      "type": "object",
+      "description": "A monorepo's repo-wide result, stored in its report.json by `gradekit rollup-repo FOLDER --write`: overall weighted by component weight, maturity the lowest component's.",
+      "properties": {
+        "computed_by": {
+          "type": "string"
+        },
+        "overall_score": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "maturity": {
+          "type": "string"
+        },
+        "limited_by": {
+          "type": "string"
+        },
+        "components": {
+          "type": "array"
+        }
+      }
     }
   },
   "$defs": {
@@ -409,7 +562,6 @@
           "required": [
             "type",
             "file",
-            "lines",
             "quote"
           ],
           "properties": {
@@ -422,7 +574,8 @@
             },
             "lines": {
               "type": "string",
-              "pattern": "^\\d+(-\\d+)?$"
+              "pattern": "^\\d+(-\\d+)?$",
+              "description": "Optional: where the quote was when cited. The quote is the anchor: checks find it in the file, and carry moves it."
             },
             "quote": {
               "type": "string",
@@ -529,11 +682,14 @@
         "status": {
           "enum": [
             "new",
+            "noticed",
             "open",
             "fixed",
             "regressed",
-            "accepted"
-          ]
+            "accepted",
+            "withdrawn"
+          ],
+          "description": "new: first recorded in this report and caused by the graded code (in a PR check: by the change). noticed: already there before, first recorded now; it's open but never fails a PR check. open: still there. fixed, regressed (fixed before, back again), accepted (a disposition covers it). withdrawn: a grader agreed with a dispute that the finding was wrong; it counts nowhere."
         },
         "first_seen_commit": {
           "type": [
@@ -570,6 +726,46 @@
         "sensitive": {
           "type": "boolean",
           "description": "Details would help an attacker (or otherwise must not be public). `gradekit redact` withholds the title, evidence and the wording of actions that fix it"
+        },
+        "fingerprint": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{12}$",
+          "description": "Written by gradekit (report commands, report check --write, rollup --write) from the benchmark, the files and the quoted code: the same problem gets the same fingerprint across reports."
+        },
+        "cap": {
+          "type": "string",
+          "pattern": "^[A-FX]\\d-cap-\\d+$",
+          "description": "The rubric cap this finding triggers (e.g. E1-cap-1). It holds the benchmark's score at the cap's maximum while the finding is open."
+        },
+        "dispute": {
+          "type": "object",
+          "required": [
+            "answer",
+            "note",
+            "disputed_on"
+          ],
+          "description": "A grader's answer to a dispute in disputes.json (`report finding answer`).",
+          "properties": {
+            "answer": {
+              "enum": [
+                "upheld",
+                "withdrawn"
+              ]
+            },
+            "note": {
+              "type": "string"
+            },
+            "disputed_on": {
+              "type": "string",
+              "description": "the dispute's date, which links the answer to it"
+            },
+            "by": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
         }
       }
     },
@@ -599,6 +795,7 @@
           }
         },
         "expected_new_score": {
+          "description": "The benchmark's expected score once this action is done, counting its earlier actions in path_to_target as done too",
           "type": "integer",
           "minimum": 1,
           "maximum": 10
@@ -621,6 +818,10 @@
         },
         "optional": {
           "type": "boolean"
+        },
+        "why_first": {
+          "type": "string",
+          "description": "One line for top_priorities on why this comes first; `report check --write` copies it there"
         }
       }
     },
@@ -713,7 +914,8 @@
           "type": "array",
           "items": {
             "type": "string"
-          }
+          },
+          "description": "Rubric caps that hold for this benchmark, by ID (e.g. E1-cap-1). Prefer the finding's `cap`, which lifts itself when the finding is fixed."
         },
         "finding_ids": {
           "type": "array",
@@ -745,8 +947,25 @@
         },
         "enforcement": {
           "type": "array",
+          "description": "What enforces the benchmark's quality (a CI gate, lint rule, test), shaped like strengths. Format 4 stored bare evidence objects; `gradekit migrate` wraps them.",
           "items": {
-            "$ref": "#/$defs/evidence"
+            "type": "object",
+            "required": [
+              "note",
+              "evidence"
+            ],
+            "properties": {
+              "note": {
+                "type": "string"
+              },
+              "evidence": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "$ref": "#/$defs/evidence"
+                }
+              }
+            }
           }
         },
         "gaming_flags": {

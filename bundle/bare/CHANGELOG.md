@@ -1,11 +1,266 @@
 # Changelog
 
 Versioning rules for the suite itself:
-- **Major:** any change that can move scores, i.e. new or removed benchmarks, changed anchors, caps, weights, targets or maturity rules. Scores from different major versions are **not comparable**. `gradekit diff` won't treat their deltas as regressions.
+- **Major:** a change that can break existing setups: the report format, the prompts' workflow, or the scoring rules. Each project pins the major it uses (`suite = "5"` in `project.toml`).
+- **Scoring version:** separate from the kit version, it changes only with rules that can move scores, i.e. new or removed benchmarks, changed anchors, caps, weights, targets or maturity rules. It's `suite_version` in `config/defaults.toml`, part of every config fingerprint. Scores from different scoring majors are **not comparable**, and `gradekit diff` won't treat their deltas as regressions.
 - **Minor:** clarified wording that shouldn't move scores, new optional fields, new tool commands. Re-run calibration to confirm.
 - **Patch:** typos, formatting, documentation.
 
 After any major or minor change, re-run calibration (`calibration/README.md`) before trusting new scores.
+
+## 5.0.0
+Major release. The 35 benchmarks and their anchors don't change. **Severity does:** graders judge it by consequence where the code runs, zones no longer shift it, and a rubric cap needs a major or critical finding. That's a new scoring version (5.0.0): config fingerprints change, and a score change against a 4.x report isn't a regression. 5.x still reads 4.x reports and recomputes them under the rules they were graded with, and `gradekit migrate` moves a project over.
+
+- **For agents:**
+  - Report format 5 adds *noticed* findings, fingerprints, and who graded and what it took.
+  - Short operating cards replace reading whole prompts.
+  - `gradekit mcp` serves agents without a shell.
+  - Also new: work orders, enforced score limits, finding disputes, monorepo components in every tool, and answering decisions with `gradekit decide`.
+- **For people:**
+  - A **Projects** page for every project at once, and a Review page that explains every score.
+  - Deciding by ticking a box on the report's pull request, and saving files without pasting JSON.
+  - A quick setup, a guided first run, and a command palette (Ctrl/Cmd+K).
+  - Grading on a schedule, with time and cost on the pages.
+- **Every major at its own address** (`/v4/`, `/v5/`), so a project's rules can't change under it.
+- **Calibration** is now a program, with golden repos, spread across runs, and a rules fingerprint tests enforce. The `schedule` golden's run under the final 5.0 rules is 100% within tolerance (MAE 0.28). Calibration passes once two more independent runs agree within the allowed spread. A1's expected score is provisional until a person reviews it.
+
+**Versions and pins**
+- **Three versions, each with its own job:**
+  - the **kit version** (5.0.0): prompts, tools and report format;
+  - the **scoring version** (5.0.0, up from 4.2.0): the rules that move scores;
+  - each report's `suite_version`: the kit that wrote it.
+
+  New reports also record their scoring version (`config.scoring_version`). `gradekit diff` compares reports for regressions whenever their scoring majors match. Across majors it lists the changes as notes, so a project's first 5.0 grade should be a full one.
+- **5.x reads 4.x reports unchanged.** `validate`, `rollup`, `diff`, the index and the Review page accept reports from 4.x and 5.x. Reports from older majors are refused, with a note to re-grade.
+- **Projects pin their major:** `suite = "5"` under `[project]` in `project.toml`.
+  - `init` and the Set up page write the pin for new projects. A project loaded into the Set up page keeps its own pin, or none.
+  - `report new` and `carry` refuse to write a report for a project pinned to another major, and say which kit to use.
+  - `doctor` warns when a project isn't pinned, and fails when the pin doesn't match the kit.
+  - `gradekit ci` needs changes on a report PR whose report was made by another major than the pin.
+  - A project without a pin works as before.
+
+**Report format 5**
+- New reports carry `"schema_version": 5`. Reports without it are format 4 (suite 4.x), which 5.x still reads with `schema/report-4.schema.json`. `report new` and `carry` write format 5, so carrying a 4.x report forward upgrades it.
+- **`noticed`, a new finding status:** a problem first recorded now that was already there before, because the previous report missed it. It counts as open everywhere (maturity, priorities, the index, Review). A PR check reports it as pre-existing and never fails because of it, so the old workaround (`new` with `first_seen_commit` set to the base commit) isn't needed. 4.x reports still use that rule. `report finding add --status noticed` sets the first-seen commit to the PR's base commit.
+- **The quote is the anchor:** `lines` is optional in code evidence. Without it, the check finds the quote anywhere in the file. `report cite` still writes both, for links to the exact lines.
+- **UTC timestamps:** `run.started` (stamped by `report new` and `carry`) and `run.date` (stamped by `report check --write` at the finish) are required, as `YYYY-MM-DDTHH:MM:SSZ`.
+- **Fingerprints:** every finding gets a `fingerprint` from its benchmark, files and quoted code. Rewording or moving the code doesn't change it, so the same problem is recognized across reports. gradekit writes it (report commands, `report check --write`, `rollup --write`), and `validate` refuses one that doesn't match.
+- **Who graded, and what it cost:**
+  - `run.model`: required before a report is finished.
+  - `run.session` and `run.work_order`: optional.
+  - `report new` and `carry` take `--model`, `--session` and `--work-order`. `report check` lists the model as a to-do until it's set.
+  - `run.usage` holds minutes, tokens and cost where known. `report check --write` fills the minutes from the two timestamps.
+  - `report.md` opens with a line saying who graded, with which model, how long it took, and the work order.
+- The grader and PR-check prompts, the glossary (*noticed finding*) and the Review page (status filter; evidence without line numbers) follow suit.
+- A public copy keeps each withheld finding's fingerprint, computed from the full report before `redact` withheld its evidence. Editing the public copy never overwrites it.
+
+**Monorepo components in every tool**
+- **One report per component:** `report new --component NAME` writes `components/NAME.json` in the report folder, with its component's config. `--component repo` writes the repo report (`report.json`). Each marks the benchmarks graded elsewhere as `not_applicable` for you: the components skip what the repo shares (B3, E3, E4, F2, F6, X6), and the repo report skips the rest.
+- **The repo-wide result:** `rollup-repo FOLDER --write` stores it in `report.json` as `repo_rollup`. The overall score is weighted by component weight, and maturity is the lowest component's.
+- **The tools that handle reports know components:**
+  - `deliver` redacts and renders every component report;
+  - `gradekit ci` validates each with its component's config and checks that `repo_rollup` matches;
+  - the index shows the repo-wide score and each component's.
+
+**Finding disputes**
+- **People dispute a finding:** `gradekit dispute add A3-002 --project NAME --reason "…" --by NAME` appends to `projects/NAME/disputes.json`, which is append-only like `decisions.json` (`gradekit ci` checks it). `dispute list` shows open disputes.
+- **The next grader must answer:** `report check` lists each open dispute on a finding in the report as a to-do. `report finding answer REPORT ID --uphold --note "…"` keeps the finding. `--withdraw` gives it the new status `withdrawn`, which counts nowhere: not open, not fixed. The answer records which dispute it answers, which closes that dispute.
+- `diff` notes withdrawn findings, the index lists open disputes, and the glossary adds *dispute* and *withdrawn finding*.
+
+**The calibration program**
+- **Golden repos:** `calibration/golden/NAME/` holds a frozen commit's expected scores, its `project.toml` and one file per independent grader run (`gradekit calibration add-run`).
+- **`gradekit calibration run`** scores every run against its golden's expected scores and measures the spread across runs. It writes `calibration/results.json` and publishes `calibration/RESULTS.md`. A golden repo passes with at least 3 runs, all passing, and no benchmark spreading more than allowed.
+- **No scoring change ships unmeasured:** the results carry a fingerprint of the scoring rules (the scoring version, the rubric, the caps and the limits). The kit's tests fail when the rules change without the results being regenerated.
+- **Only runs under the current rules count:** `add-run` records the rules' fingerprint with each run. After a rule change, `calibration run` lists the older runs as earlier runs, and they don't count toward a pass or the spread.
+- **The first golden repo is dbader/schedule at 82a43db,** with expected scores from the 4.3 release gate's grade. Two independent 5.0 runs both came to 6.8 (L1) and disagreed with it on two benchmarks. A1 changes from 8 to 5: an open critical finding (a zero interval hangs the scheduler) holds it at 5 under the enforced limits. E2 changes from 5 to 7: both runs found only minor documentation problems. The runs also split on whether A5 applies to a library that stores nothing, so A5's Assess line now says: `not_applicable` when nothing must outlive the process, and `limited` when a little does. That wording change makes the first three runs earlier runs. Three fresh runs on the clarified rubric (6.7, 6.9 and 6.7, all L1) each fall within tolerance. Calibration doesn't pass yet for two reasons. One run marks X3 not applicable. E2 spreads by 2 because one run filed the broken contributor setup under E2, where its cap applies, while the other two used E3. Both point at wording to clarify. On scoring 5.0, three more runs all gave A1 7, matching the key that was set before they ran, and all reached L2 (6.6–6.9). Two passed. E2 spread again because a minor finding held its cap, and caps now need a major finding. On those rules, three more runs are each 100% within tolerance (6.9–7.2, L2). The only criterion still missed is E2's spread of 2 (8, 8, 6), against a limit of 1.
+
+**Operating cards, and the rubric one benchmark at a time**
+- **Each role has a one-page card** in `prompts/cards/` (grader, pr-check, improver, reviewer): the run as `gradekit` commands, what the tools enforce for you, and the rules only an agent can follow. `AGENT.md` and **Start a run** now send agents to their card. The full prompts stay as the reference for details, and for working without Python.
+- **The word budget is checked:** a card and the largest benchmark entry fit in 3,000 words (the grader's: about 1,300, down from 11,000 for the prompt and the rubric).
+- **`gradekit rubric A3`** prints one benchmark: what it measures, what it isn't, how to assess it, the anchors and the caps. `gradekit rubric B` prints a pillar, and `--json` gives data. `rubric/rubric.json` holds the whole rubric as data, generated from the rubric files.
+- **No rule was lost in the move:** `prompts/rules.json` lists every hard rule in the prompts with what keeps it, either the `gradekit` check that enforces it or the card that states it. A test fails if either goes missing.
+
+**`gradekit mcp`, for agents without a shell**
+- An MCP server on stdin/stdout (JSON-RPC 2.0, standard library only). Every command is a tool, with an input schema made from its arguments, so the server and the command line can't drift apart.
+- Calls run in-process with `--json` and return the envelope. `cwd` sets the folder a tool runs in. Bad arguments, unknown tools and a missing folder come back as error results, never crashes.
+- `gradekit mcp --list` shows the tools.
+
+**Work orders**
+- **A work order is the request behind a run:** a role (grade, review, improve or prcheck), a commit or change, a delivery, who asked, and notes. `gradekit order new --project NAME --role grade` writes `projects/NAME/orders/<date>-<role>-<n>.json` and prints the ID to give the agent.
+- **The report that answers it closes it:** it records the ID with `report new --work-order ID`, as `run.work_order`. `order list` shows open orders (`--all` shows every one, with the answering report), and `order close` closes one by hand.
+- **Checks:**
+  - `report check` and `gradekit ci` warn when a report names an order the project doesn't have;
+  - `gradekit ci` checks order files as settings: they must be well formed, and only `status` and `closed` may change later;
+  - `projects/index.json` lists each project's open orders;
+  - `schema/work-order.schema.json` documents the format.
+
+**Enforced score limits**
+- **The rubric's caps are data.** Each cap now has an ID in the rubric, e.g. "Quickstart fails → max 4 (`E1-cap-1`)". `rubric/catalog.json` lists every benchmark's caps, and a test keeps the two the same.
+- **A finding can carry the cap it triggers:** `report finding add … --cap E1-cap-1` (or `finding update --cap`). The cap holds while that finding is open, and lifts when it's fixed or accepted. A cap with no single finding behind it goes on the benchmark (`report score … --cap E1-cap-1`). D2's "any critical gap" applies by itself.
+- **Every benchmark gets a computed limit:** the lowest of its caps, max 5 with an open effective-critical finding, max 8 without strengths and max 9 without enforcement. `rollup.limits` lists every benchmark held below 10, and why.
+- **Format-5 reports are held to their limits.** `report score` refuses a score above one and says why, and `validate` (with `report check` and `gradekit ci`) fails it. `report.md` shows each benchmark's limit. 4.x reports, and reports migrated from 4.x, keep warnings, as before.
+- The limits themselves didn't change; they're enforced now.
+
+**Severity is consequence; zones raise the bar (scoring 5.0.0)**
+- **Severity has a definition now.** Graders judge `critical`, `major` and `minor` by what happens when a problem bites, where the code runs. `prompts/grader.md` Part 4 gives each a definition and examples, and the grader card gives the short form.
+  - `critical`: serious harm with no reasonable workaround.
+  - `major`: a real defect with a workaround or a limited reach.
+  - `minor`: little happens.
+  - Style and naming are minor anywhere.
+- **Zones no longer shift severity.** Before, a grader judged a finding "as if the code were normal", and the tool moved it a level up in hot zones and down in cold ones. One major-or-minor call then moved a score by 2–3 points (an open critical finding holds a benchmark at 5), and when a zone covered most of the code it moved every benchmark. Now the grader judges consequence in place. A wrong total in payment code is critical on its own merits, and a style nit there stays minor.
+- **Hot zones raise the bar instead:** L2 still allows no critical findings in them, and **L3 now also allows no major findings in them**. Hot-zone work still ranks first, and graders still read hot zones in full.
+- **The scoring version is 5.0.0,** so config fingerprints change. A 4.x report is resolved with the 4.x rules, which ship as `config/scoring/4.2.0.toml`, so it validates and recomputes exactly as it was graded. Its `report.md` still shows severity → effective.
+- **A rubric cap needs a finding that's major or worse.** A minor problem no longer puts a hard limit on a score. Before, a wrong install line for a secondary channel held E2 at 5 for two graders. `finding add --cap` refuses a minor finding, and `validate` warns when a capped finding is later lowered to minor.
+- A project that still sets `zone_settings.severity_shift` or `never_downgrade` gets a warning; the settings no longer apply. `doctor`'s hot-zone warning now says why a zone covering everything is a problem: it can't say where problems cost more, and L3 allows no major findings in it.
+- The glossary, `rubric/weights.md`, the PR-check prompt and card, and report.md (one Severity column) follow suit.
+
+**Moving a project to 5.x with `gradekit migrate`**
+- `gradekit migrate --project NAME` sets the pin (`suite = "5"`), changing only that line of `project.toml`. With `--reports`, it also upgrades the project's 4.x reports to format 5:
+  - every judgment, score and stored rollup is unchanged, and `migrated.from` records the version that wrote the report;
+  - `run.date` becomes a UTC timestamp, and `config.scoring_version` records the rules the report was graded under;
+  - every finding gets its fingerprint (withheld ones from `report.private.json`, which is upgraded too but never committed);
+  - in PR reports, a `new` finding first seen at the base commit becomes `noticed`;
+  - `report.md` is re-rendered.
+- **It runs in three ways:** without flags it's a dry run, listing every file and confirming the scores don't change. `--write` writes into this checkout, but never on the default branch. `--run` makes a branch from the default branch (`migrate/NAME-v5`) and commits; `--push` and `--open github|gitlab` work as in `deliver`. To undo it, revert the pull request.
+- **`gradekit ci` knows a migration** (label `grading: migration`). It redoes the migration from the base branch's files and needs changes unless every report file is exactly what `migrate` makes. Anything else in the same pull request makes it an ordinary change, where earlier reports may never be edited.
+- `doctor` and the tools' pin messages point to `migrate` for projects pinned to 4.
+
+**Every major version at its own address**
+- The suite's site serves the newest release of each major at its own path: `/v4/` and, once released, `/v5/`. The root shows the newest. Each copy is built from its release and checked against its own `SHA256SUMS` before it's published.
+- `versions.json` beside each copy lists the versions. With it:
+  - the pages show a version menu in the top bar that keeps you on the same page;
+  - **Start a run** writes prompts that point at the page's own major (`…/v5/AGENT.md`), so a later major can't change a project's rules;
+  - `AGENT.md` sends agents to the version a project pins.
+- Every built site ships a `versions.json` that lists only itself, so a single-version host changes nothing and makes no failed requests. It isn't in `SHA256SUMS`, because it describes the host. `DEPLOY.md` shows how to host several majors on your own server.
+
+**What the gate's grader runs asked for**
+- **Correcting a report without editing its JSON:**
+  - `report show REPORT [ID|features|gaps]` numbers what's recorded;
+  - `report update REPORT REF` changes a strength or enforcement item (`A3/strength/2`: text, evidence), an action (`A3-act-1`: text, score, effort, what it resolves, decision, optional, `--why-first`) or a gap (`GAP-002`: severity, necessity, status…);
+  - `report remove REPORT REF` removes one of those, a feature, or a finding or gap that no earlier report has. IDs that were reported stay, so carry and diff keep tracking them.
+- **Enforcement is shaped like strengths:** `{"note": "what enforces it", "evidence": [...]}`, and `report enforcement` takes `--text`. Format-4 reports keep bare evidence objects, which every tool still reads; `migrate` wraps them. The Review page now shows enforcement.
+- **Quotes stay short:** `cite` refuses a quote over 3 lines, which grader.md always required, and drops blank lines at either end of the range (an off-by-one). `validate` warns about longer quotes in format-5 reports.
+- **`report check` isn't ready too early:** it lists a missing summary, and every benchmark below its target with no non-optional action to get there.
+- **`top_priorities` is filled for you:** `report check --write` copies the first ten of the ranking, each with its `why_first` (the action's own, from `report action --why-first`, or a line from its tier) and expected gain.
+- **Each action gains only what it adds:** `expected_new_score` counts the benchmark's earlier actions as done, so a second step from 6 to 8 is worth 2 points in the ranking, not 4. `validate` warns when a later action expects less than an earlier one. Format-4 reports keep the gains their stored rollups have.
+- **The run:**
+  - `report new` and `carry` take `--started`, so the run's minutes count from preflight rather than from `report new`;
+  - `redact --in-place` writes `report.private.json` only when something is withheld;
+  - `doctor` warns when hot zones cover most of the code (over half its lines, tests left out), where every major-or-minor call moves scores by 2–3 points;
+  - `--out` creates its folder, and a stray argument is reported with the command's own usage.
+- **The grader card** adds the time for `--started`, the delivery you were asked for (not always `pr`), `--run N/COUNT`, running tools in a copy so CODE stays clean, the 1–3 line quote and copied command excerpts, the correcting commands, and never lowering a severity to get under a limit.
+- **From the second round of grader runs:**
+  - `cite` prints the line it quoted, so a cite of the wrong line is caught at once. It also says when it trimmed blank lines. When a quote is too long, it suggests a 3-line range; when a line is blank, it points to the nearest line with text.
+  - Command evidence takes `--no-output` for a command that printed nothing.
+  - `report ran` takes `--workdir` and `--env`, so a command run in a copy of the code can be run again.
+  - `report show` lists metrics and commands too.
+  - `report set metrics.X` refuses anything but a number, true/false or null.
+  - `report update --not-optional` says "no longer optional".
+  - `redact` on a report that's already redacted and withholds nothing does nothing, instead of failing.
+  - `validate` warns when an action resolves another benchmark's finding, which would count its fix twice in the ranking.
+  - The grader card takes the scratch folder (`SCRATCH`) and the delivery (`DELIVERY`) as values, instead of `/tmp` and `pr`, and shows `deliver` for `save`.
+  - The metrics table says which linter counts, how to count unrated advisories, and that `setup_second_run_passes` is `null` without setup scripts.
+  - `doctor`'s pin warning says the project's owner should add the pin.
+  - The X6 heading prints correctly.
+  - From the third round:
+    - `report remove command/N` removes a wrongly recorded command.
+    - `report set` refuses to turn a list (such as `limitations`) into text, and takes `@file` (for example, all the metrics at once).
+    - `report score` notes when a score needs a strength or enforcement it doesn't have yet.
+    - Maturity blockers name their benchmark in `report.md`.
+    - The card has `doctor` check the scratch folder.
+    - The card says everything in a first report is `new`.
+  - From the fourth round:
+    - **A note per piece of evidence:** each `--note` belongs to the `--cite`, `--command` or `--absence` just before it. A single `--note` still goes on every item, as before. A `--note` before any evidence fills in for items without their own, and one note per item after all the evidence pairs up in order, which is how MCP clients send them.
+    - **Command evidence is tied to what was run:** `--command @N` takes the exact text of the Nth command recorded with `report ran`. `report check` warns about an excerpt from a command that isn't in `commands_run`.
+    - **Limited first, score later:** `report score REPORT A5 --applicability limited --reason "…"` works without a score. A later `--score` keeps it limited, and `report check` lists the score as still to do.
+    - **No half-success:** citations are echoed only once the command succeeds. If anything fails, it says nothing was saved.
+    - **`report check --write` says what it stored:** the rollup, the finish time and the minutes, or that the rollup waits until nothing is left to do.
+    - **An `export` may not outlast an agent's tool call:** the card makes `SCRATCH` and prefixes commands with `TMPDIR=SCRATCH`, instead of exporting it once.
+  - From calibration run 13, the first on E2's fixed procedure (100% within tolerance, MAE 0.28, E2 7 as keyed; two more runs needed):
+    - **Several pieces of command evidence in one call:** `--command`/`--excerpt` (or `--no-output`) and `--absence`/`--method` repeat, and pair up in order. A second pair used to replace the first without a word. Unpaired options are refused instead of dropped.
+    - **Excerpts checked against what was printed:** `report ran --output FILE` keeps a fingerprint of the output (one short hash per distinct line, not the text). `report check` warns about excerpt lines that aren't in it; whitespace evens out, and `...` elides. `report ran` says the command's number for `--command @N`.
+    - **Commands corrected in place:** `report update command/N` takes `--command-text`, `--exit-code`, `--summary`, `--workdir` and `--env`, so `@N` numbers stay put. Evidence quoting the old text follows the new.
+    - **`lint_errors` when nothing runs:** if CI runs no linter and the documented one can't run, use the language's usual linter at its defaults, and say which.
+    - The grader card saves each command's output for `--output`, and chains `report` commands with `&&` so one that fails stops the rest.
+    - The golden `schedule` project pins suite 5, as `doctor` asked.
+- **Rubric wording, from where graders split:**
+  - X3 is `limited` for code that's often called from threads or async code even though it isn't concurrent itself.
+  - A broken contributor setup is E3, even when the fault is in its docs. `E2-cap-1` is for instructions users follow.
+  - A quickstart that needs something the documented install doesn't provide fails as written (`E1-cap-1`).
+  - F3 is `limited` for a library, which has no telemetry of its own.
+  - E2 has a fixed procedure: run every example in the README and the main guide, compare the reference with the public names, and check five behaviors users rely on. Its anchors now say what separates 6 from 7 (an example that misleads, or a wrong statement users rely on), and when a docs error is major. In the last calibration round, one grader ran the examples and the other two only read them, which gave E2 a spread of 2.
+- **One version on every label:** the prompts, rubric and README say v5.0.0, and a test keeps them in step with the kit. A new `project.toml` says which kit created it, so an older one doesn't read as a mismatch.
+
+**One component system for the pages (U1)**
+- **Every tool page is built from one set of components:** banners, chips, badges, cards, form fields, segmented controls, tables and tabs. Each is built by `common.js` (`UI.banner`, `UI.state`, `UI.chip`, `UI.badge`, `UI.card`, `UI.field`, `UI.seg`, `UI.table`, `UI.tabBar`) and styled once in `style.css`.
+- **Loading, empty and error states:** `UI.state` shows what a section has instead of content. A loading state is announced as busy, an empty state can offer the next step, and an error state is announced as an alert, with a "Try again" button. Review now shows a loading state while it reads a report, and a load from GitHub shows one while it fetches. A failed review offers to try again.
+- **Colors come only from tokens:** one block for light and one for dark mode, with a background, text and border for each tone. Some dark-mode chips, which had no colors of their own, are now readable.
+- **No inline styles anywhere:** every page and generated doc uses classes, and bars take their size from CSS custom properties. The site's policy now forbids inline styles (`style-src 'self'`, no `'unsafe-inline'`), in the pages' `<meta>` tag and in `.htaccess`.
+- **The components page** (`app/components.html`, linked from the site's footer) shows every component in each of its states. The tests run axe on it in light and dark mode, check its layout at four widths, and screenshot it. Setup and Review are also checked in dark mode now.
+- **Tests keep it that way:** they fail on an inline style, a raw color outside the tokens, or a banner or state built by hand in a page.
+- The screenshot baselines are remade for the new look.
+
+**The Projects page: every project at once (H3, H4, H5, U5)**
+- **All projects (H3):** every project in a grading repo with its overall score, maturity, a trend line, its stage, and what it's waiting on. Projects that need a person come first. It reads `projects/index.json` from a public GitHub grading repo, from a file (any host), or from the sample.
+- **Decisions (H4):** every decision question waiting across all projects, answered in one sitting. Each project's answers are appended to its `decisions.json` by the engine, exactly as on Review, with the steps to save it. From GitHub, the page loads each project's existing `decisions.json` first, so earlier answers are kept.
+- **Where it stands (H5):** each project's place in the cycle (set up → grade → decide → improve → check → done) and what's waiting on whom: a grader, people, an improver or a PR checker. From GitHub, it also shows the project's open pull requests.
+- **Trends and heatmap (U5):** the overall score and each pillar over every full report, as small charts on one 0–10 scale. Each point's value shows on hover or keyboard focus, and a table has the numbers. Maturity history, and a heatmap of every benchmark in every report on one blue scale, with its own steps for dark mode and a text color chosen for contrast in each cell.
+- **The index carries it all, computed by gradekit:** each report's pillar and benchmark scores; each pending decision's benchmark and action; `latest.below_target` and `latest.actions_ready`; and `cycle` (stage and waiting-on). The pages only draw them. `schema/index.schema.json` documents the new fields.
+- Review and Projects share the GitHub loader and the "save your decisions" steps (`common.js`). Every table that scrolls sideways can be focused and scrolled with the keyboard.
+
+**Review: explain every score, show evidence as code, link to any view (H6, U3, U6)**
+- **Why this score (H6):** each benchmark opens with the grader's reasoning and the limits that hold it (only the ones that bind). It also shows the rubric's words for every score band, with this score's band marked, the caps, and the benchmark's score in every report of the project.
+- **Evidence as code (U3):** quoted code is shown with its line numbers and the cited lines marked. Copying it copies only the code. Each quote links to those lines at the graded commit on GitHub, GitLab (including self-hosted) or Bitbucket, using the project's `code_repo`. With the code's zip loaded, it also shows the 3 lines around each quote; a new engine call, `code_context`, reads them, and finds a format-5 quote that has no line numbers.
+- **Findings open in place:** a finding's row expands to its evidence, any dispute, the cap it holds, and a button to its benchmark. The note about effective severity appears only for reports graded under the 4.x rules.
+- **Print or save as PDF (U3):** the whole report, every section in order, every benchmark and finding open, without the controls. Paper is light even in dark mode, and links print their address.
+- **Deep links to every view (U6):** `review.html?repo=…&ref=…&project=…&report=…&compare=…#finding=A3-001` (or `#bench=A3`, or `#tab=decisions`). They work on any host, because they're plain query and hash parameters.
+  - The address follows what you look at, and **Copy link** buttons give a link to the view, a benchmark or a finding.
+  - `?sample=1` opens the sample.
+  - A link to a report opened from files shows its view once the same files are loaded again.
+- **Projects links into Review:** each project, and each heatmap cell, opens that report at that benchmark, so every number on Projects traces to code in two clicks. Projects has deep links of its own (`?repo=…#tab=project&project=…`).
+- **PR descriptions link to the exact report,** and to its decisions when some are waiting.
+
+**Answering decisions by ticking a box (C5)**
+- **`gradekit decide`** records answers in `decisions.json`: `--approve ID…`, `--decline ID…`, `--by NAME`, and optionally `--answer TEXT`. It checks each ID against the newest report, takes the question's wording from it, and only appends. Recording the same answer again changes nothing; a change of mind is appended, and the newest answer wins. An answer by an agent comes with a reminder that it counts only with `[review] allow_agent_decisions = true`.
+- **`gradekit decisions`** lists the newest report's questions and their answers. With `--approved`, it lists only what may be acted on.
+- **The report PR is a checklist.** `deliver` writes each pending question with a box to approve it and a box under it to decline it, plus a `<!-- gradekit:project=NAME -->` marker. `gradekit decide --from-checklist FILE` reads the ticked boxes and finds the project from the marker. Unticked boxes are no answer, and a question with both boxes ticked is skipped.
+- **The grading CI records the ticks:**
+  - **GitHub:** a new `decide` job runs whenever a report PR's description is edited and commits `decisions.json` to the PR's branch under the editor's login. It needs `contents: write`. Pull requests from forks are skipped, and the description reaches the shell only through an environment variable.
+  - **GitLab:** a manual `grading-decide` job does the same when you press play (GitLab has no event for a description edit). It reads the full description through the API and needs `GRADING_BOT_TOKEN`.
+- **`gradekit ci` accepts a report PR that also answers its own questions:** the report folder plus appended entries in that project's `decisions.json`. Any other settings change still goes on its own.
+- `report.md` says how to answer.
+
+**Saving without pasting (H2), quick setup (H1), work orders from Start a run (C4)**
+- **No page asks you to paste JSON or TOML into an editor.** Each save offers, quickest first:
+  1. the code host does it: for a new file, a link to GitHub's or GitLab's new-file page with the file filled in; for decisions, the report PR's checkboxes;
+  2. a command, or a prompt for an agent, that writes the file with gradekit;
+  3. download, then upload (on any host, or for a local folder).
+  No host fills in an edit of a file that already exists, so editing an existing file goes by 2 or 3. Some GitLab versions open the new-file editor empty; the page says so. New helpers: `UI.saveFile` and `UI.saveDecisions` (rebuilt), on Set up, Start a run, Review and the Projects inbox.
+- **Quick setup:** Set up asks for the code's address, what kind of project it is, and three questions (data sensitivity, audience, impact of failure). The five other questions, more about the project, zones, targets and overrides are under *More* and *Advanced*, with plain labels. A grading repo address (remembered, and shared with Start a run) enables one-click saving. Starter `decisions.json` and `dispositions.json` are optional: the first answer creates them.
+- **Start a run writes work orders:** *Record this run as a work order* makes `projects/NAME/orders/<date>-<role>-<n>.json` (valid against `work-order.schema.json`, saved the same three ways) and adds `Work order: ID` to the prompt, so the report closes it.
+
+**A guided first run (U4)**
+- *Take a guided first run* on the home page, or `?tour=1` on any app page, starts six steps on the sample: open a report, find the weakest benchmark, answer a decision, see every project, set up your own project, and get the prompt for its first grade. A bar at the top of every app page shows the progress (kept in this browser), links to the next step, and ends the tour.
+
+**Grading on a schedule (N2)**
+- **`[schedule]` in `project.toml`:** `grade_every_days` (0, the default, means no schedule) and `only_if_code_changed` (default true). It never changes scores or the config hash. Set up has it under *Advanced*.
+- **`gradekit due`** says which projects are due, and why or why not: never graded, or enough days since the last full grade and, by default, new commits on the code's default branch. `--check-code` reads each code repo's newest commit with `git ls-remote`, without cloning; `--code-head NAME=SHA` gives it instead. A project that already has an open grade order isn't due again. `--write-orders` writes a grade work order for each due project, with `requested_by` "schedule", the commit, and the reason.
+- **The grading CI runs it.** On GitHub, a new `schedule` job runs every Monday and on demand. On GitLab, `grading-schedule` runs in a pipeline schedule. Each opens one pull request per due project, since `gradekit ci` wants one project per pull request. Permissions are in `ci/README.md`: on GitHub, letting Actions open pull requests, plus `CODE_READ_TOKEN` for private code; on GitLab, `GRADING_BOT_TOKEN`.
+- `write_order` is shared by `order new` and `due`.
+
+**Time and cost on the pages (N3)**
+- **The index** carries each report's `model` and `usage` (minutes, tokens, cost, where recorded), and each project's `schedule` when it has one. `index.schema.json` describes them.
+- **Review** says who graded, with which model, how long it took, what it cost, and the work order, or that the report didn't record them.
+- **Projects:**
+  - *All projects* adds agent time and cost over the last 30 days. Each row shows its last grade's time and cost, and *due* or the next date when it's on a schedule.
+  - *One project* adds a **Time and cost** card, with the average full grade and every run's model, time, tokens and cost. It also says when the project is next due.
+
+**A command palette (U2)**
+- **Ctrl/Cmd+K, or Search in the top bar, on every app page** searches the pages, every doc, every benchmark's rubric section and every glossary term (with its definition).
+- **On Review:** this report's tabs, benchmarks (with scores) and findings, which open in place, plus print.
+- **On Projects:** its projects and tabs.
+- **Accessibility:** it's a modal `dialog` with a combobox and listbox. Arrows move, Enter opens, and Esc closes and returns focus.
+- The build writes `assets/search.js` from the docs, the rubric and the glossary.
 
 ## 4.3.0
 Minor release: tools that let agents run the whole cycle without custom scripts, and safer publishing. No scoring changes; config fingerprints and existing reports stay valid. Tested by running the whole cycle on a real repository (dbader/schedule) with `gradekit` commands only: it reproduced the 4.2.2 grade exactly.

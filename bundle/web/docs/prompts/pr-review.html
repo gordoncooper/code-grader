@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'wasm-unsafe-eval'; connect-src 'self' https://cdn.jsdelivr.net https://api.github.com https://raw.githubusercontent.com; img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'; worker-src 'self' blob:">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'wasm-unsafe-eval'; connect-src 'self' https://cdn.jsdelivr.net https://api.github.com https://raw.githubusercontent.com; img-src 'self' data:; style-src 'self'; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'; worker-src 'self' blob:">
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <title>PR check · Code Grading Suite</title>
 <meta name="description" content="A rubric, prompts and browser tools for AI coding agents to grade codebases from 1 to 10 on 35 benchmarks and improve them.">
@@ -16,13 +16,13 @@
 <header class="topbar">
   <button class='menu-btn' type='button'>Menu</button>
   <a class="brand" href="../../index.html">Code <span>Grading</span> Suite</a>
-  <span class="ver">v4.3.0</span>
-  <nav class="main" aria-label="Main"><a href="../../docs/GETTING-STARTED.html">Get started</a><a href="../../app/setup.html">Set up</a><a href="../../app/run.html">Start a run</a><a href="../../app/review.html">Review</a><a href="../../docs/README.html" class="active" aria-current="page">Docs</a></nav>
+  <span class="ver">v5.0.0</span>
+  <nav class="main" aria-label="Main"><a href="../../docs/GETTING-STARTED.html">Get started</a><a href="../../app/setup.html">Set up</a><a href="../../app/run.html">Start a run</a><a href="../../app/review.html">Review</a><a href="../../app/projects.html">Projects</a><a href="../../docs/README.html" class="active" aria-current="page">Docs</a></nav>
   <span class="spacer"></span>
   <a class="top opt" href="../../AGENT.md">AGENT.md</a>
-  <a class="top opt" href="../../downloads/code-grading-suite-4.3.0.zip">Download</a>
+  <a class="top opt" href="../../downloads/code-grading-suite-5.0.0.zip">Download</a>
 </header>
-<div class="layout"><nav class="sidebar" aria-label="Documentation"><h4>Start</h4><a href="../../docs/GETTING-STARTED.html">Getting started</a><a href="../../docs/README.html">Overview &amp; reference</a><a href="../../docs/GLOSSARY.html">Glossary</a><a href="../../docs/AGENT.html">Agent entry point</a><a href="../../docs/DEPLOY.html">Hosting this site</a><h4>Configuration</h4><a href="../../docs/TUNING.html">Tuning guide</a><a href="../../docs/rubric/weights.html">How scoring works</a><a href="../../docs/config/defaults.html">Default config</a><a href="../../docs/config/project.example.html">Example project config</a><h4>Prompts</h4><a href="../../docs/prompts/grader.html">Grader</a><a href="../../docs/prompts/reviewer.html">Report reviewer</a><a href="../../docs/prompts/improver.html">Improver</a><a href="../../docs/prompts/pr-review.html" class="active" aria-current="page">PR check</a><h4>Rubric</h4><a href="../../docs/rubric/A-correctness-trust.html">A · Correctness &amp; Trust</a><a href="../../docs/rubric/B-design-structure.html">B · Design &amp; Structure</a><a href="../../docs/rubric/C-code-health.html">C · Code Health</a><a href="../../docs/rubric/D-value-fitness.html">D · Value &amp; Fitness</a><a href="../../docs/rubric/E-adoption-experience.html">E · Adoption &amp; Experience</a><a href="../../docs/rubric/F-operations-delivery.html">F · Operations &amp; Delivery</a><a href="../../docs/rubric/X-conditional.html">X · Conditional</a><h4>Guides</h4><a href="../../docs/calibration/README.html">Calibration</a><a href="../../docs/holdout/README.html">Hidden checks</a><a href="../../docs/CHANGELOG.html">Changelog</a></nav><main class="doc" id="main"><div class="docbar"><a class="btn" href="../../suite/prompts/pr-review.md">View raw .md</a><button class="btn" type="button" data-copy="../../suite/prompts/pr-review.md">Copy raw URL for an agent</button></div><details class="toc"><summary>On this page</summary><ul><li><a href="#inputs">Inputs</a></li><li><a href="#step-0-check-your-setup">Step 0: Check your setup</a></li><li><a href="#step-1-decide-which-benchmarks-the-change-touches">Step 1: Decide which benchmarks the change touches</a></li><li><a href="#step-2-grade">Step 2: Grade</a></li><li><a href="#step-3-verdict">Step 3: Verdict</a></li><li><a href="#step-4-pr-comment-pr-commentmd">Step 4: PR comment (pr-comment.md)</a></li></ul></details><h1 id="code-grading-suite-v430-pr-check">Code Grading Suite v4.3.0: PR Check<a class="anchor" href="#code-grading-suite-v430-pr-check" aria-label="Link to this section">#</a></h1>
+<div class="layout"><nav class="sidebar" aria-label="Documentation"><h4>Start</h4><a href="../../docs/GETTING-STARTED.html">Getting started</a><a href="../../docs/README.html">Overview &amp; reference</a><a href="../../docs/GLOSSARY.html">Glossary</a><a href="../../docs/AGENT.html">Agent entry point</a><a href="../../docs/DEPLOY.html">Hosting this site</a><h4>Configuration</h4><a href="../../docs/TUNING.html">Tuning guide</a><a href="../../docs/rubric/weights.html">How scoring works</a><a href="../../docs/config/defaults.html">Default config</a><a href="../../docs/config/project.example.html">Example project config</a><h4>Prompts</h4><a href="../../docs/prompts/grader.html">Grader</a><a href="../../docs/prompts/reviewer.html">Report reviewer</a><a href="../../docs/prompts/improver.html">Improver</a><a href="../../docs/prompts/pr-review.html" class="active" aria-current="page">PR check</a><h4>Rubric</h4><a href="../../docs/rubric/A-correctness-trust.html">A · Correctness &amp; Trust</a><a href="../../docs/rubric/B-design-structure.html">B · Design &amp; Structure</a><a href="../../docs/rubric/C-code-health.html">C · Code Health</a><a href="../../docs/rubric/D-value-fitness.html">D · Value &amp; Fitness</a><a href="../../docs/rubric/E-adoption-experience.html">E · Adoption &amp; Experience</a><a href="../../docs/rubric/F-operations-delivery.html">F · Operations &amp; Delivery</a><a href="../../docs/rubric/X-conditional.html">X · Conditional</a><h4>Guides</h4><a href="../../docs/calibration/README.html">Calibration</a><a href="../../docs/holdout/README.html">Hidden checks</a><a href="../../docs/CHANGELOG.html">Changelog</a></nav><main class="doc" id="main"><div class="docbar"><a class="btn" href="../../suite/prompts/pr-review.md">View raw .md</a><button class="btn" type="button" data-copy="../../suite/prompts/pr-review.md">Copy raw URL for an agent</button></div><details class="toc"><summary>On this page</summary><ul><li><a href="#inputs">Inputs</a></li><li><a href="#step-0-check-your-setup">Step 0: Check your setup</a></li><li><a href="#step-1-decide-which-benchmarks-the-change-touches">Step 1: Decide which benchmarks the change touches</a></li><li><a href="#step-2-grade">Step 2: Grade</a></li><li><a href="#step-3-verdict">Step 3: Verdict</a></li><li><a href="#step-4-pr-comment-pr-commentmd">Step 4: PR comment (pr-comment.md)</a></li></ul></details><h1 id="code-grading-suite-v500-pr-check">Code Grading Suite v5.0.0: PR Check<a class="anchor" href="#code-grading-suite-v500-pr-check" aria-label="Link to this section">#</a></h1>
 <p>A lightweight grading pass for a single change. It catches backsliding between full audits at a fraction of the cost. <strong>Everything in <code>prompts/grader.md</code> still applies</strong>: integrity and safety rules, scoring rules, evidence format, finding IDs and anti-gaming rules. This file only changes the scope and adds a verdict.</p>
 <p><strong>Terms</strong> mean exactly what the suite's <code>GLOSSARY.md</code> says (<code>gradekit glossary TERM</code> looks one up). Use them that way in everything you write.</p>
 <h2 id="inputs">Inputs<a class="anchor" href="#inputs" aria-label="Link to this section">#</a></h2>
@@ -158,7 +158,7 @@
 <li><strong>Config:</strong> use the same project config as the last full report. If the config has changed since then, say so in the PR comment: weight changes alone can move the overall score.</li>
 <li><strong>Findings:</strong> for touched benchmarks, update statuses (<code>fixed</code>, <code>open</code>, <code>regressed</code>) and add <code>new</code> findings. Copy the rest unchanged.
 <ul>
-<li><strong>A problem the change didn't cause</strong> (it's already there at <code>BASE_COMMIT</code>, but the baseline report missed it): still add it as <code>new</code>, with <code>first_seen_commit</code> set to <code>BASE_COMMIT</code>. <code>gradekit diff</code> reports it as pre-existing and doesn't fail the PR for it. Problems the change introduces take <code>HEAD_COMMIT</code>.</li>
+<li><strong>A problem the change didn't cause</strong> (it's already there at <code>BASE_COMMIT</code>, but the baseline report missed it): add it with status <code>noticed</code> (<code>report finding add … --status noticed</code>, which sets <code>first_seen_commit</code> to <code>BASE_COMMIT</code>). <code>gradekit diff</code> reports it as pre-existing and doesn't fail the PR for it. Problems the change introduces are <code>new</code>, with <code>HEAD_COMMIT</code>.</li>
 </ul>
 </li>
 <li>Re-run whichever tooling the change affects (always the tests; the linters and type checker if code changed; the dependency audit if manifests changed). Update the corresponding <code>metrics</code>.</li>
@@ -173,7 +173,7 @@
 <ul>
 <li>any benchmark score dropped;</li>
 <li>a gate newly failed;</li>
-<li>a new finding the change introduced with <strong>effective</strong> severity <code>critical</code> or <code>major</code> (so a minor issue in a hot zone counts as major), or any <code>regressed</code> finding;</li>
+<li>a new finding the change introduced with severity <code>critical</code> or <code>major</code>, or any <code>regressed</code> finding;</li>
 <li>any gaming flag or integrity flag;</li>
 <li>the maturity level dropped;</li>
 <li>the hidden-check pass rate dropped (if hidden checks were run).</li>
@@ -188,12 +188,12 @@
 <pre tabindex="0"><code>**PR check: PASS | FAIL**
 Re-graded: A1, A4, C4, F2 (others carried forward)
 Changes: A4 5 → 7 (A4-001 fixed) · C4 7 → 7 · F2 8 → 9
-New findings: none | &lt;ID: title, effective severity, zone&gt;
+New findings: none | &lt;ID: title, severity, zone&gt;
 Regressions: none | &lt;...&gt;
 Decisions needed: none | &lt;decision questions&gt;
 </code></pre>
 <p>No hidden-check details. Report only the aggregate pass rate and whether it changed. Sensitive findings (grader Part 1, rule 6) are named by ID, benchmark, effective severity and zone only, with &quot;details withheld&quot;: PR comments are often public. Give their details to whoever started you, privately, in your final message. Findings the baseline report withholds stay withheld: carry them forward as they are. Deliver as described under Inputs.</p>
-<nav class="pager"><a href="../../docs/prompts/improver.html"><small>Previous</small>Improver</a><a href="../../docs/rubric/A-correctness-trust.html" style="margin-left:auto;text-align:right"><small>Next</small>A · Correctness &amp; Trust</a></nav></main></div>
+<nav class="pager"><a href="../../docs/prompts/improver.html"><small>Previous</small>Improver</a><a class="next" href="../../docs/rubric/A-correctness-trust.html"><small>Next</small>A · Correctness &amp; Trust</a></nav></main></div>
 <script src="../../assets/site.js"></script>
 </body>
 </html>

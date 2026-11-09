@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'wasm-unsafe-eval'; connect-src 'self' https://cdn.jsdelivr.net https://api.github.com https://raw.githubusercontent.com; img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'; worker-src 'self' blob:">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'wasm-unsafe-eval'; connect-src 'self' https://cdn.jsdelivr.net https://api.github.com https://raw.githubusercontent.com; img-src 'self' data:; style-src 'self'; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'; worker-src 'self' blob:">
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <title>How scoring works · Code Grading Suite</title>
 <meta name="description" content="A rubric, prompts and browser tools for AI coding agents to grade codebases from 1 to 10 on 35 benchmarks and improve them.">
@@ -16,13 +16,13 @@
 <header class="topbar">
   <button class='menu-btn' type='button'>Menu</button>
   <a class="brand" href="../../index.html">Code <span>Grading</span> Suite</a>
-  <span class="ver">v4.3.0</span>
-  <nav class="main" aria-label="Main"><a href="../../docs/GETTING-STARTED.html">Get started</a><a href="../../app/setup.html">Set up</a><a href="../../app/run.html">Start a run</a><a href="../../app/review.html">Review</a><a href="../../docs/README.html" class="active" aria-current="page">Docs</a></nav>
+  <span class="ver">v5.0.0</span>
+  <nav class="main" aria-label="Main"><a href="../../docs/GETTING-STARTED.html">Get started</a><a href="../../app/setup.html">Set up</a><a href="../../app/run.html">Start a run</a><a href="../../app/review.html">Review</a><a href="../../app/projects.html">Projects</a><a href="../../docs/README.html" class="active" aria-current="page">Docs</a></nav>
   <span class="spacer"></span>
   <a class="top opt" href="../../AGENT.md">AGENT.md</a>
-  <a class="top opt" href="../../downloads/code-grading-suite-4.3.0.zip">Download</a>
+  <a class="top opt" href="../../downloads/code-grading-suite-5.0.0.zip">Download</a>
 </header>
-<div class="layout"><nav class="sidebar" aria-label="Documentation"><h4>Start</h4><a href="../../docs/GETTING-STARTED.html">Getting started</a><a href="../../docs/README.html">Overview &amp; reference</a><a href="../../docs/GLOSSARY.html">Glossary</a><a href="../../docs/AGENT.html">Agent entry point</a><a href="../../docs/DEPLOY.html">Hosting this site</a><h4>Configuration</h4><a href="../../docs/TUNING.html">Tuning guide</a><a href="../../docs/rubric/weights.html" class="active" aria-current="page">How scoring works</a><a href="../../docs/config/defaults.html">Default config</a><a href="../../docs/config/project.example.html">Example project config</a><h4>Prompts</h4><a href="../../docs/prompts/grader.html">Grader</a><a href="../../docs/prompts/reviewer.html">Report reviewer</a><a href="../../docs/prompts/improver.html">Improver</a><a href="../../docs/prompts/pr-review.html">PR check</a><h4>Rubric</h4><a href="../../docs/rubric/A-correctness-trust.html">A · Correctness &amp; Trust</a><a href="../../docs/rubric/B-design-structure.html">B · Design &amp; Structure</a><a href="../../docs/rubric/C-code-health.html">C · Code Health</a><a href="../../docs/rubric/D-value-fitness.html">D · Value &amp; Fitness</a><a href="../../docs/rubric/E-adoption-experience.html">E · Adoption &amp; Experience</a><a href="../../docs/rubric/F-operations-delivery.html">F · Operations &amp; Delivery</a><a href="../../docs/rubric/X-conditional.html">X · Conditional</a><h4>Guides</h4><a href="../../docs/calibration/README.html">Calibration</a><a href="../../docs/holdout/README.html">Hidden checks</a><a href="../../docs/CHANGELOG.html">Changelog</a></nav><main class="doc" id="main"><div class="docbar"><a class="btn" href="../../suite/rubric/weights.md">View raw .md</a><button class="btn" type="button" data-copy="../../suite/rubric/weights.md">Copy raw URL for an agent</button></div><details class="toc"><summary>On this page</summary><ul><li><a href="#1-weights-how-much-each-benchmark-counts">1. Weights: how much each benchmark counts</a></li><li><a href="#2-gates-what-an-average-cant-make-up-for">2. Gates: what an average can&#x27;t make up for</a></li><li><a href="#3-zones-not-all-code-matters-equally">3. Zones: not all code matters equally</a></li><li><a href="#4-targets-where-improvement-stops">4. Targets: where improvement stops</a></li><li><a href="#5-the-rollup">5. The rollup</a></li><li><a href="#6-maturity-ladder">6. Maturity ladder</a></li><li><a href="#7-priorities-what-to-fix-first">7. Priorities: what to fix first</a></li></ul></details><!-- Part of the Code Grading Suite v4.3.0. The tables show the shipped defaults (config/defaults.toml). For your own configuration, run `gradekit presets` and `gradekit resolve`. -->
+<div class="layout"><nav class="sidebar" aria-label="Documentation"><h4>Start</h4><a href="../../docs/GETTING-STARTED.html">Getting started</a><a href="../../docs/README.html">Overview &amp; reference</a><a href="../../docs/GLOSSARY.html">Glossary</a><a href="../../docs/AGENT.html">Agent entry point</a><a href="../../docs/DEPLOY.html">Hosting this site</a><h4>Configuration</h4><a href="../../docs/TUNING.html">Tuning guide</a><a href="../../docs/rubric/weights.html" class="active" aria-current="page">How scoring works</a><a href="../../docs/config/defaults.html">Default config</a><a href="../../docs/config/project.example.html">Example project config</a><h4>Prompts</h4><a href="../../docs/prompts/grader.html">Grader</a><a href="../../docs/prompts/reviewer.html">Report reviewer</a><a href="../../docs/prompts/improver.html">Improver</a><a href="../../docs/prompts/pr-review.html">PR check</a><h4>Rubric</h4><a href="../../docs/rubric/A-correctness-trust.html">A · Correctness &amp; Trust</a><a href="../../docs/rubric/B-design-structure.html">B · Design &amp; Structure</a><a href="../../docs/rubric/C-code-health.html">C · Code Health</a><a href="../../docs/rubric/D-value-fitness.html">D · Value &amp; Fitness</a><a href="../../docs/rubric/E-adoption-experience.html">E · Adoption &amp; Experience</a><a href="../../docs/rubric/F-operations-delivery.html">F · Operations &amp; Delivery</a><a href="../../docs/rubric/X-conditional.html">X · Conditional</a><h4>Guides</h4><a href="../../docs/calibration/README.html">Calibration</a><a href="../../docs/holdout/README.html">Hidden checks</a><a href="../../docs/CHANGELOG.html">Changelog</a></nav><main class="doc" id="main"><div class="docbar"><a class="btn" href="../../suite/rubric/weights.md">View raw .md</a><button class="btn" type="button" data-copy="../../suite/rubric/weights.md">Copy raw URL for an agent</button></div><details class="toc"><summary>On this page</summary><ul><li><a href="#1-weights-how-much-each-benchmark-counts">1. Weights: how much each benchmark counts</a></li><li><a href="#2-gates-what-an-average-cant-make-up-for">2. Gates: what an average can&#x27;t make up for</a></li><li><a href="#3-zones-not-all-code-matters-equally">3. Zones: not all code matters equally</a></li><li><a href="#4-targets-where-improvement-stops">4. Targets: where improvement stops</a></li><li><a href="#5-the-rollup">5. The rollup</a></li><li><a href="#6-maturity-ladder">6. Maturity ladder</a></li><li><a href="#7-priorities-what-to-fix-first">7. Priorities: what to fix first</a></li></ul></details><!-- Part of the Code Grading Suite v5.0.0. The tables show the shipped defaults (config/defaults.toml). For your own configuration, run `gradekit presets` and `gradekit resolve`. -->
 <h1 id="how-scoring-works-weights-gates-zones-targets-and-maturity">How scoring works: weights, gates, zones, targets and maturity<a class="anchor" href="#how-scoring-works-weights-gates-zones-targets-and-maturity" aria-label="Link to this section">#</a></h1>
 <p>Graders only assign the 1–10 scores and findings. Everything else in this file is computed by <code>gradekit</code> from the <strong>effective config</strong>: the suite defaults layered with an optional org-level config and the project's own config. That keeps the arithmetic consistent and the rules tunable. To change any of it, see <code>TUNING.md</code>.</p>
 <pre tabindex="0"><code>config/defaults.toml  →  org.toml (optional)  →  project.toml
@@ -315,472 +315,472 @@ grader scores + findings  →  gradekit rollup  →  overall, gates, maturity, r
 <tr>
 <th>ID</th>
 <th>Benchmark</th>
-<th style="text-align:center">Base</th>
-<th style="text-align:center">Default</th>
-<th style="text-align:center">Service</th>
-<th style="text-align:center">Web app</th>
-<th style="text-align:center">Library</th>
-<th style="text-align:center">OSS lib</th>
-<th style="text-align:center">CLI</th>
-<th style="text-align:center">Internal</th>
-<th style="text-align:center">Prototype</th>
+<th class="ta-c">Base</th>
+<th class="ta-c">Default</th>
+<th class="ta-c">Service</th>
+<th class="ta-c">Web app</th>
+<th class="ta-c">Library</th>
+<th class="ta-c">OSS lib</th>
+<th class="ta-c">CLI</th>
+<th class="ta-c">Internal</th>
+<th class="ta-c">Prototype</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td>A1</td>
 <td>Correctness &amp; Functional Behavior</td>
-<td style="text-align:center">3</td>
-<td style="text-align:center"><strong>3</strong></td>
-<td style="text-align:center"><strong>3</strong></td>
-<td style="text-align:center"><strong>3</strong></td>
-<td style="text-align:center"><strong>3</strong></td>
-<td style="text-align:center"><strong>3</strong></td>
-<td style="text-align:center"><strong>3</strong></td>
-<td style="text-align:center"><strong>3</strong></td>
-<td style="text-align:center"><strong>3</strong></td>
+<td class="ta-c">3</td>
+<td class="ta-c"><strong>3</strong></td>
+<td class="ta-c"><strong>3</strong></td>
+<td class="ta-c"><strong>3</strong></td>
+<td class="ta-c"><strong>3</strong></td>
+<td class="ta-c"><strong>3</strong></td>
+<td class="ta-c"><strong>3</strong></td>
+<td class="ta-c"><strong>3</strong></td>
+<td class="ta-c"><strong>3</strong></td>
 </tr>
 <tr>
 <td>A2</td>
 <td>Security &amp; Privacy</td>
-<td style="text-align:center">3</td>
-<td style="text-align:center"><strong>3</strong></td>
-<td style="text-align:center"><strong>3</strong></td>
-<td style="text-align:center"><strong>3</strong></td>
-<td style="text-align:center"><strong>3</strong></td>
-<td style="text-align:center"><strong>3</strong></td>
-<td style="text-align:center"><strong>3</strong></td>
-<td style="text-align:center"><strong>3</strong></td>
-<td style="text-align:center"><strong>3</strong></td>
+<td class="ta-c">3</td>
+<td class="ta-c"><strong>3</strong></td>
+<td class="ta-c"><strong>3</strong></td>
+<td class="ta-c"><strong>3</strong></td>
+<td class="ta-c"><strong>3</strong></td>
+<td class="ta-c"><strong>3</strong></td>
+<td class="ta-c"><strong>3</strong></td>
+<td class="ta-c"><strong>3</strong></td>
+<td class="ta-c"><strong>3</strong></td>
 </tr>
 <tr>
 <td>A3</td>
 <td>Robustness &amp; Error Handling</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center"><strong>3</strong></td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">1</td>
-<td style="text-align:center">1</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c"><strong>3</strong></td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">1</td>
+<td class="ta-c">1</td>
 </tr>
 <tr>
 <td>A4</td>
 <td>Idempotence &amp; Determinism</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">3</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">3</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
 </tr>
 <tr>
 <td>A5</td>
 <td>Durability &amp; Recoverability</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center"><strong>3</strong></td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">1</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c"><strong>3</strong></td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">1</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
 </tr>
 <tr>
 <td>B1</td>
 <td>Architecture &amp; Design Fitness</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">3</td>
-<td style="text-align:center">3</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">1</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">3</td>
+<td class="ta-c">3</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">1</td>
 </tr>
 <tr>
 <td>B2</td>
 <td>Modularity &amp; Decoupling</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">3</td>
-<td style="text-align:center">3</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">1</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">3</td>
+<td class="ta-c">3</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">1</td>
 </tr>
 <tr>
 <td>B3</td>
 <td>Structure &amp; Organization</td>
-<td style="text-align:center">1</td>
-<td style="text-align:center">1</td>
-<td style="text-align:center">1</td>
-<td style="text-align:center">1</td>
-<td style="text-align:center">1</td>
-<td style="text-align:center">1</td>
-<td style="text-align:center">1</td>
-<td style="text-align:center">1</td>
-<td style="text-align:center">1</td>
+<td class="ta-c">1</td>
+<td class="ta-c">1</td>
+<td class="ta-c">1</td>
+<td class="ta-c">1</td>
+<td class="ta-c">1</td>
+<td class="ta-c">1</td>
+<td class="ta-c">1</td>
+<td class="ta-c">1</td>
+<td class="ta-c">1</td>
 </tr>
 <tr>
 <td>B4</td>
 <td>Interface Design &amp; Contracts</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">3</td>
-<td style="text-align:center">3</td>
-<td style="text-align:center">3</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">3</td>
+<td class="ta-c">3</td>
+<td class="ta-c">3</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
 </tr>
 <tr>
 <td>B5</td>
 <td>Flexibility &amp; Extensibility</td>
-<td style="text-align:center">1</td>
-<td style="text-align:center">1</td>
-<td style="text-align:center">1</td>
-<td style="text-align:center">1</td>
-<td style="text-align:center">1</td>
-<td style="text-align:center">1</td>
-<td style="text-align:center">1</td>
-<td style="text-align:center">1</td>
-<td style="text-align:center">1</td>
+<td class="ta-c">1</td>
+<td class="ta-c">1</td>
+<td class="ta-c">1</td>
+<td class="ta-c">1</td>
+<td class="ta-c">1</td>
+<td class="ta-c">1</td>
+<td class="ta-c">1</td>
+<td class="ta-c">1</td>
+<td class="ta-c">1</td>
 </tr>
 <tr>
 <td>B6</td>
 <td>Leanness</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
 </tr>
 <tr>
 <td>C1</td>
 <td>Readability &amp; Clarity</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
 </tr>
 <tr>
 <td>C2</td>
 <td>Maintainability &amp; Complexity</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">3</td>
-<td style="text-align:center">3</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">1</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">3</td>
+<td class="ta-c">3</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">1</td>
 </tr>
 <tr>
 <td>C3</td>
 <td>Consistency &amp; Idiomatic Code</td>
-<td style="text-align:center">1</td>
-<td style="text-align:center">1</td>
-<td style="text-align:center">1</td>
-<td style="text-align:center">1</td>
-<td style="text-align:center">1</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">1</td>
-<td style="text-align:center">1</td>
-<td style="text-align:center">1</td>
+<td class="ta-c">1</td>
+<td class="ta-c">1</td>
+<td class="ta-c">1</td>
+<td class="ta-c">1</td>
+<td class="ta-c">1</td>
+<td class="ta-c">2</td>
+<td class="ta-c">1</td>
+<td class="ta-c">1</td>
+<td class="ta-c">1</td>
 </tr>
 <tr>
 <td>C4</td>
 <td>Test Suite Quality</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">1</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">1</td>
 </tr>
 <tr>
 <td>D1</td>
 <td>Feature Completeness</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
 </tr>
 <tr>
 <td>D2</td>
 <td>Gap Coverage</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
 </tr>
 <tr>
 <td>D3</td>
 <td>Practicality</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">3</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">3</td>
 </tr>
 <tr>
 <td>D4</td>
 <td>Intuitiveness</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">3</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">3</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">3</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">3</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
 </tr>
 <tr>
 <td>E1</td>
 <td>Adopter Friendliness</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">3</td>
-<td style="text-align:center">3</td>
-<td style="text-align:center">3</td>
-<td style="text-align:center">1</td>
-<td style="text-align:center">1</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">3</td>
+<td class="ta-c">3</td>
+<td class="ta-c">3</td>
+<td class="ta-c">1</td>
+<td class="ta-c">1</td>
 </tr>
 <tr>
 <td>E2</td>
 <td>Documentation</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">3</td>
-<td style="text-align:center">3</td>
-<td style="text-align:center">3</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">3</td>
+<td class="ta-c">3</td>
+<td class="ta-c">3</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
 </tr>
 <tr>
 <td>E3</td>
 <td>Developer Experience &amp; Inner Loop</td>
-<td style="text-align:center">1</td>
-<td style="text-align:center">1</td>
-<td style="text-align:center">1</td>
-<td style="text-align:center">1</td>
-<td style="text-align:center">1</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">1</td>
-<td style="text-align:center">1</td>
-<td style="text-align:center">1</td>
+<td class="ta-c">1</td>
+<td class="ta-c">1</td>
+<td class="ta-c">1</td>
+<td class="ta-c">1</td>
+<td class="ta-c">1</td>
+<td class="ta-c">2</td>
+<td class="ta-c">1</td>
+<td class="ta-c">1</td>
+<td class="ta-c">1</td>
 </tr>
 <tr>
 <td>E4</td>
 <td>Native Tooling &amp; Ecosystem Fit</td>
-<td style="text-align:center">1</td>
-<td style="text-align:center">1</td>
-<td style="text-align:center">1</td>
-<td style="text-align:center">1</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">1</td>
-<td style="text-align:center">1</td>
-<td style="text-align:center">1</td>
+<td class="ta-c">1</td>
+<td class="ta-c">1</td>
+<td class="ta-c">1</td>
+<td class="ta-c">1</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">1</td>
+<td class="ta-c">1</td>
+<td class="ta-c">1</td>
 </tr>
 <tr>
 <td>F1</td>
 <td>Ease of Deployability</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">3</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">1</td>
-<td style="text-align:center">1</td>
-<td style="text-align:center">1</td>
-<td style="text-align:center">1</td>
-<td style="text-align:center">1</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">3</td>
+<td class="ta-c">2</td>
+<td class="ta-c">1</td>
+<td class="ta-c">1</td>
+<td class="ta-c">1</td>
+<td class="ta-c">1</td>
+<td class="ta-c">1</td>
 </tr>
 <tr>
 <td>F2</td>
 <td>Build, CI/CD &amp; Automation</td>
-<td style="text-align:center">1</td>
-<td style="text-align:center">1</td>
-<td style="text-align:center">1</td>
-<td style="text-align:center">1</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">3</td>
-<td style="text-align:center">1</td>
-<td style="text-align:center">1</td>
-<td style="text-align:center">1</td>
+<td class="ta-c">1</td>
+<td class="ta-c">1</td>
+<td class="ta-c">1</td>
+<td class="ta-c">1</td>
+<td class="ta-c">2</td>
+<td class="ta-c">3</td>
+<td class="ta-c">1</td>
+<td class="ta-c">1</td>
+<td class="ta-c">1</td>
 </tr>
 <tr>
 <td>F3</td>
 <td>Observability &amp; Debuggability</td>
-<td style="text-align:center">1</td>
-<td style="text-align:center">1</td>
-<td style="text-align:center">3</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">1</td>
-<td style="text-align:center">1</td>
-<td style="text-align:center">1</td>
-<td style="text-align:center">1</td>
-<td style="text-align:center">1</td>
+<td class="ta-c">1</td>
+<td class="ta-c">1</td>
+<td class="ta-c">3</td>
+<td class="ta-c">2</td>
+<td class="ta-c">1</td>
+<td class="ta-c">1</td>
+<td class="ta-c">1</td>
+<td class="ta-c">1</td>
+<td class="ta-c">1</td>
 </tr>
 <tr>
 <td>F4</td>
 <td>Performance, Efficiency &amp; Scalability</td>
-<td style="text-align:center">1</td>
-<td style="text-align:center">1</td>
-<td style="text-align:center">1</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">1</td>
-<td style="text-align:center">1</td>
-<td style="text-align:center">1</td>
-<td style="text-align:center">1</td>
-<td style="text-align:center">1</td>
+<td class="ta-c">1</td>
+<td class="ta-c">1</td>
+<td class="ta-c">1</td>
+<td class="ta-c">2</td>
+<td class="ta-c">1</td>
+<td class="ta-c">1</td>
+<td class="ta-c">1</td>
+<td class="ta-c">1</td>
+<td class="ta-c">1</td>
 </tr>
 <tr>
 <td>F5</td>
 <td>Portability</td>
-<td style="text-align:center">1</td>
-<td style="text-align:center">1</td>
-<td style="text-align:center">1</td>
-<td style="text-align:center">1</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">1</td>
-<td style="text-align:center">1</td>
+<td class="ta-c">1</td>
+<td class="ta-c">1</td>
+<td class="ta-c">1</td>
+<td class="ta-c">1</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">1</td>
+<td class="ta-c">1</td>
 </tr>
 <tr>
 <td>F6</td>
 <td>Dependency Health &amp; Longevity</td>
-<td style="text-align:center">1</td>
-<td style="text-align:center">1</td>
-<td style="text-align:center">1</td>
-<td style="text-align:center">1</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">1</td>
-<td style="text-align:center">1</td>
-<td style="text-align:center">1</td>
+<td class="ta-c">1</td>
+<td class="ta-c">1</td>
+<td class="ta-c">1</td>
+<td class="ta-c">1</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">1</td>
+<td class="ta-c">1</td>
+<td class="ta-c">1</td>
 </tr>
 <tr>
 <td>X1</td>
 <td>Accessibility, UX &amp; Internationalization</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">3</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">3</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
 </tr>
 <tr>
 <td>X2</td>
 <td>Public API Stability &amp; Upgradeability</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">3</td>
-<td style="text-align:center">3</td>
-<td style="text-align:center">3</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">3</td>
+<td class="ta-c">3</td>
+<td class="ta-c">3</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
 </tr>
 <tr>
 <td>X3</td>
 <td>Concurrency Safety</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
 </tr>
 <tr>
 <td>X4</td>
 <td>Cost Efficiency</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
 </tr>
 <tr>
 <td>X5</td>
 <td>Compliance &amp; Licensing</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">3</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
-<td style="text-align:center">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">3</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
+<td class="ta-c">2</td>
 </tr>
 <tr>
 <td>X6</td>
 <td>Agent-Readiness</td>
-<td style="text-align:center">1</td>
-<td style="text-align:center">1</td>
-<td style="text-align:center">1</td>
-<td style="text-align:center">1</td>
-<td style="text-align:center">1</td>
-<td style="text-align:center">1</td>
-<td style="text-align:center">1</td>
-<td style="text-align:center">1</td>
-<td style="text-align:center">1</td>
+<td class="ta-c">1</td>
+<td class="ta-c">1</td>
+<td class="ta-c">1</td>
+<td class="ta-c">1</td>
+<td class="ta-c">1</td>
+<td class="ta-c">1</td>
+<td class="ta-c">1</td>
+<td class="ta-c">1</td>
+<td class="ta-c">1</td>
 </tr>
 </tbody>
 </table>
@@ -802,8 +802,8 @@ grader scores + findings  →  gradekit rollup  →  overall, gates, maturity, r
 <h2 id="3-zones-not-all-code-matters-equally">3. Zones: not all code matters equally<a class="anchor" href="#3-zones-not-all-code-matters-equally" aria-label="Link to this section">#</a></h2>
 <p>The project config maps paths to zones: <strong>hot</strong> (money, auth, data writes), <strong>normal</strong>, or <strong>cold</strong> (scripts, examples, internal tooling). A file takes the first zone whose pattern matches; a finding takes the hottest zone among the files it cites.</p>
 <ul>
-<li><strong>Effective severity.</strong> Graders record each finding's <em>intrinsic</em> severity. <code>gradekit</code> shifts it by zone: one level up in hot zones, one level down in cold zones. Security findings are never downgraded.</li>
-<li><strong>Maturity.</strong> Levels limit open findings by effective severity and zone. For example, L2 allows no critical findings in hot zones.</li>
+<li><strong>Severity.</strong> Zones don't change it. Graders judge each finding's severity by its consequence where the code runs, so a wrong result in payment code is worse than the same mistake in a script, and a style nit is minor anywhere. (Before scoring 5.0, <code>gradekit</code> shifted severity by zone instead.)</li>
+<li><strong>Maturity.</strong> Hot zones are held to a higher bar: L2 allows no critical findings in them, and L3 no major ones.</li>
 <li><strong>Priorities.</strong> Work in hot zones is ranked higher (×2 by default; cold ×0.5).</li>
 <li><strong>Grading.</strong> Graders read hot zones in full and weigh them most when scoring.</li>
 </ul>
@@ -843,7 +843,7 @@ grader scores + findings  →  gradekit rollup  →  overall, gates, maturity, r
 <tr>
 <th>Level</th>
 <th>Name</th>
-<th>Requirements (all must hold; findings counted at effective severity)</th>
+<th>Requirements (all must hold)</th>
 </tr>
 </thead>
 <tbody>
@@ -865,7 +865,7 @@ grader scores + findings  →  gradekit rollup  →  overall, gates, maturity, r
 <tr>
 <td>L3</td>
 <td>Production-ready</td>
-<td>overall ≥ 8.0; every gate ≥ 8; no benchmark &lt; 6; no critical gaps; no major must-have gaps; no open critical findings; hidden-check pass rate ≥ 80% (if run)</td>
+<td>overall ≥ 8.0; every gate ≥ 8; no benchmark &lt; 6; no critical gaps; no major must-have gaps; no open critical findings; no open major findings in hot zones; hidden-check pass rate ≥ 80% (if run)</td>
 </tr>
 <tr>
 <td>L4</td>
@@ -887,7 +887,7 @@ grader scores + findings  →  gradekit rollup  →  overall, gates, maturity, r
 <tbody>
 <tr>
 <td>0</td>
-<td>Fixes a failed gate, or an effective-critical finding in a hot zone</td>
+<td>Fixes a failed gate, or a critical finding in a hot zone</td>
 </tr>
 <tr>
 <td>1</td>
@@ -904,7 +904,7 @@ grader scores + findings  →  gradekit rollup  →  overall, gates, maturity, r
 </tbody>
 </table>
 <p>Within a tier, actions are ordered by <strong>weight × points gained (up to target) × zone multiplier ÷ effort cost</strong>, where effort costs S = 1, M = 2, L = 4. Improving agents work through this list in order.</p>
-<nav class="pager"><a href="../../docs/TUNING.html"><small>Previous</small>Tuning guide</a><a href="../../docs/config/defaults.html" style="margin-left:auto;text-align:right"><small>Next</small>Default config</a></nav></main></div>
+<nav class="pager"><a href="../../docs/TUNING.html"><small>Previous</small>Tuning guide</a><a class="next" href="../../docs/config/defaults.html"><small>Next</small>Default config</a></nav></main></div>
 <script src="../../assets/site.js"></script>
 </body>
 </html>
