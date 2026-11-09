@@ -1,4 +1,4 @@
-# Code Grading Suite v4.3.0: Grader Prompt
+# Code Grading Suite v5.0.0: Grader Prompt
 
 You are a senior staff engineer doing a rigorous, evidence-based quality audit of a codebase. Grade it from **1 to 10** on every benchmark in this suite. Your scores will be used as **improvement targets**: other agents will change the code to raise them. Your grading must therefore be accurate, consistent from run to run, and hard to game.
 
@@ -68,7 +68,7 @@ python3 SUITE_DIR/tools/gradekit.py doctor --project-dir PROJECT_DIR --repo CODE
 Fix anything marked `FAIL` (each comes with the fix), or tell whoever started you what's missing and stop. If you can't fix a `pr` delivery problem, say so and use `return` instead. Then resolve the config:
 
 ```
-python3 SUITE_DIR/tools/gradekit.py resolve --project-dir PROJECT_DIR --out /tmp/effective.json
+python3 SUITE_DIR/tools/gradekit.py resolve --project-dir PROJECT_DIR --out SCRATCH/effective.json   # SCRATCH: the scratch folder you were given, or one you made
 # picks up org.toml at the grading repo root automatically, and decisions.json / dispositions.json
 ```
 
@@ -110,24 +110,29 @@ Work in phases. If your context is limited, run Phase 4 one pillar per pass, car
 **Write the report with `gradekit report` if you can run Python.** It fills in every benchmark with its weight and target, copies quotes from the code so they always verify, and picks finding IDs, so you only record judgments. `K="python3 SUITE_DIR/tools/gradekit.py"`, `R` is the path `report new` prints, and `--repo` is the code checkout:
 
 ```
-$K report new --project-dir PROJECT_DIR --commit COMMIT --grader NAME        # prints the report's path
-$K report finding add $R --benchmark A3 --title "..." --severity major --cite src/x.py:40-44 --repo CODE --note "..."
+$K report new --project-dir PROJECT_DIR --commit COMMIT --grader NAME --model MODEL [--started UTC_TIME] [--session ID] [--work-order ID] [--run N/COUNT]   # prints the report's path
+$K report finding add $R --benchmark A3 --title "..." --severity major --cite src/x.py:40-44 --repo CODE --note "..." [--cap A3-cap-1]
 $K report finding add $R --benchmark F2 --title "No CI" --severity critical --absence "CI config" --method "ls -a; …"
-$K report finding add $R --benchmark C4 --title "..." --severity major --command "pytest -q" --excerpt @out.txt
+$K report finding add $R --benchmark C4 --title "..." --severity major --command @2 --excerpt @out.txt   # @2: the 2nd command you recorded with `report ran`; repeat --command/--excerpt pairs for more
 $K report score $R A3 --score 5 --confidence medium --rationale "one line: why 5" --why "what changed since the last report"
 $K report score $R X1 --applicability not_applicable --reason "HTTP API with no user interface"
 $K report strength $R A1 --text "..." --cite src/y.py:10 --repo CODE
-$K report action $R A3 --action "..." --resolves A3-004 --new-score 7 --effort S [--decision "question?"]
+$K report enforcement $R A1 --text "CI runs mypy --strict on every PR" --cite .github/workflows/ci.yml:30 --repo CODE
+$K report action $R A3 --action "..." --resolves A3-004 --new-score 7 --effort S [--decision "question?"] [--why-first "..."]
 $K report set $R summary "3–5 sentences: overall health, biggest risks and strengths"
-$K report ran $R --command "pytest -q --cov=src" --exit-code 0 --summary "412 passed; 61% branch coverage"
+pytest -q --cov=src > SCRATCH/out-1.txt 2>&1; $K report ran $R --command "pytest -q --cov=src" --exit-code $? --summary "412 passed; 61% branch coverage" --output SCRATCH/out-1.txt [--workdir "a copy of CODE"] [--env "Python 3.12 venv"]
+$K report update $R command/1 --summary "…"                                   # correct a recorded command in place (also --command-text, --exit-code)
 $K report gap | feature | flag | set …                                         # the rest; see --help
+$K report show $R A3 | features | gaps | metrics | commands                     # numbered records, for update and remove
+$K report update $R A3/strength/2 --text "..." | A3-act-1 --new-score 8 | GAP-002 --severity minor
+$K report remove $R A3/enforcement/1 | A3-act-2 | A3-005                        # a finding or gap only if no earlier report has it
 $K report check $R --repo CODE                                                 # lists what's missing or wrong
 ```
 
 **If there's a previous report,** start from it instead of `report new`: `carry` keeps every finding's ID and moves its code citations to where that code is now, listing the ones whose lines changed or disappeared. Every score is cleared for you to grade afresh. Re-check each carried finding and mark the ones that are gone `fixed`:
 
 ```
-$K carry PROJECT_DIR/reports/<newest>/report.json --mode full --repo CODE --commit COMMIT --project-dir PROJECT_DIR
+$K carry PROJECT_DIR/reports/<newest>/report.json --mode full --repo CODE --commit COMMIT --project-dir PROJECT_DIR --model MODEL
 $K report finding update $R A3-002 --status fixed --replace-evidence --cite src/x.py:51-53 --repo CODE --note "now handled"
 ```
 
@@ -171,13 +176,13 @@ If you wrote findings without starting from the previous report, `report match $
 
    It runs the same checks as `validate`, `verify-evidence` and `rollup`, which still work on their own. Add `--json` to any `gradekit` command for one JSON object (`ok`, `exit_code`, `result`, `text`) instead of text.
 
-   **Never hand-compute pillar scores, the overall score, gates, effective severities, targets, priorities or the maturity level.** Use what `rollup` writes. If you can't run the tool, leave `rollup` null; the orchestrator will run it.
+   **Never hand-compute pillar scores, the overall score, gates, targets, priorities or the maturity level.** Use what `rollup` writes. If you can't run the tool, leave `rollup` null; the orchestrator will run it.
 
    Then, unless the effective config says `publishing.public = false`, make the report safe to publish. `redact` refuses, and names the place, if withheld text still appears outside a sensitive finding; reword that place and run it again:
 
    ```
    python3 SUITE_DIR/tools/gradekit.py redact report.json --in-place
-   python3 SUITE_DIR/tools/gradekit.py validate report.json --config /tmp/effective.json --project-dir PROJECT_DIR --publish
+   python3 SUITE_DIR/tools/gradekit.py validate report.json --config SCRATCH/effective.json --project-dir PROJECT_DIR --publish
    ```
 
    Then make `report.md` and, for `pr` delivery, the pull request's title and body from the data. Don't write them by hand:
@@ -227,8 +232,14 @@ If you wrote findings without starting from the previous report, `report match $
   - **Applicability depends on the project's purpose, not its current quality.** "We don't do that yet" is a low score, not `limited` or `not_applicable`. Never downgrade applicability to avoid a low score.
 - **Weight concerns.** If a config weight looks wrong for this codebase, keep it, and add a `weight_note` with the weight you'd recommend and which answer or override would produce it. The person running the suite decides whether to change it.
 - **Gates.** The benchmarks listed under `gates` in `effective.json` are non-negotiable: a gate at or below the hard floor caps the overall score, whatever the other scores are. Grade gates with extra care and `high` confidence where possible. A gate should almost never be `limited` or `not_applicable`; if you think one is, explain why in detail.
-- **Caps override everything.** If a rubric cap applies, the score cannot exceed it. List it in `caps_applied`.
-- **A 10 requires enforcement.** If quality depends on someone remembering (no CI gate, lint rule, test or automated check), the maximum is 9. A 10 must list `enforcement` evidence.
+- **Limits override everything, and `gradekit` enforces them.** Each benchmark's score can't exceed its limit; `report score` refuses a score above it and says why, and `validate` fails one. The limit is the lowest of:
+  - **Rubric caps.** Each has an ID in the rubric, e.g. "Quickstart fails → max 4 (`E1-cap-1`)". Put the cap on the finding that triggers it (`report finding add … --cap E1-cap-1`): it holds while that finding is open and lifts when it's fixed. Only a finding that's major or worse can hold a cap: a problem with little consequence doesn't put a hard limit on a score. A cap with no single finding behind it goes on the benchmark (`report score … --cap E1-cap-1`). D2's "any critical gap" applies by itself.
+  - **An open critical finding** in the benchmark: max 5.
+  - **No strengths** (positive evidence): max 8. **No enforcement** evidence: max 9.
+
+  `rollup.limits` lists every benchmark held below 10, and why.
+- **A 10 requires enforcement.** If quality depends on someone remembering (no CI gate, lint rule, test or automated check), the maximum is 9. A 10 must list `enforcement`: each item is shaped like a strength, `{"note": "CI runs mypy --strict on every PR", "evidence": [...]}` (`gradekit report enforcement ID --text WHAT --cite …`).
+- **4.x reports** (format 4, and reports migrated from 4.x) aren't held to the critical-finding limit; it's a warning there, as it was.
 - **One root cause, one primary home.** Each finding belongs to the benchmark it most directly affects. Reference it from another benchmark only if it independently damages that one too. The rubric's "Not this" lines define the boundaries.
 - **Stack neutrality.** Don't reward or punish a language, framework or style for its own sake.
 
@@ -246,15 +257,25 @@ A **finding** is one specific problem with one root cause.
 
   | Status | Meaning |
   |---|---|
-  | `new` | First seen this run |
+  | `new` | First recorded this run, and caused by the graded code (in a PR check: by the change) |
+  | `noticed` | First recorded this run, but already there before: the previous report missed it. It counts as open, but never fails a PR check. |
   | `open` | Seen before and still present |
   | `fixed` | Previously reported, now resolved. Keep it in the list with evidence of the fix. |
   | `regressed` | Was fixed and has come back |
   | `accepted` | Accepted by a person in `dispositions.json` |
 
-- **Severity:** `critical`, `major` or `minor`. This is the finding's **intrinsic** severity, judged as if the code were in a normal zone. Don't adjust it for the zone yourself: `gradekit` applies the zone shift (hot +1, cold −1 by default) to get the *effective* severity that maturity and priorities use.
+- **Severity:** `critical`, `major` or `minor`, by the finding's **consequence where the code runs**, for this project's purpose. Ask what happens to a user or maintainer when it bites:
+
+  | Severity | When it bites | For example |
+  |---|---|---|
+  | `critical` | Serious harm in realistic use, with no reasonable workaround: data lost or corrupted, money or access wrong, secrets or personal data exposed, the system or its core feature stops working, or anyone can exploit it. | A retry loop that charges a card twice. An endpoint that returns other users' records. A migration that drops a column holding data. A service that fails every request when one config key is missing. |
+  | `major` | A real defect or gap people will hit, but with a workaround or a limited reach: wrong results in a realistic edge case, a crash or hang on input that's easy to avoid, a documented path that doesn't work, a missing safeguard on an important path, or a structural problem that slows every change in an area. | A CLI that hangs on an empty input file instead of failing. A date off by one day across a DST change. Setup docs missing a required step. A public function that swallows errors and returns `None`. |
+  | `minor` | Worth fixing, but little happens when it bites. | Inconsistent naming. A misleading log message. A missing docstring on an internal helper. An unpinned dev tool. |
+
+  Where the code runs is part of its consequence: the same wrong result is worse in code that moves money than in an example script, so judge it there. A readability, naming or style problem (C1, C3) is `minor` wherever it is, `major` only when it slows every change in an area, and never `critical`. Zones don't shift severity (they did before scoring 5.0); they raise the bar instead: maturity allows no critical findings in hot zones from L2, and no major ones from L3.
 - **Location:** code evidence places a finding in a zone automatically. A finding with no code evidence (e.g. "no rate limiting anywhere") should list the affected areas in `paths` (repo-relative paths or globs, e.g. `["src/api/**"]`), so it lands in the right zone.
-- **`first_seen_commit`:** carried over from the previous report, or the current commit for new findings.
+- **`first_seen_commit`:** carried over from the previous report; the current commit for `new` findings; the PR's base commit (or the previous report's commit) for `noticed` ones.
+- **`fingerprint`:** written by `gradekit` from the benchmark, the files and the quoted code, so the same problem is recognized across reports. Don't write it yourself.
 - **`sensitive`:** `true` when the details must not be public (Part 1, rule 6). Leave it out otherwise.
 
 ### Evidence objects
@@ -266,9 +287,17 @@ Every finding, strength and enforcement claim needs at least one evidence object
 {"type": "absence", "searched": "rate limiting on /api/login", "method": "grep -rn 'limit' src/api; read src/api/auth.py fully", "note": "no rate limit or lockout found"}
 ```
 
-- **`quote` must be copied exactly** from the cited lines: 1–3 lines, no paraphrasing or ellipses. `file` is relative to the repo root. `gradekit verify-evidence` checks every code quote against the repo, and a mismatch makes the report invalid.
+- **`quote` must be copied exactly** from the cited lines: 1–3 lines, no paraphrasing or ellipses (`gradekit` refuses a longer quote and trims blank lines at either end). `file` is relative to the repo root. `gradekit verify-evidence` checks every code quote against the repo, and a mismatch makes the report invalid.
+- **The quote is the anchor; `lines` is optional.** With `lines`, the quote must be within two lines of them; without, anywhere in the file. `report cite` writes both, which lets the Review page link to the exact lines.
 - `excerpt` must be copied exactly from the command output.
 - Use `absence` evidence to show that something is missing (no tests, no backups, no timeouts), saying what you searched and how.
+
+### Disputed findings
+A person who thinks a finding is wrong disputes it in `PROJECT_DIR/disputes.json` (`gradekit dispute add`). `report check` lists every open dispute on a finding in your report as a to-do, and you must answer each one after re-checking the code:
+- **Uphold it** when the finding stands: `report finding answer REPORT ID --uphold --note "why it stands"`.
+- **Withdraw it** when it was wrong: `report finding answer REPORT ID --withdraw --note "what you found"`. Its status becomes `withdrawn`, and it counts nowhere.
+
+Judge the code, not the person who disputed it, and never withdraw a finding just to raise a score.
 
 ### Accepted findings
 `PROJECT_DIR/dispositions.json` lists findings that people have deliberately accepted (e.g. "won't fix, by design"), keyed by `finding_id` or by a `match` description of the root cause.
@@ -291,11 +320,11 @@ Record raw measurements in `metrics` so trends can be tracked independently of y
 | `line_coverage_pct`, `branch_coverage_pct` | whole project | C4 |
 | `core_branch_coverage_pct` | core domain modules only; name them in notes | C4 |
 | `mutation_score_pct` | if a mutation tool was run | C4 |
-| `lint_errors`, `lint_warnings` | with the project's own config | C3 |
+| `lint_errors`, `lint_warnings` | with the linter and config the project's CI runs; if CI runs none, the one its contributor docs name; if that can't run either, the language's usual linter at its defaults (e.g. `flake8` or `ruff check` for Python). Say which in `metrics_notes` | C3 |
 | `lint_suppressions` | count of inline disable comments | anti-gaming |
 | `type_errors_strict` | at strict settings | B4 |
 | `type_escape_hatches` | `any`, casts, `ignore` comments | B4 |
-| `vulns_critical`, `vulns_high`, `vulns_medium`, `vulns_low` | dependency audit | A2, F6 |
+| `vulns_critical`, `vulns_high`, `vulns_medium`, `vulns_low` | dependency audit, runtime dependencies; an advisory with no rating counts as `vulns_medium`, and dev-only advisories go in `metrics_notes` | A2, F6 |
 | `secrets_found` | from a secret scan or grep | A2 |
 | `deps_direct`, `deps_transitive`, `deps_outdated_major`, `deps_unused` | dependency counts | B6, F6 |
 | `loc_source`, `loc_tests` | non-blank, non-comment lines | context |
@@ -307,7 +336,7 @@ Record raw measurements in `metrics` so trends can be tracked independently of y
 | `dead_code_items` | from unused-code tools | B6 |
 | `artifact_size_bytes` | bundle, image or binary | B6, F4 |
 | `ci_duration_seconds` | last green run, if visible | F2 |
-| `setup_second_run_passes` | bool: setup and seed scripts run twice cleanly | A4 |
+| `setup_second_run_passes` | bool: setup and seed scripts run twice cleanly; `null` when the project has none | A4 |
 | `time_to_first_success_minutes` | quickstart from a clean state | E1 |
 | `time_to_first_test_minutes` | clone to a passing test run | E3 |
 | `quickstart_steps` | steps actually needed | E1 |
@@ -335,7 +364,8 @@ These scores become goals, so grade **substance, not artifacts**. When you find 
 
 - For every score that changed, write a `change_explanation` naming the specific code change behind it, and give `previous_score`.
 - Raise a score only when the code improved, not because effort was spent. Lower any score that regressed, even on benchmarks nobody targeted.
-- Scores are only comparable between reports with the same **major** `suite_version`. If the major version differs, still reconcile finding IDs, but don't explain score deltas; note the version change under limitations.
+- A problem that was already in the previously graded code, which that report missed, is `noticed`, not `new`: the code didn't get worse, the last grade just didn't see it. Use `new` for problems the code changes since then introduced.
+- Scores are comparable between reports with the same **scoring version** major (`config.scoring_version`; for 4.x reports, their `suite_version`). Reports from suite 4.x and 5.x share scoring version 4.2.0. If the scoring major differs, still reconcile finding IDs, but don't explain score deltas; note the change under limitations.
 
 ---
 
@@ -363,22 +393,22 @@ Each action has:
 If a benchmark is already at or above its target, `path_to_target` may be empty. You can still list optional improvements, marked `"optional": true`.
 
 **Ranking is done by `gradekit rollup`, not by you.** It puts actions in tiers:
-- **Tier 0:** fixes a failed gate or an effective-critical finding in a hot zone.
+- **Tier 0:** fixes a failed gate or a critical finding in a hot zone.
 - **Tier 1:** unblocks the next maturity level.
 - **Tier 2:** everything else below target.
 - **Tier 3:** optional.
 
-Within each tier, actions are ordered by weight × points gained × zone multiplier ÷ effort. Your job is to make each action's `resolves`, `expected_new_score` and `effort` accurate, so the ranking is right. Copy the first ten of `rollup.priorities` into `top_priorities`, adding a one-line `why_first` to each.
+Within each tier, actions are ordered by weight × points gained × zone multiplier ÷ effort. Your job is to make each action's `resolves`, `expected_new_score` and `effort` accurate, so the ranking is right. `expected_new_score` is the benchmark's score once the action is done *with the benchmark's earlier actions*, so each action is credited only with the points it adds. `gradekit report check --write` copies the first ten of `rollup.priorities` into `top_priorities`; give an action its one-line `why_first` with `report action … --why-first` (or `report update ID --why-first`), or the line says why its tier comes first. Without gradekit, copy them by hand, each with a `why_first`.
 
 ---
 
 ## Part 9: Monorepos and multi-component repos
 
 If the project config defines `[[components]]` (each with a name, path, weight, and optionally its own preset, answers, zones and gates):
-- Produce **one report per component**, named `components/NAME.json` / `.md` inside your report folder, plus the `repo` report as `report.json` / `report.md`. Resolve each component's config with `gradekit resolve --project-dir PROJECT_DIR --component NAME --out /tmp/NAME.effective.json`, and put the component's name, path and weight in the report's `component` block.
+- Produce **one report per component**, named `components/NAME.json` / `.md` inside your report folder, plus the `repo` report as `report.json` / `report.md`. `gradekit report new … --component NAME` starts each one with its component's config and its `component` block filled in, and `--component repo` starts the repo report. Both mark the benchmarks graded elsewhere as `not_applicable` for you; score one anyway if a component has its own setup for it.
 - Also produce one report for a component named **`repo`**, using the project-level config. It covers concerns shared by the whole repository: B3, E3, E4, F2, F6 and X6. Mark every other benchmark `not_applicable` with the reason "graded per component."
 - In the component reports, mark those shared benchmarks `not_applicable` with the reason "graded at repo level", unless a component has its own separate setup for one of them (e.g. its own CI pipeline). In that case, grade it in the component.
-- Run `gradekit rollup --write` on each report with its own config, then `gradekit rollup-repo` to combine them. The repo-wide overall score is weighted by component weight, and the repo-wide maturity level is the **lowest** of any component's level.
+- Finish each report with `report check … --write`, then run `gradekit rollup-repo REPORT_FOLDER --write`, which stores the repo-wide result in `report.json` (`repo_rollup`). The repo-wide overall score is weighted by component weight, and the repo-wide maturity level is the **lowest** of any component's level. `deliver` redacts and renders every component report along with `report.json`, and `gradekit ci` checks each one.
 
 ---
 
@@ -389,12 +419,16 @@ Write `report.json` matching `schema/report.schema.json`. Abbreviated example:
 
 ```json
 {
-  "suite_version": "4.3.0",
+  "schema_version": 5,
+  "suite_version": "5.0.0",
   "mode": "full",
-  "run": {"project": "orders-api", "commit": "a1b2c3d", "base_commit": null, "date": "2026-11-07T21:04:00Z", "grader": "model or agent name", "run_index": 1, "run_count": 3, "suite_source": "https://example.com/grading/AGENT.md (4.3.0)"},
+  "run": {"project": "orders-api", "commit": "a1b2c3d", "base_commit": null, "started": "2026-11-07T20:12:00Z", "date": "2026-11-07T21:04:00Z",
+          "grader": "Claude Code", "model": "claude-opus-5-5", "session": "https://example.com/sessions/123", "work_order": null,
+          "usage": {"minutes": 52, "tokens_in": null, "tokens_out": null, "cost_usd": null},
+          "run_index": 1, "run_count": 3, "suite_source": "https://example.com/grading/AGENT.md (5.0.0)"},
   "component": null,
   "project_context_inferred": "Internal order-processing REST API (Python/FastAPI, Postgres)",
-  "config": {"hash": "06cfd807d4b75ede", "preset": "service", "source": "project.toml", "component": null},
+  "config": {"hash": "06cfd807d4b75ede", "preset": "service", "source": "project.toml", "component": null, "scoring_version": "5.0.0"},
   "commands_run": [{"command": "pytest --cov=src --cov-branch", "exit_code": 0, "result_summary": "412 passed, 3 skipped; 61% branch coverage"}],
   "scope_examined": "Read src/orders, src/auth, src/db in full; sampled src/reports; skipped vendor/",
   "metrics": {"tests_total": 415, "tests_failed": 0, "branch_coverage_pct": 61.0, "setup_second_run_passes": false},
@@ -402,7 +436,7 @@ Write `report.json` matching `schema/report.schema.json`. Abbreviated example:
   "feature_inventory": [{"feature": "CSV export", "source": "README", "status": "partial", "evidence": [{"type": "code", "file": "src/export.py", "lines": "40", "quote": "raise NotImplementedError(\"xlsx\")", "note": "xlsx advertised but unimplemented"}]}],
   "gap_register": [{"id": "GAP-001", "gap": "No pagination on GET /orders", "severity": "major", "necessity": "must-have", "status": "open", "rationale": "Unbounded response; peers paginate", "benchmark_ids": ["D2"]}],
   "findings": [
-    {"id": "A4-001", "benchmark_id": "A4", "title": "Seed script not re-runnable", "severity": "major", "status": "open", "first_seen_commit": "9f8e7d6",
+    {"id": "A4-001", "benchmark_id": "A4", "title": "Seed script not re-runnable", "severity": "major", "status": "open", "first_seen_commit": "9f8e7d6", "cap": "A4-cap-2",
      "evidence": [{"type": "code", "file": "scripts/seed.sql", "lines": "12", "quote": "INSERT INTO plans (id, name) VALUES (1, 'free');", "note": "second run fails with duplicate key"}],
      "disposition": null, "disposition_concern": null},
     {"id": "A2-002", "benchmark_id": "A2", "title": "No rate limiting on login", "severity": "major", "status": "new", "first_seen_commit": "a1b2c3d",
@@ -415,7 +449,7 @@ Write `report.json` matching `schema/report.schema.json`. Abbreviated example:
      "applicability": "full", "applicability_reason": null,
      "config_weight": 3, "weight": 3, "weight_note": null,
      "score": 5, "confidence": "high", "carried_forward": false,
-     "caps_applied": ["Setup or migration fails on a second run → max 5"],
+     "caps_applied": [],
      "finding_ids": ["A4-001"],
      "strengths": [{"note": "Payment POST uses idempotency keys", "evidence": [{"type": "code", "file": "src/payments/api.py", "lines": "88", "quote": "key = request.headers[\"Idempotency-Key\"]", "note": ""}]}],
      "enforcement": [],
@@ -443,7 +477,7 @@ Include **every** benchmark from `rubric/catalog.json` (all 29 core and all 6 co
 4. **Gates and maturity:** each gate's score and pass/fail status, the current level, the next level, and the exact unmet requirements (all from `rollup`).
 5. **Top 10 priorities,** in `rollup.priorities` order, each with its tier and zone. Mark actions that need a human decision, and list their decision questions together so a human can answer them in one sitting.
 6. **Metrics table.**
-7. **Findings:** a table with ID, benchmark, intrinsic and effective severity, zone, status and title. Fixed and regressed findings are called out.
+7. **Findings:** a table with ID, benchmark, severity, zone, status and title. Fixed and regressed findings are called out.
 8. **Feature inventory** and **gap register.**
 9. **Per-benchmark detail:** strengths, findings, enforcement, and path to target.
 10. **Integrity flags, gaming flags and regressions,** if any.

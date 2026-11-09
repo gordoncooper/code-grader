@@ -1,4 +1,4 @@
-# EXAMPLE project configuration for the Code Grading Suite (v4.3.0)
+# EXAMPLE project configuration for the Code Grading Suite (v5.0.0)
 # In a grading repo this file lives at projects/<name>/project.toml.
 # People own this file. Agents read it but don't change it.
 # Answers to decision questions go in decisions.json, accepted findings in dispositions.json.
@@ -10,6 +10,7 @@ name            = "orders-api"
 description     = "REST API that takes orders and payments for the web shop"
 code_repo       = "https://github.com/acme/orders-api"   # where the code lives (informational)
 preset          = "service"   # default | service | web_app | library | oss_library | cli | internal_tool | prototype
+suite           = "5"   # the suite's major version for this project; tools won't write its reports with another
 languages       = "Python 3.12, FastAPI, Postgres"
 users           = "The web shop front end and the internal sales dashboard"
 maturity_target = "production"   # prototype | internal tool | production | public open source

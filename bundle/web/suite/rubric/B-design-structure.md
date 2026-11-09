@@ -1,4 +1,4 @@
-<!-- Part of the Code Grading Suite v4.3.0. Read together with prompts/grader.md, which holds the scoring rules, anti-gaming rules and output format. -->
+<!-- Part of the Code Grading Suite v5.0.0. Read together with prompts/grader.md, which holds the scoring rules, anti-gaming rules and output format. -->
 
 # Pillar B rubric: Design & Structure
 
@@ -23,7 +23,7 @@
   - **4–6:** Some modules; heavy coupling; god files.
   - **7–8:** Clean boundaries; coupling controlled.
   - **9–10:** Every unit has one clear job and a narrow interface; replacing one touches only its seam.
-- **Caps:** Circular dependencies between major modules → max 5.
+- **Caps:** Circular dependencies between major modules → max 5 (`B2-cap-1`).
 
 ## B3. Structure & Organization
 - **Measures:** The codebase is easy to navigate. Directory layout reflects the domain or architecture; things live where you'd expect; file and folder names are consistent; source, tests, scripts, config and docs are separated; no junk-drawer `utils/` or `misc/`; generated code is isolated. Repo hygiene: `.gitignore` is correct, and no build artifacts, secrets or large binaries are committed.

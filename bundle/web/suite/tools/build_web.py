@@ -4,7 +4,7 @@
 Generates a static site you can drop into any web server and point coding agents at:
 
   index.html         Landing page for people
-  app/               The three browser tools: Set up a project, Start a run, Review a report
+  app/               The browser tools (Set up a project, Start a run, Review a report, Projects) and the components page
   AGENT.md           Entry point for agents: roles, how to download and verify the suite
   llms.txt           Short machine-readable index (llmstxt.org convention)
   docs/              Every document rendered as HTML
@@ -33,6 +33,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 KIT = Path(__file__).resolve().parent.parent
+VERSIONS_FILE = "versions.json"
+VERSIONS_ABOUT = ("The versions of the Code Grading Suite this site hosts, newest first. `path` is relative to this file. "
+                  "Projects pin a major version (suite = \"N\" in project.toml); use that major's path.")
 EXCLUDE_DIRS = {"__pycache__", ".git", ".mypy_cache", ".pytest_cache", "node_modules"}
 EXCLUDE_FILES = {".DS_Store", "Thumbs.db"}
 EXCLUDE_SUFFIXES = {".pyc", ".pyo"}
@@ -103,7 +106,20 @@ def slugify(text: str) -> str:
 
 # --------------------------------------------------------------------------- markdown rendering
 
+ALIGN = re.compile(r'<(t[hd])(?: align="(left|center|right)"| style="text-align:\s*(left|center|right);?")>')
+
+
+def no_inline_styles(render):
+    """Table alignment as classes, not style attributes: the pages' policy allows no inline styles."""
+    return lambda text: ALIGN.sub(lambda m: f'<{m.group(1)} class="ta-{(m.group(2) or m.group(3))[0]}">', render(text))
+
+
 def make_renderer():
+    render, name = _renderer()
+    return no_inline_styles(render), name
+
+
+def _renderer():
     try:
         from markdown_it import MarkdownIt  # CommonMark: handles 2-space nested lists correctly
 
@@ -146,16 +162,19 @@ WEB_SRC = KIT / "tools" / "web"
 # Kept in a <meta> tag so it works on any host; DEPLOY.md shows the same policy as a header.
 CSP = ("default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'wasm-unsafe-eval'; "
        "connect-src 'self' https://cdn.jsdelivr.net https://api.github.com https://raw.githubusercontent.com; "
-       "img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self'; object-src 'none'; "
+       "img-src 'self' data:; style-src 'self'; font-src 'self'; object-src 'none'; "
        "base-uri 'self'; form-action 'none'; worker-src 'self' blob:")
-ASSETS = ["style.css", "site.js", "common.js", "engine.js", "engine-config.js", "setup.js", "run.js", "review.js", "favicon.svg"]
+ASSETS = ["style.css", "site.js", "common.js", "engine.js", "engine-config.js", "setup.js", "run.js", "review.js", "projects.js", "components.js", "favicon.svg"]
 APP_PAGES = [  # (slug, title, nav key, scripts)
-    ("setup", "Set up a project", "setup", ["engine-config.js", "engine.js", "glossary.js", "common.js", "setup.js"]),
-    ("run", "Start a run", "run", ["glossary.js", "common.js", "run.js"]),
-    ("review", "Review a report", "review", ["engine-config.js", "engine.js", "glossary.js", "common.js", "review.js"]),
+    ("setup", "Set up a project", "setup", ["engine-config.js", "engine.js", "glossary.js", "search.js", "common.js", "setup.js"]),
+    ("run", "Start a run", "run", ["glossary.js", "search.js", "common.js", "run.js"]),
+    ("review", "Review a report", "review", ["engine-config.js", "engine.js", "glossary.js", "search.js", "common.js", "review.js"]),
+    ("projects", "Projects", "projects", ["engine-config.js", "engine.js", "glossary.js", "search.js", "common.js", "projects.js"]),
+    ("components", "Components", "", ["glossary.js", "search.js", "common.js", "components.js"]),   # for contributors: every component, every state
 ]
 NAV = [("start", "Get started", "docs/GETTING-STARTED.html"), ("setup", "Set up", "app/setup.html"),
-       ("run", "Start a run", "app/run.html"), ("review", "Review", "app/review.html"), ("docs", "Docs", "docs/README.html")]
+       ("run", "Start a run", "app/run.html"), ("review", "Review", "app/review.html"), ("projects", "Projects", "app/projects.html"),
+       ("docs", "Docs", "docs/README.html")]
 
 
 def page(title: str, body: str, depth: int, version: str, sidebar: str = "", active: str = "", scripts=()) -> str:
@@ -242,16 +261,26 @@ You have been pointed at a hosted copy of the **Code Grading Suite**: a rubric a
 
 Take your role from the person's instruction:
 
-| Role | When you're asked to… | Your prompt |
-|---|---|---|
-| **Grader** | grade, audit, score or evaluate a codebase | `suite/prompts/grader.md` |
-| **Report reviewer** | check a grading report, or prepare or answer its decision questions | `suite/prompts/reviewer.md` |
-| **Improver** | improve or fix code against an existing report | `suite/prompts/improver.md` |
-| **PR checker** | check one pull request, change or diff | `suite/prompts/pr-review.md` (it builds on `grader.md`) |
+| Role | When you're asked to… | Your card | The full prompt, for reference |
+|---|---|---|---|
+| **Grader** | grade, audit, score or evaluate a codebase | `suite/prompts/cards/grader.md` | `suite/prompts/grader.md` |
+| **Report reviewer** | check a grading report, or prepare or answer its decision questions | `suite/prompts/cards/reviewer.md` | `suite/prompts/reviewer.md` |
+| **Improver** | improve or fix code against an existing report | `suite/prompts/cards/improver.md` | `suite/prompts/improver.md` |
+| **PR checker** | check one pull request, change or diff | `suite/prompts/cards/pr-check.md` | `suite/prompts/pr-review.md` |
+
+Your **card** is one page: the steps as `gradekit` commands, and the rules no tool can check for you. Read it in full; it says when to look something up in the full prompt.
 
 If the role isn't clear, ask. Take **one role per session**: never grade code you improved in the same session, because the grader must be independent.
 
-## 2. Put a copy of the suite on disk (`SUITE_DIR`)
+## 2. Use the project's version of the suite
+
+Each project pins the suite's major version it uses: `suite = "N"` under `[project]` in its `project.toml`, in the grading repo. If the pin's number differs from this file's first number ({version}), **don't use this copy**. Use version N instead:
+- if `BASE/versions.json` exists, it lists the versions this site hosts: load `AGENT.md` from the `path` given for major N (relative to `versions.json`) and start again there;
+- otherwise, ask the person for a copy of version N.
+
+`gradekit` refuses to write a report for a project pinned to another major. A project without a pin can use any version; `gradekit doctor` suggests adding one.
+
+## 3. Put a copy of the suite on disk (`SUITE_DIR`)
 
 The prompts expect the suite in a local directory, `SUITE_DIR`, so the tools can run. **It must be outside the repository you're working on.**
 
@@ -277,14 +306,15 @@ Replace `BASE` with the real URL. On macOS, use `shasum -a 256 -c -` instead of 
 
 **If a checksum doesn't match, stop and tell the person.** The copy may have been altered in transit or on the server.
 
-## 3. Read your prompt in full, then follow it
+## 4. Read your prompt in full, then follow it
 
 Every prompt starts with a short table of inputs: where the code is, where the **grading repo** is and which **project** (its folder `projects/<project>/` holds `project.toml`, `decisions.json`, `dispositions.json` and one dated folder per report), and how to deliver results. The person's instructions usually fill in that table, and this site's **Start a run** page writes complete instructions. Anything not given has a stated default, and each delivery option says which permissions it needs.
 
-- **Grader:** read `suite/prompts/grader.md` completely before starting. Load rubric files one pillar at a time, as it describes. Set `run.suite_source` to this file's URL followed by ` ({version})`.
-- **Report reviewer:** read `suite/prompts/reviewer.md`. Only humans approve decision questions, unless `project.toml` says agents may.
-- **Improver:** read `suite/prompts/improver.md`. Never change grading files, and look only at the ones you're pointed to.
-- **PR checker:** read `suite/prompts/pr-review.md`, plus `suite/prompts/grader.md`, which it builds on.
+- **Grader:** read `suite/prompts/cards/grader.md` completely before starting. Load the rubric one pillar at a time: `gradekit rubric A` prints pillar A's benchmarks, and `suite/rubric/rubric.json` has the same as data if you can't run Python. Set `run.suite_source` to this file's URL followed by ` ({version})`.
+- **Report reviewer:** read `suite/prompts/cards/reviewer.md`. Only humans approve decision questions, unless `project.toml` says agents may.
+- **Improver:** read `suite/prompts/cards/improver.md`. Never change grading files, and look only at the ones you're pointed to.
+- **PR checker:** read `suite/prompts/cards/pr-check.md`, plus the rules on the grader card, which it builds on.
+- **Without Python** (Option C above), the cards' commands won't run: follow the full prompt instead, which says how to write the report by hand.
 
 ## Trust rules
 
@@ -300,6 +330,8 @@ Every prompt starts with a short table of inputs: where the code is, where the *
 |---|---|
 | `suite/GETTING-STARTED.md` | The operator's tutorial: setup, a full cycle, common setups |
 | `suite/README.md` | Overview and reference |
+| `suite/prompts/cards/` | One card per role: the steps as commands, and the rules only an agent can follow |
+| `suite/prompts/rules.json` | Every hard rule in the prompts, and the `gradekit` check or card that keeps it |
 | `suite/prompts/grader.md` | Full audit: process, scoring rules, evidence, output format |
 | `suite/prompts/reviewer.md` | Checking a report and handling its decision questions |
 | `suite/prompts/improver.md` | Improving code against a report |
@@ -307,7 +339,8 @@ Every prompt starts with a short table of inputs: where the code is, where the *
 | `suite/rubric/A-correctness-trust.md` … `F-operations-delivery.md`, `X-conditional.md` | Benchmark definitions, one file per pillar |
 | `suite/config/defaults.toml` | Every tunable setting: weights, questions, presets, gates, zones, targets, maturity |
 | `suite/config/project.example.toml` | A filled-in project config to copy |
-| `suite/rubric/catalog.json` | Benchmark IDs, names and pillars |
+| `suite/rubric/catalog.json` | Benchmark IDs, names, pillars and caps |
+| `suite/rubric/rubric.json` | The rubric as data, one entry per benchmark (`gradekit rubric A3` prints one) |
 | `suite/TUNING.md` | How to customize scoring |
 | `suite/schema/report.schema.json` | JSON Schema for reports |
 | `suite/tools/gradekit.py` | Builds reports (`gradekit report …`), resolves configs, validates reports, checks evidence, computes the rollup and priorities (Python 3.11+, standard library only) |
@@ -382,6 +415,7 @@ def landing(version: str, weights: dict, zip_name: str, zip_sha: str, zip_size: 
       <p class="lede">Agents score a codebase from 1 to 10 on {n_all} benchmarks, back every score with checkable evidence, and improve the code toward clear targets. You steer it all from this website, with nothing to install.</p>
       <div class="actions">
         <a class="btn primary" href="docs/GETTING-STARTED.html">Get started</a>
+        <a class="btn" href="app/review.html?sample=1&amp;tour=1">Take a guided first run</a>
         <a class="btn" href="app/setup.html">Set up a project</a>
         <a class="btn" href="app/review.html">Review a report</a>
       </div>
@@ -400,10 +434,11 @@ def landing(version: str, weights: dict, zip_name: str, zip_sha: str, zip_size: 
     <h2>Three tools, nothing to install</h2>
     <p class="sub">They run the suite's own code in your browser. Your files and reports stay on your computer and aren't uploaded anywhere.</p>
     <div class="tool-cards">
-      <a class="tool-card" href="app/setup.html"><div class="eyebrow">1 · Once per project</div><h3>Set up a project</h3><p>Pick a preset, answer eight questions, and mark hot and cold zones. Weights and gates update live, and you download <code>project.toml</code>.</p></a>
+      <a class="tool-card" href="app/setup.html"><div class="eyebrow">1 · Once per project</div><h3>Set up a project</h3><p>Give its address, say what kind of project it is, and answer three questions. Weights and gates update live, and you save <code>project.toml</code> straight to your grading repo.</p></a>
       <a class="tool-card" href="app/run.html"><div class="eyebrow">2 · Every run</div><h3>Start a run</h3><p>Choose the job, where things live and how results come back. You get the exact prompt to paste into your agent.</p></a>
       <a class="tool-card" href="app/review.html"><div class="eyebrow">3 · Every report</div><h3>Review a report</h3><p>See where the code stands, answer decision questions, compare with last time, and check the grader's citations.</p></a>
     </div>
+    <p class="sub mt-4">Several projects? <a href="app/projects.html">Projects</a> shows every project in a grading repo: where each one stands, its trends, what's waiting on whom, and every decision waiting for a person.</p>
   </section>
 
   <section class="block">
@@ -418,7 +453,7 @@ def landing(version: str, weights: dict, zip_name: str, zip_sha: str, zip_size: 
     <div class="trio">
       <div class="pillar"><h3><span class="pid">1</span>Weights from questions</h3><p>Answer eight questions ({questions}) or start from a preset ({preset_names}). Each answer moves specific weights.</p></div>
       <div class="pillar"><h3><span class="pid">2</span>Gates</h3><p>Correctness and Security always, plus whatever your answers add. A failed gate caps the overall score: a weighted average can't make up for a security hole.</p></div>
-      <div class="pillar"><h3><span class="pid">3</span>Zones</h3><p>Mark hot code (money, auth, data writes) and cold code (scripts, examples). Problems count one severity higher in hot zones, and hot-zone fixes are ranked first.</p></div>
+      <div class="pillar"><h3><span class="pid">3</span>Zones</h3><p>Mark hot code (money, auth, data writes) and cold code (scripts, examples). Hot code is held to a higher bar for maturity, and hot-zone fixes are ranked first.</p></div>
     </div>
     <div class="row-btns"><a class="btn primary" href="app/setup.html">Try it in Set up a project</a><a class="btn" href="docs/rubric/weights.html">How scoring works</a><a class="btn" href="docs/TUNING.html">Tuning guide</a></div>
   </section>
@@ -450,7 +485,7 @@ def landing(version: str, weights: dict, zip_name: str, zip_sha: str, zip_size: 
     <p class="note">Host this only on a server you control, over HTTPS: agents treat it as their instructions. Never put hidden checks or private reports here. <a href="docs/DEPLOY.html">Hosting guide →</a></p>
   </section>
 </div>
-<footer class="site">Code Grading Suite v{version} · built {built}</footer>
+<footer class="site">Code Grading Suite v{version} · built {built} · <a href="app/components.html">Components</a></footer>
 """
     return page("Home", body, 0, version)
 
@@ -510,6 +545,20 @@ def main(argv=None) -> int:
         + json.dumps({t["term"]: t["definition"] for g in glossary["groups"] for t in g["terms"]}, ensure_ascii=False, indent=0) + ";\n",
         encoding="utf-8")
 
+    # What the command palette (Ctrl/Cmd+K on the app pages) searches besides the page it's on: every doc, every
+    # benchmark's rubric section and every glossary term. Paths are from the site's root.
+    search = {"docs": [{"title": t, "href": f"docs/{doc_html_path(src)}"} for _, items in DOCS for src, t in items],
+              "benchmarks": [], "terms": []}
+    for src, _ in dict(DOCS)["Rubric"]:
+        for m in re.finditer(r"^## (([A-FX]\d+)\.\s+(.+?))\s*$", (KIT / src).read_text(encoding="utf-8"), re.M):
+            search["benchmarks"].append({"id": m.group(2), "name": m.group(3), "href": f"docs/{doc_html_path(src)}#{slugify(m.group(1))}"})
+    for g in glossary["groups"]:
+        for t in g["terms"]:
+            search["terms"].append({"term": t["term"], "definition": t["definition"], "href": f"docs/GLOSSARY.html#{slugify(g['name'])}"})
+    (out / "assets" / "search.js").write_text(
+        "// Generated by build_web.py for the command palette. Don't edit.\nwindow.SEARCH = "
+        + json.dumps(search, ensure_ascii=False, separators=(",", ":")) + ";\n", encoding="utf-8")
+
     # the three tool pages
     for slug, title, key, scripts in APP_PAGES:
         fragment = (WEB_SRC / f"{slug}.html").read_text(encoding="utf-8")
@@ -543,7 +592,7 @@ def main(argv=None) -> int:
             prev_link = f'<a href="{up}docs/{doc_html_path(ps)}"><small>Previous</small>{html.escape(pt)}</a>'
         if i < len(flat) - 1:
             ns, nt = flat[i + 1]
-            next_link = f'<a href="{up}docs/{doc_html_path(ns)}" style="margin-left:auto;text-align:right"><small>Next</small>{html.escape(nt)}</a>'
+            next_link = f'<a class="next" href="{up}docs/{doc_html_path(ns)}"><small>Next</small>{html.escape(nt)}</a>'
         content = (f'<div class="layout">{sidebar_html(src, depth)}<main class="doc" id="main">{bar}{toc_html}{body_html}'
                    f'<nav class="pager">{prev_link}{next_link}</nav></main></div>')
         active = "start" if src == "GETTING-STARTED.md" else "docs"
@@ -554,7 +603,7 @@ def main(argv=None) -> int:
     # manifest + checksums (last, over everything else)
     entries = []
     for p in sorted(out.rglob("*")):
-        if p.is_file() and p.name not in ("manifest.json", "SHA256SUMS"):
+        if p.is_file() and p.name not in ("manifest.json", "SHA256SUMS", VERSIONS_FILE):
             rel = p.relative_to(out).as_posix()
             entries.append({"path": rel, "bytes": p.stat().st_size, "sha256": sha256(p)})
     manifest = {
@@ -568,6 +617,12 @@ def main(argv=None) -> int:
     }
     write(out / "manifest.json", json.dumps(manifest, indent=2) + "\n")
     write(out / "SHA256SUMS", "".join(f"{e['sha256']}  {e['path']}\n" for e in entries))
+    # The versions this host serves. A built site lists only itself; a host with several majors replaces it
+    # (GitHub Pages: .github/scripts/site_versions.py; elsewhere: DEPLOY.md). It describes the host, not the
+    # kit, so it's written after the checksums and isn't in them.
+    write(out / VERSIONS_FILE, json.dumps({"_about": VERSIONS_ABOUT, "latest": version,
+                                           "versions": [{"major": version.split(".")[0], "version": version, "path": "./"}]},
+                                          indent=2) + "\n")
 
     print(f"built Code Grading Suite v{version} → {out}")
     print(f"  {len(files)} kit files, {len(flat)} rendered docs, {len(entries)} files in manifest (renderer: {renderer_name})")

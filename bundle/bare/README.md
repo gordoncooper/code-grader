@@ -1,4 +1,4 @@
-# Code Grading Suite v4.3.0
+# Code Grading Suite v5.0.0
 
 A kit for having AI agents grade a codebase from 1 to 10 on **35 benchmarks** (29 core in 6 pillars, plus 6 that apply only to some projects), and then improve it against those grades. It is built so that **rising scores mean better code**, not just code tuned to the rubric.
 
@@ -8,7 +8,7 @@ A kit for having AI agents grade a codebase from 1 to 10 on **35 benchmarks** (2
 
 | Piece | What it does |
 |---|---|
-| **The website** | Built from this kit with `tools/build_web.py` and hosted anywhere. Three browser tools: **Set up a project**, **Start a run** and **Review a report**. They run `gradekit.py` in the browser via Pyodide, so nothing is installed or uploaded. Also includes `AGENT.md`, the entry point for agents. |
+| **The website** | Built from this kit with `tools/build_web.py` and hosted anywhere. Browser tools: **Set up a project**, **Start a run**, **Review a report**, and **Projects** for a whole grading repo. They run `gradekit.py` in the browser via Pyodide, so nothing is installed or uploaded. Also includes `AGENT.md`, the entry point for agents. |
 | **The prompts** | One per job: `grader.md`, `reviewer.md`, `improver.md`, `pr-review.md`. Each starts with a table of inputs (code, grading repo and project, delivery, permissions) with sensible defaults. |
 | **The rubric** | One file per pillar, with anchors, caps and "Not this" boundaries for each benchmark. |
 | **The config** | `config/defaults.toml` holds every tunable setting. Each project has its own `project.toml` on top. |
@@ -45,7 +45,7 @@ grading/
 |---|---|---|---|
 | 0. Set up (once) | You | **Set up a project** → `projects/<name>/project.toml` (+ starter `decisions.json`, `dispositions.json`) | write to grading repo |
 | 1. Grade | A fresh agent session | **Start a run** → *Grade the code*. Default: a PR adding one report folder. Or save locally, or return in chat. | read code; push branches + open PRs on grading repo |
-| 2. Review and decide | You (an agent can help) | **Review a report** → check, compare, answer decisions → updated `decisions.json` on the report PR → merge | write to grading repo |
+| 2. Review and decide | You (an agent can help) | **Review a report** → check, compare, answer decisions (tick boxes on the report PR, or `gradekit decide`) → merge | write to grading repo |
 | 3. Improve | Another fresh agent session | **Start a run** → *Improve the code*. Reads the latest report + decisions (or is handed the files), opens a PR on the code. | push branches + open PRs on code repo; read grading repo |
 | 4. Guard | An agent, or CI | **Start a run** → *Check a pull request*: PASS or FAIL against the latest merged report | read both; comment on code PR |
 
@@ -57,20 +57,22 @@ Repeat from step 1. Optionally, use three graders for milestone audits; the Revi
 2. **Graders run sandboxed.** They run the repo's own scripts, so give them a disposable environment with no production credentials.
 3. **People own the project files** (`project.toml`, `decisions.json`, `dispositions.json`). Graders only add report folders, by PR; they never push to the grading repo's default branch. An agent reviewer may append decisions only if `[review] allow_agent_decisions = true`.
 4. **Keep security details out of public reports.** A grading repo is treated as public. Graders mark findings that would help an attacker as sensitive, and `gradekit redact --in-place` withholds their details from the committed report without changing any score. The full report, `report.private.json`, is never committed. Set `[publishing] public = false` if only trusted people can read the grading repo ([TUNING.md](TUNING.md)).
-5. **Trust `gradekit`'s numbers.** Weights, gates, effective severities, pillar scores, the overall score, targets, maturity and priorities always come from `gradekit`, never from the grader's own arithmetic.
+5. **Trust `gradekit`'s numbers.** Weights, gates, pillar scores, the overall score, targets, maturity and priorities always come from `gradekit`, never from the grader's own arithmetic.
 
 ## Key concepts
 
 - **Weights.** Each benchmark counts 1 (minor) to 3 (critical). Weights start from base values and move with the project's answers to eight questions, e.g. "handles money" raises Security, Idempotence and Durability.
 - **Gates.** Correctness and Security always, plus whatever the answers add. A gate at or below 3 caps the overall score at 4.0: an average can't make up for a security hole.
-- **Zones.** Hot code (money, auth, data writes) counts more than cold code (scripts, examples). Findings are one severity higher in hot zones and one lower in cold, and hot-zone work is ranked first.
+- **Zones.** Hot code (money, auth, data writes) is held to a higher bar than cold code (scripts, examples): graders read it in full, its fixes rank first, and production-ready (L3) allows no major finding in it. Zones don't change a finding's severity; graders judge that by its consequence where the code runs.
 - **Applicability.** Every benchmark is classified `full`, `limited` (counts at weight 1) or `not_applicable` (excluded), each with a reason. The decision is based on the project's purpose, never on current quality.
+- **Limits.** Each benchmark's score is held to a limit that `gradekit` computes: a rubric cap such as "Quickstart fails → max 4 (`E1-cap-1`)" (put on the finding that triggers it, so it lifts when that's fixed), an open critical finding (max 5), no strengths (max 8), no enforcement (max 9). A score above its limit is refused.
 - **Targets.** `proportional` (default: 10 / 9 / 8 by weight), `maximal` or `level:L3`, plus per-benchmark overrides. Improvers stop at the target.
 - **Maturity ladder.** L0 Not viable → L1 Prototype → L2 Usable → L3 Production-ready → L4 Exemplary. Each report names the exact blockers.
 - **Decisions.** Fixes that change behavior or public interfaces carry a yes/no question. Improvers skip them until an entry in `decisions.json` approves them. Entries are only ever appended, and the newest answer wins.
-- **Stable findings.** Findings get IDs like `A3-007` that persist across runs, with a status of new, open, fixed, regressed or accepted. Accepted findings need an entry in `dispositions.json`.
+- **Stable findings.** Findings get IDs like `A3-007` that persist across runs, with a status of new, noticed (already there, but missed before), open, fixed, regressed or accepted. Accepted findings need an entry in `dispositions.json`.
 - **Metrics.** Raw measurements (coverage, vulnerability counts, complexity, setup re-run success, time to first success…) are recorded alongside the scores.
 - **Integrity flags.** Text in the repo that tries to influence the grader caps maturity at L1 for that run.
+- **Versions and pins.** Each project pins the suite's major version it uses (`suite = "5"` in `project.toml`), so a new major can't change its rules mid-cycle: the tools won't write its reports with another major. Scores are compared by the *scoring version*, which changes only when scoring rules do. 5.0 keeps 4.x's scoring version, so 4.x and 5.x reports compare directly, and 5.x reads 4.x reports unchanged. `gradekit migrate` moves a project to a new major in one pull request: the pin and, with `--reports`, its old reports in the new format, with every score unchanged.
 
 All of these are tunable: see [TUNING.md](TUNING.md), and [rubric/weights.md](rubric/weights.md) for how the numbers combine.
 
@@ -98,6 +100,15 @@ $K render check BASELINE PR_REPORT                               # the PR-check 
 $K render log improve-log.json --report REPORT --guard CMP      # the improver's log, with the guard's table
 $K guard snapshot CODE --from-report REPORT [--check NAME=CMD]  # improvers: the code's checks before any change
 $K guard compare CODE [--explain KEY=REASON]                    # …and after: exit 2 if anything got worse
+$K rubric A3                                                     # one benchmark's rubric (or a pillar: B); --json for data
+$K order new --project orders-api --role grade [--commit SHA]    # a work order: the request behind a run (order list, order close)
+$K due --check-code [--write-orders]                             # which projects are due for a grade under their [schedule]
+$K decide --project orders-api --approve D1-act-1 --by NAME     # answer decision questions (decisions --approved lists them)
+$K mcp                                                          # every command as an MCP tool, on stdin/stdout
+$K dispute add A3-002 --project orders-api --reason "…" --by NAME   # people: a finding is wrong (the next grader answers it)
+$K report new --project orders-api --commit SHA --component api   # monorepos: one report per component (and --component repo)
+$K rollup-repo projects/orders-api/reports/<folder> --write      # monorepos: the repo-wide result, stored in report.json
+$K calibration run [--check]                                     # the calibration program: golden repos, spread, results
 $K validate --project orders-api [--publish]                     # schema, config and rule checks (latest report); --publish: safe to commit?
 $K verify-evidence --project orders-api --repo CODE_DIR_OR_ZIP   # every quoted line exists
 $K rollup   --project orders-api [--write]                       # gates, maturity, targets, ranked priorities
@@ -105,7 +116,10 @@ $K diff     --project orders-api [--fail-on-regression]          # latest vs pre
 $K stability projects/orders-api/reports/<folder>/runs/run-*.json --project orders-api --out projects/orders-api/reports/<folder>/report.json
 $K calibrate report.json expected.json                           # grader drift check
 $K redact report.json [--in-place]                               # withhold sensitive findings and hidden-check details
+$K migrate --project orders-api [--reports] [--run --push --open github]   # move a project to this suite version, in one pull request
 ```
+
+**For agents without a shell:** `gradekit mcp` serves every command as a tool over the Model Context Protocol (stdio), with input schemas made from the commands' own arguments. Each tool returns the `--json` envelope below; its `cwd` argument sets the folder it runs in. Add it to an MCP client as a stdio server, e.g. `{"command": "python3", "args": ["SUITE_DIR/tools/gradekit.py", "mcp"]}`. The tools can run the code's checks (`guard`), git (`deliver --run`) and the doctor's probes, so approve them as you would those commands.
 
 **For agents and scripts:** add `--json` to any command to get exactly one JSON object on stdout: `{"ok", "exit_code", "command", "result", "text"}`, plus `"error"` when the command failed. `result` holds the command's data (validation errors, the rollup, a diff, the path written…) and `text` holds what it would have printed.
 
@@ -137,8 +151,8 @@ code-grading-suite/
 ├── TUNING.md               customizing weights, gates, zones, targets
 ├── DEPLOY.md               hosting the website
 ├── CHANGELOG.md
-├── prompts/                grader, reviewer, improver, pr-review
-├── rubric/                 one file per pillar, catalog.json, weights.md
+├── prompts/                cards/ (one page per role), grader, reviewer, improver, pr-review, rules.json
+├── rubric/                 one file per pillar, catalog.json, rubric.json, weights.md
 ├── config/                 defaults.toml, project.example.toml
 ├── schema/                 report.schema.json
 ├── tools/
@@ -156,7 +170,7 @@ code-grading-suite/
 
 ## CI for grading repos
 
-`gradekit ci` checks every pull request to a grading repo. Each one must be a single kind of change: either one new report folder, or a project's settings. It validates the report, its rollup and its folder name, and makes sure no private report or withheld detail is published. It keeps `decisions.json` and `dispositions.json` append-only. Then it comments a summary with a link to the Review page, and labels the pull request.
+`gradekit ci` checks every pull request to a grading repo. Each one must be a single kind of change: either one new report folder, or a project's settings. It validates the report, its rollup and its folder name, and makes sure no private report or withheld detail is published. It keeps `decisions.json` and `dispositions.json` append-only, and lets a report's pull request carry answers to that report's questions (the decide job records the boxes people tick in its description). Then it comments a summary with a link to the Review page, and labels the pull request.
 
 To add it, run `gradekit init --project NAME --ci github|gitlab --site URL`. It works on other hosts too. [ci/README.md](ci/README.md) covers setup and the permissions each host needs.
 

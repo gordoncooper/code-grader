@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'wasm-unsafe-eval'; connect-src 'self' https://cdn.jsdelivr.net https://api.github.com https://raw.githubusercontent.com; img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'; worker-src 'self' blob:">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'wasm-unsafe-eval'; connect-src 'self' https://cdn.jsdelivr.net https://api.github.com https://raw.githubusercontent.com; img-src 'self' data:; style-src 'self'; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'; worker-src 'self' blob:">
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <title>Glossary · Code Grading Suite</title>
 <meta name="description" content="A rubric, prompts and browser tools for AI coding agents to grade codebases from 1 to 10 on 35 benchmarks and improve them.">
@@ -16,11 +16,11 @@
 <header class="topbar">
   <button class='menu-btn' type='button'>Menu</button>
   <a class="brand" href="../index.html">Code <span>Grading</span> Suite</a>
-  <span class="ver">v4.3.0</span>
-  <nav class="main" aria-label="Main"><a href="../docs/GETTING-STARTED.html">Get started</a><a href="../app/setup.html">Set up</a><a href="../app/run.html">Start a run</a><a href="../app/review.html">Review</a><a href="../docs/README.html" class="active" aria-current="page">Docs</a></nav>
+  <span class="ver">v5.0.0</span>
+  <nav class="main" aria-label="Main"><a href="../docs/GETTING-STARTED.html">Get started</a><a href="../app/setup.html">Set up</a><a href="../app/run.html">Start a run</a><a href="../app/review.html">Review</a><a href="../app/projects.html">Projects</a><a href="../docs/README.html" class="active" aria-current="page">Docs</a></nav>
   <span class="spacer"></span>
   <a class="top opt" href="../AGENT.md">AGENT.md</a>
-  <a class="top opt" href="../downloads/code-grading-suite-4.3.0.zip">Download</a>
+  <a class="top opt" href="../downloads/code-grading-suite-5.0.0.zip">Download</a>
 </header>
 <div class="layout"><nav class="sidebar" aria-label="Documentation"><h4>Start</h4><a href="../docs/GETTING-STARTED.html">Getting started</a><a href="../docs/README.html">Overview &amp; reference</a><a href="../docs/GLOSSARY.html" class="active" aria-current="page">Glossary</a><a href="../docs/AGENT.html">Agent entry point</a><a href="../docs/DEPLOY.html">Hosting this site</a><h4>Configuration</h4><a href="../docs/TUNING.html">Tuning guide</a><a href="../docs/rubric/weights.html">How scoring works</a><a href="../docs/config/defaults.html">Default config</a><a href="../docs/config/project.example.html">Example project config</a><h4>Prompts</h4><a href="../docs/prompts/grader.html">Grader</a><a href="../docs/prompts/reviewer.html">Report reviewer</a><a href="../docs/prompts/improver.html">Improver</a><a href="../docs/prompts/pr-review.html">PR check</a><h4>Rubric</h4><a href="../docs/rubric/A-correctness-trust.html">A · Correctness &amp; Trust</a><a href="../docs/rubric/B-design-structure.html">B · Design &amp; Structure</a><a href="../docs/rubric/C-code-health.html">C · Code Health</a><a href="../docs/rubric/D-value-fitness.html">D · Value &amp; Fitness</a><a href="../docs/rubric/E-adoption-experience.html">E · Adoption &amp; Experience</a><a href="../docs/rubric/F-operations-delivery.html">F · Operations &amp; Delivery</a><a href="../docs/rubric/X-conditional.html">X · Conditional</a><h4>Guides</h4><a href="../docs/calibration/README.html">Calibration</a><a href="../docs/holdout/README.html">Hidden checks</a><a href="../docs/CHANGELOG.html">Changelog</a></nav><main class="doc" id="main"><div class="docbar"><a class="btn" href="../suite/GLOSSARY.md">View raw .md</a><button class="btn" type="button" data-copy="../suite/GLOSSARY.md">Copy raw URL for an agent</button></div><details class="toc"><summary>On this page</summary><ul><li><a href="#scoring">Scoring</a></li><li><a href="#findings-and-evidence">Findings and evidence</a></li><li><a href="#acting-on-a-report">Acting on a report</a></li><li><a href="#where-things-live">Where things live</a></li><li><a href="#runs">Runs</a></li></ul></details><h1 id="glossary">Glossary<a class="anchor" href="#glossary" aria-label="Link to this section">#</a></h1>
 <p>The words the suite uses, and what they mean. Prompts, the website and these docs use them exactly as defined here. When a term has alternatives to avoid, they're listed: please don't use them either.</p>
@@ -40,9 +40,12 @@
 <p><strong>rollup</strong>: Everything gradekit computes from a report's scores: pillar and overall scores, gates, maturity, targets, zones and ranked priorities. Never computed by hand. <em>Not:</em> roll-up.</p>
 <h2 id="findings-and-evidence">Findings and evidence<a class="anchor" href="#findings-and-evidence" aria-label="Link to this section">#</a></h2>
 <p><strong>finding</strong>: A specific problem in the code, with an ID (A3-002), a severity, a status and evidence. Findings keep their ID from one report to the next. <em>Not:</em> issue ID.</p>
-<p><strong>severity</strong>: How bad a finding is: critical, major or minor, as the grader judged it.</p>
-<p><strong>effective severity</strong>: A finding's severity after its zone: one level higher in a hot zone, one lower in a cold zone (never lower for security findings). It decides priorities.</p>
-<p><strong>zone</strong>: A part of the code marked hot (problems there count more: money, access, important data), normal, or cold (count less: scripts, examples). The first matching zone wins. <em>Not:</em> critical code, criticality zone, hot path.</p>
+<p><strong>noticed finding</strong>: A problem first recorded in this report that was already there before: the previous report missed it. It counts as open, but a PR check never fails because of it.</p>
+<p><strong>dispute</strong>: A person's statement, in disputes.json, that a finding is wrong. The next grader answers it: the finding is upheld, or withdrawn.</p>
+<p><strong>withdrawn finding</strong>: A finding a grader agreed was wrong after a dispute. It stays in the report for the record, but counts nowhere.</p>
+<p><strong>severity</strong>: How bad a finding is, by what happens when it bites, where the code runs: critical (serious harm with no reasonable workaround: data lost, money or access wrong, secrets exposed, the core feature down), major (a real defect with a workaround or a limited reach) or minor (little happens).</p>
+<p><strong>effective severity</strong>: Under the scoring rules before 5.0, a finding's severity after its zone: one level higher in a hot zone, one lower in a cold one. Since 5.0 the grader judges severity where the code runs, so it's the same as the severity.</p>
+<p><strong>zone</strong>: A part of the code marked hot (problems there cost more: money, access, important data), normal, or cold (cost less: scripts, examples). Hot zones are read in full, ranked first, and held to a higher bar for maturity. The first matching zone wins. <em>Not:</em> critical code, criticality zone, hot path.</p>
 <p><strong>evidence</strong>: What a claim rests on: a code citation (file, lines and exact quote), a command and its output, or an absence (what was searched for and how).</p>
 <p><strong>citation</strong>: Code evidence: a file, line range and the exact quote. gradekit checks every citation against the code.</p>
 <p><strong>strength</strong>: Positive evidence for a benchmark. A score of 9 needs at least one.</p>
@@ -75,7 +78,7 @@
 <p><strong>guard</strong>: The improver's before-and-after record of the code's own checks (tests, linters, type checker, build) and of its suppressions and skipped tests. <code>guard compare</code> fails if any got worse.</p>
 <p><strong>consensus</strong>: The report made from three independent graders: the median score of each benchmark, with the ones they disagree on flagged.</p>
 <p><strong>delivery</strong>: How an agent hands back its work: a pull request, files saved in a folder, or the chat.</p>
-<nav class="pager"><a href="../docs/README.html"><small>Previous</small>Overview &amp; reference</a><a href="../docs/AGENT.html" style="margin-left:auto;text-align:right"><small>Next</small>Agent entry point</a></nav></main></div>
+<nav class="pager"><a href="../docs/README.html"><small>Previous</small>Overview &amp; reference</a><a class="next" href="../docs/AGENT.html"><small>Next</small>Agent entry point</a></nav></main></div>
 <script src="../assets/site.js"></script>
 </body>
 </html>

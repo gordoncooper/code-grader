@@ -1,4 +1,4 @@
-<!-- Part of the Code Grading Suite v4.3.0. Read together with prompts/grader.md, which holds the scoring rules, anti-gaming rules and output format. -->
+<!-- Part of the Code Grading Suite v5.0.0. Read together with prompts/grader.md, which holds the scoring rules, anti-gaming rules and output format. -->
 
 # Pillar D rubric: Value & Fitness for Purpose
 
@@ -13,7 +13,7 @@
   - **4–6:** Core features work; several partial.
   - **7–8:** Nearly everything complete; minor rough edges.
   - **9–10:** Everything claimed works end to end, matches the docs, and is covered by tests.
-- **Caps:** Any advertised core feature that is missing or broken → max 5.
+- **Caps:** Any advertised core feature that is missing or broken → max 5 (`D1-cap-1`).
 
 ## D2. Gap Coverage
 - **Measures:** Absence of gaps. A gap is something the project's purpose clearly needs, or that users of this kind of software would reasonably expect, but that is missing. Examples: an auth system without password reset, a CLI without `--help` or meaningful exit codes, an API without pagination or rate-limit handling, a data tool without export, a destructive action without confirm or undo, a service without health checks, a missing platform the project says it supports.
@@ -24,7 +24,7 @@
   - **4–6:** Several major gaps.
   - **7–8:** Only minor or nice-to-have gaps.
   - **9–10:** Nothing a reasonable user would miss; scope boundaries are documented.
-- **Caps:** Any critical gap → max 4.
+- **Caps:** Any critical gap → max 4 (`D2-cap-1`).
 
 ## D3. Practicality
 - **Measures:** Pragmatic fitness for purpose:

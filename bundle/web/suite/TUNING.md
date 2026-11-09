@@ -65,6 +65,8 @@ why = "Never runs in production"
 
 Patterns: `**` matches any number of directories, `*` matches within one directory, and a pattern ending in `/` means everything under it. Paths are relative to the repo root.
 
+Keep hot zones to the code where a bug really costs more. A hot zone that covers most of the code can't say where problems cost more, and `gradekit doctor` warns about it.
+
 ### 3. Set targets (per project)
 ```toml
 [targets]

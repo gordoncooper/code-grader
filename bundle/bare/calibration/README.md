@@ -11,7 +11,7 @@ The rubric anchors are written in words, so different graders, or the same grade
 
 ```json
 {
-  "suite_version": "4.3.0",
+  "suite_version": "5.0.0",
   "reference": "payments-service @ 4f2a9c1",
   "criteria": {"within_tolerance_pct": 90, "mae_max": 0.75},
   "expected": {
@@ -41,6 +41,22 @@ The grader **passes** when, for every reference repo:
 - every applicability matches where one is specified.
 
 The output also reports **bias**: whether the grader runs generous or harsh on average.
+
+## The calibration program (5.0)
+
+The suite's own calibration lives in `golden/`: one folder per golden repo, each with `expected.json` (the frozen commit and the expected scores), the `project.toml` to grade it with, and `runs/`, one file per independent grader run.
+
+```bash
+# a grader grades the golden commit as usual (prompts/cards/grader.md, with the golden's project.toml), then:
+python3 tools/gradekit.py calibration add-run calibration/golden/schedule REPORT.json --note "model, session"
+python3 tools/gradekit.py calibration run          # writes calibration/results.json and RESULTS.md
+```
+
+`calibration run` scores every run against its golden's expected scores (the same test as `calibrate`), and measures the **spread** across runs. A golden repo passes with at least 3 runs (`--min-runs`), every run passing, and no benchmark spreading more than its `criteria.max_spread` (default 1). The program passes when every golden repo does. [`RESULTS.md`](RESULTS.md) publishes the result.
+
+**No scoring change ships unmeasured.** The results record a fingerprint of the scoring rules: the scoring version, every benchmark's rubric and anchors, its caps, and the limits. The kit's tests fail when the rules change and the results haven't been regenerated (`calibration run --check`), so whoever changes the rules must re-run calibration and show its result in the same pull request. Each run records the fingerprint it was graded under (`add-run` writes it), and only runs under the current rules count: after a rule change, the old runs are listed as earlier runs, and the golden repo needs fresh ones.
+
+Runs must be independent: a fresh session for each, which hasn't seen the expected scores or the other runs. Give each grader a copy of the kit without `calibration/` (and without `CHANGELOG.md`, which discusses results), so it can't read them. The first golden repo, `schedule`, has expected scores from the 4.3 release gate's grade, with A1 and E2 changed after the 5.0 gate's runs. Its first three runs were graded before A5's applicability wording was clarified, so they're kept as earlier runs. Runs 4–6 were graded on the clarified rubric: each is within tolerance, but run 5 marks X3 not applicable where the key says limited, and E2 spreads by 2 because one grader filed the broken contributor setup under E2 (with its cap) where the others used E3. Both were clarified. Scoring 5.0 then redefined severity: runs 7–9, the first on the new rules, all gave A1 7 (the key, set before they ran) and reached L2. Two of the three passed. E2 still spread, because two graders let a minor finding hold E2's cap; a cap now needs a major finding. Runs 10–12, on those rules, are each 100% within tolerance (6.9–7.2, all L2). Only E2 still spreads by 2 (8, 8, 6), against a limit of 1. One grader ran the examples and the others only read them, so E2 now has a fixed procedure and sharper anchors. That made runs 10–12 earlier runs. Run 13, the first on it, is 100% within tolerance (MAE 0.28, 7.0, L2) with E2 at 7, the key; two more runs are needed for the spread.
 
 ## When calibration fails
 - **One benchmark keeps missing:** its anchors are ambiguous. Tighten the wording, or add a concrete example to that benchmark's anchors, then bump the suite's minor version.

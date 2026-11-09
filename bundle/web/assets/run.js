@@ -3,12 +3,18 @@
   "use strict";
   var h = UI.h, $ = UI.$, $$ = UI.$$;
   var SITE = new URL("../", document.currentScript.src).href;
+  // On a site with several versions, prompts point at this major's own path (e.g. …/v5/), which keeps its rules
+  // when a newer major becomes the site's root.
+  var AGENT_BASE = SITE;
+  if (window.SiteVersions) SiteVersions.then(function (v) {
+    if (v && v.current && v.url(v.current) !== AGENT_BASE) { AGENT_BASE = v.url(v.current); if (typeof update === "function") update(); }
+  });
 
   var ROLES = {
-    grade:   { title: "Grade the code", who: "GRADER", desc: "A full, read-only audit. Adds one dated report folder for the project.", file: "prompts/grader.md" },
-    review:  { title: "Review a report", who: "REPORT REVIEWER", desc: "An agent checks a grader's report and prepares the decision questions. People can use the Review page instead.", file: "prompts/reviewer.md" },
-    improve: { title: "Improve the code", who: "IMPROVER", desc: "Works down the report's ranked priorities and stops at each benchmark's target.", file: "prompts/improver.md" },
-    prcheck: { title: "Check a pull request", who: "PR CHECKER", desc: "Re-grades only what a code change touches and returns PASS or FAIL.", file: "prompts/pr-review.md" }
+    grade:   { title: "Grade the code", who: "GRADER", desc: "A full, read-only audit. Adds one dated report folder for the project.", file: "prompts/cards/grader.md" },
+    review:  { title: "Review a report", who: "REPORT REVIEWER", desc: "An agent checks a grader's report and prepares the decision questions. People can use the Review page instead.", file: "prompts/cards/reviewer.md" },
+    improve: { title: "Improve the code", who: "IMPROVER", desc: "Works down the report's ranked priorities and stops at each benchmark's target.", file: "prompts/cards/improver.md" },
+    prcheck: { title: "Check a pull request", who: "PR CHECKER", desc: "Re-grades only what a code change touches and returns PASS or FAIL.", file: "prompts/cards/pr-check.md" }
   };
   // [title, description, permissions]
   var DELIVERY = {
@@ -39,6 +45,7 @@
                           suite: "site", suiteLoc: "", delivery: null, commit: "", runs: "1", reportLoc: "", guidance: "",
                           budget: "tier01", branch: "", pr: "", improveSource: "repo", size: "medium", deliveries: {} },
                         UI.store.get("run2", {}));
+  if (!s.gdirRepo) s.gdirRepo = UI.store.get("grading_repo", "");   // from Set up a project
 
   // ---------------------------------------------------------------- remembered projects
   // Each project's settings are kept in this browser, so the next run of it is one click.
@@ -127,6 +134,41 @@
   var promptTab = 1;
 
   function today() { return new Date().toISOString().slice(0, 10); }
+
+  // ---------------------------------------------------------------- work order (C4)
+  // projects/NAME/orders/<date>-<role>-<n>.json, as `gradekit order new` writes it (schema/work-order.schema.json).
+  // Made in the browser, n is the time of day (HHMM, UTC), so two orders made the same day don't collide.
+  var orderAt = null;   // when "Record this run" was ticked: fixes the order's ID while you keep editing
+  function workOrder() {
+    if (!s.wantOrder || s.gdir !== "repo") return null;
+    var at = orderAt || (orderAt = new Date().toISOString().replace(/\.\d+Z$/, "Z"));
+    var o = { id: at.slice(0, 10) + "-" + s.role + "-" + String(parseInt(at.slice(11, 13) + at.slice(14, 16), 10)), project: project(), role: s.role,
+              status: "open", created: at };
+    var by = (UI.store.get("decider", "") || "").trim(); if (by) o.requested_by = by;
+    if (s.role === "grade" && s.commit) o.commit = s.commit;
+    if (s.role === "prcheck" && s.pr) o.change = s.pr;
+    if (s.delivery) o.delivery = s.delivery;
+    if (s.role === "improve") o.budget = { tier01: "tier 0 and 1", top5: "the top 5 priorities", all: "everything below target" }[s.budget];
+    var note = [s.orderNote, s.role === "review" ? s.guidance : ""].map(function (x) { return (x || "").replace(/\s+/g, " ").trim(); }).filter(Boolean).join(" · ");
+    if (note) o.notes = note;
+    return o;
+  }
+  function renderOrder() {
+    var box = $("#order-box"), detail = $("#order-detail");
+    box.hidden = s.gdir !== "repo";
+    $("#want-order").checked = !!s.wantOrder;
+    detail.hidden = !s.wantOrder;
+    var o = workOrder(), out = $("#order-save");
+    if (!o) { UI.clear(out); return; }
+    var text = JSON.stringify(o, null, 2) + "\n", path = "projects/" + o.project + "/orders/" + o.id + ".json";
+    UI.saveFile(out, { path: path, text: text, repo: s.gdirRepo || null, mime: "application/json",
+      agent: "In the grading repo" + (s.gdirRepo ? " (" + s.gdirRepo + ")" : "") + ", record a work order for this run, then commit " + path +
+             " on a new branch and open a pull request:\n\ngradekit order new --project " + o.project + " --role " + o.role +
+             (o.requested_by ? " --by " + JSON.stringify(o.requested_by) : "") + (o.commit ? " --commit " + o.commit : "") +
+             (o.change ? " --change " + JSON.stringify(o.change) : "") + (o.delivery ? " --delivery " + o.delivery : "") +
+             (o.budget ? " --budget " + JSON.stringify(o.budget) : "") + (o.notes ? " --note " + JSON.stringify(o.notes) : "") +
+             "\n\n(It picks the order's ID; tell me which.)\n" });
+  }
   function slugName(v) { return String(v || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, ""); }
   function repoName(url) { var m = String(url || "").trim().replace(/\.git$/, "").replace(/\/+$/, "").match(/([^\/:\\]+)$/); return m ? slugName(m[1]) : ""; }
   function project() { return slugName(s.project) || "<project>"; }
@@ -154,7 +196,7 @@
       var r = h("input", { type: "radio", name: "delivery", value: k }); r.checked = s.delivery === k;
       r.addEventListener("change", function () { s.delivery = k; s.deliveries = Object.assign({}, s.deliveries); s.deliveries[s.role] = k; update(); });
       box.appendChild(h("label", { class: "choice" }, r, k === rec ? h("span", { class: "tag" }, "Suggested") : null,
-        h("b", null, opts[k][0]), opts[k][1] ? h("span", null, opts[k][1]) : null, h("span", { style: "margin-top:4px;font-size:.76rem" }, "Needs: " + opts[k][2])));
+        h("b", null, opts[k][0]), opts[k][1] ? h("span", null, opts[k][1]) : null, h("span", { class: "needs" }, "Needs: " + opts[k][2])));
     });
   }
 
@@ -195,7 +237,7 @@
   function suiteLines() {
     if (s.suite === "path") return ["Suite: the Code Grading Suite at " + (s.suiteLoc || "<path to the suite>") + ". Use that folder as SUITE_DIR.",
                                     "Read " + ROLES[s.role].file + " in it completely, then follow it exactly."];
-    return ["Suite: open " + SITE + "AGENT.md and follow it to download and verify the Code Grading Suite.",
+    return ["Suite: open " + AGENT_BASE + "AGENT.md and follow it to download and verify the Code Grading Suite.",
             "Then read suite/" + ROLES[s.role].file + " completely and follow it exactly."];
   }
   function codeLine() {
@@ -232,6 +274,8 @@
     } else {
       L.push("- Pull request: " + (s.pr || "<PR URL or BASE..HEAD>"));
     }
+    var order = workOrder();
+    if (order) L.push("- Work order: " + order.id + (s.role === "grade" ? " (record it with --work-order " + order.id + ")" : ""));
     var d = DELIVERY[s.role][s.delivery];
     L.push("", "Delivery: " + s.delivery + " (" + d[0].charAt(0).toLowerCase() + d[0].slice(1) + ")");
     L.push("Permissions you'll need: " + d[2] + ".");
@@ -252,7 +296,7 @@
         [s.runs === "3" ? "Start three separate, fresh agent sessions and paste one prompt into each." : "Start a fresh agent session and paste the prompt."],
         s.runs === "3" ? ["When all three are done, open ", review, ", load the project and use the consensus as report.json."] :
           ["When it's done, open ", review, " to read it and answer any decision questions."],
-        [s.delivery === "pr" ? "Commit your updated decisions.json to the same PR (the Review page shows how), then merge it." : "Save your updated decisions.json in the project folder."]
+        [s.delivery === "pr" ? "Answer its decision questions by ticking the boxes in the PR's description (or on the Review page), then merge it." : "Save your answers with the Review page, or run gradekit decide in the project folder."]
       ],
       review: [["Paste the prompt into an agent session."], ["Read its verdict and recommendations."], ["Answer the decision questions it lists, here or in ", review, "."]],
       improve: [
@@ -295,7 +339,7 @@
     if ($("#project-name").value !== s.project) $("#project-name").value = s.project;
     $("#suite-loc").hidden = s.suite !== "path";
     $("#suite-loc").placeholder = "~/code-grading-suite";
-    nextSteps(); expectations(); renderCycle(); rememberLater();
+    nextSteps(); expectations(); renderCycle(); renderOrder(); rememberLater();
   }
 
   function bindSeg(name, key, after) {
@@ -330,8 +374,13 @@
     Object.keys(SIZES).forEach(function (k) { size.appendChild(h("option", { value: k }, SIZES[k])); });
     size.value = s.size || "medium";
     size.addEventListener("change", function () { s.size = size.value; update(); });
+    $("#want-order").addEventListener("change", function (e) { s.wantOrder = e.target.checked; if (!s.wantOrder) orderAt = null; update(); });
+    var ob = $("#order-by"); ob.value = UI.store.get("decider", "");
+    ob.addEventListener("input", UI.debounce(function () { UI.store.set("decider", ob.value.trim()); update(); }, 250));
+    var on = $("#order-note"); on.value = s.orderNote || "";
+    on.addEventListener("input", UI.debounce(function () { s.orderNote = on.value; update(); }, 250));
     renderSaved();
     renderDelivery(); renderExtras(); update();
-    $("#copy-prompt").addEventListener("click", function () { UI.copyText($("#prompt-out").textContent); });
+    $("#copy-prompt").addEventListener("click", function () { UI.copyText($("#prompt-out").textContent); UI.tour.done("run"); });
   });
 })();

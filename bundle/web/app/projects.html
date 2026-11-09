@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'wasm-unsafe-eval'; connect-src 'self' https://cdn.jsdelivr.net https://api.github.com https://raw.githubusercontent.com; img-src 'self' data:; style-src 'self'; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'; worker-src 'self' blob:">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<title>Projects · Code Grading Suite</title>
+<meta name="description" content="A rubric, prompts and browser tools for AI coding agents to grade codebases from 1 to 10 on 35 benchmarks and improve them.">
+<link rel="stylesheet" href="../assets/style.css">
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="alternate" type="text/markdown" href="../AGENT.md" title="Agent entry point">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="topbar">
+  
+  <a class="brand" href="../index.html">Code <span>Grading</span> Suite</a>
+  <span class="ver">v5.0.0</span>
+  <nav class="main" aria-label="Main"><a href="../docs/GETTING-STARTED.html">Get started</a><a href="../app/setup.html">Set up</a><a href="../app/run.html">Start a run</a><a href="../app/review.html">Review</a><a href="../app/projects.html" class="active" aria-current="page">Projects</a><a href="../docs/README.html">Docs</a></nav>
+  <span class="spacer"></span>
+  <a class="top opt" href="../AGENT.md">AGENT.md</a>
+  <a class="top opt" href="../downloads/code-grading-suite-5.0.0.zip">Download</a>
+</header>
+<main id="main"><div class="app">
+  <header class="app-head">
+    <div>
+      <div class="eyebrow">For grading repos</div>
+      <h1>Projects</h1>
+      <p class="lede">Every project in a grading repo at a glance: where each one stands, how it's trending, what's waiting on whom, and every decision waiting for a person, answered in one sitting. It reads <code>projects/index.json</code>, which CI keeps up to date.</p>
+    </div>
+  </header>
+
+  <section class="card" id="load-card">
+    <div class="tabs mt-0" id="load-tabs" aria-label="Where the index comes from">
+      <button type="button" data-tab="repo">From the grading repo</button>
+      <button type="button" data-tab="file">Open a file</button>
+    </div>
+    <div class="panel" id="panel-repo">
+      <div class="grid2">
+        <div class="field"><label for="pj-repo">Grading repo</label><input type="text" id="pj-repo" placeholder="owner/grading, or its github.com URL"></div>
+        <div class="field"><label for="pj-ref">Branch (optional)</label><input type="text" id="pj-ref" placeholder="Default branch"></div>
+      </div>
+      <div class="row-btns"><button class="btn primary" type="button" id="pj-load">Load</button></div>
+      <p class="kbd-note">Works with public GitHub repos. Open pull requests are shown too.</p>
+    </div>
+    <div class="panel" id="panel-file" hidden>
+      <div class="drop" id="pj-drop">
+        <b>Drop <code>projects/index.json</code> here</b>, or <button type="button" class="link" data-choose>choose it</button><br>
+        <small>Any grading repo, on any host: CI writes the file (<code>gradekit index</code>), or run that command yourself.</small>
+      </div>
+      <input type="file" id="pj-file" hidden accept=".json,application/json">
+    </div>
+    <div class="row-btns mt-4"><button class="btn" type="button" id="pj-sample">Try the sample</button></div>
+  </section>
+
+  <div id="pj-status" class="status-slot mt-4" aria-live="polite"></div>
+
+  <div id="pj-results" hidden>
+    <div class="tabs" id="pj-tabs" aria-label="Views">
+      <button type="button" data-tab="all">All projects</button>
+      <button type="button" data-tab="decisions">Decisions <span class="count" id="pj-dec-count" hidden></span></button>
+      <button type="button" data-tab="project">One project</button>
+    </div>
+    <div class="panel" id="panel-all"></div>
+    <div class="panel" id="panel-decisions" hidden></div>
+    <div class="panel" id="panel-project" hidden></div>
+  </div>
+</div>
+</main>
+<script src="../assets/site.js"></script>
+<script src="../assets/engine-config.js"></script>
+<script src="../assets/engine.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/search.js"></script>
+<script src="../assets/common.js"></script>
+<script src="../assets/projects.js"></script>
+</body>
+</html>

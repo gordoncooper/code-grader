@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'wasm-unsafe-eval'; connect-src 'self' https://cdn.jsdelivr.net https://api.github.com https://raw.githubusercontent.com; img-src 'self' data:; style-src 'self'; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'; worker-src 'self' blob:">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<title>Components · Code Grading Suite</title>
+<meta name="description" content="A rubric, prompts and browser tools for AI coding agents to grade codebases from 1 to 10 on 35 benchmarks and improve them.">
+<link rel="stylesheet" href="../assets/style.css">
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="alternate" type="text/markdown" href="../AGENT.md" title="Agent entry point">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="topbar">
+  
+  <a class="brand" href="../index.html">Code <span>Grading</span> Suite</a>
+  <span class="ver">v5.0.0</span>
+  <nav class="main" aria-label="Main"><a href="../docs/GETTING-STARTED.html">Get started</a><a href="../app/setup.html">Set up</a><a href="../app/run.html">Start a run</a><a href="../app/review.html">Review</a><a href="../app/projects.html">Projects</a><a href="../docs/README.html">Docs</a></nav>
+  <span class="spacer"></span>
+  <a class="top opt" href="../AGENT.md">AGENT.md</a>
+  <a class="top opt" href="../downloads/code-grading-suite-5.0.0.zip">Download</a>
+</header>
+<main id="main"><div class="app">
+  <header class="app-head">
+    <div>
+      <div class="eyebrow">For contributors</div>
+      <h1>Components</h1>
+      <p class="lede">Every piece the tool pages are built from, in each of its states. The pages use these (<code>UI.*</code> in <code>common.js</code>, styled in one place in <code>style.css</code>) instead of markup and colors of their own, so a fix here fixes every page. The tests check each one for accessibility in light and dark mode and at every width.</p>
+    </div>
+  </header>
+  <div class="two-col even" id="gallery"></div>
+</div>
+</main>
+<script src="../assets/site.js"></script>
+<script src="../assets/glossary.js"></script>
+<script src="../assets/search.js"></script>
+<script src="../assets/common.js"></script>
+<script src="../assets/components.js"></script>
+</body>
+</html>

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'wasm-unsafe-eval'; connect-src 'self' https://cdn.jsdelivr.net https://api.github.com https://raw.githubusercontent.com; img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'; worker-src 'self' blob:">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'wasm-unsafe-eval'; connect-src 'self' https://cdn.jsdelivr.net https://api.github.com https://raw.githubusercontent.com; img-src 'self' data:; style-src 'self'; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'; worker-src 'self' blob:">
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <title>Changelog · Code Grading Suite</title>
 <meta name="description" content="A rubric, prompts and browser tools for AI coding agents to grade codebases from 1 to 10 on 35 benchmarks and improve them.">
@@ -16,20 +16,363 @@
 <header class="topbar">
   <button class='menu-btn' type='button'>Menu</button>
   <a class="brand" href="../index.html">Code <span>Grading</span> Suite</a>
-  <span class="ver">v4.3.0</span>
-  <nav class="main" aria-label="Main"><a href="../docs/GETTING-STARTED.html">Get started</a><a href="../app/setup.html">Set up</a><a href="../app/run.html">Start a run</a><a href="../app/review.html">Review</a><a href="../docs/README.html" class="active" aria-current="page">Docs</a></nav>
+  <span class="ver">v5.0.0</span>
+  <nav class="main" aria-label="Main"><a href="../docs/GETTING-STARTED.html">Get started</a><a href="../app/setup.html">Set up</a><a href="../app/run.html">Start a run</a><a href="../app/review.html">Review</a><a href="../app/projects.html">Projects</a><a href="../docs/README.html" class="active" aria-current="page">Docs</a></nav>
   <span class="spacer"></span>
   <a class="top opt" href="../AGENT.md">AGENT.md</a>
-  <a class="top opt" href="../downloads/code-grading-suite-4.3.0.zip">Download</a>
+  <a class="top opt" href="../downloads/code-grading-suite-5.0.0.zip">Download</a>
 </header>
-<div class="layout"><nav class="sidebar" aria-label="Documentation"><h4>Start</h4><a href="../docs/GETTING-STARTED.html">Getting started</a><a href="../docs/README.html">Overview &amp; reference</a><a href="../docs/GLOSSARY.html">Glossary</a><a href="../docs/AGENT.html">Agent entry point</a><a href="../docs/DEPLOY.html">Hosting this site</a><h4>Configuration</h4><a href="../docs/TUNING.html">Tuning guide</a><a href="../docs/rubric/weights.html">How scoring works</a><a href="../docs/config/defaults.html">Default config</a><a href="../docs/config/project.example.html">Example project config</a><h4>Prompts</h4><a href="../docs/prompts/grader.html">Grader</a><a href="../docs/prompts/reviewer.html">Report reviewer</a><a href="../docs/prompts/improver.html">Improver</a><a href="../docs/prompts/pr-review.html">PR check</a><h4>Rubric</h4><a href="../docs/rubric/A-correctness-trust.html">A · Correctness &amp; Trust</a><a href="../docs/rubric/B-design-structure.html">B · Design &amp; Structure</a><a href="../docs/rubric/C-code-health.html">C · Code Health</a><a href="../docs/rubric/D-value-fitness.html">D · Value &amp; Fitness</a><a href="../docs/rubric/E-adoption-experience.html">E · Adoption &amp; Experience</a><a href="../docs/rubric/F-operations-delivery.html">F · Operations &amp; Delivery</a><a href="../docs/rubric/X-conditional.html">X · Conditional</a><h4>Guides</h4><a href="../docs/calibration/README.html">Calibration</a><a href="../docs/holdout/README.html">Hidden checks</a><a href="../docs/CHANGELOG.html" class="active" aria-current="page">Changelog</a></nav><main class="doc" id="main"><div class="docbar"><a class="btn" href="../suite/CHANGELOG.md">View raw .md</a><button class="btn" type="button" data-copy="../suite/CHANGELOG.md">Copy raw URL for an agent</button></div><details class="toc"><summary>On this page</summary><ul><li><a href="#430">4.3.0</a></li><li><a href="#422">4.2.2</a></li><li><a href="#421">4.2.1</a></li><li><a href="#420">4.2.0</a></li><li><a href="#410">4.1.0</a></li><li><a href="#400">4.0.0</a></li><li><a href="#310">3.1.0</a></li><li><a href="#300">3.0.0</a></li><li><a href="#200">2.0.0</a></li><li><a href="#100">1.0.0</a></li></ul></details><h1 id="changelog">Changelog<a class="anchor" href="#changelog" aria-label="Link to this section">#</a></h1>
+<div class="layout"><nav class="sidebar" aria-label="Documentation"><h4>Start</h4><a href="../docs/GETTING-STARTED.html">Getting started</a><a href="../docs/README.html">Overview &amp; reference</a><a href="../docs/GLOSSARY.html">Glossary</a><a href="../docs/AGENT.html">Agent entry point</a><a href="../docs/DEPLOY.html">Hosting this site</a><h4>Configuration</h4><a href="../docs/TUNING.html">Tuning guide</a><a href="../docs/rubric/weights.html">How scoring works</a><a href="../docs/config/defaults.html">Default config</a><a href="../docs/config/project.example.html">Example project config</a><h4>Prompts</h4><a href="../docs/prompts/grader.html">Grader</a><a href="../docs/prompts/reviewer.html">Report reviewer</a><a href="../docs/prompts/improver.html">Improver</a><a href="../docs/prompts/pr-review.html">PR check</a><h4>Rubric</h4><a href="../docs/rubric/A-correctness-trust.html">A · Correctness &amp; Trust</a><a href="../docs/rubric/B-design-structure.html">B · Design &amp; Structure</a><a href="../docs/rubric/C-code-health.html">C · Code Health</a><a href="../docs/rubric/D-value-fitness.html">D · Value &amp; Fitness</a><a href="../docs/rubric/E-adoption-experience.html">E · Adoption &amp; Experience</a><a href="../docs/rubric/F-operations-delivery.html">F · Operations &amp; Delivery</a><a href="../docs/rubric/X-conditional.html">X · Conditional</a><h4>Guides</h4><a href="../docs/calibration/README.html">Calibration</a><a href="../docs/holdout/README.html">Hidden checks</a><a href="../docs/CHANGELOG.html" class="active" aria-current="page">Changelog</a></nav><main class="doc" id="main"><div class="docbar"><a class="btn" href="../suite/CHANGELOG.md">View raw .md</a><button class="btn" type="button" data-copy="../suite/CHANGELOG.md">Copy raw URL for an agent</button></div><details class="toc"><summary>On this page</summary><ul><li><a href="#500">5.0.0</a></li><li><a href="#430">4.3.0</a></li><li><a href="#422">4.2.2</a></li><li><a href="#421">4.2.1</a></li><li><a href="#420">4.2.0</a></li><li><a href="#410">4.1.0</a></li><li><a href="#400">4.0.0</a></li><li><a href="#310">3.1.0</a></li><li><a href="#300">3.0.0</a></li><li><a href="#200">2.0.0</a></li><li><a href="#100">1.0.0</a></li></ul></details><h1 id="changelog">Changelog<a class="anchor" href="#changelog" aria-label="Link to this section">#</a></h1>
 <p>Versioning rules for the suite itself:</p>
 <ul>
-<li><strong>Major:</strong> any change that can move scores, i.e. new or removed benchmarks, changed anchors, caps, weights, targets or maturity rules. Scores from different major versions are <strong>not comparable</strong>. <code>gradekit diff</code> won't treat their deltas as regressions.</li>
+<li><strong>Major:</strong> a change that can break existing setups: the report format, the prompts' workflow, or the scoring rules. Each project pins the major it uses (<code>suite = &quot;5&quot;</code> in <code>project.toml</code>).</li>
+<li><strong>Scoring version:</strong> separate from the kit version, it changes only with rules that can move scores, i.e. new or removed benchmarks, changed anchors, caps, weights, targets or maturity rules. It's <code>suite_version</code> in <code>config/defaults.toml</code>, part of every config fingerprint. Scores from different scoring majors are <strong>not comparable</strong>, and <code>gradekit diff</code> won't treat their deltas as regressions.</li>
 <li><strong>Minor:</strong> clarified wording that shouldn't move scores, new optional fields, new tool commands. Re-run calibration to confirm.</li>
 <li><strong>Patch:</strong> typos, formatting, documentation.</li>
 </ul>
 <p>After any major or minor change, re-run calibration (<code>calibration/README.md</code>) before trusting new scores.</p>
+<h2 id="500">5.0.0<a class="anchor" href="#500" aria-label="Link to this section">#</a></h2>
+<p>Major release. The 35 benchmarks and their anchors don't change. <strong>Severity does:</strong> graders judge it by consequence where the code runs, zones no longer shift it, and a rubric cap needs a major or critical finding. That's a new scoring version (5.0.0): config fingerprints change, and a score change against a 4.x report isn't a regression. 5.x still reads 4.x reports and recomputes them under the rules they were graded with, and <code>gradekit migrate</code> moves a project over.</p>
+<ul>
+<li><strong>For agents:</strong>
+<ul>
+<li>Report format 5 adds <em>noticed</em> findings, fingerprints, and who graded and what it took.</li>
+<li>Short operating cards replace reading whole prompts.</li>
+<li><code>gradekit mcp</code> serves agents without a shell.</li>
+<li>Also new: work orders, enforced score limits, finding disputes, monorepo components in every tool, and answering decisions with <code>gradekit decide</code>.</li>
+</ul>
+</li>
+<li><strong>For people:</strong>
+<ul>
+<li>A <strong>Projects</strong> page for every project at once, and a Review page that explains every score.</li>
+<li>Deciding by ticking a box on the report's pull request, and saving files without pasting JSON.</li>
+<li>A quick setup, a guided first run, and a command palette (Ctrl/Cmd+K).</li>
+<li>Grading on a schedule, with time and cost on the pages.</li>
+</ul>
+</li>
+<li><strong>Every major at its own address</strong> (<code>/v4/</code>, <code>/v5/</code>), so a project's rules can't change under it.</li>
+<li><strong>Calibration</strong> is now a program, with golden repos, spread across runs, and a rules fingerprint tests enforce. The <code>schedule</code> golden's run under the final 5.0 rules is 100% within tolerance (MAE 0.28). Calibration passes once two more independent runs agree within the allowed spread. A1's expected score is provisional until a person reviews it.</li>
+</ul>
+<p><strong>Versions and pins</strong></p>
+<ul>
+<li>
+<p><strong>Three versions, each with its own job:</strong></p>
+<ul>
+<li>the <strong>kit version</strong> (5.0.0): prompts, tools and report format;</li>
+<li>the <strong>scoring version</strong> (5.0.0, up from 4.2.0): the rules that move scores;</li>
+<li>each report's <code>suite_version</code>: the kit that wrote it.</li>
+</ul>
+<p>New reports also record their scoring version (<code>config.scoring_version</code>). <code>gradekit diff</code> compares reports for regressions whenever their scoring majors match. Across majors it lists the changes as notes, so a project's first 5.0 grade should be a full one.</p>
+</li>
+<li>
+<p><strong>5.x reads 4.x reports unchanged.</strong> <code>validate</code>, <code>rollup</code>, <code>diff</code>, the index and the Review page accept reports from 4.x and 5.x. Reports from older majors are refused, with a note to re-grade.</p>
+</li>
+<li>
+<p><strong>Projects pin their major:</strong> <code>suite = &quot;5&quot;</code> under <code>[project]</code> in <code>project.toml</code>.</p>
+<ul>
+<li><code>init</code> and the Set up page write the pin for new projects. A project loaded into the Set up page keeps its own pin, or none.</li>
+<li><code>report new</code> and <code>carry</code> refuse to write a report for a project pinned to another major, and say which kit to use.</li>
+<li><code>doctor</code> warns when a project isn't pinned, and fails when the pin doesn't match the kit.</li>
+<li><code>gradekit ci</code> needs changes on a report PR whose report was made by another major than the pin.</li>
+<li>A project without a pin works as before.</li>
+</ul>
+</li>
+</ul>
+<p><strong>Report format 5</strong></p>
+<ul>
+<li>New reports carry <code>&quot;schema_version&quot;: 5</code>. Reports without it are format 4 (suite 4.x), which 5.x still reads with <code>schema/report-4.schema.json</code>. <code>report new</code> and <code>carry</code> write format 5, so carrying a 4.x report forward upgrades it.</li>
+<li><strong><code>noticed</code>, a new finding status:</strong> a problem first recorded now that was already there before, because the previous report missed it. It counts as open everywhere (maturity, priorities, the index, Review). A PR check reports it as pre-existing and never fails because of it, so the old workaround (<code>new</code> with <code>first_seen_commit</code> set to the base commit) isn't needed. 4.x reports still use that rule. <code>report finding add --status noticed</code> sets the first-seen commit to the PR's base commit.</li>
+<li><strong>The quote is the anchor:</strong> <code>lines</code> is optional in code evidence. Without it, the check finds the quote anywhere in the file. <code>report cite</code> still writes both, for links to the exact lines.</li>
+<li><strong>UTC timestamps:</strong> <code>run.started</code> (stamped by <code>report new</code> and <code>carry</code>) and <code>run.date</code> (stamped by <code>report check --write</code> at the finish) are required, as <code>YYYY-MM-DDTHH:MM:SSZ</code>.</li>
+<li><strong>Fingerprints:</strong> every finding gets a <code>fingerprint</code> from its benchmark, files and quoted code. Rewording or moving the code doesn't change it, so the same problem is recognized across reports. gradekit writes it (report commands, <code>report check --write</code>, <code>rollup --write</code>), and <code>validate</code> refuses one that doesn't match.</li>
+<li><strong>Who graded, and what it cost:</strong>
+<ul>
+<li><code>run.model</code>: required before a report is finished.</li>
+<li><code>run.session</code> and <code>run.work_order</code>: optional.</li>
+<li><code>report new</code> and <code>carry</code> take <code>--model</code>, <code>--session</code> and <code>--work-order</code>. <code>report check</code> lists the model as a to-do until it's set.</li>
+<li><code>run.usage</code> holds minutes, tokens and cost where known. <code>report check --write</code> fills the minutes from the two timestamps.</li>
+<li><code>report.md</code> opens with a line saying who graded, with which model, how long it took, and the work order.</li>
+</ul>
+</li>
+<li>The grader and PR-check prompts, the glossary (<em>noticed finding</em>) and the Review page (status filter; evidence without line numbers) follow suit.</li>
+<li>A public copy keeps each withheld finding's fingerprint, computed from the full report before <code>redact</code> withheld its evidence. Editing the public copy never overwrites it.</li>
+</ul>
+<p><strong>Monorepo components in every tool</strong></p>
+<ul>
+<li><strong>One report per component:</strong> <code>report new --component NAME</code> writes <code>components/NAME.json</code> in the report folder, with its component's config. <code>--component repo</code> writes the repo report (<code>report.json</code>). Each marks the benchmarks graded elsewhere as <code>not_applicable</code> for you: the components skip what the repo shares (B3, E3, E4, F2, F6, X6), and the repo report skips the rest.</li>
+<li><strong>The repo-wide result:</strong> <code>rollup-repo FOLDER --write</code> stores it in <code>report.json</code> as <code>repo_rollup</code>. The overall score is weighted by component weight, and maturity is the lowest component's.</li>
+<li><strong>The tools that handle reports know components:</strong>
+<ul>
+<li><code>deliver</code> redacts and renders every component report;</li>
+<li><code>gradekit ci</code> validates each with its component's config and checks that <code>repo_rollup</code> matches;</li>
+<li>the index shows the repo-wide score and each component's.</li>
+</ul>
+</li>
+</ul>
+<p><strong>Finding disputes</strong></p>
+<ul>
+<li><strong>People dispute a finding:</strong> <code>gradekit dispute add A3-002 --project NAME --reason &quot;…&quot; --by NAME</code> appends to <code>projects/NAME/disputes.json</code>, which is append-only like <code>decisions.json</code> (<code>gradekit ci</code> checks it). <code>dispute list</code> shows open disputes.</li>
+<li><strong>The next grader must answer:</strong> <code>report check</code> lists each open dispute on a finding in the report as a to-do. <code>report finding answer REPORT ID --uphold --note &quot;…&quot;</code> keeps the finding. <code>--withdraw</code> gives it the new status <code>withdrawn</code>, which counts nowhere: not open, not fixed. The answer records which dispute it answers, which closes that dispute.</li>
+<li><code>diff</code> notes withdrawn findings, the index lists open disputes, and the glossary adds <em>dispute</em> and <em>withdrawn finding</em>.</li>
+</ul>
+<p><strong>The calibration program</strong></p>
+<ul>
+<li><strong>Golden repos:</strong> <code>calibration/golden/NAME/</code> holds a frozen commit's expected scores, its <code>project.toml</code> and one file per independent grader run (<code>gradekit calibration add-run</code>).</li>
+<li><strong><code>gradekit calibration run</code></strong> scores every run against its golden's expected scores and measures the spread across runs. It writes <code>calibration/results.json</code> and publishes <code>calibration/RESULTS.md</code>. A golden repo passes with at least 3 runs, all passing, and no benchmark spreading more than allowed.</li>
+<li><strong>No scoring change ships unmeasured:</strong> the results carry a fingerprint of the scoring rules (the scoring version, the rubric, the caps and the limits). The kit's tests fail when the rules change without the results being regenerated.</li>
+<li><strong>Only runs under the current rules count:</strong> <code>add-run</code> records the rules' fingerprint with each run. After a rule change, <code>calibration run</code> lists the older runs as earlier runs, and they don't count toward a pass or the spread.</li>
+<li><strong>The first golden repo is dbader/schedule at 82a43db,</strong> with expected scores from the 4.3 release gate's grade. Two independent 5.0 runs both came to 6.8 (L1) and disagreed with it on two benchmarks. A1 changes from 8 to 5: an open critical finding (a zero interval hangs the scheduler) holds it at 5 under the enforced limits. E2 changes from 5 to 7: both runs found only minor documentation problems. The runs also split on whether A5 applies to a library that stores nothing, so A5's Assess line now says: <code>not_applicable</code> when nothing must outlive the process, and <code>limited</code> when a little does. That wording change makes the first three runs earlier runs. Three fresh runs on the clarified rubric (6.7, 6.9 and 6.7, all L1) each fall within tolerance. Calibration doesn't pass yet for two reasons. One run marks X3 not applicable. E2 spreads by 2 because one run filed the broken contributor setup under E2, where its cap applies, while the other two used E3. Both point at wording to clarify. On scoring 5.0, three more runs all gave A1 7, matching the key that was set before they ran, and all reached L2 (6.6–6.9). Two passed. E2 spread again because a minor finding held its cap, and caps now need a major finding. On those rules, three more runs are each 100% within tolerance (6.9–7.2, L2). The only criterion still missed is E2's spread of 2 (8, 8, 6), against a limit of 1.</li>
+</ul>
+<p><strong>Operating cards, and the rubric one benchmark at a time</strong></p>
+<ul>
+<li><strong>Each role has a one-page card</strong> in <code>prompts/cards/</code> (grader, pr-check, improver, reviewer): the run as <code>gradekit</code> commands, what the tools enforce for you, and the rules only an agent can follow. <code>AGENT.md</code> and <strong>Start a run</strong> now send agents to their card. The full prompts stay as the reference for details, and for working without Python.</li>
+<li><strong>The word budget is checked:</strong> a card and the largest benchmark entry fit in 3,000 words (the grader's: about 1,300, down from 11,000 for the prompt and the rubric).</li>
+<li><strong><code>gradekit rubric A3</code></strong> prints one benchmark: what it measures, what it isn't, how to assess it, the anchors and the caps. <code>gradekit rubric B</code> prints a pillar, and <code>--json</code> gives data. <code>rubric/rubric.json</code> holds the whole rubric as data, generated from the rubric files.</li>
+<li><strong>No rule was lost in the move:</strong> <code>prompts/rules.json</code> lists every hard rule in the prompts with what keeps it, either the <code>gradekit</code> check that enforces it or the card that states it. A test fails if either goes missing.</li>
+</ul>
+<p><strong><code>gradekit mcp</code>, for agents without a shell</strong></p>
+<ul>
+<li>An MCP server on stdin/stdout (JSON-RPC 2.0, standard library only). Every command is a tool, with an input schema made from its arguments, so the server and the command line can't drift apart.</li>
+<li>Calls run in-process with <code>--json</code> and return the envelope. <code>cwd</code> sets the folder a tool runs in. Bad arguments, unknown tools and a missing folder come back as error results, never crashes.</li>
+<li><code>gradekit mcp --list</code> shows the tools.</li>
+</ul>
+<p><strong>Work orders</strong></p>
+<ul>
+<li><strong>A work order is the request behind a run:</strong> a role (grade, review, improve or prcheck), a commit or change, a delivery, who asked, and notes. <code>gradekit order new --project NAME --role grade</code> writes <code>projects/NAME/orders/&lt;date&gt;-&lt;role&gt;-&lt;n&gt;.json</code> and prints the ID to give the agent.</li>
+<li><strong>The report that answers it closes it:</strong> it records the ID with <code>report new --work-order ID</code>, as <code>run.work_order</code>. <code>order list</code> shows open orders (<code>--all</code> shows every one, with the answering report), and <code>order close</code> closes one by hand.</li>
+<li><strong>Checks:</strong>
+<ul>
+<li><code>report check</code> and <code>gradekit ci</code> warn when a report names an order the project doesn't have;</li>
+<li><code>gradekit ci</code> checks order files as settings: they must be well formed, and only <code>status</code> and <code>closed</code> may change later;</li>
+<li><code>projects/index.json</code> lists each project's open orders;</li>
+<li><code>schema/work-order.schema.json</code> documents the format.</li>
+</ul>
+</li>
+</ul>
+<p><strong>Enforced score limits</strong></p>
+<ul>
+<li><strong>The rubric's caps are data.</strong> Each cap now has an ID in the rubric, e.g. &quot;Quickstart fails → max 4 (<code>E1-cap-1</code>)&quot;. <code>rubric/catalog.json</code> lists every benchmark's caps, and a test keeps the two the same.</li>
+<li><strong>A finding can carry the cap it triggers:</strong> <code>report finding add … --cap E1-cap-1</code> (or <code>finding update --cap</code>). The cap holds while that finding is open, and lifts when it's fixed or accepted. A cap with no single finding behind it goes on the benchmark (<code>report score … --cap E1-cap-1</code>). D2's &quot;any critical gap&quot; applies by itself.</li>
+<li><strong>Every benchmark gets a computed limit:</strong> the lowest of its caps, max 5 with an open effective-critical finding, max 8 without strengths and max 9 without enforcement. <code>rollup.limits</code> lists every benchmark held below 10, and why.</li>
+<li><strong>Format-5 reports are held to their limits.</strong> <code>report score</code> refuses a score above one and says why, and <code>validate</code> (with <code>report check</code> and <code>gradekit ci</code>) fails it. <code>report.md</code> shows each benchmark's limit. 4.x reports, and reports migrated from 4.x, keep warnings, as before.</li>
+<li>The limits themselves didn't change; they're enforced now.</li>
+</ul>
+<p><strong>Severity is consequence; zones raise the bar (scoring 5.0.0)</strong></p>
+<ul>
+<li><strong>Severity has a definition now.</strong> Graders judge <code>critical</code>, <code>major</code> and <code>minor</code> by what happens when a problem bites, where the code runs. <code>prompts/grader.md</code> Part 4 gives each a definition and examples, and the grader card gives the short form.
+<ul>
+<li><code>critical</code>: serious harm with no reasonable workaround.</li>
+<li><code>major</code>: a real defect with a workaround or a limited reach.</li>
+<li><code>minor</code>: little happens.</li>
+<li>Style and naming are minor anywhere.</li>
+</ul>
+</li>
+<li><strong>Zones no longer shift severity.</strong> Before, a grader judged a finding &quot;as if the code were normal&quot;, and the tool moved it a level up in hot zones and down in cold ones. One major-or-minor call then moved a score by 2–3 points (an open critical finding holds a benchmark at 5), and when a zone covered most of the code it moved every benchmark. Now the grader judges consequence in place. A wrong total in payment code is critical on its own merits, and a style nit there stays minor.</li>
+<li><strong>Hot zones raise the bar instead:</strong> L2 still allows no critical findings in them, and <strong>L3 now also allows no major findings in them</strong>. Hot-zone work still ranks first, and graders still read hot zones in full.</li>
+<li><strong>The scoring version is 5.0.0,</strong> so config fingerprints change. A 4.x report is resolved with the 4.x rules, which ship as <code>config/scoring/4.2.0.toml</code>, so it validates and recomputes exactly as it was graded. Its <code>report.md</code> still shows severity → effective.</li>
+<li><strong>A rubric cap needs a finding that's major or worse.</strong> A minor problem no longer puts a hard limit on a score. Before, a wrong install line for a secondary channel held E2 at 5 for two graders. <code>finding add --cap</code> refuses a minor finding, and <code>validate</code> warns when a capped finding is later lowered to minor.</li>
+<li>A project that still sets <code>zone_settings.severity_shift</code> or <code>never_downgrade</code> gets a warning; the settings no longer apply. <code>doctor</code>'s hot-zone warning now says why a zone covering everything is a problem: it can't say where problems cost more, and L3 allows no major findings in it.</li>
+<li>The glossary, <code>rubric/weights.md</code>, the PR-check prompt and card, and report.md (one Severity column) follow suit.</li>
+</ul>
+<p><strong>Moving a project to 5.x with <code>gradekit migrate</code></strong></p>
+<ul>
+<li><code>gradekit migrate --project NAME</code> sets the pin (<code>suite = &quot;5&quot;</code>), changing only that line of <code>project.toml</code>. With <code>--reports</code>, it also upgrades the project's 4.x reports to format 5:
+<ul>
+<li>every judgment, score and stored rollup is unchanged, and <code>migrated.from</code> records the version that wrote the report;</li>
+<li><code>run.date</code> becomes a UTC timestamp, and <code>config.scoring_version</code> records the rules the report was graded under;</li>
+<li>every finding gets its fingerprint (withheld ones from <code>report.private.json</code>, which is upgraded too but never committed);</li>
+<li>in PR reports, a <code>new</code> finding first seen at the base commit becomes <code>noticed</code>;</li>
+<li><code>report.md</code> is re-rendered.</li>
+</ul>
+</li>
+<li><strong>It runs in three ways:</strong> without flags it's a dry run, listing every file and confirming the scores don't change. <code>--write</code> writes into this checkout, but never on the default branch. <code>--run</code> makes a branch from the default branch (<code>migrate/NAME-v5</code>) and commits; <code>--push</code> and <code>--open github|gitlab</code> work as in <code>deliver</code>. To undo it, revert the pull request.</li>
+<li><strong><code>gradekit ci</code> knows a migration</strong> (label <code>grading: migration</code>). It redoes the migration from the base branch's files and needs changes unless every report file is exactly what <code>migrate</code> makes. Anything else in the same pull request makes it an ordinary change, where earlier reports may never be edited.</li>
+<li><code>doctor</code> and the tools' pin messages point to <code>migrate</code> for projects pinned to 4.</li>
+</ul>
+<p><strong>Every major version at its own address</strong></p>
+<ul>
+<li>The suite's site serves the newest release of each major at its own path: <code>/v4/</code> and, once released, <code>/v5/</code>. The root shows the newest. Each copy is built from its release and checked against its own <code>SHA256SUMS</code> before it's published.</li>
+<li><code>versions.json</code> beside each copy lists the versions. With it:
+<ul>
+<li>the pages show a version menu in the top bar that keeps you on the same page;</li>
+<li><strong>Start a run</strong> writes prompts that point at the page's own major (<code>…/v5/AGENT.md</code>), so a later major can't change a project's rules;</li>
+<li><code>AGENT.md</code> sends agents to the version a project pins.</li>
+</ul>
+</li>
+<li>Every built site ships a <code>versions.json</code> that lists only itself, so a single-version host changes nothing and makes no failed requests. It isn't in <code>SHA256SUMS</code>, because it describes the host. <code>DEPLOY.md</code> shows how to host several majors on your own server.</li>
+</ul>
+<p><strong>What the gate's grader runs asked for</strong></p>
+<ul>
+<li><strong>Correcting a report without editing its JSON:</strong>
+<ul>
+<li><code>report show REPORT [ID|features|gaps]</code> numbers what's recorded;</li>
+<li><code>report update REPORT REF</code> changes a strength or enforcement item (<code>A3/strength/2</code>: text, evidence), an action (<code>A3-act-1</code>: text, score, effort, what it resolves, decision, optional, <code>--why-first</code>) or a gap (<code>GAP-002</code>: severity, necessity, status…);</li>
+<li><code>report remove REPORT REF</code> removes one of those, a feature, or a finding or gap that no earlier report has. IDs that were reported stay, so carry and diff keep tracking them.</li>
+</ul>
+</li>
+<li><strong>Enforcement is shaped like strengths:</strong> <code>{&quot;note&quot;: &quot;what enforces it&quot;, &quot;evidence&quot;: [...]}</code>, and <code>report enforcement</code> takes <code>--text</code>. Format-4 reports keep bare evidence objects, which every tool still reads; <code>migrate</code> wraps them. The Review page now shows enforcement.</li>
+<li><strong>Quotes stay short:</strong> <code>cite</code> refuses a quote over 3 lines, which grader.md always required, and drops blank lines at either end of the range (an off-by-one). <code>validate</code> warns about longer quotes in format-5 reports.</li>
+<li><strong><code>report check</code> isn't ready too early:</strong> it lists a missing summary, and every benchmark below its target with no non-optional action to get there.</li>
+<li><strong><code>top_priorities</code> is filled for you:</strong> <code>report check --write</code> copies the first ten of the ranking, each with its <code>why_first</code> (the action's own, from <code>report action --why-first</code>, or a line from its tier) and expected gain.</li>
+<li><strong>Each action gains only what it adds:</strong> <code>expected_new_score</code> counts the benchmark's earlier actions as done, so a second step from 6 to 8 is worth 2 points in the ranking, not 4. <code>validate</code> warns when a later action expects less than an earlier one. Format-4 reports keep the gains their stored rollups have.</li>
+<li><strong>The run:</strong>
+<ul>
+<li><code>report new</code> and <code>carry</code> take <code>--started</code>, so the run's minutes count from preflight rather than from <code>report new</code>;</li>
+<li><code>redact --in-place</code> writes <code>report.private.json</code> only when something is withheld;</li>
+<li><code>doctor</code> warns when hot zones cover most of the code (over half its lines, tests left out), where every major-or-minor call moves scores by 2–3 points;</li>
+<li><code>--out</code> creates its folder, and a stray argument is reported with the command's own usage.</li>
+</ul>
+</li>
+<li><strong>The grader card</strong> adds the time for <code>--started</code>, the delivery you were asked for (not always <code>pr</code>), <code>--run N/COUNT</code>, running tools in a copy so CODE stays clean, the 1–3 line quote and copied command excerpts, the correcting commands, and never lowering a severity to get under a limit.</li>
+<li><strong>From the second round of grader runs:</strong>
+<ul>
+<li><code>cite</code> prints the line it quoted, so a cite of the wrong line is caught at once. It also says when it trimmed blank lines. When a quote is too long, it suggests a 3-line range; when a line is blank, it points to the nearest line with text.</li>
+<li>Command evidence takes <code>--no-output</code> for a command that printed nothing.</li>
+<li><code>report ran</code> takes <code>--workdir</code> and <code>--env</code>, so a command run in a copy of the code can be run again.</li>
+<li><code>report show</code> lists metrics and commands too.</li>
+<li><code>report set metrics.X</code> refuses anything but a number, true/false or null.</li>
+<li><code>report update --not-optional</code> says &quot;no longer optional&quot;.</li>
+<li><code>redact</code> on a report that's already redacted and withholds nothing does nothing, instead of failing.</li>
+<li><code>validate</code> warns when an action resolves another benchmark's finding, which would count its fix twice in the ranking.</li>
+<li>The grader card takes the scratch folder (<code>SCRATCH</code>) and the delivery (<code>DELIVERY</code>) as values, instead of <code>/tmp</code> and <code>pr</code>, and shows <code>deliver</code> for <code>save</code>.</li>
+<li>The metrics table says which linter counts, how to count unrated advisories, and that <code>setup_second_run_passes</code> is <code>null</code> without setup scripts.</li>
+<li><code>doctor</code>'s pin warning says the project's owner should add the pin.</li>
+<li>The X6 heading prints correctly.</li>
+<li>From the third round:
+<ul>
+<li><code>report remove command/N</code> removes a wrongly recorded command.</li>
+<li><code>report set</code> refuses to turn a list (such as <code>limitations</code>) into text, and takes <code>@file</code> (for example, all the metrics at once).</li>
+<li><code>report score</code> notes when a score needs a strength or enforcement it doesn't have yet.</li>
+<li>Maturity blockers name their benchmark in <code>report.md</code>.</li>
+<li>The card has <code>doctor</code> check the scratch folder.</li>
+<li>The card says everything in a first report is <code>new</code>.</li>
+</ul>
+</li>
+<li>From the fourth round:
+<ul>
+<li><strong>A note per piece of evidence:</strong> each <code>--note</code> belongs to the <code>--cite</code>, <code>--command</code> or <code>--absence</code> just before it. A single <code>--note</code> still goes on every item, as before. A <code>--note</code> before any evidence fills in for items without their own, and one note per item after all the evidence pairs up in order, which is how MCP clients send them.</li>
+<li><strong>Command evidence is tied to what was run:</strong> <code>--command @N</code> takes the exact text of the Nth command recorded with <code>report ran</code>. <code>report check</code> warns about an excerpt from a command that isn't in <code>commands_run</code>.</li>
+<li><strong>Limited first, score later:</strong> <code>report score REPORT A5 --applicability limited --reason &quot;…&quot;</code> works without a score. A later <code>--score</code> keeps it limited, and <code>report check</code> lists the score as still to do.</li>
+<li><strong>No half-success:</strong> citations are echoed only once the command succeeds. If anything fails, it says nothing was saved.</li>
+<li><strong><code>report check --write</code> says what it stored:</strong> the rollup, the finish time and the minutes, or that the rollup waits until nothing is left to do.</li>
+<li><strong>An <code>export</code> may not outlast an agent's tool call:</strong> the card makes <code>SCRATCH</code> and prefixes commands with <code>TMPDIR=SCRATCH</code>, instead of exporting it once.</li>
+</ul>
+</li>
+<li>From calibration run 13, the first on E2's fixed procedure (100% within tolerance, MAE 0.28, E2 7 as keyed; two more runs needed):
+<ul>
+<li><strong>Several pieces of command evidence in one call:</strong> <code>--command</code>/<code>--excerpt</code> (or <code>--no-output</code>) and <code>--absence</code>/<code>--method</code> repeat, and pair up in order. A second pair used to replace the first without a word. Unpaired options are refused instead of dropped.</li>
+<li><strong>Excerpts checked against what was printed:</strong> <code>report ran --output FILE</code> keeps a fingerprint of the output (one short hash per distinct line, not the text). <code>report check</code> warns about excerpt lines that aren't in it; whitespace evens out, and <code>...</code> elides. <code>report ran</code> says the command's number for <code>--command @N</code>.</li>
+<li><strong>Commands corrected in place:</strong> <code>report update command/N</code> takes <code>--command-text</code>, <code>--exit-code</code>, <code>--summary</code>, <code>--workdir</code> and <code>--env</code>, so <code>@N</code> numbers stay put. Evidence quoting the old text follows the new.</li>
+<li><strong><code>lint_errors</code> when nothing runs:</strong> if CI runs no linter and the documented one can't run, use the language's usual linter at its defaults, and say which.</li>
+<li>The grader card saves each command's output for <code>--output</code>, and chains <code>report</code> commands with <code>&amp;&amp;</code> so one that fails stops the rest.</li>
+<li>The golden <code>schedule</code> project pins suite 5, as <code>doctor</code> asked.</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><strong>Rubric wording, from where graders split:</strong>
+<ul>
+<li>X3 is <code>limited</code> for code that's often called from threads or async code even though it isn't concurrent itself.</li>
+<li>A broken contributor setup is E3, even when the fault is in its docs. <code>E2-cap-1</code> is for instructions users follow.</li>
+<li>A quickstart that needs something the documented install doesn't provide fails as written (<code>E1-cap-1</code>).</li>
+<li>F3 is <code>limited</code> for a library, which has no telemetry of its own.</li>
+<li>E2 has a fixed procedure: run every example in the README and the main guide, compare the reference with the public names, and check five behaviors users rely on. Its anchors now say what separates 6 from 7 (an example that misleads, or a wrong statement users rely on), and when a docs error is major. In the last calibration round, one grader ran the examples and the other two only read them, which gave E2 a spread of 2.</li>
+</ul>
+</li>
+<li><strong>One version on every label:</strong> the prompts, rubric and README say v5.0.0, and a test keeps them in step with the kit. A new <code>project.toml</code> says which kit created it, so an older one doesn't read as a mismatch.</li>
+</ul>
+<p><strong>One component system for the pages (U1)</strong></p>
+<ul>
+<li><strong>Every tool page is built from one set of components:</strong> banners, chips, badges, cards, form fields, segmented controls, tables and tabs. Each is built by <code>common.js</code> (<code>UI.banner</code>, <code>UI.state</code>, <code>UI.chip</code>, <code>UI.badge</code>, <code>UI.card</code>, <code>UI.field</code>, <code>UI.seg</code>, <code>UI.table</code>, <code>UI.tabBar</code>) and styled once in <code>style.css</code>.</li>
+<li><strong>Loading, empty and error states:</strong> <code>UI.state</code> shows what a section has instead of content. A loading state is announced as busy, an empty state can offer the next step, and an error state is announced as an alert, with a &quot;Try again&quot; button. Review now shows a loading state while it reads a report, and a load from GitHub shows one while it fetches. A failed review offers to try again.</li>
+<li><strong>Colors come only from tokens:</strong> one block for light and one for dark mode, with a background, text and border for each tone. Some dark-mode chips, which had no colors of their own, are now readable.</li>
+<li><strong>No inline styles anywhere:</strong> every page and generated doc uses classes, and bars take their size from CSS custom properties. The site's policy now forbids inline styles (<code>style-src 'self'</code>, no <code>'unsafe-inline'</code>), in the pages' <code>&lt;meta&gt;</code> tag and in <code>.htaccess</code>.</li>
+<li><strong>The components page</strong> (<code>app/components.html</code>, linked from the site's footer) shows every component in each of its states. The tests run axe on it in light and dark mode, check its layout at four widths, and screenshot it. Setup and Review are also checked in dark mode now.</li>
+<li><strong>Tests keep it that way:</strong> they fail on an inline style, a raw color outside the tokens, or a banner or state built by hand in a page.</li>
+<li>The screenshot baselines are remade for the new look.</li>
+</ul>
+<p><strong>The Projects page: every project at once (H3, H4, H5, U5)</strong></p>
+<ul>
+<li><strong>All projects (H3):</strong> every project in a grading repo with its overall score, maturity, a trend line, its stage, and what it's waiting on. Projects that need a person come first. It reads <code>projects/index.json</code> from a public GitHub grading repo, from a file (any host), or from the sample.</li>
+<li><strong>Decisions (H4):</strong> every decision question waiting across all projects, answered in one sitting. Each project's answers are appended to its <code>decisions.json</code> by the engine, exactly as on Review, with the steps to save it. From GitHub, the page loads each project's existing <code>decisions.json</code> first, so earlier answers are kept.</li>
+<li><strong>Where it stands (H5):</strong> each project's place in the cycle (set up → grade → decide → improve → check → done) and what's waiting on whom: a grader, people, an improver or a PR checker. From GitHub, it also shows the project's open pull requests.</li>
+<li><strong>Trends and heatmap (U5):</strong> the overall score and each pillar over every full report, as small charts on one 0–10 scale. Each point's value shows on hover or keyboard focus, and a table has the numbers. Maturity history, and a heatmap of every benchmark in every report on one blue scale, with its own steps for dark mode and a text color chosen for contrast in each cell.</li>
+<li><strong>The index carries it all, computed by gradekit:</strong> each report's pillar and benchmark scores; each pending decision's benchmark and action; <code>latest.below_target</code> and <code>latest.actions_ready</code>; and <code>cycle</code> (stage and waiting-on). The pages only draw them. <code>schema/index.schema.json</code> documents the new fields.</li>
+<li>Review and Projects share the GitHub loader and the &quot;save your decisions&quot; steps (<code>common.js</code>). Every table that scrolls sideways can be focused and scrolled with the keyboard.</li>
+</ul>
+<p><strong>Review: explain every score, show evidence as code, link to any view (H6, U3, U6)</strong></p>
+<ul>
+<li><strong>Why this score (H6):</strong> each benchmark opens with the grader's reasoning and the limits that hold it (only the ones that bind). It also shows the rubric's words for every score band, with this score's band marked, the caps, and the benchmark's score in every report of the project.</li>
+<li><strong>Evidence as code (U3):</strong> quoted code is shown with its line numbers and the cited lines marked. Copying it copies only the code. Each quote links to those lines at the graded commit on GitHub, GitLab (including self-hosted) or Bitbucket, using the project's <code>code_repo</code>. With the code's zip loaded, it also shows the 3 lines around each quote; a new engine call, <code>code_context</code>, reads them, and finds a format-5 quote that has no line numbers.</li>
+<li><strong>Findings open in place:</strong> a finding's row expands to its evidence, any dispute, the cap it holds, and a button to its benchmark. The note about effective severity appears only for reports graded under the 4.x rules.</li>
+<li><strong>Print or save as PDF (U3):</strong> the whole report, every section in order, every benchmark and finding open, without the controls. Paper is light even in dark mode, and links print their address.</li>
+<li><strong>Deep links to every view (U6):</strong> <code>review.html?repo=…&amp;ref=…&amp;project=…&amp;report=…&amp;compare=…#finding=A3-001</code> (or <code>#bench=A3</code>, or <code>#tab=decisions</code>). They work on any host, because they're plain query and hash parameters.
+<ul>
+<li>The address follows what you look at, and <strong>Copy link</strong> buttons give a link to the view, a benchmark or a finding.</li>
+<li><code>?sample=1</code> opens the sample.</li>
+<li>A link to a report opened from files shows its view once the same files are loaded again.</li>
+</ul>
+</li>
+<li><strong>Projects links into Review:</strong> each project, and each heatmap cell, opens that report at that benchmark, so every number on Projects traces to code in two clicks. Projects has deep links of its own (<code>?repo=…#tab=project&amp;project=…</code>).</li>
+<li><strong>PR descriptions link to the exact report,</strong> and to its decisions when some are waiting.</li>
+</ul>
+<p><strong>Answering decisions by ticking a box (C5)</strong></p>
+<ul>
+<li><strong><code>gradekit decide</code></strong> records answers in <code>decisions.json</code>: <code>--approve ID…</code>, <code>--decline ID…</code>, <code>--by NAME</code>, and optionally <code>--answer TEXT</code>. It checks each ID against the newest report, takes the question's wording from it, and only appends. Recording the same answer again changes nothing; a change of mind is appended, and the newest answer wins. An answer by an agent comes with a reminder that it counts only with <code>[review] allow_agent_decisions = true</code>.</li>
+<li><strong><code>gradekit decisions</code></strong> lists the newest report's questions and their answers. With <code>--approved</code>, it lists only what may be acted on.</li>
+<li><strong>The report PR is a checklist.</strong> <code>deliver</code> writes each pending question with a box to approve it and a box under it to decline it, plus a <code>&lt;!-- gradekit:project=NAME --&gt;</code> marker. <code>gradekit decide --from-checklist FILE</code> reads the ticked boxes and finds the project from the marker. Unticked boxes are no answer, and a question with both boxes ticked is skipped.</li>
+<li><strong>The grading CI records the ticks:</strong>
+<ul>
+<li><strong>GitHub:</strong> a new <code>decide</code> job runs whenever a report PR's description is edited and commits <code>decisions.json</code> to the PR's branch under the editor's login. It needs <code>contents: write</code>. Pull requests from forks are skipped, and the description reaches the shell only through an environment variable.</li>
+<li><strong>GitLab:</strong> a manual <code>grading-decide</code> job does the same when you press play (GitLab has no event for a description edit). It reads the full description through the API and needs <code>GRADING_BOT_TOKEN</code>.</li>
+</ul>
+</li>
+<li><strong><code>gradekit ci</code> accepts a report PR that also answers its own questions:</strong> the report folder plus appended entries in that project's <code>decisions.json</code>. Any other settings change still goes on its own.</li>
+<li><code>report.md</code> says how to answer.</li>
+</ul>
+<p><strong>Saving without pasting (H2), quick setup (H1), work orders from Start a run (C4)</strong></p>
+<ul>
+<li><strong>No page asks you to paste JSON or TOML into an editor.</strong> Each save offers, quickest first:
+<ol>
+<li>the code host does it: for a new file, a link to GitHub's or GitLab's new-file page with the file filled in; for decisions, the report PR's checkboxes;</li>
+<li>a command, or a prompt for an agent, that writes the file with gradekit;</li>
+<li>download, then upload (on any host, or for a local folder).
+No host fills in an edit of a file that already exists, so editing an existing file goes by 2 or 3. Some GitLab versions open the new-file editor empty; the page says so. New helpers: <code>UI.saveFile</code> and <code>UI.saveDecisions</code> (rebuilt), on Set up, Start a run, Review and the Projects inbox.</li>
+</ol>
+</li>
+<li><strong>Quick setup:</strong> Set up asks for the code's address, what kind of project it is, and three questions (data sensitivity, audience, impact of failure). The five other questions, more about the project, zones, targets and overrides are under <em>More</em> and <em>Advanced</em>, with plain labels. A grading repo address (remembered, and shared with Start a run) enables one-click saving. Starter <code>decisions.json</code> and <code>dispositions.json</code> are optional: the first answer creates them.</li>
+<li><strong>Start a run writes work orders:</strong> <em>Record this run as a work order</em> makes <code>projects/NAME/orders/&lt;date&gt;-&lt;role&gt;-&lt;n&gt;.json</code> (valid against <code>work-order.schema.json</code>, saved the same three ways) and adds <code>Work order: ID</code> to the prompt, so the report closes it.</li>
+</ul>
+<p><strong>A guided first run (U4)</strong></p>
+<ul>
+<li><em>Take a guided first run</em> on the home page, or <code>?tour=1</code> on any app page, starts six steps on the sample: open a report, find the weakest benchmark, answer a decision, see every project, set up your own project, and get the prompt for its first grade. A bar at the top of every app page shows the progress (kept in this browser), links to the next step, and ends the tour.</li>
+</ul>
+<p><strong>Grading on a schedule (N2)</strong></p>
+<ul>
+<li><strong><code>[schedule]</code> in <code>project.toml</code>:</strong> <code>grade_every_days</code> (0, the default, means no schedule) and <code>only_if_code_changed</code> (default true). It never changes scores or the config hash. Set up has it under <em>Advanced</em>.</li>
+<li><strong><code>gradekit due</code></strong> says which projects are due, and why or why not: never graded, or enough days since the last full grade and, by default, new commits on the code's default branch. <code>--check-code</code> reads each code repo's newest commit with <code>git ls-remote</code>, without cloning; <code>--code-head NAME=SHA</code> gives it instead. A project that already has an open grade order isn't due again. <code>--write-orders</code> writes a grade work order for each due project, with <code>requested_by</code> &quot;schedule&quot;, the commit, and the reason.</li>
+<li><strong>The grading CI runs it.</strong> On GitHub, a new <code>schedule</code> job runs every Monday and on demand. On GitLab, <code>grading-schedule</code> runs in a pipeline schedule. Each opens one pull request per due project, since <code>gradekit ci</code> wants one project per pull request. Permissions are in <code>ci/README.md</code>: on GitHub, letting Actions open pull requests, plus <code>CODE_READ_TOKEN</code> for private code; on GitLab, <code>GRADING_BOT_TOKEN</code>.</li>
+<li><code>write_order</code> is shared by <code>order new</code> and <code>due</code>.</li>
+</ul>
+<p><strong>Time and cost on the pages (N3)</strong></p>
+<ul>
+<li><strong>The index</strong> carries each report's <code>model</code> and <code>usage</code> (minutes, tokens, cost, where recorded), and each project's <code>schedule</code> when it has one. <code>index.schema.json</code> describes them.</li>
+<li><strong>Review</strong> says who graded, with which model, how long it took, what it cost, and the work order, or that the report didn't record them.</li>
+<li><strong>Projects:</strong>
+<ul>
+<li><em>All projects</em> adds agent time and cost over the last 30 days. Each row shows its last grade's time and cost, and <em>due</em> or the next date when it's on a schedule.</li>
+<li><em>One project</em> adds a <strong>Time and cost</strong> card, with the average full grade and every run's model, time, tokens and cost. It also says when the project is next due.</li>
+</ul>
+</li>
+</ul>
+<p><strong>A command palette (U2)</strong></p>
+<ul>
+<li><strong>Ctrl/Cmd+K, or Search in the top bar, on every app page</strong> searches the pages, every doc, every benchmark's rubric section and every glossary term (with its definition).</li>
+<li><strong>On Review:</strong> this report's tabs, benchmarks (with scores) and findings, which open in place, plus print.</li>
+<li><strong>On Projects:</strong> its projects and tabs.</li>
+<li><strong>Accessibility:</strong> it's a modal <code>dialog</code> with a combobox and listbox. Arrows move, Enter opens, and Esc closes and returns focus.</li>
+<li>The build writes <code>assets/search.js</code> from the docs, the rubric and the glossary.</li>
+</ul>
 <h2 id="430">4.3.0<a class="anchor" href="#430" aria-label="Link to this section">#</a></h2>
 <p>Minor release: tools that let agents run the whole cycle without custom scripts, and safer publishing. No scoring changes; config fingerprints and existing reports stay valid. Tested by running the whole cycle on a real repository (dbader/schedule) with <code>gradekit</code> commands only: it reproduced the 4.2.2 grade exactly.</p>
 <p><strong>Writing reports with <code>gradekit report</code></strong></p>

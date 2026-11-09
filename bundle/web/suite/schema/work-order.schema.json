@@ -1,0 +1,103 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://code-grading-suite/schema/work-order.schema.json",
+  "title": "Work order (projects/NAME/orders/<id>.json)",
+  "description": "The request behind a run, written by `gradekit order new`. The report that answers it records its id in run.work_order, which closes it; `gradekit order close` closes one by hand. Only status and closed ever change.",
+  "type": "object",
+  "required": [
+    "id",
+    "project",
+    "role",
+    "status",
+    "created"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}-(grade|review|improve|prcheck)-\\d+$"
+    },
+    "project": {
+      "type": "string"
+    },
+    "role": {
+      "enum": [
+        "grade",
+        "review",
+        "improve",
+        "prcheck"
+      ]
+    },
+    "status": {
+      "enum": [
+        "open",
+        "done",
+        "cancelled"
+      ]
+    },
+    "created": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+    },
+    "requested_by": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "commit": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "base_commit": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "change": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "prcheck: the pull request's URL"
+    },
+    "delivery": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "budget": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "notes": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "closed": {
+      "type": "object",
+      "properties": {
+        "date": {
+          "type": "string"
+        },
+        "by": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "note": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "additionalProperties": false
+}

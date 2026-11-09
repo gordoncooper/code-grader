@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'wasm-unsafe-eval'; connect-src 'self' https://cdn.jsdelivr.net https://api.github.com https://raw.githubusercontent.com; img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'; worker-src 'self' blob:">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'wasm-unsafe-eval'; connect-src 'self' https://cdn.jsdelivr.net https://api.github.com https://raw.githubusercontent.com; img-src 'self' data:; style-src 'self'; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'; worker-src 'self' blob:">
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <title>Agent entry point · Code Grading Suite</title>
 <meta name="description" content="A rubric, prompts and browser tools for AI coding agents to grade codebases from 1 to 10 on 35 benchmarks and improve them.">
@@ -16,15 +16,15 @@
 <header class="topbar">
   <button class='menu-btn' type='button'>Menu</button>
   <a class="brand" href="../index.html">Code <span>Grading</span> Suite</a>
-  <span class="ver">v4.3.0</span>
-  <nav class="main" aria-label="Main"><a href="../docs/GETTING-STARTED.html">Get started</a><a href="../app/setup.html">Set up</a><a href="../app/run.html">Start a run</a><a href="../app/review.html">Review</a><a href="../docs/README.html" class="active" aria-current="page">Docs</a></nav>
+  <span class="ver">v5.0.0</span>
+  <nav class="main" aria-label="Main"><a href="../docs/GETTING-STARTED.html">Get started</a><a href="../app/setup.html">Set up</a><a href="../app/run.html">Start a run</a><a href="../app/review.html">Review</a><a href="../app/projects.html">Projects</a><a href="../docs/README.html" class="active" aria-current="page">Docs</a></nav>
   <span class="spacer"></span>
   <a class="top opt" href="../AGENT.md">AGENT.md</a>
-  <a class="top opt" href="../downloads/code-grading-suite-4.3.0.zip">Download</a>
+  <a class="top opt" href="../downloads/code-grading-suite-5.0.0.zip">Download</a>
 </header>
-<div class="layout"><nav class="sidebar" aria-label="Documentation"><h4>Start</h4><a href="../docs/GETTING-STARTED.html">Getting started</a><a href="../docs/README.html">Overview &amp; reference</a><a href="../docs/GLOSSARY.html">Glossary</a><a href="../docs/AGENT.html" class="active" aria-current="page">Agent entry point</a><a href="../docs/DEPLOY.html">Hosting this site</a><h4>Configuration</h4><a href="../docs/TUNING.html">Tuning guide</a><a href="../docs/rubric/weights.html">How scoring works</a><a href="../docs/config/defaults.html">Default config</a><a href="../docs/config/project.example.html">Example project config</a><h4>Prompts</h4><a href="../docs/prompts/grader.html">Grader</a><a href="../docs/prompts/reviewer.html">Report reviewer</a><a href="../docs/prompts/improver.html">Improver</a><a href="../docs/prompts/pr-review.html">PR check</a><h4>Rubric</h4><a href="../docs/rubric/A-correctness-trust.html">A · Correctness &amp; Trust</a><a href="../docs/rubric/B-design-structure.html">B · Design &amp; Structure</a><a href="../docs/rubric/C-code-health.html">C · Code Health</a><a href="../docs/rubric/D-value-fitness.html">D · Value &amp; Fitness</a><a href="../docs/rubric/E-adoption-experience.html">E · Adoption &amp; Experience</a><a href="../docs/rubric/F-operations-delivery.html">F · Operations &amp; Delivery</a><a href="../docs/rubric/X-conditional.html">X · Conditional</a><h4>Guides</h4><a href="../docs/calibration/README.html">Calibration</a><a href="../docs/holdout/README.html">Hidden checks</a><a href="../docs/CHANGELOG.html">Changelog</a></nav><main class="doc" id="main"><div class="docbar"><a class="btn" href="../AGENT.md">View raw .md</a><button class="btn" type="button" data-copy="../AGENT.md">Copy raw URL for an agent</button></div><details class="toc"><summary>On this page</summary><ul><li><a href="#1-pick-your-role">1. Pick your role</a></li><li><a href="#2-put-a-copy-of-the-suite-on-disk-suite-dir">2. Put a copy of the suite on disk (SUITE_DIR)</a></li><li><a href="#3-read-your-prompt-in-full-then-follow-it">3. Read your prompt in full, then follow it</a></li><li><a href="#trust-rules">Trust rules</a></li><li><a href="#file-index">File index</a></li></ul></details><h1 id="code-grading-suite-430-start-here-for-ai-agents">Code Grading Suite 4.3.0: start here (for AI agents)<a class="anchor" href="#code-grading-suite-430-start-here-for-ai-agents" aria-label="Link to this section">#</a></h1>
+<div class="layout"><nav class="sidebar" aria-label="Documentation"><h4>Start</h4><a href="../docs/GETTING-STARTED.html">Getting started</a><a href="../docs/README.html">Overview &amp; reference</a><a href="../docs/GLOSSARY.html">Glossary</a><a href="../docs/AGENT.html" class="active" aria-current="page">Agent entry point</a><a href="../docs/DEPLOY.html">Hosting this site</a><h4>Configuration</h4><a href="../docs/TUNING.html">Tuning guide</a><a href="../docs/rubric/weights.html">How scoring works</a><a href="../docs/config/defaults.html">Default config</a><a href="../docs/config/project.example.html">Example project config</a><h4>Prompts</h4><a href="../docs/prompts/grader.html">Grader</a><a href="../docs/prompts/reviewer.html">Report reviewer</a><a href="../docs/prompts/improver.html">Improver</a><a href="../docs/prompts/pr-review.html">PR check</a><h4>Rubric</h4><a href="../docs/rubric/A-correctness-trust.html">A · Correctness &amp; Trust</a><a href="../docs/rubric/B-design-structure.html">B · Design &amp; Structure</a><a href="../docs/rubric/C-code-health.html">C · Code Health</a><a href="../docs/rubric/D-value-fitness.html">D · Value &amp; Fitness</a><a href="../docs/rubric/E-adoption-experience.html">E · Adoption &amp; Experience</a><a href="../docs/rubric/F-operations-delivery.html">F · Operations &amp; Delivery</a><a href="../docs/rubric/X-conditional.html">X · Conditional</a><h4>Guides</h4><a href="../docs/calibration/README.html">Calibration</a><a href="../docs/holdout/README.html">Hidden checks</a><a href="../docs/CHANGELOG.html">Changelog</a></nav><main class="doc" id="main"><div class="docbar"><a class="btn" href="../AGENT.md">View raw .md</a><button class="btn" type="button" data-copy="../AGENT.md">Copy raw URL for an agent</button></div><details class="toc"><summary>On this page</summary><ul><li><a href="#1-pick-your-role">1. Pick your role</a></li><li><a href="#2-use-the-projects-version-of-the-suite">2. Use the project&#x27;s version of the suite</a></li><li><a href="#3-put-a-copy-of-the-suite-on-disk-suite-dir">3. Put a copy of the suite on disk (SUITE_DIR)</a></li><li><a href="#4-read-your-prompt-in-full-then-follow-it">4. Read your prompt in full, then follow it</a></li><li><a href="#trust-rules">Trust rules</a></li><li><a href="#file-index">File index</a></li></ul></details><h1 id="code-grading-suite-500-start-here-for-ai-agents">Code Grading Suite 5.0.0: start here (for AI agents)<a class="anchor" href="#code-grading-suite-500-start-here-for-ai-agents" aria-label="Link to this section">#</a></h1>
 <p>You have been pointed at a hosted copy of the <strong>Code Grading Suite</strong>: a rubric and set of prompts for grading a codebase from 1 to 10 on 35 benchmarks (29 core, 6 conditional), and for improving code against those grades.</p>
-<p><strong>Every path in this file is relative to the URL you loaded it from.</strong> Call that directory <code>BASE</code>. For example, if you loaded <code>https://example.com/grading/v4.3.0/AGENT.md</code>, then <code>BASE</code> is <code>https://example.com/grading/v4.3.0/</code>, and <code>suite/prompts/grader.md</code> means <code>https://example.com/grading/v4.3.0/suite/prompts/grader.md</code>.</p>
+<p><strong>Every path in this file is relative to the URL you loaded it from.</strong> Call that directory <code>BASE</code>. For example, if you loaded <code>https://example.com/grading/v5.0.0/AGENT.md</code>, then <code>BASE</code> is <code>https://example.com/grading/v5.0.0/</code>, and <code>suite/prompts/grader.md</code> means <code>https://example.com/grading/v5.0.0/suite/prompts/grader.md</code>.</p>
 <h2 id="1-pick-your-role">1. Pick your role<a class="anchor" href="#1-pick-your-role" aria-label="Link to this section">#</a></h2>
 <p>Take your role from the person's instruction:</p>
 <table>
@@ -32,39 +32,52 @@
 <tr>
 <th>Role</th>
 <th>When you're asked to…</th>
-<th>Your prompt</th>
+<th>Your card</th>
+<th>The full prompt, for reference</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td><strong>Grader</strong></td>
 <td>grade, audit, score or evaluate a codebase</td>
+<td><code>suite/prompts/cards/grader.md</code></td>
 <td><code>suite/prompts/grader.md</code></td>
 </tr>
 <tr>
 <td><strong>Report reviewer</strong></td>
 <td>check a grading report, or prepare or answer its decision questions</td>
+<td><code>suite/prompts/cards/reviewer.md</code></td>
 <td><code>suite/prompts/reviewer.md</code></td>
 </tr>
 <tr>
 <td><strong>Improver</strong></td>
 <td>improve or fix code against an existing report</td>
+<td><code>suite/prompts/cards/improver.md</code></td>
 <td><code>suite/prompts/improver.md</code></td>
 </tr>
 <tr>
 <td><strong>PR checker</strong></td>
 <td>check one pull request, change or diff</td>
-<td><code>suite/prompts/pr-review.md</code> (it builds on <code>grader.md</code>)</td>
+<td><code>suite/prompts/cards/pr-check.md</code></td>
+<td><code>suite/prompts/pr-review.md</code></td>
 </tr>
 </tbody>
 </table>
+<p>Your <strong>card</strong> is one page: the steps as <code>gradekit</code> commands, and the rules no tool can check for you. Read it in full; it says when to look something up in the full prompt.</p>
 <p>If the role isn't clear, ask. Take <strong>one role per session</strong>: never grade code you improved in the same session, because the grader must be independent.</p>
-<h2 id="2-put-a-copy-of-the-suite-on-disk-suite-dir">2. Put a copy of the suite on disk (<code>SUITE_DIR</code>)<a class="anchor" href="#2-put-a-copy-of-the-suite-on-disk-suite-dir" aria-label="Link to this section">#</a></h2>
+<h2 id="2-use-the-projects-version-of-the-suite">2. Use the project's version of the suite<a class="anchor" href="#2-use-the-projects-version-of-the-suite" aria-label="Link to this section">#</a></h2>
+<p>Each project pins the suite's major version it uses: <code>suite = &quot;N&quot;</code> under <code>[project]</code> in its <code>project.toml</code>, in the grading repo. If the pin's number differs from this file's first number (5.0.0), <strong>don't use this copy</strong>. Use version N instead:</p>
+<ul>
+<li>if <code>BASE/versions.json</code> exists, it lists the versions this site hosts: load <code>AGENT.md</code> from the <code>path</code> given for major N (relative to <code>versions.json</code>) and start again there;</li>
+<li>otherwise, ask the person for a copy of version N.</li>
+</ul>
+<p><code>gradekit</code> refuses to write a report for a project pinned to another major. A project without a pin can use any version; <code>gradekit doctor</code> suggests adding one.</p>
+<h2 id="3-put-a-copy-of-the-suite-on-disk-suite-dir">3. Put a copy of the suite on disk (<code>SUITE_DIR</code>)<a class="anchor" href="#3-put-a-copy-of-the-suite-on-disk-suite-dir" aria-label="Link to this section">#</a></h2>
 <p>The prompts expect the suite in a local directory, <code>SUITE_DIR</code>, so the tools can run. <strong>It must be outside the repository you're working on.</strong></p>
 <p><strong>Option A: your shell can reach this server (preferred).</strong></p>
 <pre tabindex="0"><code class="language-bash">DEST=&quot;$(mktemp -d)&quot;
-curl -fsSL &quot;BASE/downloads/code-grading-suite-4.3.0.zip&quot; -o &quot;$DEST/suite.zip&quot;
-echo &quot;efb7da7ffd10b6e2a87179966813a34290a14cb957fbdddf6467982df91ce567  $DEST/suite.zip&quot; | sha256sum -c -        # must print: OK
+curl -fsSL &quot;BASE/downloads/code-grading-suite-5.0.0.zip&quot; -o &quot;$DEST/suite.zip&quot;
+echo &quot;535a911fd20defd7fe59b4f98d98e6ff46c91458a6ff06fee2fef0912dddc553  $DEST/suite.zip&quot; | sha256sum -c -        # must print: OK
 unzip -q &quot;$DEST/suite.zip&quot; -d &quot;$DEST&quot;
 SUITE_DIR=&quot;$DEST/code-grading-suite&quot;
 </code></pre>
@@ -78,13 +91,14 @@ SUITE_DIR=&quot;$DEST/code-grading-suite&quot;
 </ul>
 <p><strong>Option C: you can't write files or run commands.</strong> Read the files by URL and follow them. You won't be able to run <code>gradekit.py</code>, so leave <code>rollup</code> null and say so under limitations; the person will run the tool.</p>
 <p><strong>If a checksum doesn't match, stop and tell the person.</strong> The copy may have been altered in transit or on the server.</p>
-<h2 id="3-read-your-prompt-in-full-then-follow-it">3. Read your prompt in full, then follow it<a class="anchor" href="#3-read-your-prompt-in-full-then-follow-it" aria-label="Link to this section">#</a></h2>
+<h2 id="4-read-your-prompt-in-full-then-follow-it">4. Read your prompt in full, then follow it<a class="anchor" href="#4-read-your-prompt-in-full-then-follow-it" aria-label="Link to this section">#</a></h2>
 <p>Every prompt starts with a short table of inputs: where the code is, where the <strong>grading repo</strong> is and which <strong>project</strong> (its folder <code>projects/&lt;project&gt;/</code> holds <code>project.toml</code>, <code>decisions.json</code>, <code>dispositions.json</code> and one dated folder per report), and how to deliver results. The person's instructions usually fill in that table, and this site's <strong>Start a run</strong> page writes complete instructions. Anything not given has a stated default, and each delivery option says which permissions it needs.</p>
 <ul>
-<li><strong>Grader:</strong> read <code>suite/prompts/grader.md</code> completely before starting. Load rubric files one pillar at a time, as it describes. Set <code>run.suite_source</code> to this file's URL followed by <code> (4.3.0)</code>.</li>
-<li><strong>Report reviewer:</strong> read <code>suite/prompts/reviewer.md</code>. Only humans approve decision questions, unless <code>project.toml</code> says agents may.</li>
-<li><strong>Improver:</strong> read <code>suite/prompts/improver.md</code>. Never change grading files, and look only at the ones you're pointed to.</li>
-<li><strong>PR checker:</strong> read <code>suite/prompts/pr-review.md</code>, plus <code>suite/prompts/grader.md</code>, which it builds on.</li>
+<li><strong>Grader:</strong> read <code>suite/prompts/cards/grader.md</code> completely before starting. Load the rubric one pillar at a time: <code>gradekit rubric A</code> prints pillar A's benchmarks, and <code>suite/rubric/rubric.json</code> has the same as data if you can't run Python. Set <code>run.suite_source</code> to this file's URL followed by <code> (5.0.0)</code>.</li>
+<li><strong>Report reviewer:</strong> read <code>suite/prompts/cards/reviewer.md</code>. Only humans approve decision questions, unless <code>project.toml</code> says agents may.</li>
+<li><strong>Improver:</strong> read <code>suite/prompts/cards/improver.md</code>. Never change grading files, and look only at the ones you're pointed to.</li>
+<li><strong>PR checker:</strong> read <code>suite/prompts/cards/pr-check.md</code>, plus the rules on the grader card, which it builds on.</li>
+<li><strong>Without Python</strong> (Option C above), the cards' commands won't run: follow the full prompt instead, which says how to write the report by hand.</li>
 </ul>
 <h2 id="trust-rules">Trust rules<a class="anchor" href="#trust-rules" aria-label="Link to this section">#</a></h2>
 <ul>
@@ -110,6 +124,14 @@ SUITE_DIR=&quot;$DEST/code-grading-suite&quot;
 <tr>
 <td><code>suite/README.md</code></td>
 <td>Overview and reference</td>
+</tr>
+<tr>
+<td><code>suite/prompts/cards/</code></td>
+<td>One card per role: the steps as commands, and the rules only an agent can follow</td>
+</tr>
+<tr>
+<td><code>suite/prompts/rules.json</code></td>
+<td>Every hard rule in the prompts, and the <code>gradekit</code> check or card that keeps it</td>
 </tr>
 <tr>
 <td><code>suite/prompts/grader.md</code></td>
@@ -141,7 +163,11 @@ SUITE_DIR=&quot;$DEST/code-grading-suite&quot;
 </tr>
 <tr>
 <td><code>suite/rubric/catalog.json</code></td>
-<td>Benchmark IDs, names and pillars</td>
+<td>Benchmark IDs, names, pillars and caps</td>
+</tr>
+<tr>
+<td><code>suite/rubric/rubric.json</code></td>
+<td>The rubric as data, one entry per benchmark (<code>gradekit rubric A3</code> prints one)</td>
 </tr>
 <tr>
 <td><code>suite/TUNING.md</code></td>
@@ -160,8 +186,8 @@ SUITE_DIR=&quot;$DEST/code-grading-suite&quot;
 <td>A sample repo and a complete example report</td>
 </tr>
 <tr>
-<td><code>downloads/code-grading-suite-4.3.0.zip</code></td>
-<td>Everything above as one zip (SHA-256 <code>efb7da7ffd10b6e2a87179966813a34290a14cb957fbdddf6467982df91ce567</code>)</td>
+<td><code>downloads/code-grading-suite-5.0.0.zip</code></td>
+<td>Everything above as one zip (SHA-256 <code>535a911fd20defd7fe59b4f98d98e6ff46c91458a6ff06fee2fef0912dddc553</code>)</td>
 </tr>
 <tr>
 <td><code>manifest.json</code>, <code>SHA256SUMS</code></td>
@@ -173,7 +199,7 @@ SUITE_DIR=&quot;$DEST/code-grading-suite&quot;
 </tr>
 </tbody>
 </table>
-<nav class="pager"><a href="../docs/GLOSSARY.html"><small>Previous</small>Glossary</a><a href="../docs/DEPLOY.html" style="margin-left:auto;text-align:right"><small>Next</small>Hosting this site</a></nav></main></div>
+<nav class="pager"><a href="../docs/GLOSSARY.html"><small>Previous</small>Glossary</a><a class="next" href="../docs/DEPLOY.html"><small>Next</small>Hosting this site</a></nav></main></div>
 <script src="../assets/site.js"></script>
 </body>
 </html>

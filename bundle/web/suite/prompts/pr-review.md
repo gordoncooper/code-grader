@@ -1,4 +1,4 @@
-# Code Grading Suite v4.3.0: PR Check
+# Code Grading Suite v5.0.0: PR Check
 
 A lightweight grading pass for a single change. It catches backsliding between full audits at a fraction of the cost. **Everything in `prompts/grader.md` still applies**: integrity and safety rules, scoring rules, evidence format, finding IDs and anti-gaming rules. This file only changes the scope and adds a verdict.
 
@@ -60,7 +60,7 @@ Then grade the touched benchmarks and update findings with the `gradekit report`
 - **Untouched benchmarks:** copy them unchanged from the last full report and set `carried_forward: true`.
 - **Config:** use the same project config as the last full report. If the config has changed since then, say so in the PR comment: weight changes alone can move the overall score.
 - **Findings:** for touched benchmarks, update statuses (`fixed`, `open`, `regressed`) and add `new` findings. Copy the rest unchanged.
-  - **A problem the change didn't cause** (it's already there at `BASE_COMMIT`, but the baseline report missed it): still add it as `new`, with `first_seen_commit` set to `BASE_COMMIT`. `gradekit diff` reports it as pre-existing and doesn't fail the PR for it. Problems the change introduces take `HEAD_COMMIT`.
+  - **A problem the change didn't cause** (it's already there at `BASE_COMMIT`, but the baseline report missed it): add it with status `noticed` (`report finding add … --status noticed`, which sets `first_seen_commit` to `BASE_COMMIT`). `gradekit diff` reports it as pre-existing and doesn't fail the PR for it. Problems the change introduces are `new`, with `HEAD_COMMIT`.
 - Re-run whichever tooling the change affects (always the tests; the linters and type checker if code changed; the dependency audit if manifests changed). Update the corresponding `metrics`.
 - **Output:** a full `pr-report.json` with `"mode": "pr"`, `run.commit` = `HEAD_COMMIT` and `run.base_commit` = `BASE_COMMIT`, written **outside the repo**. Then run `gradekit validate`, `verify-evidence` and `rollup --write`, exactly as in a full run, with `--project-dir PROJECT_DIR`.
 
@@ -75,7 +75,7 @@ python3 SUITE_DIR/tools/gradekit.py diff PROJECT_DIR/reports/<newest>/report.jso
 The PR **fails** if any of these hold:
 - any benchmark score dropped;
 - a gate newly failed;
-- a new finding the change introduced with **effective** severity `critical` or `major` (so a minor issue in a hot zone counts as major), or any `regressed` finding;
+- a new finding the change introduced with severity `critical` or `major`, or any `regressed` finding;
 - any gaming flag or integrity flag;
 - the maturity level dropped;
 - the hidden-check pass rate dropped (if hidden checks were run).
@@ -96,7 +96,7 @@ Without Python, keep it short and in this shape:
 **PR check: PASS | FAIL**
 Re-graded: A1, A4, C4, F2 (others carried forward)
 Changes: A4 5 → 7 (A4-001 fixed) · C4 7 → 7 · F2 8 → 9
-New findings: none | <ID: title, effective severity, zone>
+New findings: none | <ID: title, severity, zone>
 Regressions: none | <...>
 Decisions needed: none | <decision questions>
 ```

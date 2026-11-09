@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'wasm-unsafe-eval'; connect-src 'self' https://cdn.jsdelivr.net https://api.github.com https://raw.githubusercontent.com; img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'; worker-src 'self' blob:">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'wasm-unsafe-eval'; connect-src 'self' https://cdn.jsdelivr.net https://api.github.com https://raw.githubusercontent.com; img-src 'self' data:; style-src 'self'; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'; worker-src 'self' blob:">
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <title>Tuning guide · Code Grading Suite</title>
 <meta name="description" content="A rubric, prompts and browser tools for AI coding agents to grade codebases from 1 to 10 on 35 benchmarks and improve them.">
@@ -16,11 +16,11 @@
 <header class="topbar">
   <button class='menu-btn' type='button'>Menu</button>
   <a class="brand" href="../index.html">Code <span>Grading</span> Suite</a>
-  <span class="ver">v4.3.0</span>
-  <nav class="main" aria-label="Main"><a href="../docs/GETTING-STARTED.html">Get started</a><a href="../app/setup.html">Set up</a><a href="../app/run.html">Start a run</a><a href="../app/review.html">Review</a><a href="../docs/README.html" class="active" aria-current="page">Docs</a></nav>
+  <span class="ver">v5.0.0</span>
+  <nav class="main" aria-label="Main"><a href="../docs/GETTING-STARTED.html">Get started</a><a href="../app/setup.html">Set up</a><a href="../app/run.html">Start a run</a><a href="../app/review.html">Review</a><a href="../app/projects.html">Projects</a><a href="../docs/README.html" class="active" aria-current="page">Docs</a></nav>
   <span class="spacer"></span>
   <a class="top opt" href="../AGENT.md">AGENT.md</a>
-  <a class="top opt" href="../downloads/code-grading-suite-4.3.0.zip">Download</a>
+  <a class="top opt" href="../downloads/code-grading-suite-5.0.0.zip">Download</a>
 </header>
 <div class="layout"><nav class="sidebar" aria-label="Documentation"><h4>Start</h4><a href="../docs/GETTING-STARTED.html">Getting started</a><a href="../docs/README.html">Overview &amp; reference</a><a href="../docs/GLOSSARY.html">Glossary</a><a href="../docs/AGENT.html">Agent entry point</a><a href="../docs/DEPLOY.html">Hosting this site</a><h4>Configuration</h4><a href="../docs/TUNING.html" class="active" aria-current="page">Tuning guide</a><a href="../docs/rubric/weights.html">How scoring works</a><a href="../docs/config/defaults.html">Default config</a><a href="../docs/config/project.example.html">Example project config</a><h4>Prompts</h4><a href="../docs/prompts/grader.html">Grader</a><a href="../docs/prompts/reviewer.html">Report reviewer</a><a href="../docs/prompts/improver.html">Improver</a><a href="../docs/prompts/pr-review.html">PR check</a><h4>Rubric</h4><a href="../docs/rubric/A-correctness-trust.html">A · Correctness &amp; Trust</a><a href="../docs/rubric/B-design-structure.html">B · Design &amp; Structure</a><a href="../docs/rubric/C-code-health.html">C · Code Health</a><a href="../docs/rubric/D-value-fitness.html">D · Value &amp; Fitness</a><a href="../docs/rubric/E-adoption-experience.html">E · Adoption &amp; Experience</a><a href="../docs/rubric/F-operations-delivery.html">F · Operations &amp; Delivery</a><a href="../docs/rubric/X-conditional.html">X · Conditional</a><h4>Guides</h4><a href="../docs/calibration/README.html">Calibration</a><a href="../docs/holdout/README.html">Hidden checks</a><a href="../docs/CHANGELOG.html">Changelog</a></nav><main class="doc" id="main"><div class="docbar"><a class="btn" href="../suite/TUNING.md">View raw .md</a><button class="btn" type="button" data-copy="../suite/TUNING.md">Copy raw URL for an agent</button></div><details class="toc"><summary>On this page</summary><ul><li><a href="#how-configs-stack">How configs stack</a></li><li><a href="#start-a-project-in-one-minute">Start a project in one minute</a></li><li><a href="#what-you-can-tune-from-lightest-touch-to-heaviest">What you can tune, from lightest touch to heaviest</a></li><li><a href="#good-habits">Good habits</a></li></ul></details><h1 id="tuning-the-suite">Tuning the suite<a class="anchor" href="#tuning-the-suite" aria-label="Link to this section">#</a></h1>
 <p>Every adjustable part of scoring is plain, commented TOML. You never need to touch the prompts or the code to change weights, gates, zones, targets or maturity rules.</p>
@@ -67,6 +67,7 @@ criticality = &quot;cold&quot;
 why = &quot;Never runs in production&quot;
 </code></pre>
 <p>Patterns: <code>**</code> matches any number of directories, <code>*</code> matches within one directory, and a pattern ending in <code>/</code> means everything under it. Paths are relative to the repo root.</p>
+<p>Keep hot zones to the code where a bug really costs more. A hot zone that covers most of the code can't say where problems cost more, and <code>gradekit doctor</code> warns about it.</p>
 <h3 id="3-set-targets-per-project">3. Set targets (per project)<a class="anchor" href="#3-set-targets-per-project" aria-label="Link to this section">#</a></h3>
 <pre tabindex="0"><code class="language-toml">[targets]
 mode = &quot;level:L3&quot;          # or &quot;proportional&quot; (default) or &quot;maximal&quot;
@@ -166,7 +167,7 @@ path      = &quot;apps/web&quot;
 <li><strong>Review the <code>weight_note</code>s.</strong> Graders flag weights that look wrong for the code they saw. If the same note keeps coming up, adjust the answer or add an override.</li>
 <li><strong>Keep it boring.</strong> The defaults are deliberately conservative. Most projects need only a preset, two or three answers and a zone map.</li>
 </ul>
-<nav class="pager"><a href="../docs/DEPLOY.html"><small>Previous</small>Hosting this site</a><a href="../docs/rubric/weights.html" style="margin-left:auto;text-align:right"><small>Next</small>How scoring works</a></nav></main></div>
+<nav class="pager"><a href="../docs/DEPLOY.html"><small>Previous</small>Hosting this site</a><a class="next" href="../docs/rubric/weights.html"><small>Next</small>How scoring works</a></nav></main></div>
 <script src="../assets/site.js"></script>
 </body>
 </html>

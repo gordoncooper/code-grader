@@ -1,0 +1,11 @@
+{
+  "_about": "The versions of the Code Grading Suite this site hosts, newest first. `path` is relative to this file. Projects pin a major version (suite = \"N\" in project.toml); use that major's path.",
+  "latest": "5.0.0",
+  "versions": [
+    {
+      "major": "5",
+      "version": "5.0.0",
+      "path": "./"
+    }
+  ]
+}
