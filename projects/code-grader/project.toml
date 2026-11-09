@@ -1,0 +1,42 @@
+# The Code Grading Suite grading itself. This file lives only on the grading/code-grader branch,
+# with its reports, so none of it reaches main.
+
+[project]
+name            = "code-grader"
+description     = "The Code Grading Suite: prompts, rubric and config, the gradekit tool, and the browser tools (set up, start a run, review, projects) that grade codebases on 35 benchmarks"
+code_repo       = "https://github.com/gordoncooper/code-grader"
+preset          = "cli"
+suite           = "5"
+languages       = "Python 3.11+ (gradekit, build and release scripts), JavaScript (the static website, running gradekit in Pyodide), Markdown/TOML/JSON (prompts, rubric, config, schemas), GitHub Actions and GitLab CI YAML"
+users           = "Developers and their coding agents: graders, reviewers, improvers and pull-request checks follow the prompts and run gradekit; people use the website to set up projects, start runs and review reports"
+maturity_target = "public open source"
+scope           = "source/: gradekit (report authoring, scoring and rollup, validation, redaction, delivery, CI checks, MCP server), the website and its build, prompts and operating cards, rubric, config and presets, schemas, CI templates; tests/; .github/ (CI, release and Pages publishing)"
+out_of_scope    = ["bundle/**", "projects/**", "source/calibration/golden/*/runs/**", "source/calibration/results/**"]
+
+[answers]
+data_sensitivity = "internal"      # code under review and reports, which can hold security findings (hence redaction)
+audience         = "developers"
+lifespan         = "years"
+failure_impact   = "degraded_work" # a wrong score or a broken check misleads or blocks the work it grades
+team             = "solo"
+change_rate      = "constant"
+delivery         = "mixed"         # a CLI and kit agents run, plus a static website
+scale            = "small"
+
+[[zones]]
+name        = "scoring and report integrity"
+paths       = ["source/tools/gradekit.py", "source/config/**", "source/rubric/**", "source/schema/**", "source/tools/web/engine.js"]
+criticality = "hot"
+why         = "Computes and validates every score, cap, gate and redaction; a bug here grades every project wrongly"
+
+[[zones]]
+name        = "release and publishing"
+paths       = [".github/scripts/**", ".github/workflows/**"]
+criticality = "hot"
+why         = "Builds, signs and publishes what every user and agent downloads"
+
+[[zones]]
+name        = "samples and calibration data"
+paths       = ["source/examples/**", "source/calibration/**", "tests/fixtures/**"]
+criticality = "cold"
+why         = "Sample and reference data for tests and the website's sample; not run by users"
