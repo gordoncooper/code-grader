@@ -215,6 +215,26 @@ Major release, in progress: a beta for agents first, then the pages for people. 
 **A guided first run (U4)**
 - *Take a guided first run* on the home page, or `?tour=1` on any app page, starts six steps on the sample: open a report, find the weakest benchmark, answer a decision, see every project, set up your own project, and get the prompt for its first grade. A bar at the top of every app page shows the progress (kept in this browser), links to the next step, and ends the tour.
 
+**Grading on a schedule (N2)**
+- **`[schedule]` in `project.toml`:** `grade_every_days` (0, the default, means no schedule) and `only_if_code_changed` (default true). It never changes scores or the config hash. Set up has it under *Advanced*.
+- **`gradekit due`** says which projects are due, and why or why not: never graded, or enough days since the last full grade and, by default, new commits on the code's default branch. `--check-code` reads each code repo's newest commit with `git ls-remote`, without cloning; `--code-head NAME=SHA` gives it instead. A project that already has an open grade order isn't due again. `--write-orders` writes a grade work order for each due project, with `requested_by` "schedule", the commit, and the reason.
+- **The grading CI runs it.** On GitHub, a new `schedule` job runs every Monday and on demand. On GitLab, `grading-schedule` runs in a pipeline schedule. Each opens one pull request per due project, since `gradekit ci` wants one project per pull request. Permissions are in `ci/README.md`: on GitHub, letting Actions open pull requests, plus `CODE_READ_TOKEN` for private code; on GitLab, `GRADING_BOT_TOKEN`.
+- `write_order` is shared by `order new` and `due`.
+
+**Time and cost on the pages (N3)**
+- **The index** carries each report's `model` and `usage` (minutes, tokens, cost, where recorded), and each project's `schedule` when it has one. `index.schema.json` describes them.
+- **Review** says who graded, with which model, how long it took, what it cost, and the work order, or that the report didn't record them.
+- **Projects:**
+  - *All projects* adds agent time and cost over the last 30 days. Each row shows its last grade's time and cost, and *due* or the next date when it's on a schedule.
+  - *One project* adds a **Time and cost** card, with the average full grade and every run's model, time, tokens and cost. It also says when the project is next due.
+
+**A command palette (U2)**
+- **Ctrl/Cmd+K, or Search in the top bar, on every app page** searches the pages, every doc, every benchmark's rubric section and every glossary term (with its definition).
+- **On Review:** this report's tabs, benchmarks (with scores) and findings, which open in place, plus print.
+- **On Projects:** its projects and tabs.
+- **Accessibility:** it's a modal `dialog` with a combobox and listbox. Arrows move, Enter opens, and Esc closes and returns focus.
+- The build writes `assets/search.js` from the docs, the rubric and the glossary.
+
 ## 4.3.0
 Minor release: tools that let agents run the whole cycle without custom scripts, and safer publishing. No scoring changes; config fingerprints and existing reports stay valid. Tested by running the whole cycle on a real repository (dbader/schedule) with `gradekit` commands only: it reproduced the 4.2.2 grade exactly.
 

@@ -60,6 +60,24 @@
               "null"
             ]
           },
+          "schedule": {
+            "type": "object",
+            "description": "[schedule] in project.toml, when it asks for grades (present only then)",
+            "required": [
+              "grade_every_days",
+              "only_if_code_changed"
+            ],
+            "properties": {
+              "grade_every_days": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "only_if_code_changed": {
+                "type": "boolean"
+              }
+            },
+            "additionalProperties": false
+          },
           "problems": {
             "type": "array",
             "items": {
@@ -229,6 +247,33 @@
                       "string"
                     ]
                   }
+                },
+                "model": {
+                  "type": "string",
+                  "description": "run.model: the model that graded"
+                },
+                "usage": {
+                  "type": "object",
+                  "description": "run.usage, where recorded: minutes, tokens_in, tokens_out, cost_usd",
+                  "properties": {
+                    "minutes": {
+                      "type": "number",
+                      "minimum": 0
+                    },
+                    "tokens_in": {
+                      "type": "number",
+                      "minimum": 0
+                    },
+                    "tokens_out": {
+                      "type": "number",
+                      "minimum": 0
+                    },
+                    "cost_usd": {
+                      "type": "number",
+                      "minimum": 0
+                    }
+                  },
+                  "additionalProperties": false
                 }
               }
             }

@@ -363,3 +363,20 @@ allow_agent_decisions = false
 public = true
 sensitive_benchmarks = ["A2"]
 warn_at = "major"
+
+
+# -----------------------------------------------------------------------------
+# SCHEDULE: grading on a schedule
+# The grading CI's scheduled job runs `gradekit due --check-code --write-orders`,
+# which writes a grade work order (projects/NAME/orders/) for each project that's
+# due and sends them as a pull request. Whoever runs graders picks them up with
+# `gradekit order list`.
+#   grade_every_days      0: no schedule. Otherwise, due this many days after
+#                         the last full grade (or now, if never graded).
+#   only_if_code_changed  and only if the code's default branch has moved since
+#                         the commit last graded.
+# These settings never change scores, so they don't change the config hash.
+# -----------------------------------------------------------------------------
+[schedule]
+grade_every_days = 0
+only_if_code_changed = true

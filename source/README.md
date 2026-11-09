@@ -102,6 +102,8 @@ $K guard snapshot CODE --from-report REPORT [--check NAME=CMD]  # improvers: the
 $K guard compare CODE [--explain KEY=REASON]                    # …and after: exit 2 if anything got worse
 $K rubric A3                                                     # one benchmark's rubric (or a pillar: B); --json for data
 $K order new --project orders-api --role grade [--commit SHA]    # a work order: the request behind a run (order list, order close)
+$K due --check-code [--write-orders]                             # which projects are due for a grade under their [schedule]
+$K decide --project orders-api --approve D1-act-1 --by NAME     # answer decision questions (decisions --approved lists them)
 $K mcp                                                          # every command as an MCP tool, on stdin/stdout
 $K dispute add A3-002 --project orders-api --reason "…" --by NAME   # people: a finding is wrong (the next grader answers it)
 $K report new --project orders-api --commit SHA --component api   # monorepos: one report per component (and --component repo)

@@ -283,6 +283,8 @@ def deep_merge(base: dict, over: dict) -> dict:
 # Publishing settings never change scores, so they are not part of the config fingerprint.
 PUBLISHING_DEFAULTS = {"public": True, "sensitive_benchmarks": ["A2"], "warn_at": "major"}
 
+# [schedule] in project.toml: when the scheduled job (`gradekit due --write-orders`) asks for a grade. Never changes scores.
+SCHEDULE_DEFAULTS = {"grade_every_days": 0, "only_if_code_changed": True}
 HASHED_KEYS = ("suite_version", "preset", "answers", "weights", "gates", "zones", "targets", "maturity", "priorities")
 
 
@@ -473,6 +475,13 @@ def resolve_layers(layers: list[tuple[str, dict]], component: str | None = None,
         if not isinstance(d.get("approved"), bool):
             errors.append(f"decisions #{i} ({d.get('action_id')}): approved must be true or false")
     review = {"allow_agent_decisions": False, **(merged.get("review", {}) or {})}
+    schedule = {**SCHEDULE_DEFAULTS, **(merged.get("schedule", {}) or {})}
+    if not isinstance(schedule.get("grade_every_days"), int) or isinstance(schedule.get("grade_every_days"), bool) or schedule["grade_every_days"] < 0:
+        errors.append("schedule.grade_every_days must be a whole number of days (0: no schedule)")
+    if not isinstance(schedule.get("only_if_code_changed"), bool):
+        errors.append("schedule.only_if_code_changed must be true or false")
+    for k in sorted(set(schedule) - set(SCHEDULE_DEFAULTS)):
+        errors.append(f"schedule.{k}: unknown setting (grade_every_days, only_if_code_changed)")
     publishing = {**PUBLISHING_DEFAULTS, **(merged.get("publishing", {}) or {})}
     if not isinstance(publishing.get("public"), bool):
         errors.append("publishing.public must be true or false")
@@ -508,6 +517,7 @@ def resolve_layers(layers: list[tuple[str, dict]], component: str | None = None,
         "decisions": decisions,
         "review": review,
         "publishing": publishing,
+        "schedule": schedule,
         "warnings": warnings,
     }
     cfg["hash"] = config_hash(cfg)
@@ -2196,6 +2206,13 @@ def render_project_toml(data: dict, defaults: dict | None = None, path: str = "p
     else:
         out += ["# Only trusted people can read this grading repo, so security details may stay in reports",
                 "# (default: treat it as public and withhold them):", "# [publishing]", "# public = false", ""]
+
+    schedule = d.pop("schedule", None)
+    if schedule:
+        _emit_table("schedule", schedule, out)
+    else:
+        out += ["# Ask for a grade on a schedule (the grading CI's scheduled job writes a work order when it's due):",
+                "# [schedule]", "# grade_every_days     = 30", "# only_if_code_changed = true", ""]
 
     for comp in d.pop("components", []) or []:
         _emit_table("components", comp, out, array=True)
@@ -4593,23 +4610,128 @@ def work_order_note(pdir: Path | None, report: dict) -> str | None:
     return None
 
 
-def cmd_order_new(args) -> int:
-    pdir = project_dir_from_args(args)
-    if pdir is None or not (pdir / PROJECT_FILE).exists():
-        die("give --project NAME (or --project-dir) of a project with a project.toml")
+def write_order(pdir: Path, role: str, **fields) -> tuple[dict, Path]:
+    """projects/NAME/orders/<date>-<role>-<n>.json, with the next free n for today."""
     now = utc_now()
-    n = 1 + max([int(m.group(1)) for f in (pdir / ORDERS_DIR).glob(f"{now[:10]}-{args.role}-*.json")
+    n = 1 + max([int(m.group(1)) for f in (pdir / ORDERS_DIR).glob(f"{now[:10]}-{role}-*.json")
                  if (m := re.search(r"-(\d+)\.json$", f.name))] or [0]) if (pdir / ORDERS_DIR).is_dir() else 1
-    oid = f"{now[:10]}-{args.role}-{n}"
-    order = {"id": oid, "project": pdir.name, "role": args.role, "status": "open", "created": now, "requested_by": args.by,
-             "commit": args.commit, "base_commit": args.base_commit, "change": args.change, "delivery": args.delivery,
-             "budget": args.budget, "notes": args.note}
+    oid = f"{now[:10]}-{role}-{n}"
+    order = {"id": oid, "project": pdir.name, "role": role, "status": "open", "created": now, **fields}
     order = {k: v for k, v in order.items() if v is not None}
     out = pdir / ORDERS_DIR / f"{oid}.json"
     out.parent.mkdir(parents=True, exist_ok=True)
     write_json(out, order)
+    return order, out
+
+
+def cmd_order_new(args) -> int:
+    pdir = project_dir_from_args(args)
+    if pdir is None or not (pdir / PROJECT_FILE).exists():
+        die("give --project NAME (or --project-dir) of a project with a project.toml")
+    order, out = write_order(pdir, args.role, requested_by=args.by, commit=args.commit, base_commit=args.base_commit,
+                             change=args.change, delivery=args.delivery, budget=args.budget, notes=args.note)
+    oid = order["id"]
     emit(args, {"order": order, "written": str(out)},
          f"wrote {out}\nGive the agent its ID (\"Work order: {oid}\"); its report records it with `--work-order {oid}`, which closes the order.")
+    return 0
+
+
+# ---------------------------------------------------------------- scheduled grading
+# `gradekit due` says which projects are due for a grade under their [schedule]; with --write-orders it writes a grade
+# work order for each, which the scheduled CI job sends as a pull request. A grader (a person's agent, or an agent run
+# on a schedule) picks open orders up with `gradekit order list`.
+
+def code_head(url: str | None) -> tuple[str | None, str | None]:
+    """The default branch's newest commit of a code repo, by `git ls-remote` (no clone). (sha, None) or (None, why)."""
+    import subprocess
+    if not url:
+        return None, "no code_repo in project.toml"
+    try:
+        r = subprocess.run(["git", "ls-remote", url, "HEAD"], capture_output=True, text=True, timeout=60,
+                           env={**os.environ, "GIT_TERMINAL_PROMPT": "0"})
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return None, f"git ls-remote failed: {exc}"
+    sha = (r.stdout.split() or [None])[0]
+    if r.returncode != 0 or not sha:
+        return None, f"couldn't read {url} ({(r.stderr.strip().splitlines() or ['no output'])[-1]})"
+    return sha, None
+
+
+def due_check(pdir: Path, cfg: dict, today: str, head: str | None, head_note: str | None) -> dict:
+    """Whether a project is due for a grade today, and why (or why not)."""
+    import datetime
+    sched = cfg.get("schedule") or SCHEDULE_DEFAULTS
+    every = sched.get("grade_every_days") or 0
+    full = [f for f in report_folders(pdir) if load_json(f / "report.json").get("mode") != "pr"]
+    last = load_json(full[-1] / "report.json") if full else None
+    run = (last or {}).get("run") or {}
+    last_date, last_commit = str(run.get("date") or "")[:10] or None, str(run.get("commit") or "") or None
+    out = {"project": pdir.name, "grade_every_days": every, "last_grade": last_date, "last_commit": (last_commit or "")[:7] or None,
+           "code_head": head[:7] if head else None, "due": False}
+    open_grades = [o["id"] for o in load_orders(pdir) if o.get("role") == "grade" and order_status(o, answered_orders(pdir)) == "open"]
+    if not every:
+        out["reason"] = "no schedule ([schedule] grade_every_days = 0)"
+        return out
+    if open_grades:
+        out["reason"] = f"already ordered ({', '.join(open_grades)})"
+        return out
+    if last_date is None:
+        out.update(due=True, reason="never graded")
+        return out
+    days = (datetime.date.fromisoformat(today) - datetime.date.fromisoformat(last_date)).days
+    out["days_since"] = days
+    if days < every:
+        out["reason"] = f"graded {plural(days, 'day')} ago; next after {every}"
+        return out
+    if sched.get("only_if_code_changed", True):
+        if head is None:
+            out["reason"] = f"{days} days since the last grade, but the code's newest commit is unknown ({head_note or 'not checked'}); "\
+                            "run with --check-code, or set only_if_code_changed = false"
+            return out
+        if last_commit and (head.startswith(last_commit) or last_commit.startswith(head)):
+            out["reason"] = f"{days} days since the last grade, but the code hasn't changed ({head[:7]})"
+            return out
+    out.update(due=True, reason=f"{days} days since the last grade (every {every})" +
+               (f"; the code moved from {last_commit[:7]} to {head[:7]}" if head and last_commit else ""))
+    return out
+
+
+def cmd_due(args) -> int:
+    root = Path(args.grading_repo or ".")
+    if args.project or args.project_dir:
+        pdirs = [project_dir_or_die(args)]
+    else:
+        if not (root / "projects").is_dir():
+            die(f"{root} has no projects/ folder (is it a grading repo?)")
+        pdirs = [d for d in sorted((root / "projects").iterdir()) if (d / PROJECT_FILE).exists()]
+    heads = {}
+    for h in args.code_head or []:
+        name, _, sha = h.partition("=")
+        if not sha:
+            die(f"--code-head {h}: expected NAME=SHA")
+        heads[name] = sha
+    today = args.today or utc_now()[:10]
+    rows, written = [], []
+    for pdir in pdirs:
+        try:
+            cfg = load_config(argparse.Namespace(project_dir=str(pdir), config=None, component=None), quiet=True)
+        except GradekitError as exc:
+            rows.append({"project": pdir.name, "due": False, "reason": f"config: {exc}"})
+            continue
+        head, note = heads.get(pdir.name), None
+        sched = cfg.get("schedule") or SCHEDULE_DEFAULTS
+        if head is None and args.check_code and sched.get("grade_every_days") and sched.get("only_if_code_changed", True):
+            head, note = code_head((cfg.get("project") or {}).get("code_repo"))
+        row = due_check(pdir, cfg, today, head, note)
+        if row["due"] and args.write_orders:
+            order, out = write_order(pdir, "grade", requested_by=args.by, commit=head,
+                                     notes=f"Scheduled grade: {row['reason']}.", delivery="pr")
+            row["order"] = order["id"]
+            written.append(str(out))
+        rows.append(row)
+    lines = [f"{'due' if r['due'] else '-  '}  {r['project']}: {r['reason']}" + (f" → work order {r['order']}" if r.get("order") else "")
+             for r in rows]
+    emit(args, {"today": today, "projects": rows, "written": written}, "\n".join(lines) or "no projects")
     return 0
 
 
@@ -4664,6 +4786,8 @@ def build_index(root: Path) -> dict:
             proj = cfg.get("project") or {}
             entry.update({"description": proj.get("description"), "preset": cfg["preset"], "code_repo": proj.get("code_repo"),
                           "path": proj.get("path"), "config_hash": cfg["hash"]})
+            if (cfg.get("schedule") or {}).get("grade_every_days"):
+                entry["schedule"] = cfg["schedule"]
         except GradekitError as exc:
             cfg = None
             entry["problems"].append(f"config: {exc}")
@@ -4676,8 +4800,10 @@ def build_index(root: Path) -> dict:
                 continue
             roll = r.get("rollup") or {}
             run = r.get("run") or {}
+            usage = {k: v for k, v in (run.get("usage") or {}).items() if v is not None}
             history.append({"folder": folder.name, "date": str(run.get("date") or "")[:10], "commit": str(run.get("commit") or "")[:7],
                             "mode": r.get("mode"), "overall": roll.get("overall_score"),
+                            **({"model": run["model"]} if run.get("model") else {}), **({"usage": usage} if usage else {}),
                             "level": (roll.get("maturity") or {}).get("current_level"),
                             "pillars": roll.get("pillar_scores") or {},
                             "scores": {b.get("id"): ("n/a" if b.get("applicability") == "not_applicable" else b.get("score"))
@@ -7371,6 +7497,15 @@ def build_parser() -> argparse.ArgumentParser:
     q.add_argument("--by")
     q.add_argument("--note")
     q.set_defaults(fn=cmd_order_close)
+
+    p = sub.add_parser("due", help="which projects are due for a grade under their [schedule]; --write-orders asks for each")
+    p.add_argument("--project", metavar="NAME"); p.add_argument("--grading-repo", metavar="DIR"); p.add_argument("--project-dir", metavar="DIR")
+    p.add_argument("--check-code", action="store_true", help="read each code repo's newest commit with `git ls-remote` (needs read access)")
+    p.add_argument("--code-head", action="append", metavar="NAME=SHA", help="a project's newest code commit, if you know it (repeatable)")
+    p.add_argument("--write-orders", action="store_true", help="write a grade work order for each project that's due")
+    p.add_argument("--by", default="schedule", help="requested_by on the orders (default: schedule)")
+    p.add_argument("--today", metavar="YYYY-MM-DD", help="default: today (UTC)")
+    p.set_defaults(fn=cmd_due)
 
     p = sub.add_parser("mcp", help="run as an MCP server on stdin/stdout: every command becomes a tool, for agents without a shell")
     p.add_argument("--list", action="store_true", help="print the tools it offers, and exit")

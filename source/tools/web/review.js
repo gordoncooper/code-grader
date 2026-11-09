@@ -474,6 +474,11 @@
       h("div", { class: "stat" }, h("div", { class: "k" }, "Graded"), h("div", { class: "v commit" }, String(run.commit || "?").slice(0, 12)),
         h("div", { class: "s" }, [run.date, (R.report.config || {}).preset ? "preset " + R.report.config.preset : null, R.report.mode === "pr" ? "PR mode" : null].filter(Boolean).join(" · ")))));
 
+    var who = [run.grader, run.model ? "(" + run.model + ")" : null].filter(Boolean).join(" ");
+    var runBits = [who ? "Graded by " + who : null].concat(UI.usageParts(run.usage)).concat([run.work_order ? "work order " + run.work_order : null]).filter(Boolean);
+    box.appendChild(h("p", { class: "kbd-note run-line" }, runBits.length ? runBits.join(" · ") : "The report doesn't say who graded it or how long it took.",
+      (run.usage && (run.usage.minutes != null || run.usage.cost_usd != null)) ? null : h("span", null, runBits.length ? " · time and cost not recorded" : "")));
+
     var gates = h("div", { class: "row-btns" }, roll.gates.map(function (g) {
       return h("span", { class: "badge " + (g.status === "failed" ? "bad" : g.status === "passed" ? "ok" : ""), title: bname(g.benchmark_id) + " — gate because " + g.why.join(", ") },
         g.benchmark_id + " " + bname(g.benchmark_id) + ": " + (g.score === null ? "–" : g.score) + (g.status === "failed" ? " ✗" : ""));
@@ -856,6 +861,22 @@
     document.addEventListener("gk:tab", function (e) { if (e.detail.tabs === "result-tabs" && e.detail.tab === "scorecard" && !$("#results").hidden) UI.tour.done("scorecard"); });
     resultTabs = UI.tabs($("#result-tabs"));
     $("#result-tabs").addEventListener("click", function (e) { var t = e.target.closest("button[data-tab]"); if (t) remember({ tab: t.dataset.tab }); });
+    // The command palette (Ctrl/Cmd+K): this report's views, benchmarks and findings.
+    UI.palette.add(function () {
+      if (!R || $("#results").hidden) return [{ group: "This page", label: "Open the sample report", run: function () { loadTabs.select("files"); loadSample(); } }];
+      var out = [["overview", "Overview"], ["decisions", "Decisions"], ["priorities", "Priorities"], ["scorecard", "Scorecard"], ["findings", "Findings"], ["compare", "Compare"], ["more", "More"]]
+        .map(function (t) { return { group: "This report", label: "Go to " + t[1], keywords: "tab", run: function () { applyView({ tab: t[0] }); } }; });
+      out.push({ group: "This report", label: "Print or save as PDF", run: printReport });
+      (R.report.benchmarks || []).forEach(function (b) {
+        out.push({ group: "Benchmarks in this report", label: b.id + " " + bname(b.id), hint: b.applicability === "not_applicable" ? "not applicable" : "score " + (b.score == null ? "–" : b.score),
+                   keywords: "benchmark score", run: function () { applyView({ bench: b.id }); } });
+      });
+      (R.report.findings || []).forEach(function (f) {
+        out.push({ group: "Findings in this report", label: f.id + " " + (f.title || ""), hint: [f.severity, f.status].filter(Boolean).join(" · "),
+                   keywords: "finding " + (f.paths || []).join(" "), run: function () { applyView({ finding: f.id }); } });
+      });
+      return out;
+    });
     window.addEventListener("hashchange", function () {   // a link to another view of this report (e.g. from the tour)
       if (!R || $("#results").hidden) return;
       var v = {}; new URLSearchParams(location.hash.slice(1)).forEach(function (val, k) { v[k] = val; });

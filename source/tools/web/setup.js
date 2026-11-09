@@ -2,7 +2,7 @@
 (function () {
   "use strict";
   var h = UI.h, $ = UI.$, $$ = UI.$$;
-  var KNOWN = ["project", "answers", "zones", "targets", "weights", "gates", "review", "publishing"];
+  var KNOWN = ["project", "answers", "zones", "targets", "weights", "gates", "review", "publishing", "schedule"];
   // Quick setup asks these; the preset answers the rest (under "More questions").
   var QUICK = ["data_sensitivity", "audience", "failure_impact"];
   var info = null;          // questions, presets, catalog… from gradekit
@@ -14,7 +14,7 @@
   function blank() {
     return { project: { name: "", preset: "default", _new: true }, answers: {}, zones: [],
              targets: { mode: "proportional", overrides: {} }, weights: { overrides: {} },
-             gates: { extra: [] }, review: {}, publishing: {} };
+             gates: { extra: [] }, review: {}, publishing: {}, schedule: {} };
   }
   function benchmarkName(id) {
     var b = info && info.catalog.benchmarks.find(function (x) { return x.id === id; });
@@ -179,6 +179,9 @@
     if (mode.indexOf("level:") === 0) $("#t-level").value = mode.split(":")[1];
     $("#agent-decisions").checked = !!(state.review && state.review.allow_agent_decisions);
     $("#private-repo").checked = !!(state.publishing && state.publishing.public === false);
+    var sch = state.schedule || {};
+    $("#s-every").value = sch.grade_every_days ? String(sch.grade_every_days) : "";
+    $("#s-changed").checked = sch.only_if_code_changed !== false;
     showPath();
   }
 
@@ -209,6 +212,9 @@
     d.publishing = d.publishing || {};
     if (d.publishing.public !== false) delete d.publishing.public;
     if (!Object.keys(d.publishing).length) delete d.publishing;
+    d.schedule = d.schedule || {};
+    if (!d.schedule.grade_every_days) delete d.schedule;
+    else if (d.schedule.only_if_code_changed !== false) delete d.schedule.only_if_code_changed;   // the default
     Object.keys(extras).forEach(function (k) { d[k] = extras[k]; });
     return d;
   }
@@ -310,6 +316,7 @@
       fresh.gates = Object.assign({ extra: [] }, d.gates || {});
       fresh.review = d.review || {};
       fresh.publishing = d.publishing || {};
+      fresh.schedule = d.schedule || {};
       extras = {};
       Object.keys(d).forEach(function (k) { if (KNOWN.indexOf(k) < 0) extras[k] = d[k]; });
       state = fresh;
@@ -370,6 +377,11 @@
     $("#t-level").addEventListener("change", function () { state.targets.mode = "level:" + $("#t-level").value; refresh(); });
     $("#agent-decisions").addEventListener("change", function (e) { state.review = state.review || {}; state.review.allow_agent_decisions = e.target.checked; refresh(); });
     $("#private-repo").addEventListener("change", function (e) { state.publishing = state.publishing || {}; if (e.target.checked) state.publishing.public = false; else delete state.publishing.public; refresh(); });
+    $("#s-every").addEventListener("input", function () {
+      var n = parseInt($("#s-every").value, 10); state.schedule = state.schedule || {};
+      if (n > 0) state.schedule.grade_every_days = n; else delete state.schedule.grade_every_days; refresh();
+    });
+    $("#s-changed").addEventListener("change", function (e) { state.schedule = state.schedule || {}; state.schedule.only_if_code_changed = e.target.checked; refresh(); });
     $("#org-toml").addEventListener("input", UI.debounce(async function () { await loadInfo(); renderAll(); refresh(); }, 600));
     $("#f-grading").value = UI.store.get("grading_repo", "");
     $("#f-grading").addEventListener("input", UI.debounce(function () { UI.store.set("grading_repo", $("#f-grading").value.trim()); renderSave(); }, 250));

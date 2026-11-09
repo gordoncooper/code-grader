@@ -120,9 +120,38 @@ def tour(page, site):
     page.wait_for_selector(".tour-bar")
 
 
+def palette(page, site):
+    """The command palette over Review's sample, searching for a benchmark."""
+    review_tab("overview")(page, site)
+    page.keyboard.press("Control+k")
+    page.wait_for_selector("dialog.palette[open]")
+    page.keyboard.type("robust")
+    page.wait_for_selector(".pal-item[aria-selected=true]")
+
+
+def projects_costs(page, site):
+    """One project with a schedule and recorded time and cost (an index made for the test)."""
+    import json
+    from conftest import EXAMPLE
+    idx = json.loads((EXAMPLE / "projects" / "index.json").read_text())
+    p = idx["projects"][0]
+    p["schedule"] = {"grade_every_days": 14, "only_if_code_changed": True}
+    usage = [{"minutes": 71.0, "tokens_in": 2400000, "tokens_out": 180000, "cost_usd": 6.4}, {"minutes": 52.5, "cost_usd": 3.1}]
+    for h, u in zip([x for x in p["history"] if x.get("mode") != "pr"], usage):
+        h["model"] = "claude-opus-5-5"
+        h["usage"] = u
+    page.goto(site + "app/projects.html", wait_until="networkidle")
+    page.click("#load-tabs button[data-tab=file]")
+    page.set_input_files("#pj-file", files=[{"name": "index.json", "mimeType": "application/json", "buffer": json.dumps(idx).encode()}])
+    page.wait_for_selector("#pj-results:not([hidden])")
+    page.click("#pj-tabs button[data-tab=project]")
+    page.wait_for_selector("table.heat")
+
+
 TABS = ["overview", "decisions", "priorities", "scorecard", "findings", "compare", "more"]
 STATES = ([home, docs, setup_empty, setup_filled, run_page, run_three, review_empty] + [review_tab(t) for t in TABS]
           + [components, dark(components), dark(setup_filled), dark(review_tab("findings"))]
           + [projects_empty, projects_tab("all"), projects_tab("decisions"), projects_tab("project"), dark(projects_tab("project"))]
           + [review_link("finding=A1-001"), review_link("bench=A3"), dark(review_link("finding=A1-001"))]
-          + [setup_saving, run_order, review_answered, tour, dark(tour)])
+          + [setup_saving, run_order, review_answered, tour, dark(tour)]
+          + [palette, dark(palette), projects_costs])
