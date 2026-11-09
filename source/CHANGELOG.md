@@ -161,6 +161,7 @@ Major release, in progress: a beta for agents first, then the pages for people. 
   - A broken contributor setup is E3, even when the fault is in its docs. `E2-cap-1` is for instructions users follow.
   - A quickstart that needs something the documented install doesn't provide fails as written (`E1-cap-1`).
   - F3 is `limited` for a library, which has no telemetry of its own.
+  - E2 has a fixed procedure: run every example in the README and the main guide, compare the reference with the public names, and check five behaviors users rely on. Its anchors now say what separates 6 from 7 (an example that misleads, or a wrong statement users rely on), and when a docs error is major. In the last calibration round, one grader ran the examples and the other two only read them, which gave E2 a spread of 2.
 - **One version on every label:** the prompts, rubric and README say v5.0.0, and a test keeps them in step with the kit. A new `project.toml` says which kit created it, so an older one doesn't read as a mismatch.
 
 **One component system for the pages (U1)**
