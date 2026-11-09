@@ -1,3 +1,55 @@
 {
-  "decisions": []
+  "decisions": [
+    {
+      "action_id": "A1-act-3",
+      "question": "Rounding .x5 overall scores half-up can move a project across a maturity threshold; approve the change (it alters some existing rollups)?",
+      "approved": true,
+      "decided_by": "gordoncooper",
+      "date": "2026-11-09"
+    },
+    {
+      "action_id": "A2-act-1",
+      "question": "Pin the grading CI to an exact kit version and hash (so users upgrade it deliberately), instead of following the website's latest?",
+      "approved": true,
+      "decided_by": "gordoncooper",
+      "date": "2026-11-09"
+    },
+    {
+      "action_id": "D2-act-1",
+      "question": "Let the grading CI read each project's code repo (with a read token for private code) to verify citations?",
+      "approved": true,
+      "decided_by": "gordoncooper",
+      "date": "2026-11-09"
+    },
+    {
+      "action_id": "D4-act-1",
+      "question": "Change what init writes to project.toml (preset answers as comments instead of explicit answers)?",
+      "approved": true,
+      "decided_by": "gordoncooper",
+      "date": "2026-11-09"
+    },
+    {
+      "action_id": "X5-act-1",
+      "question": "Add third-party license notices to the website-with-Pyodide release zip (a licensing change to a published artifact)?",
+      "approved": true,
+      "decided_by": "gordoncooper",
+      "date": "2026-11-09"
+    },
+    {
+      "action_id": "D1-act-1",
+      "question": "Install the grading CI workflow in this repository's .github/workflows (it gets contents: write on the decide and index jobs)?",
+      "approved": true,
+      "answer": "Install it on the grading/code-grader branch only, not on main: reports stay off main.",
+      "decided_by": "gordoncooper",
+      "date": "2026-11-09"
+    },
+    {
+      "action_id": "A2-act-3",
+      "question": "Stop counting the report PR's author (the grader) as a person who can approve its own decision questions?",
+      "approved": false,
+      "answer": "A grader opens the PR with its user's own token, so ignoring the author's ticks would lock the owner out; agent answers are already gated by allow_agent_decisions.",
+      "decided_by": "gordoncooper",
+      "date": "2026-11-09"
+    }
+  ]
 }
