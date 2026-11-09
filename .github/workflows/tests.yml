@@ -12,7 +12,7 @@ on:
   workflow_dispatch:
     inputs:
       update_visual:
-        description: "Remake the screenshot baselines (tests/visual) and commit them to this branch"
+        description: "Remake this branch's screenshot baselines (saved on the visual-baselines branch)"
         type: boolean
         default: false
 
@@ -43,15 +43,37 @@ jobs:
     name: website (Chromium)
     runs-on: ubuntu-latest
     permissions:
-      contents: write   # only to commit new screenshot baselines (tests/visual) to this branch
+      contents: read
+      pull-requests: read   # on main: which pull request a push merged, to use its screenshot baselines
     env:
       # Remake the screenshot baselines: the workflow's update_visual input, or the "update-visual" label on a PR.
       UPDATE_VISUAL: ${{ (inputs.update_visual || contains(github.event.pull_request.labels.*.name, 'update-visual')) && '1' || '' }}
+    outputs:
+      branch: ${{ steps.baselines.outputs.branch }}
+      merged: ${{ steps.baselines.outputs.merged }}
+      new: ${{ steps.made.outputs.new }}
     steps:
       - uses: actions/checkout@v5
         with:
           repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
           ref: ${{ github.event.pull_request.head.ref || github.ref }}
+      # Screenshot baselines live on the visual-baselines branch (one folder per branch), not in main's history:
+      # see .github/scripts/visual_baselines.py. A push to main uses the merged pull request's own, if it made some.
+      - name: Get screenshot baselines
+        id: baselines
+        env:
+          GH_TOKEN: ${{ github.token }}
+          UPSTREAM: https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git
+        run: |
+          branch="${{ github.event.pull_request.head.ref || github.ref_name }}"
+          merged=""
+          if [ "${{ github.event_name }}" = push ]; then
+            merged=$(gh api "repos/${{ github.repository }}/commits/${{ github.sha }}/pulls" --jq '[.[] | select(.merged_at)][0].head.ref // ""' || true)
+            [ -n "$merged" ] && [ "$(python3 .github/scripts/visual_baselines.py which --remote "$UPSTREAM" --branch "$merged")" != main ] && branch="$merged"
+          fi
+          python3 .github/scripts/visual_baselines.py fetch --remote "$UPSTREAM" --branch "$branch" --into tests/visual
+          echo "branch=$branch" >> "$GITHUB_OUTPUT"
+          echo "merged=$merged" >> "$GITHUB_OUTPUT"
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -67,14 +89,48 @@ jobs:
         with:
           name: visual-diff
           path: tests/visual/out/
-      - name: Commit new screenshot baselines
-        # The first run on CI's platform (or a run with update_visual) makes the baselines; later runs compare.
-        if: always() && hashFiles('tests/visual/out/NEW_BASELINES') != '' && (github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository)
+      # The first run on CI's platform (or a run with update_visual) makes baselines; the next job saves them.
+      - name: Keep new screenshot baselines
+        id: made
+        if: always() && hashFiles('tests/visual/out/NEW_BASELINES') != '' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+        run: echo "new=true" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v4
+        if: always() && steps.made.outputs.new == 'true'
+        with:
+          name: new-baselines
+          path: |
+            tests/visual/*.png
+            tests/visual/baselines.json
+
+  baselines:
+    # Saves a branch's new screenshot baselines, or, after a merge, makes the merged pull request's baselines main's.
+    # Only this job writes to the visual-baselines branch, one run at a time.
+    name: save screenshot baselines
+    needs: website
+    if: >-
+      always() && (needs.website.outputs.new == 'true' ||
+      (github.event_name == 'push' && needs.website.result == 'success' && needs.website.outputs.branch != github.ref_name))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # only to the visual-baselines branch
+    concurrency:
+      group: visual-baselines
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v4
+        if: needs.website.outputs.new == 'true'
+        with:
+          name: new-baselines
+          path: tests/visual
+      - name: Save them on the visual-baselines branch
+        env:
+          BRANCH: ${{ needs.website.outputs.branch }}
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add tests/visual/*.png tests/visual/baselines.json
-          git diff --cached --quiet && exit 0
-          git commit -m "Screenshot baselines for $(python3 -c 'import json;m=json.load(open("tests/visual/baselines.json"));print(m["platform"], "/", m["browser"])')"
-          git pull --rebase --quiet || true
-          git push
+          if [ "${{ needs.website.outputs.new }}" = true ]; then
+            # remade on main after a merge: they're main's
+            [ "${{ github.event_name }}" = push ] && BRANCH="${{ github.ref_name }}"
+            python3 .github/scripts/visual_baselines.py save --branch "$BRANCH" --from tests/visual
+          elif [ "${{ github.event_name }}" = push ]; then
+            python3 .github/scripts/visual_baselines.py promote --branch "${{ needs.website.outputs.branch }}"
+          fi
