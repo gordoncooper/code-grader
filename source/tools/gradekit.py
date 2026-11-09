@@ -835,8 +835,9 @@ def validate_report(report: dict, cfg: dict, catalog: dict) -> tuple[list[str], 
                 errors.append(f"{bid}: score {score} requires positive evidence in 'strengths'")
             if score == 10 and not b.get("enforcement"):
                 errors.append(f"{bid}: score 10 requires 'enforcement' evidence (otherwise max 9)")
-            if score <= 6 and not b.get("finding_ids") and not b.get("carried_forward"):
-                warnings.append(f"{bid}: score {score} but no findings explain what is wrong")
+            gaps = [g for g in report.get("gap_register", []) if bid in (g.get("benchmark_ids") or []) and g.get("status") in OPEN_STATUSES]
+            if score <= 6 and not b.get("finding_ids") and not gaps and not b.get("carried_forward"):
+                warnings.append(f"{bid}: score {score} but no findings or gaps explain what is wrong")
             for w in over_limit(b, limits.get(bid)):
                 msg = f"{bid}: score {score} is above its limit of {w['max']} ({w['why']})"
                 (errors if limits_enforced(report) else warnings).append(msg)
@@ -872,8 +873,13 @@ def validate_report(report: dict, cfg: dict, catalog: dict) -> tuple[list[str], 
             if isinstance(act.get("expected_new_score"), int):
                 prev_expected = max(act["expected_new_score"], prev_expected or 0)
 
+    listed_by = {fid: b.get("id") for b in report.get("benchmarks", []) for fid in b.get("finding_ids", []) or []}
     for fid, f in findings.items():
-        if f.get("status") in OPEN_STATUSES and fid not in referenced:
+        own = f.get("benchmark_id")
+        if report_format(report) >= 5 and f.get("status") in OPEN_STATUSES and own and fid not in referenced:
+            errors.append(f"finding {fid} ({f.get('status')}) is {own}'s, but {own}'s finding_ids doesn't list it: "
+                          "edit reports with `gradekit report` commands, which keep the lists, never by hand")
+        elif f.get("status") in OPEN_STATUSES and fid not in referenced:
             warnings.append(f"finding {fid} ({f.get('status')}) is not referenced by any benchmark")
 
     gap_ids = [g.get("id") for g in report.get("gap_register", [])]
@@ -1140,7 +1146,11 @@ def score_limits(report: dict, cfg: dict, fz: dict | None = None, catalog: dict 
             why.append({"kind": "strengths", "max": NO_STRENGTH_MAX, "why": "no strengths (positive evidence)"})
         if not b.get("enforcement"):
             why.append({"kind": "enforcement", "max": NO_ENFORCEMENT_MAX, "why": "no enforcement evidence"})
-        crit = [fid for fid in b.get("finding_ids", []) if fz.get(fid, {}).get("effective_severity") == "critical"
+        # A finding is the benchmark's if the benchmark lists it or the finding names the benchmark: dropping it from
+        # finding_ids by hand mustn't lift the limit.
+        mine = list(dict.fromkeys(list(b.get("finding_ids", [])) +
+                                  [f.get("id") for f in report.get("findings", []) if f.get("benchmark_id") == bid]))
+        crit = [fid for fid in mine if fz.get(fid, {}).get("effective_severity") == "critical"
                 and fz.get(fid, {}).get("status") in OPEN_STATUSES]
         if crit:
             why.append({"kind": "critical", "max": CRITICAL_MAX, "why": f"open critical finding {', '.join(crit)}"})
@@ -1155,6 +1165,9 @@ def score_limits(report: dict, cfg: dict, fz: dict | None = None, catalog: dict 
                 continue
             if c and c["benchmark"] == bid:
                 why.append({"kind": "cap", "max": c["max"], "why": f"{c['id']}: {c['when']} ({f.get('id')})"})
+            elif not c and f.get("cap") and f.get("benchmark_id") == bid and resolve_cap(f["cap"], bid, caps):
+                c2 = resolve_cap(f["cap"], bid, caps)
+                why.append({"kind": "cap", "max": c2["max"], "why": (f"{c2['id']}: " if c2["id"] else "") + f"{c2['when']} ({f.get('id')})"})
         for cid, cond in AUTO_CAPS.items():
             c = caps.get(cid)
             if c and c["benchmark"] == bid and critical_gaps:
@@ -2810,6 +2823,9 @@ def load_for_edit(args) -> tuple[dict, dict]:
 
 def save_edit(args, report: dict, cfg: dict) -> None:
     normalize_report(report, cfg)
+    if report.get("rollup"):   # stored by `report check --write`; any edit after it would leave it stale
+        report.pop("rollup")
+        say_later("note: the stored rollup was dropped, because the report changed; `report check --write` stores it again")
     write_json(args.report, report)
 
 
@@ -3437,6 +3453,12 @@ def cmd_report_check(args) -> int:
     if not todo:
         roll = compute_rollup(report, cfg)
         errors += [f"weight: {w}" for w in roll["weight_issues"]]
+    stored = report.get("rollup") or {}
+    if stored and roll is not None and (stored.get("overall_score"), (stored.get("maturity") or {}).get("current_level")) != (
+            roll["overall_score"], roll["maturity"]["current_level"]):
+        warnings.append(f"the stored rollup ({stored.get('overall_score')}, {(stored.get('maturity') or {}).get('current_level')}) "
+                        f"doesn't match the scores ({roll['overall_score']}, {roll['maturity']['current_level']}); "
+                        "`report check --write` stores the current one, and `deliver` always does")
     wrote = None
     if args.write:
         if roll is not None:
@@ -4043,8 +4065,7 @@ def prepare_delivery(args, report: dict, cfg: dict) -> dict:
     if errors or todo:
         args._exit = 1 if errors else EXIT_INCOMPLETE
         raise DeliveryBlocked(errors, todo)
-    if not report.get("rollup") or report["rollup"].get("config_hash") != cfg["hash"]:
-        apply_rollup(report, cfg)
+    apply_rollup(report, cfg)   # always: a stored rollup can be older than the last score change
     write_json(args.report, report)
     files = {"report": args.report, "private": None}
     public = bool((cfg.get("publishing") or PUBLISHING_DEFAULTS).get("public"))
