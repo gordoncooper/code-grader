@@ -35,6 +35,9 @@ def axe_source():
 
 def axe(page, source):
     page.wait_for_timeout(150)   # let the page mark scrollable tables (site.js) after it renders
+    # From the top: scrolled part-way, a control that has slid under the sticky top bar counts as an obscured
+    # target (target-size), and where that happens depends on the fonts of the machine running the test.
+    page.evaluate("window.scrollTo(0, 0)")
     page.add_script_tag(content=source)
     return page.evaluate("""async (tags) => (await axe.run(document, {runOnly: {type: 'tag', values: tags}, resultTypes: ['violations']}))
         .violations.map(v => `${v.impact} ${v.id}: ${v.help} → ` + v.nodes.slice(0, 3).map(n => n.target.join(' ')).join(', '))""", AXE_TAGS)

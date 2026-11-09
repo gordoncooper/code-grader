@@ -12,6 +12,7 @@ from conftest import SRC
 from states import engine_ready, run_order, setup_saving, review_answered, tour
 
 KIT = [sys.executable, str(SRC / "tools" / "gradekit.py")]
+pytestmark = pytest.mark.browser
 
 
 @pytest.mark.parametrize("repo, branch, expect", [
