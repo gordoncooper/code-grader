@@ -12,7 +12,9 @@
     "review-overview-phone",
     "setup-phone",
     "components",
-    "components-dark"
+    "components-dark",
+    "projects",
+    "projects-project"
   ],
   "about": "Made by UPDATE_VISUAL=1 (or the first run on this platform); compared only on this platform and browser."
 }

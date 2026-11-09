@@ -116,6 +116,14 @@
                 "additionalProperties": {
                   "type": "integer"
                 }
+              },
+              "below_target": {
+                "type": "integer",
+                "description": "Benchmarks below their target"
+              },
+              "actions_ready": {
+                "type": "integer",
+                "description": "Actions an improver can take now: below target, not optional, and approved if they need a decision"
               }
             }
           },
@@ -141,6 +149,24 @@
                 },
                 "folder": {
                   "type": "string"
+                },
+                "benchmark_id": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "action": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "tier": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
                 }
               }
             }
@@ -182,6 +208,27 @@
                     "string",
                     "null"
                   ]
+                },
+                "pillars": {
+                  "type": "object",
+                  "description": "Pillar scores from the report's stored rollup",
+                  "additionalProperties": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  }
+                },
+                "scores": {
+                  "type": "object",
+                  "description": "Every benchmark's score; \"n/a\" when not applicable, null when unscored",
+                  "additionalProperties": {
+                    "type": [
+                      "integer",
+                      "null",
+                      "string"
+                    ]
+                  }
                 }
               }
             }
@@ -242,6 +289,44 @@
                     "string",
                     "null"
                   ]
+                }
+              }
+            }
+          },
+          "cycle": {
+            "type": "object",
+            "description": "Where the project stands (set up → grade → decide → improve → check → done), and what's waiting on whom",
+            "required": [
+              "stage",
+              "waiting_on"
+            ],
+            "properties": {
+              "stage": {
+                "enum": [
+                  "set up",
+                  "grade",
+                  "decide",
+                  "improve",
+                  "check",
+                  "done"
+                ]
+              },
+              "waiting_on": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "who",
+                    "what"
+                  ],
+                  "properties": {
+                    "who": {
+                      "type": "string"
+                    },
+                    "what": {
+                      "type": "string"
+                    }
+                  }
                 }
               }
             }

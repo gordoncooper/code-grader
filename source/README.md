@@ -8,7 +8,7 @@ A kit for having AI agents grade a codebase from 1 to 10 on **35 benchmarks** (2
 
 | Piece | What it does |
 |---|---|
-| **The website** | Built from this kit with `tools/build_web.py` and hosted anywhere. Three browser tools: **Set up a project**, **Start a run** and **Review a report**. They run `gradekit.py` in the browser via Pyodide, so nothing is installed or uploaded. Also includes `AGENT.md`, the entry point for agents. |
+| **The website** | Built from this kit with `tools/build_web.py` and hosted anywhere. Browser tools: **Set up a project**, **Start a run**, **Review a report**, and **Projects** for a whole grading repo. They run `gradekit.py` in the browser via Pyodide, so nothing is installed or uploaded. Also includes `AGENT.md`, the entry point for agents. |
 | **The prompts** | One per job: `grader.md`, `reviewer.md`, `improver.md`, `pr-review.md`. Each starts with a table of inputs (code, grading repo and project, delivery, permissions) with sensible defaults. |
 | **The rubric** | One file per pillar, with anchors, caps and "Not this" boundaries for each benchmark. |
 | **The config** | `config/defaults.toml` holds every tunable setting. Each project has its own `project.toml` on top. |

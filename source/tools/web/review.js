@@ -167,25 +167,7 @@
   }
 
   // ------------------------------------------------------------------ GitHub (public grading repos)
-  function parseRepo(input) {
-    var s = input.trim().replace(/\.git$/, "");
-    var m = s.match(/github\.com\/([^\/]+)\/([^\/#?]+)(?:\/(tree|pull)\/([^?#]+))?/);
-    if (m) return { owner: m[1], repo: m[2], kind: m[3], rest: m[4] };
-    m = s.match(/^([\w.-]+)\/([\w.-]+)$/);
-    return m ? { owner: m[1], repo: m[2] } : null;
-  }
-  async function getJSON(url) {
-    var r = await fetch(url);
-    if (!r.ok) {
-      var limited = (r.status === 403 || r.status === 429) && r.headers.get("x-ratelimit-remaining") === "0";
-      var reset = limited && Number(r.headers.get("x-ratelimit-reset"));
-      var e = new Error(limited ? "GitHub's limit for anonymous requests (60 an hour per network) is used up" + (reset ? "; it resets at " + new Date(reset * 1000).toLocaleTimeString() : "") + ". Try again then, or download the repo and use Open files" : url.replace(/^https:\/\//, "") + " → " + r.status);
-      e.status = r.status; e.limited = limited; throw e;
-    }
-    return r.json();
-  }
-  async function getText(url) { var r = await fetch(url); if (!r.ok) { var e = new Error(r.status === 404 ? "not found" : String(r.status)); e.status = r.status; throw e; } return r.text(); }
-  function encRef(ref) { return ref.split("/").map(encodeURIComponent).join("/"); }
+  var parseRepo = UI.gh.parseRepo, getJSON = UI.gh.getJSON, getText = UI.gh.getText;   // shared with Projects (common.js)
 
   async function loadGitHub() {
     var st = UI.clear($("#gh-status"));
@@ -206,15 +188,9 @@
         var m = ref.match(/^(?:report|decisions)\/([^\/]+)\//);
         if (m && !project) { project = m[1]; $("#gh-project").value = project; }
       }
-      if (!ref) ref = (await getJSON("https://api.github.com/repos/" + owner + "/" + repo)).default_branch;
-      // Read everything at one commit: raw files by branch name can be minutes stale right after a push,
-      // and a commit gives a consistent snapshot of reports and decisions.
-      var sha = null;
-      try { sha = (await getJSON("https://api.github.com/repos/" + owner + "/" + repo + "/commits/" + encodeURIComponent(ref))).sha; }
-      catch (e) { if (e.status !== 404 && e.status !== 422) throw e; }
-      var at = sha || ref;
-      var api = function (path) { return "https://api.github.com/repos/" + owner + "/" + repo + "/contents/" + path + "?ref=" + encodeURIComponent(at); };
-      var raw = function (path) { return "https://raw.githubusercontent.com/" + owner + "/" + repo + "/" + encRef(at) + "/" + path; };
+      var repoAt = await UI.gh.at(owner, repo, ref);   // everything at one commit: a consistent snapshot
+      ref = repoAt.ref;
+      var sha = repoAt.sha, api = repoAt.api, raw = repoAt.raw;
       if (!project) {
         // projects/index.json (written by `gradekit index` in CI) lists them with their scores; else list the folder.
         var index = null;
@@ -480,28 +456,9 @@
       return d;
     });
     var existing = byRole("decisions")[0];
-    try {
-      var res = await GK.call("decisions_update", { decisions: decisions, decisions_json: existing ? existing.text : null });
-      var project = projectName();
-      var path = "projects/" + project + "/decisions.json";
-      if (!existing) out.appendChild(UI.banner("warn", "No decisions.json was loaded, so this file contains only today's answers. If the project already has a decisions.json, load it first (loading from the grading repo does this for you) so earlier answers are kept."));
-      out.appendChild(h("p", { class: "hint" }, "Your answers have been added to the end of ", h("code", null, "decisions.json"), " (" + items.length + " new). Replace the file's contents with this:"));
-      out.appendChild(h("pre", { class: "out-pre scroll-sm" }, res.json));
-      var row = h("div", { class: "row-btns" });
-      var copyBtn = h("button", { type: "button", class: "btn primary" }, "Copy decisions.json");
-      copyBtn.addEventListener("click", function () { UI.copyText(res.json); });
-      var dl = h("button", { type: "button", class: "btn" }, "Download decisions.json");
-      dl.addEventListener("click", function () { UI.download("decisions.json", res.json, "application/json"); });
-      row.appendChild(copyBtn); row.appendChild(dl);
-      out.appendChild(row);
-      out.appendChild(h("h3", { class: "sub-h" }, "Where to put it"));
-      var branch = (source && source.meta && source.meta.ref && /^report\//.test(source.meta.ref)) ? source.meta.ref : "report/" + project + "/…";
-      out.appendChild(h("ol", { class: "steps-mini" },
-        h("li", null, h("b", null, "On the report's pull request (suggested): "), "in the grading repo, switch to the PR's branch (", h("code", null, branch), "), open ", h("code", null, path), ", click the pencil (", h("b", null, "Edit"), "), replace everything with the copied file, and ", h("b", null, "commit directly to that branch"), ". Then merge the PR."),
-        h("li", null, h("b", null, "Report already merged: "), "open ", h("code", null, path), " on the default branch, click ", h("b", null, "Edit"), ", paste, and choose ", h("b", null, "Create a new branch"), " named ", h("code", null, "decisions/" + project + "/" + date), " to open a small pull request."),
-        h("li", null, h("b", null, "Local files: "), "save it as ", h("code", null, "decisions.json"), " in the project's folder.")));
-      out.appendChild(h("p", { class: "kbd-note" }, "Permissions: editing on GitHub needs write access to the grading repo. Answers are only ever added, never edited; the newest answer to a question wins."));
-    } catch (err) { out.appendChild(UI.banner("bad", err.message)); }
+    var body = out.appendChild(h("div"));
+    await UI.saveDecisions(body, { project: projectName(), decisions: decisions, existing: existing ? existing.text : null,
+                                   branch: (source && source.meta && source.meta.ref && /^report\//.test(source.meta.ref)) ? source.meta.ref : null });
   }, 200);
 
   // ------------------------------------------------------------------ priorities

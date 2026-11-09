@@ -4,7 +4,7 @@
 Generates a static site you can drop into any web server and point coding agents at:
 
   index.html         Landing page for people
-  app/               The three browser tools (Set up a project, Start a run, Review a report) and the components page
+  app/               The browser tools (Set up a project, Start a run, Review a report, Projects) and the components page
   AGENT.md           Entry point for agents: roles, how to download and verify the suite
   llms.txt           Short machine-readable index (llmstxt.org convention)
   docs/              Every document rendered as HTML
@@ -164,15 +164,17 @@ CSP = ("default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'wasm-uns
        "connect-src 'self' https://cdn.jsdelivr.net https://api.github.com https://raw.githubusercontent.com; "
        "img-src 'self' data:; style-src 'self'; font-src 'self'; object-src 'none'; "
        "base-uri 'self'; form-action 'none'; worker-src 'self' blob:")
-ASSETS = ["style.css", "site.js", "common.js", "engine.js", "engine-config.js", "setup.js", "run.js", "review.js", "components.js", "favicon.svg"]
+ASSETS = ["style.css", "site.js", "common.js", "engine.js", "engine-config.js", "setup.js", "run.js", "review.js", "projects.js", "components.js", "favicon.svg"]
 APP_PAGES = [  # (slug, title, nav key, scripts)
     ("setup", "Set up a project", "setup", ["engine-config.js", "engine.js", "glossary.js", "common.js", "setup.js"]),
     ("run", "Start a run", "run", ["glossary.js", "common.js", "run.js"]),
     ("review", "Review a report", "review", ["engine-config.js", "engine.js", "glossary.js", "common.js", "review.js"]),
+    ("projects", "Projects", "projects", ["engine-config.js", "engine.js", "glossary.js", "common.js", "projects.js"]),
     ("components", "Components", "", ["glossary.js", "common.js", "components.js"]),   # for contributors: every component, every state
 ]
 NAV = [("start", "Get started", "docs/GETTING-STARTED.html"), ("setup", "Set up", "app/setup.html"),
-       ("run", "Start a run", "app/run.html"), ("review", "Review", "app/review.html"), ("docs", "Docs", "docs/README.html")]
+       ("run", "Start a run", "app/run.html"), ("review", "Review", "app/review.html"), ("projects", "Projects", "app/projects.html"),
+       ("docs", "Docs", "docs/README.html")]
 
 
 def page(title: str, body: str, depth: int, version: str, sidebar: str = "", active: str = "", scripts=()) -> str:
@@ -435,6 +437,7 @@ def landing(version: str, weights: dict, zip_name: str, zip_sha: str, zip_size: 
       <a class="tool-card" href="app/run.html"><div class="eyebrow">2 · Every run</div><h3>Start a run</h3><p>Choose the job, where things live and how results come back. You get the exact prompt to paste into your agent.</p></a>
       <a class="tool-card" href="app/review.html"><div class="eyebrow">3 · Every report</div><h3>Review a report</h3><p>See where the code stands, answer decision questions, compare with last time, and check the grader's citations.</p></a>
     </div>
+    <p class="sub mt-4">Several projects? <a href="app/projects.html">Projects</a> shows every project in a grading repo: where each one stands, its trends, what's waiting on whom, and every decision waiting for a person.</p>
   </section>
 
   <section class="block">

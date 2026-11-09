@@ -22,13 +22,18 @@
           "critical": 5,
           "major": 13,
           "minor": 9
-        }
+        },
+        "below_target": 32,
+        "actions_ready": 3
       },
       "pending_decisions": [
         {
           "action_id": "D1-act-1",
           "question": "Implement CSV and XLSX export, or drop the export claim from the README?",
-          "folder": "2026-11-07-a1b2c3d"
+          "folder": "2026-11-07-a1b2c3d",
+          "benchmark_id": "D1",
+          "action": "Either implement CSV/XLSX export in a new src/export module with tests, or remove the claim from README.md",
+          "tier": 2
         }
       ],
       "open_orders": [],
@@ -40,7 +45,53 @@
           "commit": "9f8e7d6",
           "mode": "full",
           "overall": 4.0,
-          "level": "L0"
+          "level": "L0",
+          "pillars": {
+            "A": 4.2,
+            "B": 5.9,
+            "C": 5.3,
+            "D": 5.5,
+            "E": 3.7,
+            "F": 3.8,
+            "X": 4.2
+          },
+          "scores": {
+            "A1": 5,
+            "A2": 3,
+            "A3": 4,
+            "A4": 5,
+            "A5": 4,
+            "B1": 6,
+            "B2": 6,
+            "B3": 7,
+            "B4": 5,
+            "B5": 6,
+            "B6": 6,
+            "C1": 7,
+            "C2": 6,
+            "C3": 7,
+            "C4": 2,
+            "D1": 5,
+            "D2": 5,
+            "D3": 6,
+            "D4": 6,
+            "E1": 3,
+            "E2": 3,
+            "E3": 4,
+            "E4": 6,
+            "F1": 3,
+            "F2": 2,
+            "F3": 3,
+            "F4": 6,
+            "F5": 7,
+            "F6": 5,
+            "X1": "n/a",
+            "X2": 5,
+            "X3": 5,
+            "X4": "n/a",
+            "X5": "n/a",
+            "X6": 2
+          }
         },
         {
           "folder": "2026-11-07-a1b2c3d",
@@ -48,9 +99,68 @@
           "commit": "a1b2c3d",
           "mode": "full",
           "overall": 4.9,
-          "level": "L0"
+          "level": "L0",
+          "pillars": {
+            "A": 4.6,
+            "B": 6.1,
+            "C": 5.6,
+            "D": 5.5,
+            "E": 4.0,
+            "F": 3.8,
+            "X": 4.2
+          },
+          "scores": {
+            "A1": 5,
+            "A2": 5,
+            "A3": 4,
+            "A4": 5,
+            "A5": 4,
+            "B1": 6,
+            "B2": 6,
+            "B3": 7,
+            "B4": 5,
+            "B5": 6,
+            "B6": 7,
+            "C1": 7,
+            "C2": 6,
+            "C3": 7,
+            "C4": 3,
+            "D1": 5,
+            "D2": 5,
+            "D3": 6,
+            "D4": 6,
+            "E1": 3,
+            "E2": 4,
+            "E3": 4,
+            "E4": 6,
+            "F1": 3,
+            "F2": 2,
+            "F3": 3,
+            "F4": 6,
+            "F5": 7,
+            "F6": 5,
+            "X1": "n/a",
+            "X2": 5,
+            "X3": 5,
+            "X4": "n/a",
+            "X5": "n/a",
+            "X6": 2
+          }
         }
-      ]
+      ],
+      "cycle": {
+        "stage": "decide",
+        "waiting_on": [
+          {
+            "who": "people",
+            "what": "1 decision to make"
+          },
+          {
+            "who": "an improver",
+            "what": "3 actions ready"
+          }
+        ]
+      }
     }
   ]
 }

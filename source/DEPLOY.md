@@ -1,6 +1,6 @@
 # Hosting the suite on a web server
 
-The website has three parts: documentation, the agent entry point (`AGENT.md` plus the raw kit files), and three browser tools (**Set up a project**, **Start a run**, **Review a report**). It is all static files, so any web server works.
+The website has three parts: documentation, the agent entry point (`AGENT.md` plus the raw kit files), and the browser tools (**Set up a project**, **Start a run**, **Review a report**, **Projects**). It is all static files, so any web server works.
 
 The web version is a folder of static files. There's no server code, database or build step on the server itself. Copy it to any web server and point coding agents at its `AGENT.md`.
 
@@ -91,7 +91,7 @@ Open the site's landing page. It shows ready-to-copy instructions for the grader
 
 ## Self-hosting the Python runtime
 
-The **Set up a project** and **Review a report** pages run the suite's own `gradekit.py` in the browser using [Pyodide](https://pyodide.org) (Python compiled to WebAssembly). By default, Pyodide is loaded from the jsDelivr CDN the first time a page needs it: about 12 MB, cached afterwards. Your files are never uploaded; only the runtime is downloaded.
+The **Set up a project** and **Review a report** pages (and **Projects**, when it saves decisions) run the suite's own `gradekit.py` in the browser using [Pyodide](https://pyodide.org) (Python compiled to WebAssembly). By default, Pyodide is loaded from the jsDelivr CDN the first time a page needs it: about 12 MB, cached afterwards. Your files are never uploaded; only the runtime is downloaded.
 
 **Every runtime file is checked before it runs.** `assets/engine-config.js` pins the SHA-384 hash of each Pyodide core file: the loader, the WebAssembly, the standard library and the lock file. The browser refuses any file that doesn't match, and packages are checked against the lock file. A compromised or changed CDN can't run code on these pages; the pill says *Engine unavailable* and why. The suite's own files (`suite/tools/gradekit.py` and the rest) are checked against this site's `manifest.json` in the same way, so a half-finished deploy is caught too.
 

@@ -4678,7 +4678,11 @@ def build_index(root: Path) -> dict:
             run = r.get("run") or {}
             history.append({"folder": folder.name, "date": str(run.get("date") or "")[:10], "commit": str(run.get("commit") or "")[:7],
                             "mode": r.get("mode"), "overall": roll.get("overall_score"),
-                            "level": (roll.get("maturity") or {}).get("current_level"), "_report": r})
+                            "level": (roll.get("maturity") or {}).get("current_level"),
+                            "pillars": roll.get("pillar_scores") or {},
+                            "scores": {b.get("id"): ("n/a" if b.get("applicability") == "not_applicable" else b.get("score"))
+                                       for b in r.get("benchmarks", []) if b.get("id")},
+                            "_report": r})
         latest = None
         pending = []
         full = [h for h in history if h["mode"] != "pr"]
@@ -4703,9 +4707,14 @@ def build_index(root: Path) -> dict:
                 if rr:
                     latest["components"] = [{"name": c["component"], "weight": c["weight"], "overall": c["overall"], "level": c["level"]}
                                             for c in rr.get("components", [])]
-                pending = [{"action_id": p["action_id"], "question": p.get("decision_question"), "folder": h["folder"]}
+                pending = [{"action_id": p["action_id"], "question": p.get("decision_question"), "folder": h["folder"],
+                            "benchmark_id": p.get("benchmark_id"), "action": p.get("action"), "tier": p.get("tier")}
                            for p in roll["priorities"]
                            if p.get("requires_human_decision") and (p.get("decision") or {}).get("status") == "pending"]
+                ready = [p for p in roll["priorities"] if p["tier"] <= 2 and p.get("gain", 0) > 0
+                         and (not p.get("requires_human_decision") or (p.get("decision") or {}).get("status") == "approved")]
+                latest["below_target"] = len(roll.get("below_target") or [])
+                latest["actions_ready"] = len(ready)
             except GradekitError as exc:
                 entry["problems"].append(f"{h['folder']}: {exc}")
         answered = answered_orders(pdir)
@@ -4718,8 +4727,46 @@ def build_index(root: Path) -> dict:
             entry["problems"].append(f"{DISPUTES_FILE}: {exc}")
         entry.update({"latest": latest, "pending_decisions": pending, "open_orders": open_orders, "open_disputes": disputes_open,
                       "history": [{k: v for k, v in h.items() if k != "_report"} for h in history]})
+        entry["cycle"] = project_cycle(entry)
         projects.append(entry)
     return {"_about": INDEX_ABOUT, "suite_version": load_catalog()["suite_version"], "projects": projects}
+
+
+CYCLE = ("set up", "grade", "decide", "improve", "check", "done")
+
+
+def plural(n: int, word: str) -> str:
+    return f"{n} {word}{'' if n == 1 else 's'}"
+
+
+def project_cycle(p: dict) -> dict:
+    """Where a project stands in the cycle (set up → grade → decide → improve → check), and what's waiting on whom."""
+    latest, orders = p.get("latest"), p.get("open_orders") or []
+    by_role = {r: [o["id"] for o in orders if o.get("role") == r] for r in ("grade", "review", "improve", "prcheck")}
+    waiting = []
+    if p.get("problems"):
+        waiting.append({"who": "the project's owner", "what": f"{plural(len(p['problems']), 'problem')} in its files"})
+    if latest is None:
+        waiting.append({"who": "a grader", "what": "no full report yet" + (f" (work order {by_role['grade'][0]})" if by_role["grade"] else "")})
+        return {"stage": "grade", "waiting_on": waiting}
+    if by_role["grade"] or by_role["review"]:
+        waiting.append({"who": "a grader", "what": "work order " + ", ".join(by_role["grade"] + by_role["review"])})
+    if p.get("open_disputes"):
+        waiting.append({"who": "the next grader", "what": f"{plural(len(p['open_disputes']), 'disputed finding')} to answer"})
+    if p.get("pending_decisions"):
+        waiting.append({"who": "people", "what": f"{plural(len(p['pending_decisions']), 'decision')} to make"})
+    if latest.get("actions_ready"):
+        waiting.append({"who": "an improver", "what": f"{plural(latest['actions_ready'], 'action')} ready"
+                        + (f" (work order {', '.join(by_role['improve'])})" if by_role["improve"] else "")})
+    if by_role["prcheck"]:
+        waiting.append({"who": "a PR checker", "what": "work order " + ", ".join(by_role["prcheck"])})
+    stuck = latest.get("below_target") and not latest.get("actions_ready") and not p.get("pending_decisions")
+    if stuck:
+        waiting.append({"who": "a grader", "what": f"{plural(latest['below_target'], 'benchmark')} below target with no action ready"})
+    stage = ("grade" if by_role["grade"] or by_role["review"] or stuck else "check" if by_role["prcheck"]
+             else "decide" if p.get("pending_decisions") else "improve" if latest.get("actions_ready") or by_role["improve"]
+             else "done")
+    return {"stage": stage, "waiting_on": waiting}
 
 
 def index_text(root: Path) -> str:

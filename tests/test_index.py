@@ -46,8 +46,9 @@ def test_index_content(gk):
     assert p["name"] == "orders-api" and p["preset"] == "service" and p["problems"] == []
     assert [h["folder"] for h in p["history"]] == ["2026-10-24-9f8e7d6", "2026-11-07-a1b2c3d"]
     assert p["latest"]["overall"] == 4.9 and p["latest"]["level"] == "L0" and p["latest"]["next_level"] == "L1"
-    assert p["pending_decisions"] == [{"action_id": "D1-act-1", "folder": "2026-11-07-a1b2c3d",
-                                      "question": "Implement CSV and XLSX export, or drop the export claim from the README?"}]
+    assert [{k: d[k] for k in ("action_id", "folder", "question")} for d in p["pending_decisions"]] == [
+        {"action_id": "D1-act-1", "folder": "2026-11-07-a1b2c3d",
+         "question": "Implement CSV and XLSX export, or drop the export claim from the README?"}]
     assert sum(p["latest"]["open_findings"].values()) > 0
     assert gk.index_text(EXAMPLE) == gk.index_text(EXAMPLE), "deterministic: no timestamps of its own"
 
