@@ -201,3 +201,30 @@ def test_init_adds_the_check(tmp_path):
     out = subprocess.run(KIT + ["init", "--project", "b", "--ci", "gitlab"], cwd=tmp_path, check=True, capture_output=True, text=True).stdout
     assert (tmp_path / ".gitlab" / "grading.yml").exists() and "include:" in out
     assert (tmp_path / ".gitlab-ci.yml").read_text() == "build:\n  script: [make]\n", "an existing pipeline is never overwritten"
+
+
+def test_a_report_pull_request_may_carry_answers_to_its_own_questions(repo):
+    """The decide job commits ticked answers to the report's branch (5.0): appended to that project's decisions.json."""
+    add_newest(repo)
+    commit(repo, "report")
+    subprocess.run(KIT + ["decide", "--project", "orders-api", "--approve", "D1-act-1", "--by", "octocat"], cwd=repo, check=True,
+                   capture_output=True)
+    commit(repo, "answers")
+    res = ci(repo)
+    assert res["ok"] and res["kind"] == "report", res["problems"]
+    assert res["summary"]["pending_decisions"] == [], "the comment counts the answers on the branch"
+
+
+def test_answers_on_a_report_pull_request_are_still_append_only(repo):
+    d = repo / PROJ / "decisions.json"
+    data = json.loads(d.read_text())
+    data["decisions"].append({"action_id": "D1-act-1", "approved": True, "decided_by": "a", "date": "2026-11-01"})
+    d.write_text(json.dumps(data, indent=2))
+    commit(repo, "earlier answer")
+    git(repo, "branch", "-f", "main")
+    add_newest(repo)
+    data["decisions"][-1]["approved"] = False
+    d.write_text(json.dumps(data, indent=2))
+    commit(repo)
+    res = ci(repo)
+    assert not res["ok"] and any("append-only" in p for p in res["problems"]), res["problems"]

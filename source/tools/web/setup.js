@@ -3,6 +3,8 @@
   "use strict";
   var h = UI.h, $ = UI.$, $$ = UI.$$;
   var KNOWN = ["project", "answers", "zones", "targets", "weights", "gates", "review", "publishing"];
+  // Quick setup asks these; the preset answers the rest (under "More questions").
+  var QUICK = ["data_sensitivity", "audience", "failure_impact"];
   var info = null;          // questions, presets, catalog… from gradekit
   var lastCfg = null;       // effective config from the last build
   var lastToml = "";
@@ -57,10 +59,13 @@
   }
 
   function renderQuestions() {
-    var box = UI.clear($("#questions"));
-    Object.keys(info.questions).forEach(function (q) {
+    var quick = UI.clear($("#questions")), more = UI.clear($("#questions-more"));
+    var keys = Object.keys(info.questions), rest = keys.filter(function (q) { return QUICK.indexOf(q) < 0; });
+    $("#more-questions-label").textContent = rest.length + " more questions (answered from your choice above)";
+    keys.forEach(function (q) {
+      var box = QUICK.indexOf(q) >= 0 ? quick : more;
       var qd = info.questions[q];
-      var sel = h("select", { "aria-label": qd.prompt });
+      var sel = h("select", { "aria-label": qd.prompt, id: "q-" + q });
       Object.keys(qd.options).forEach(function (o) {
         var opt = h("option", { value: o }, qd.options[o].label || o);
         if (state.answers[q] === o) opt.selected = true;
@@ -80,7 +85,7 @@
         UI.clear(effects); effectChips(qd.options[sel.value]).forEach(function (c) { effects.appendChild(c); });
         updateNote(); refresh();
       });
-      box.appendChild(h("div", { class: "q" }, h("div", { class: "qtext" }, h("b", null, qd.prompt), effects), h("div", null, sel, note)));
+      box.appendChild(h("div", { class: "q" }, h("div", { class: "qtext" }, h("label", { for: "q-" + q }, h("b", null, qd.prompt)), effects), h("div", null, sel, note)));
     });
   }
 
@@ -223,10 +228,12 @@
         pv.appendChild(UI.badge("Has errors", "bad"));
       } else {
         pv.appendChild(UI.badge("Valid", "ok"));
+        if (state.project.code_repo) UI.tour.done("setup");
         pv.appendChild(h("span", null, " · config ", h("code", null, res.config.hash), " · preset ", res.config.preset));
         (res.config.warnings || []).forEach(function (w) { st.appendChild(UI.banner("warn", w)); });
       }
       renderPreview();
+      renderSave();
       store.save();
     } catch (err) {
       showEngineError(err);
@@ -269,6 +276,16 @@
     var gate = lastCfg.gates.why[id];
     box.appendChild(h("div", { class: "explain" }, h("b", null, id + " · " + w.name), h("table", null, rows),
       gate ? h("div", { class: "mt-2" }, UI.chip("gate", "gate"), " because " + gate.join(", ")) : null));
+  }
+
+  function renderSave() {
+    var box = $("#save-toml");
+    if (!lastToml) { UI.clear(box); return; }
+    var name = slugName(state.project.name) || "my-project";
+    var editing = !state.project._new;
+    UI.saveFile(box, { path: "projects/" + name + "/project.toml", text: lastToml, repo: $("#f-grading").value.trim() || null,
+                       exists: editing, downloadId: "dl-toml", local: "save it as project.toml in the project's folder",
+                       mime: "application/toml" });
   }
 
   function showEngineError(err) {
@@ -316,7 +333,6 @@
   // ------------------------------------------------------------------ wiring
   async function init() {
     UI.bindEnginePill($("#engine-pill"));
-    UI.tabs($("#where-tabs")).select("repo");
     $$("input[name=start]").forEach(function (r) { r.addEventListener("change", function () { $("#load-existing").hidden = r.value !== "edit" || !r.checked; }); });
     UI.dropZone($("#toml-drop"), $("#toml-file"), async function (files) { loadToml(await UI.readFile(files[0]), files[0].name); });
     $("#toml-load").addEventListener("click", function () { if ($("#toml-paste").value.trim()) loadToml($("#toml-paste").value); });
@@ -355,8 +371,8 @@
     $("#agent-decisions").addEventListener("change", function (e) { state.review = state.review || {}; state.review.allow_agent_decisions = e.target.checked; refresh(); });
     $("#private-repo").addEventListener("change", function (e) { state.publishing = state.publishing || {}; if (e.target.checked) state.publishing.public = false; else delete state.publishing.public; refresh(); });
     $("#org-toml").addEventListener("input", UI.debounce(async function () { await loadInfo(); renderAll(); refresh(); }, 600));
-    $("#dl-toml").addEventListener("click", function () { if (lastToml) UI.download("project.toml", lastToml); });
-    $("#copy-toml").addEventListener("click", function () { if (lastToml) UI.copyText(lastToml); });
+    $("#f-grading").value = UI.store.get("grading_repo", "");
+    $("#f-grading").addEventListener("input", UI.debounce(function () { UI.store.set("grading_repo", $("#f-grading").value.trim()); renderSave(); }, 250));
     $("#zone-test").addEventListener("input", UI.debounce(async function () {
       var path = $("#zone-test").value.trim(); var out = $("#zone-test-out");
       if (!path) { out.textContent = ""; return; }

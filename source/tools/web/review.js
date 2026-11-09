@@ -434,6 +434,7 @@
   // ------------------------------------------------------------------ render
   function render() {
     $("#results").hidden = false;
+    if (source && source.meta && source.meta.sample) UI.tour.done("sample");
     var banners = UI.clear($("#result-banners"));
     var c = R.check, roll = c.rollup;
     if (R.consensus) banners.appendChild(UI.banner("info", "Showing the consensus of " + R.consensus.overall_by_run.length + " runs (median scores). ",
@@ -514,7 +515,7 @@
       var group = "dec-" + p.action_id;
       var seg = h("div", { class: "seg", role: "radiogroup", "aria-label": "Decision for " + p.action_id }, [["approve", "Approve"], ["decline", "Decline"], ["later", "Not yet"]].map(function (o) {
         var r = h("input", { type: "radio", name: group, value: o[0] }); r.checked = a.choice === o[0];
-        r.addEventListener("change", function () { a.choice = o[0]; updateDecisionOutput(); });
+        r.addEventListener("change", function () { a.choice = o[0]; if (o[0] !== "later") UI.tour.done("decide"); updateDecisionOutput(); });
         return h("label", null, r, h("span", null, o[1]));
       }));
       var txt = h("textarea", { rows: "2", placeholder: "Details or conditions (optional), e.g. “CSV only; drop XLSX from the README.”", "aria-label": "Answer details" });
@@ -547,8 +548,10 @@
     });
     var existing = byRole("decisions")[0];
     var body = out.appendChild(h("div"));
+    var meta = (source && source.meta) || {};
     await UI.saveDecisions(body, { project: projectName(), decisions: decisions, existing: existing ? existing.text : null,
-                                   branch: (source && source.meta && source.meta.ref && /^report\//.test(source.meta.ref)) ? source.meta.ref : null });
+                                   repo: meta.repo ? meta.owner + "/" + meta.repo : null,
+                                   branch: meta.ref && /^report\//.test(meta.ref) ? meta.ref : null });
   }, 200);
 
   // ------------------------------------------------------------------ priorities
@@ -850,8 +853,14 @@
     GK.load().catch(function (err) { UI.clear($("#engine-error")).appendChild(UI.engineHelp(err)); });
     var loadTabs = UI.tabs($("#load-tabs"));
     loadTabs.select("repo");
+    document.addEventListener("gk:tab", function (e) { if (e.detail.tabs === "result-tabs" && e.detail.tab === "scorecard" && !$("#results").hidden) UI.tour.done("scorecard"); });
     resultTabs = UI.tabs($("#result-tabs"));
     $("#result-tabs").addEventListener("click", function (e) { var t = e.target.closest("button[data-tab]"); if (t) remember({ tab: t.dataset.tab }); });
+    window.addEventListener("hashchange", function () {   // a link to another view of this report (e.g. from the tour)
+      if (!R || $("#results").hidden) return;
+      var v = {}; new URLSearchParams(location.hash.slice(1)).forEach(function (val, k) { v[k] = val; });
+      applyView(v);
+    });
     $("#print-report").addEventListener("click", printReport);
     $("#copy-report-link").addEventListener("click", function () {
       var hv = new URLSearchParams(location.hash.slice(1)), v = {};

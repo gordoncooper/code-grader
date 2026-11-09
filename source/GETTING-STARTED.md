@@ -2,6 +2,8 @@
 
 This guide takes you through a first full cycle: set up a project, have an agent grade it, review the report, and let an agent improve the code. It takes about 20 minutes of your time, plus however long your agents take. **Nothing to install.** You use three pages on this website and whatever coding agent you already have, cloud or local.
 
+**Rather click through it first?** The [guided first run](../app/review.html?sample=1&tour=1) walks you around a sample project in six steps (about 10 minutes), then helps you set up your own. A bar at the top of each page shows what's done and what's next.
+
 ## The idea in one minute
 
 Four jobs, each done by a separate agent session (or by you):
@@ -45,11 +47,11 @@ grading/                          your grading repo
 
 Open **[Set up a project](../app/setup.html)**.
 
-1. **Enter the code repository.** The project name fills in from it (e.g. `orders-api`). For a monorepo, add a subfolder (`apps/web`) and give each part its own project.
-2. **Pick a preset** that's closest to your project (e.g. *service*, *web app*, *library*).
-3. **Check the eight questions.** The preset fills them in; change any that don't fit. The panel on the right shows how each answer moves the weights, and which benchmarks become **gates** (non-negotiable).
-4. **Mark hot and cold zones.** Add a hot zone for anything that moves money, controls access or writes important data, and a cold zone for scripts and examples. Use **Test a path** to check your patterns.
-5. **Download `project.toml`** and add it to your grading repo as `projects/orders-api/project.toml`. The page also gives you starter `decisions.json` and `dispositions.json` files, and a README for a brand-new grading repo. On GitHub: **Add file → Upload files**. *Needs write access to the grading repo.*
+1. **Where's the code?** Enter its repository address. The project name fills in from it (e.g. `orders-api`). For a monorepo, open *More about the project*, add a subfolder (`apps/web`) and give each part its own project.
+2. **What kind of project is it?** Pick the closest (e.g. *service*, *web app*, *library*).
+3. **Answer three questions:** how sensitive its data is, who uses it, and what happens when it fails. Five more are filled in from your choice; change any that don't fit. The panel on the right shows how each answer moves the weights, and which benchmarks become **gates** (non-negotiable).
+4. **Advanced (optional):** mark **hot zones**, the code that moves money, controls access or writes important data, and **cold zones** for scripts and examples. Use **Test a path** to check your patterns. Targets and overrides are here too; most projects leave them.
+5. **Save it.** Enter your grading repo's address. On GitHub or GitLab, **Open … with project.toml filled in** opens the host's new-file page at `projects/orders-api/project.toml` with the file ready; choose a new branch to send it as a pull request. Or copy a prompt for an agent, or download it and upload it (GitHub: **Add file → Upload files**). *Needs write access to the grading repo.*
 
 ### 2. Grade (2 minutes of your time)
 
@@ -70,22 +72,23 @@ Open **[Review a report](../app/review.html)**. The grader's PR description link
 Then read the tabs in order:
 
 1. **Overview:** the overall score, maturity level, gates, and what blocks the next level. The checks list tells you whether to trust the report.
-2. **Decisions:** questions only a person should answer, such as "drop this deprecated endpoint?" Choose Approve, Decline or Not yet. The page produces an updated `decisions.json`.
+2. **Decisions:** questions only a person should answer, such as "drop this deprecated endpoint?" Choose Approve, Decline or Not yet, and the page shows how to save your answers.
 3. **Priorities:** the order improvers will work in.
 4. **Compare:** what got better or worse since the previous report.
 5. **Scorecard, Findings, More:** the detail, when you want it. Open a benchmark to see why it got its score, what each score band means in the rubric, and its history. Open a finding to see its code, with a link to those lines at the graded commit.
 
 **Share a view:** the page's address always points at what you're looking at. **Copy link** on a benchmark or finding gives a link straight to it, and **Print or save as PDF** gives the whole report on paper.
 
-**Save your answers.** The page shows the steps; the short version:
-- **Suggested:** on the report's PR, edit `projects/orders-api/decisions.json`, paste the updated file, commit to the PR's branch, then **merge the PR**. Merging means "accepted."
-- **Already merged?** Edit the file on the default branch and let GitHub create a small pull request on a branch named `decisions/orders-api/<date>`.
+**Save your answers.** Answers go in `projects/orders-api/decisions.json`. Three ways, quickest first:
+- **Tick the boxes on the report's PR.** Its description lists each question with a box to approve it and one to decline it. The grading CI records what you tick under your login (on GitLab, then run the merge request's *grading-decide* job). Then **merge the PR**: merging means "accepted." *Needs the grading CI from `gradekit init --ci` and write access.*
+- **Run `gradekit decide`** in the grading repo, or give the page's prompt to an agent: `gradekit decide --project orders-api --approve D1-act-1 --by you@example.com`. It checks each ID against the newest report and only ever appends.
+- **Download and upload** the updated `decisions.json` (GitHub: **Add file → Upload files**), replacing the old one.
 
 ### Several projects
 
 **[Projects](../app/projects.html)** reads the grading repo's `projects/index.json` (CI keeps it current) and shows every project at once:
 - **All projects:** each one's score, level, trend, and what it's waiting on.
-- **Decisions:** every question waiting for a person, across projects, answered in one sitting. Each project's answers become its `decisions.json`, saved the same way as above.
+- **Decisions:** every question waiting for a person, across projects, answered in one sitting. Each project's answers are saved the same ways as above.
 - **One project:** where it stands in the cycle, with its open pull requests; trends for the overall score and each pillar; and every benchmark's score in every report.
 
 *Needs write access to the grading repo.*

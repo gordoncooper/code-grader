@@ -49,7 +49,7 @@ List every action in `rollup.priorities` whose `decision` status is `pending`. F
 Check `[review] allow_agent_decisions` in `project.toml`. If it's missing, it's `false`.
 
 - **`false` (default): people decide.** Don't change `decisions.json`. Deliver your check results and recommendations so a person can answer quickly.
-- **`true`: you may decide,** within any guidance you were given. Append one entry per question to the `decisions` list in `PROJECT_DIR/decisions.json`:
+- **`true`: you may decide,** within any guidance you were given. Record each answer with `gradekit decide --project-dir PROJECT_DIR --approve D1-act-1 --by "agent:<your name or model>" --answer "…"` (or `--decline`). It checks the ID against the newest report, copies the question and appends an entry to the `decisions` list in `PROJECT_DIR/decisions.json` like this:
 
   ```json
   {
@@ -62,7 +62,7 @@ Check `[review] allow_agent_decisions` in `project.toml`. If it's missing, it's 
   }
   ```
 
-  Copy the question text exactly, because `gradekit` matches on it. Always use a `decided_by` starting with `agent:`, so people can tell your answers apart. **Never decide** anything your guidance excludes, or anything that removes a feature, breaks a public interface, or touches security or production data. Leave those for a person, with your recommendation.
+  Writing the entry by hand works too: copy the question text exactly, because `gradekit` matches on it. Always use a `decided_by` starting with `agent:`, so people can tell your answers apart. **Never decide** anything your guidance excludes, or anything that removes a feature, breaks a public interface, or touches security or production data. Leave those for a person, with your recommendation.
 
 Never edit, reorder or delete existing entries in `decisions.json` or `dispositions.json`. Only append.
 

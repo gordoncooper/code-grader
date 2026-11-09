@@ -193,6 +193,28 @@ Major release, in progress: a beta for agents first, then the pages for people. 
 - **Projects links into Review:** each project, and each heatmap cell, opens that report at that benchmark, so every number on Projects traces to code in two clicks. Projects has deep links of its own (`?repo=…#tab=project&project=…`).
 - **PR descriptions link to the exact report,** and to its decisions when some are waiting.
 
+**Answering decisions by ticking a box (C5)**
+- **`gradekit decide`** records answers in `decisions.json`: `--approve ID…`, `--decline ID…`, `--by NAME`, and optionally `--answer TEXT`. It checks each ID against the newest report, takes the question's wording from it, and only appends. Recording the same answer again changes nothing; a change of mind is appended, and the newest answer wins. An answer by an agent comes with a reminder that it counts only with `[review] allow_agent_decisions = true`.
+- **`gradekit decisions`** lists the newest report's questions and their answers. With `--approved`, it lists only what may be acted on.
+- **The report PR is a checklist.** `deliver` writes each pending question with a box to approve it and a box under it to decline it, plus a `<!-- gradekit:project=NAME -->` marker. `gradekit decide --from-checklist FILE` reads the ticked boxes and finds the project from the marker. Unticked boxes are no answer, and a question with both boxes ticked is skipped.
+- **The grading CI records the ticks:**
+  - **GitHub:** a new `decide` job runs whenever a report PR's description is edited and commits `decisions.json` to the PR's branch under the editor's login. It needs `contents: write`. Pull requests from forks are skipped, and the description reaches the shell only through an environment variable.
+  - **GitLab:** a manual `grading-decide` job does the same when you press play (GitLab has no event for a description edit). It reads the full description through the API and needs `GRADING_BOT_TOKEN`.
+- **`gradekit ci` accepts a report PR that also answers its own questions:** the report folder plus appended entries in that project's `decisions.json`. Any other settings change still goes on its own.
+- `report.md` says how to answer.
+
+**Saving without pasting (H2), quick setup (H1), work orders from Start a run (C4)**
+- **No page asks you to paste JSON or TOML into an editor.** Each save offers, quickest first:
+  1. the code host does it: for a new file, a link to GitHub's or GitLab's new-file page with the file filled in; for decisions, the report PR's checkboxes;
+  2. a command, or a prompt for an agent, that writes the file with gradekit;
+  3. download, then upload (on any host, or for a local folder).
+  No host fills in an edit of a file that already exists, so editing an existing file goes by 2 or 3. Some GitLab versions open the new-file editor empty; the page says so. New helpers: `UI.saveFile` and `UI.saveDecisions` (rebuilt), on Set up, Start a run, Review and the Projects inbox.
+- **Quick setup:** Set up asks for the code's address, what kind of project it is, and three questions (data sensitivity, audience, impact of failure). The five other questions, more about the project, zones, targets and overrides are under *More* and *Advanced*, with plain labels. A grading repo address (remembered, and shared with Start a run) enables one-click saving. Starter `decisions.json` and `dispositions.json` are optional: the first answer creates them.
+- **Start a run writes work orders:** *Record this run as a work order* makes `projects/NAME/orders/<date>-<role>-<n>.json` (valid against `work-order.schema.json`, saved the same three ways) and adds `Work order: ID` to the prompt, so the report closes it.
+
+**A guided first run (U4)**
+- *Take a guided first run* on the home page, or `?tour=1` on any app page, starts six steps on the sample: open a report, find the weakest benchmark, answer a decision, see every project, set up your own project, and get the prompt for its first grade. A bar at the top of every app page shows the progress (kept in this browser), links to the next step, and ends the tour.
+
 ## 4.3.0
 Minor release: tools that let agents run the whole cycle without custom scripts, and safer publishing. No scoring changes; config fingerprints and existing reports stay valid. Tested by running the whole cycle on a real repository (dbader/schedule) with `gradekit` commands only: it reproduced the 4.2.2 grade exactly.
 
