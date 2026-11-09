@@ -163,6 +163,13 @@ Major release, in progress: a beta for agents first, then the pages for people. 
     - **No half-success:** citations are echoed only once the command succeeds. If anything fails, it says nothing was saved.
     - **`report check --write` says what it stored:** the rollup, the finish time and the minutes, or that the rollup waits until nothing is left to do.
     - **An `export` may not outlast an agent's tool call:** the card makes `SCRATCH` and prefixes commands with `TMPDIR=SCRATCH`, instead of exporting it once.
+  - From calibration run 13, the first on E2's fixed procedure (100% within tolerance, MAE 0.28, E2 7 as keyed; two more runs needed):
+    - **Several pieces of command evidence in one call:** `--command`/`--excerpt` (or `--no-output`) and `--absence`/`--method` repeat, and pair up in order. A second pair used to replace the first without a word. Unpaired options are refused instead of dropped.
+    - **Excerpts checked against what was printed:** `report ran --output FILE` keeps a fingerprint of the output (one short hash per distinct line, not the text). `report check` warns about excerpt lines that aren't in it; whitespace evens out, and `...` elides. `report ran` says the command's number for `--command @N`.
+    - **Commands corrected in place:** `report update command/N` takes `--command-text`, `--exit-code`, `--summary`, `--workdir` and `--env`, so `@N` numbers stay put. Evidence quoting the old text follows the new.
+    - **`lint_errors` when nothing runs:** if CI runs no linter and the documented one can't run, use the language's usual linter at its defaults, and say which.
+    - The grader card saves each command's output for `--output`, and chains `report` commands with `&&` so one that fails stops the rest.
+    - The golden `schedule` project pins suite 5, as `doctor` asked.
 - **Rubric wording, from where graders split:**
   - X3 is `limited` for code that's often called from threads or async code even though it isn't concurrent itself.
   - A broken contributor setup is E3, even when the fault is in its docs. `E2-cap-1` is for instructions users follow.

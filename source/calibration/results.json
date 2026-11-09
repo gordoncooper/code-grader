@@ -9,7 +9,18 @@
       "name": "schedule",
       "reference": "dbader/schedule @ 82a43db (Release 1.2.2), graded with project.toml beside this file",
       "set_by": "the 4.3 release gate's grade (one grader, 2026-11-08), with changes made with the maintainer's approval on 2026-11-08: E2 5 → 7, because independent graders found only minor documentation problems; A1 8 → 5 under the 4.x zone shift, then → 7 when scoring 5.0 made severity consequence-based (the zero-interval hang is a major finding with an easy workaround, not a critical one), set before the scoring-5.0 runs and provisional until a person reviews it. The other scores are still the 4.3 grade's",
-      "runs": [],
+      "runs": [
+        {
+          "run": "run-13",
+          "model": "claude-opus-5-5",
+          "graded": "2026-11-09T09:19:46Z",
+          "pass": true,
+          "within_tolerance_pct": 100.0,
+          "mae": 0.281,
+          "bias": 0.094,
+          "applicability_mismatches": []
+        }
+      ],
       "earlier_runs": [
         {
           "run": "run-1",

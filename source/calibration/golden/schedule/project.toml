@@ -8,6 +8,7 @@
 name            = "schedule"
 description     = "Python job scheduling for humans: run functions periodically with a friendly API."
 code_repo       = "https://github.com/dbader/schedule"   # where the code lives (informational)
+suite           = "5"
 preset          = "oss_library"   # default | service | web_app | library | oss_library | cli | internal_tool | prototype
 languages       = "Python"
 users           = "Python developers who embed it in scripts and services"
