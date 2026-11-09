@@ -99,7 +99,20 @@ class GradekitError(Exception):
     """Raised for any user-facing problem; the CLI prints it, the web API returns it."""
 
 
+# What a command says about its work as it goes (e.g. each line it cited) waits here until the command succeeds, so a
+# command that fails never looks as if it half-worked. `emit` prints it; a failure drops it and says nothing was saved.
+PENDING_NOTES: list[str] = []
+
+
+def say_later(msg: str) -> None:
+    PENDING_NOTES.append(msg)
+
+
 def die(msg: str, code: int = 1):
+    if PENDING_NOTES:
+        n = len(PENDING_NOTES)
+        PENDING_NOTES.clear()
+        msg += f"\n(nothing was saved: the {plural(n, 'citation')} checked so far weren't written either; fix this and run it again)"
     raise GradekitError(msg)
 
 
@@ -2511,10 +2524,10 @@ def cite(spec: str, read_lines, note: str | None = None) -> dict:
         die(f"{rel}:{start}-{end} is {end - start + 1} lines; a quote is 1–{MAX_QUOTE_LINES} lines. Cite the lines that "
             f"show it (e.g. {rel}:{start}-{start + MAX_QUOTE_LINES - 1}), and give --cite again for another place")
     if (start, end) != asked:
-        print(f"note: {rel}:{asked[0]}-{asked[1]} has blank lines at its ends; cited {rel}:{start}-{end}", file=sys.stderr)
+        say_later(f"note: {rel}:{asked[0]}-{asked[1]} has blank lines at its ends; cited {rel}:{start}-{end}")
     quote = "\n".join(lines[start - 1:end])
     first = quote.strip().splitlines()[0].strip()
-    print(f"cited {rel}:{start}{'' if start == end else f'-{end}'}: {first[:70]}{'…' if len(first) > 70 or start != end else ''}", file=sys.stderr)
+    say_later(f"cited {rel}:{start}{'' if start == end else f'-{end}'}: {first[:70]}{'…' if len(first) > 70 or start != end else ''}")
     ev = {"type": "code", "file": rel, "lines": str(start) if start == end else f"{start}-{end}", "quote": quote}
     if note:
         ev["note"] = note
@@ -2535,14 +2548,74 @@ def read_text_arg(value: str | None) -> str | None:
     return value
 
 
-def evidence_from_args(args, required: bool = False) -> list[dict]:
+def _record_order(namespace, dest, values):
+    setattr(namespace, "_order", (getattr(namespace, "_order", None) or []) + [(dest, values)])
+
+
+class InOrder(argparse._StoreAction):
+    """Stores the option as usual, and also records it in args._order, so evidence and notes keep the order given."""
+    def __call__(self, parser, namespace, values, option_string=None):
+        super().__call__(parser, namespace, values, option_string)
+        _record_order(namespace, self.dest, values)
+
+
+class InOrderAppend(argparse._AppendAction):
+    """The same, for a repeatable option."""
+    def __call__(self, parser, namespace, values, option_string=None):
+        super().__call__(parser, namespace, values, option_string)
+        _record_order(namespace, self.dest, values)
+
+
+def evidence_notes(args, kinds: list[str]) -> list[str | None]:
+    """The note for each evidence item, in the order the items were given. One --note applies to every item (as
+    before 5.0). With several, each --note belongs to the evidence just before it, and a --note before any evidence
+    applies to the items without one of their own; or, after all the evidence, one --note per item, in order."""
+    notes = getattr(args, "note", None)
+    if isinstance(notes, str):
+        notes = [notes]
+    notes = notes or []
+    if len(notes) <= 1:
+        return [notes[0] if notes else None] * len(kinds)
+    order = [(k, v) for k, v in (getattr(args, "_order", None) or []) if k in ("cite", "command", "absence", "note")]
+    first_note = next((i for i, (k, _) in enumerate(order) if k == "note"), len(order))
+    if len(notes) == len(kinds) and all(k == "note" for k, _ in order[first_note:]) and first_note == len(order) - len(notes):
+        return list(notes)   # all the notes after all the evidence: one each, in order
+    mine: list[str | None] = []
+    default = None
+    for k, v in order:
+        if k == "note":
+            if mine and mine[-1] is None:
+                mine[-1] = v
+            elif not mine:
+                default = v
+            else:
+                die(f"--note {v!r} follows evidence that already has a note: give each --note right after its --cite, --command or --absence")
+        else:
+            mine.append(None)
+    return [n if n is not None else default for n in mine]
+
+
+def evidence_from_args(args, required: bool = False, report: dict | None = None) -> list[dict]:
     out = []
-    note = getattr(args, "note", None)
     cites = getattr(args, "cite", None) or []
+    kinds = (["cite"] * len(cites)) + (["command"] if getattr(args, "command", None) else []) + (["absence"] if getattr(args, "absence", None) else [])
+    if getattr(args, "_order", None) and len(kinds) > 1:   # the order they were given, for the notes
+        kinds = [k for k, _ in args._order if k in ("cite", "command", "absence")]
+    notes = dict(zip(range(len(kinds)), evidence_notes(args, kinds)))
+    by_kind = {k: [notes[i] for i, kk in enumerate(kinds) if kk == k] for k in ("cite", "command", "absence")}
     if cites:
         read = repo_reader(getattr(args, "repo", None))
-        out += [cite(c, read, note) for c in cites]
+        out += [cite(c, read, n) for c, n in zip(cites, by_kind["cite"] or [None] * len(cites))]
+    note = (by_kind["command"] or [None])[0]
     if getattr(args, "command", None):
+        m = re.fullmatch(r"@(\d+)", args.command.strip())
+        if m:   # a command already recorded with `report ran`: its exact text
+            ran = (report or {}).get("commands_run") or []
+            n = int(m.group(1))
+            if not 1 <= n <= len(ran):
+                die(f"--command {args.command}: the report has {plural(len(ran), 'recorded command')} "
+                    "(`report show REPORT commands` numbers them)")
+            args.command = ran[n - 1]["command"]
         excerpt = read_text_arg(getattr(args, "excerpt", None))
         if getattr(args, "no_output", False):
             if (excerpt or "").strip():
@@ -2552,6 +2625,7 @@ def evidence_from_args(args, required: bool = False) -> list[dict]:
             die("--command needs --excerpt (the relevant output, copied; '@file' or '-' for stdin), or --no-output "
                 "for a command that printed nothing (say what happened, e.g. the exit code or a timeout, in --note)")
         out.append({"type": "command", "command": args.command, "excerpt": excerpt.strip("\n"), **({"note": note} if note else {})})
+    note = (by_kind["absence"] or [None])[0]
     if getattr(args, "absence", None):
         if not getattr(args, "method", None):
             die("--absence needs --method (how you searched)")
@@ -2605,6 +2679,9 @@ def finding_or_die(report: dict, fid: str) -> dict:
 
 def emit(args, result: dict, text: str) -> None:
     """Every command's output: text for people; with --json, main() wraps `result` in the envelope."""
+    for note in PENDING_NOTES:
+        print(note, file=sys.stderr)
+    PENDING_NOTES.clear()
     args._result = result
     if text:
         print(text)
@@ -2696,8 +2773,7 @@ def save_edit(args, report: dict, cfg: dict) -> None:
 
 def cmd_report_cite(args) -> int:
     ev = cite(args.spec, repo_reader(args.repo), args.note)
-    args._result = ev
-    print(json.dumps(ev, indent=None if args.compact else 2, ensure_ascii=False))
+    emit(args, ev, json.dumps(ev, indent=None if args.compact else 2, ensure_ascii=False))
     return 0
 
 
@@ -2719,7 +2795,7 @@ def cmd_finding_add(args) -> int:
     seen = args.first_seen or ((run.get("base_commit") or run.get("commit")) if args.status == "noticed" else run.get("commit"))
     f = {"id": fid, "benchmark_id": bid, "title": args.title, "severity": args.severity, "status": args.status,
          "first_seen_commit": seen,
-         "evidence": evidence_from_args(args, required=True), "disposition": None, "disposition_concern": None}
+         "evidence": evidence_from_args(args, required=True, report=report), "disposition": None, "disposition_concern": None}
     if args.paths:
         f["paths"] = [repo_relative(p) for p in args.paths]
     if args.sensitive:
@@ -2765,7 +2841,7 @@ def cmd_finding_update(args) -> int:
             f["cap"] = finding_cap_or_die(args.cap, f.get("benchmark_id"), report, f.get("severity"))
         else:
             f.pop("cap", None)
-    new_ev = evidence_from_args(args)
+    new_ev = evidence_from_args(args, report=report)
     if args.replace_evidence:
         if not new_ev:
             die("--replace-evidence needs new evidence")
@@ -2795,7 +2871,7 @@ def cmd_report_score(args) -> int:
             b["score"] = args.score
         if args.confidence:
             b["confidence"] = args.confidence
-        if b.get("score") is None or b.get("confidence") is None:
+        if (b.get("score") is None or b.get("confidence") is None) and not (args.applicability and args.score is None and not args.confidence):
             die(f"{b['id']} needs --score and --confidence")
     if args.score is not None or args.applicability:
         b["carried_forward"] = False
@@ -2820,7 +2896,13 @@ def cmd_report_score(args) -> int:
             die(f"{b['id']}: {b['score']} is above its limit of {min(w['max'] for w in too_high)}: "
                 + "; ".join(f"{w['why']} → max {w['max']}" for w in too_high))
     save_edit(args, report, cfg)
-    msg = f"{b['id']} {b['name']}: " + ("not applicable" if b["score"] is None else f"{b['score']} ({b['confidence']} confidence)")
+    if b["applicability"] == "not_applicable":
+        state = "not applicable"
+    elif b.get("score") is None:
+        state = f"{b['applicability']}, not scored yet (`report score REPORT {b['id']} --score N --confidence C`)"
+    else:
+        state = f"{b['score']} ({b['confidence']} confidence)" + ("" if b["applicability"] == "full" else f", {b['applicability']}")
+    msg = f"{b['id']} {b['name']}: " + state
     if b.get("target") is not None:
         msg += f", target {b['target']}"
     pending = [w for w in (score_limits(report, cfg).get(b["id"]) or {"why": []})["why"]
@@ -2834,7 +2916,7 @@ def cmd_report_score(args) -> int:
 def cmd_report_strength(args) -> int:
     report, cfg = load_for_edit(args)
     b = benchmark_or_die(report, args.benchmark)
-    b["strengths"].append({"note": args.text, "evidence": evidence_from_args(args, required=True)})
+    b["strengths"].append({"note": args.text, "evidence": evidence_from_args(args, required=True, report=report)})
     save_edit(args, report, cfg)
     emit(args, {"benchmark_id": b["id"], "strengths": len(b["strengths"])}, f"{b['id']}: {len(b['strengths'])} strength(s)")
     return 0
@@ -2843,7 +2925,7 @@ def cmd_report_strength(args) -> int:
 def cmd_report_enforcement(args) -> int:
     report, cfg = load_for_edit(args)
     b = benchmark_or_die(report, args.benchmark)
-    b["enforcement"].append({"note": args.text, "evidence": evidence_from_args(args, required=True)})
+    b["enforcement"].append({"note": args.text, "evidence": evidence_from_args(args, required=True, report=report)})
     save_edit(args, report, cfg)
     emit(args, {"benchmark_id": b["id"], "enforcement": len(b["enforcement"])}, f"{b['id']}: {len(b['enforcement'])} enforcement item(s)")
     return 0
@@ -2995,7 +3077,7 @@ def cmd_report_update(args) -> int:
         die(f"{args.ref} is a {kind}: " + {"finding": "use `report finding update`",
                                              "feature": "give the feature again with `report feature`",
                                              "command": "remove it (`report remove`) and record it again with `report ran`"}[kind])
-    new_ev = evidence_from_args(args)
+    new_ev = evidence_from_args(args, report=report)
     given = {k for k in ("text", "action", "new_score", "effort", "resolves", "decision", "optional", "why_first", "gap", "severity",
                          "necessity", "status", "rationale", "benchmarks") if getattr(args, k) is not None}
     if new_ev:
@@ -3080,7 +3162,7 @@ def cmd_report_remove(args) -> int:
 
 def cmd_report_feature(args) -> int:
     report, cfg = load_for_edit(args)
-    evidence = evidence_from_args(args)
+    evidence = evidence_from_args(args, report=report)
     same = [f for f in report["feature_inventory"] if str(f.get("feature", "")).strip().lower() == args.feature.strip().lower()]
     if same:   # the same feature again updates it, e.g. when `carry` says its citation needs new evidence
         feat = same[0]
@@ -3100,7 +3182,7 @@ def cmd_report_feature(args) -> int:
 
 def cmd_report_flag(args) -> int:
     report, cfg = load_for_edit(args)
-    flag = {"description": args.description, "evidence": evidence_from_args(args, required=True)}
+    flag = {"description": args.description, "evidence": evidence_from_args(args, required=True, report=report)}
     report["integrity_flags"].append(flag)
     save_edit(args, report, cfg)
     emit(args, {"integrity_flag": flag}, "added integrity flag (caps maturity at L1 for this run)")
@@ -3189,6 +3271,27 @@ def report_todo(report: dict, pdir: Path | None = None) -> list[str]:
     return todo
 
 
+def unrecorded_commands(report: dict) -> list[str]:
+    """Command evidence whose command isn't in commands_run: the excerpt can't be traced to a recorded run."""
+    ran = {norm(str(c.get("command") or "")) for c in report.get("commands_run") or []}
+    out, seen = [], set()
+    def walk(where, evs):
+        for ev in evs or []:
+            if ev.get("type") == "command" and norm(str(ev.get("command") or "")) not in ran:
+                key = (where, ev.get("command"))
+                if key not in seen:
+                    seen.add(key)
+                    out.append(f"{where}: its excerpt is from `{str(ev.get('command'))[:60]}`, which isn't in commands_run: record it with "
+                               "`report ran`, then cite it as `--command @N`")
+    for f in report.get("findings") or []:
+        walk(f.get("id"), f.get("evidence"))
+    for b in report.get("benchmarks") or []:
+        for kind in ("strengths", "enforcement"):
+            for i, item in enumerate(b.get(kind) or [], 1):
+                walk(f"{b.get('id')} {kind[:-1] if kind == 'strengths' else kind} {i}", item.get("evidence"))
+    return out
+
+
 def cmd_report_check(args) -> int:
     report, cfg = load_for_edit(args)
     normalize_report(report, cfg)
@@ -3197,6 +3300,7 @@ def cmd_report_check(args) -> int:
     note = work_order_note(pdir_, report)
     if note:
         warnings.append(note)
+    warnings += unrecorded_commands(report)
     todo = report_todo(report, pdir_)
     todo_ids = {t.split(" ", 1)[0] for t in todo}
     # A blank benchmark fails several rules at once; the to-do list says it once.
@@ -3209,6 +3313,7 @@ def cmd_report_check(args) -> int:
     if not todo:
         roll = compute_rollup(report, cfg)
         errors += [f"weight: {w}" for w in roll["weight_issues"]]
+    wrote = None
     if args.write:
         if roll is not None:
             apply_rollup(report, cfg)
@@ -3217,6 +3322,10 @@ def cmd_report_check(args) -> int:
                 usage = report["run"].setdefault("usage", {})
                 if usage.get("minutes") is None and report["run"].get("started"):
                     usage["minutes"] = minutes_between(report["run"]["started"], report["run"]["date"])
+            wrote = (f"wrote {args.report}: the rollup (overall {roll['overall_score']}, {roll['maturity']['current_level']}) and the finish "
+                     f"time {report['run']['date']}" + (f", {report['run']['usage']['minutes']:g} min" if (report["run"].get("usage") or {}).get("minutes") is not None else ""))
+        else:
+            wrote = f"wrote {args.report} (tidied); the rollup isn't stored until nothing is left to do"
         write_json(args.report, report)
     status = "errors" if errors else "incomplete" if todo else "ready"
     result = {"status": status, "errors": errors, "warnings": cfg.get("warnings", []) + warnings, "todo": todo,
@@ -3229,6 +3338,9 @@ def cmd_report_check(args) -> int:
         lines.append(f"overall {roll['overall_score']}, maturity {roll['maturity']['current_level']}" +
                      ("" if args.write else "  (run with --write to store the rollup and stamp the finish time)"))
     lines.append(f"\n{status}: {len(errors)} error(s), {len(result['warnings'])} warning(s), {len(todo)} to do")
+    if wrote:
+        lines.append(wrote)
+        result["wrote"] = wrote
     emit(args, result, "\n".join(lines))
     return 1 if errors else EXIT_INCOMPLETE if todo else 0
 
@@ -7160,14 +7272,16 @@ def build_parser() -> argparse.ArgumentParser:
         with_config(q)
 
     def evidence_args(q, cite_help="FILE:LINE or FILE:START-END; the quote is copied from the file (repeatable)"):
-        q.add_argument("--cite", action="append", metavar="FILE:LINES", help=cite_help)
+        q.add_argument("--cite", action=InOrderAppend, metavar="FILE:LINES", help=cite_help)
         q.add_argument("--repo", metavar="DIR_OR_ZIP", help="the code checkout (or a zip of it) that --cite reads")
-        q.add_argument("--command", metavar="CMD", help="evidence from a command you ran…")
+        q.add_argument("--command", action=InOrder, metavar="CMD",
+                       help="evidence from a command you ran (@N: the Nth command recorded with `report ran`)…")
         q.add_argument("--excerpt", metavar="TEXT", help="…and the relevant part of its output, copied ('@file' or '-' for stdin)")
         q.add_argument("--no-output", action="store_true", help="…or: it printed nothing (say what happened in --note)")
-        q.add_argument("--absence", metavar="WHAT", help="evidence that something is missing: what you looked for…")
+        q.add_argument("--absence", action=InOrder, metavar="WHAT", help="evidence that something is missing: what you looked for…")
         q.add_argument("--method", metavar="HOW", help="…and how you searched")
-        q.add_argument("--note", help="note on each evidence item added by this command")
+        q.add_argument("--note", action=InOrderAppend, help="a note on the evidence given just before it (repeatable); "
+                       "given once, it goes on every evidence item of this command")
 
     q = rsub.add_parser("new", help="start a report: every benchmark with its weight and target filled in")
     with_config(q)
@@ -7640,6 +7754,7 @@ def run_command(ap, args, raise_errors: bool = False) -> int:
                 ap.error("give the new report too, or --project NAME")
             args.new = str(found[-1] / "report.json")
         print(f"note: comparing {args.old} → {args.new}")
+    PENDING_NOTES.clear()
     try:
         return args.fn(args)
     except GradekitError as e:
