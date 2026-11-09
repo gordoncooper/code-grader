@@ -8,6 +8,21 @@ Versioning rules for the suite itself:
 
 After any major or minor change, re-run calibration (`calibration/README.md`) before trusting new scores.
 
+## 5.0.1 (unreleased)
+Fixes from the 5.0 calibration runs and the suite's first grade of itself. No scoring rules change: the calibration fingerprint is the same, so runs 13–15 still count.
+
+**Calibration passes under scoring 5.0.** Runs 13, 14 and 15 on the `schedule` golden were three independent graders on the released kit. Each is 100% within tolerance (MAE 0.28, 0.41 and 0.31), and no benchmark spreads more than 1 across them. All three gave overall 7.0 and L2, and E2 7 as keyed.
+
+**What the graders ran into**
+- **A long citation keeps its first three lines** with a note, instead of being refused. A refusal saved nothing for the whole command, which left half-saved `&&` chains to untangle. `rules.json`'s quote-length check follows the new message.
+- **Excerpts are checked as they're added.** For a command recorded with `report ran --output`, an excerpt line that isn't a whole line of the output is refused on entry, not only warned about by `report check`. `grader.md` now says excerpts are whole lines: spacing can differ, `...` stands for lines left out, and a line can't be cut short.
+- **One item of a list can be changed or removed:** `report set REPORT limitations.2 "…"`, or `report set REPORT limitations.2 --remove`. Before, the whole list had to be rewritten as JSON.
+- **`lint_errors` when nothing runs** uses the language's long-standing default linter (for Python, `flake8`, whose defaults don't drift between versions the way `ruff`'s do), and records its version.
+- **`doctor`'s hot-zone warning is addressed to the project's owner**, and tells a grader just to note it under limitations.
+
+**From the self-grade**
+- `grader.md` said 4.x and 5.x reports share scoring version 4.2.0. They don't: 5.x is scoring 5.0.0, so a 5.x report isn't compared for regressions with a 4.x one.
+
 ## 5.0.0
 Major release. The 35 benchmarks and their anchors don't change. **Severity does:** graders judge it by consequence where the code runs, zones no longer shift it, and a rubric cap needs a major or critical finding. That's a new scoring version (5.0.0): config fingerprints change, and a score change against a 4.x report isn't a regression. 5.x still reads 4.x reports and recomputes them under the rules they were graded with, and `gradekit migrate` moves a project over.
 
