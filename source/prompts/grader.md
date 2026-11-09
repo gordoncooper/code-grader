@@ -113,14 +113,15 @@ Work in phases. If your context is limited, run Phase 4 one pillar per pass, car
 $K report new --project-dir PROJECT_DIR --commit COMMIT --grader NAME --model MODEL [--started UTC_TIME] [--session ID] [--work-order ID] [--run N/COUNT]   # prints the report's path
 $K report finding add $R --benchmark A3 --title "..." --severity major --cite src/x.py:40-44 --repo CODE --note "..." [--cap A3-cap-1]
 $K report finding add $R --benchmark F2 --title "No CI" --severity critical --absence "CI config" --method "ls -a; …"
-$K report finding add $R --benchmark C4 --title "..." --severity major --command @2 --excerpt @out.txt   # @2: the 2nd command you recorded with `report ran`
+$K report finding add $R --benchmark C4 --title "..." --severity major --command @2 --excerpt @out.txt   # @2: the 2nd command you recorded with `report ran`; repeat --command/--excerpt pairs for more
 $K report score $R A3 --score 5 --confidence medium --rationale "one line: why 5" --why "what changed since the last report"
 $K report score $R X1 --applicability not_applicable --reason "HTTP API with no user interface"
 $K report strength $R A1 --text "..." --cite src/y.py:10 --repo CODE
 $K report enforcement $R A1 --text "CI runs mypy --strict on every PR" --cite .github/workflows/ci.yml:30 --repo CODE
 $K report action $R A3 --action "..." --resolves A3-004 --new-score 7 --effort S [--decision "question?"] [--why-first "..."]
 $K report set $R summary "3–5 sentences: overall health, biggest risks and strengths"
-$K report ran $R --command "pytest -q --cov=src" --exit-code 0 --summary "412 passed; 61% branch coverage" [--workdir "a copy of CODE"] [--env "Python 3.12 venv"]
+pytest -q --cov=src > SCRATCH/out-1.txt 2>&1; $K report ran $R --command "pytest -q --cov=src" --exit-code $? --summary "412 passed; 61% branch coverage" --output SCRATCH/out-1.txt [--workdir "a copy of CODE"] [--env "Python 3.12 venv"]
+$K report update $R command/1 --summary "…"                                   # correct a recorded command in place (also --command-text, --exit-code)
 $K report gap | feature | flag | set …                                         # the rest; see --help
 $K report show $R A3 | features | gaps | metrics | commands                     # numbered records, for update and remove
 $K report update $R A3/strength/2 --text "..." | A3-act-1 --new-score 8 | GAP-002 --severity minor
@@ -319,7 +320,7 @@ Record raw measurements in `metrics` so trends can be tracked independently of y
 | `line_coverage_pct`, `branch_coverage_pct` | whole project | C4 |
 | `core_branch_coverage_pct` | core domain modules only; name them in notes | C4 |
 | `mutation_score_pct` | if a mutation tool was run | C4 |
-| `lint_errors`, `lint_warnings` | with the linter and config the project's CI runs; if CI runs none, the one its contributor docs name (say which in `metrics_notes`) | C3 |
+| `lint_errors`, `lint_warnings` | with the linter and config the project's CI runs; if CI runs none, the one its contributor docs name; if that can't run either, the language's usual linter at its defaults (e.g. `flake8` or `ruff check` for Python). Say which in `metrics_notes` | C3 |
 | `lint_suppressions` | count of inline disable comments | anti-gaming |
 | `type_errors_strict` | at strict settings | B4 |
 | `type_escape_hatches` | `any`, casts, `ignore` comments | B4 |

@@ -2566,6 +2566,33 @@ class InOrderAppend(argparse._AppendAction):
         _record_order(namespace, self.dest, values)
 
 
+class InOrderTrue(argparse._StoreTrueAction):
+    """A flag (--no-output) whose place among the other options counts."""
+    def __call__(self, parser, namespace, values, option_string=None):
+        super().__call__(parser, namespace, values, option_string)
+        _record_order(namespace, self.dest, True)
+
+
+def as_list(v) -> list:
+    return [] if v is None else v if isinstance(v, list) else [v]
+
+
+def paired(args, first: str, seconds: tuple[str, ...], hint: str) -> list[tuple]:
+    """Pairs each --first with its --second (e.g. --command with --excerpt or --no-output), in the order given."""
+    firsts = as_list(getattr(args, first, None))
+    order = [(k, v) for k, v in (getattr(args, "_order", None) or []) if k in seconds]
+    if order:
+        thens = order
+    else:   # called without the parser's record (or only one of each)
+        thens = [(seconds[0], v) for v in as_list(getattr(args, seconds[0], None))]
+        if len(seconds) > 1 and getattr(args, seconds[1], None):
+            thens.append((seconds[1], True))
+    if len(firsts) != len(thens):
+        die(f"each --{first.replace('_', '-')} needs its own {hint}, in the same order: "
+            f"got {len(firsts)} --{first.replace('_', '-')} and {len(thens)} {hint}")
+    return [(f, k, v) for f, (k, v) in zip(firsts, thens)]
+
+
 def evidence_notes(args, kinds: list[str]) -> list[str | None]:
     """The note for each evidence item, in the order the items were given. One --note applies to every item (as
     before 5.0). With several, each --note belongs to the evidence just before it, and a --note before any evidence
@@ -2597,8 +2624,12 @@ def evidence_notes(args, kinds: list[str]) -> list[str | None]:
 
 def evidence_from_args(args, required: bool = False, report: dict | None = None) -> list[dict]:
     out = []
+    for second, first in (("excerpt", "command"), ("no_output", "command"), ("method", "absence")):
+        if getattr(args, second, None) and not as_list(getattr(args, first, None)):
+            die(f"--{second.replace('_', '-')} goes with --{first}: give the --{first} it belongs to")
     cites = getattr(args, "cite", None) or []
-    kinds = (["cite"] * len(cites)) + (["command"] if getattr(args, "command", None) else []) + (["absence"] if getattr(args, "absence", None) else [])
+    kinds = (["cite"] * len(cites)) + (["command"] * len(as_list(getattr(args, "command", None)))) \
+        + (["absence"] * len(as_list(getattr(args, "absence", None))))
     if getattr(args, "_order", None) and len(kinds) > 1:   # the order they were given, for the notes
         kinds = [k for k, _ in args._order if k in ("cite", "command", "absence")]
     notes = dict(zip(range(len(kinds)), evidence_notes(args, kinds)))
@@ -2606,30 +2637,31 @@ def evidence_from_args(args, required: bool = False, report: dict | None = None)
     if cites:
         read = repo_reader(getattr(args, "repo", None))
         out += [cite(c, read, n) for c, n in zip(cites, by_kind["cite"] or [None] * len(cites))]
-    note = (by_kind["command"] or [None])[0]
-    if getattr(args, "command", None):
-        m = re.fullmatch(r"@(\d+)", args.command.strip())
+    ran = (report or {}).get("commands_run") or []
+    cmd_notes = by_kind["command"] or []
+    for k, (command, kind, value) in enumerate(paired(args, "command", ("excerpt", "no_output"), "--excerpt (or --no-output)")
+                                               if as_list(getattr(args, "command", None)) else []):
+        m = re.fullmatch(r"@(\d+)", command.strip())
         if m:   # a command already recorded with `report ran`: its exact text
-            ran = (report or {}).get("commands_run") or []
             n = int(m.group(1))
             if not 1 <= n <= len(ran):
-                die(f"--command {args.command}: the report has {plural(len(ran), 'recorded command')} "
+                die(f"--command {command}: the report has {plural(len(ran), 'recorded command')} "
                     "(`report show REPORT commands` numbers them)")
-            args.command = ran[n - 1]["command"]
-        excerpt = read_text_arg(getattr(args, "excerpt", None))
-        if getattr(args, "no_output", False):
-            if (excerpt or "").strip():
-                die("give --excerpt or --no-output, not both")
+            command = ran[n - 1]["command"]
+        if kind == "no_output":
             excerpt = "(no output)"
-        if not (excerpt or "").strip():
-            die("--command needs --excerpt (the relevant output, copied; '@file' or '-' for stdin), or --no-output "
-                "for a command that printed nothing (say what happened, e.g. the exit code or a timeout, in --note)")
-        out.append({"type": "command", "command": args.command, "excerpt": excerpt.strip("\n"), **({"note": note} if note else {})})
-    note = (by_kind["absence"] or [None])[0]
-    if getattr(args, "absence", None):
-        if not getattr(args, "method", None):
-            die("--absence needs --method (how you searched)")
-        out.append({"type": "absence", "searched": args.absence, "method": args.method, **({"note": note} if note else {})})
+        else:
+            excerpt = read_text_arg(value)
+            if not (excerpt or "").strip():
+                die("--command needs --excerpt (the relevant output, copied; '@file' or '-' for stdin), or --no-output "
+                    "for a command that printed nothing (say what happened, e.g. the exit code or a timeout, in --note)")
+        note = cmd_notes[k] if k < len(cmd_notes) else None
+        out.append({"type": "command", "command": command, "excerpt": excerpt.strip("\n"), **({"note": note} if note else {})})
+    abs_notes = by_kind["absence"] or []
+    for k, (what, _, how) in enumerate(paired(args, "absence", ("method",), "--method (how you searched)")
+                                       if as_list(getattr(args, "absence", None)) else []):
+        note = abs_notes[k] if k < len(abs_notes) else None
+        out.append({"type": "absence", "searched": what, "method": how, **({"note": note} if note else {})})
     if required and not out:
         die("give evidence: --cite FILE:LINES (with --repo), --command CMD --excerpt TEXT, or --absence WHAT --method HOW")
     return out
@@ -3071,15 +3103,17 @@ def cmd_report_update(args) -> int:
     t = edit_target(report, args.ref)
     item, kind, changed = t["item"], t["kind"], []
     allowed = {"strength": {"text", "evidence"}, "enforcement": {"text", "evidence"},
+               "command": {"command_text", "exit_code", "summary", "workdir", "env"},
                "action": {"action", "new_score", "effort", "resolves", "decision", "optional", "why_first"},
                "gap": {"gap", "severity", "necessity", "status", "rationale", "benchmarks"}}
     if kind not in allowed:
         die(f"{args.ref} is a {kind}: " + {"finding": "use `report finding update`",
                                              "feature": "give the feature again with `report feature`",
-                                             "command": "remove it (`report remove`) and record it again with `report ran`"}[kind])
+                                             }[kind])
     new_ev = evidence_from_args(args, report=report)
     given = {k for k in ("text", "action", "new_score", "effort", "resolves", "decision", "optional", "why_first", "gap", "severity",
-                         "necessity", "status", "rationale", "benchmarks") if getattr(args, k) is not None}
+                         "necessity", "status", "rationale", "benchmarks", "command_text", "exit_code", "summary", "workdir", "env")
+             if getattr(args, k, None) is not None}
     if new_ev:
         given.add("evidence")
     if not given:
@@ -3096,6 +3130,21 @@ def cmd_report_update(args) -> int:
         if new_ev:
             item["evidence"] = new_ev if args.replace_evidence else item.get("evidence", []) + new_ev
             changed.append("evidence replaced" if args.replace_evidence else "evidence added")
+    elif kind == "command":
+        old = item.get("command")
+        for key, field in (("command_text", "command"), ("exit_code", "exit_code"), ("summary", "result_summary"), ("workdir", "workdir"), ("env", "env")):
+            if getattr(args, key, None) is not None:
+                if getattr(args, key) == "" and field in ("workdir", "env"):
+                    item.pop(field, None)
+                else:
+                    item[field] = getattr(args, key)
+        moved = 0
+        if args.command_text is not None and args.command_text != old:   # evidence that quotes it follows the new text
+            for _, ev, _ in iter_evidence(report):
+                if ev.get("type") == "command" and ev.get("command") == old:
+                    ev["command"] = args.command_text
+                    moved += 1
+        changed = sorted(given) + ([f"{plural(moved, 'evidence item')} now quote the new text"] if moved else [])
     elif kind == "action":
         if args.resolves is not None:
             ids = {f.get("id") for f in report["findings"]} | {g.get("id") for g in report["gap_register"]}
@@ -3189,6 +3238,32 @@ def cmd_report_flag(args) -> int:
     return 0
 
 
+OUTPUT_LINES_MAX = 5000
+
+
+def output_line_key(line: str) -> str:
+    return hashlib.sha256(" ".join(line.split()).encode("utf-8", "replace")).hexdigest()[:10]
+
+
+def output_fingerprint(text: str) -> dict:
+    """What `report ran --output` keeps of a command's output: one short hash per distinct line (whitespace evened
+    out), so `report check` can tell whether an excerpt was copied from it, without storing the output itself."""
+    lines = [l for l in text.splitlines() if l.strip()]
+    keys = sorted({output_line_key(l) for l in lines})
+    if len(keys) > OUTPUT_LINES_MAX:
+        return {"lines": len(lines), "too_long": True}
+    return {"lines": len(lines), "line_hashes": keys}
+
+
+def excerpt_mismatches(excerpt: str, fp: dict) -> list[str]:
+    """Excerpt lines that aren't lines of the recorded output (elisions like '...' are fine)."""
+    if not fp or fp.get("too_long") or not fp.get("line_hashes"):
+        return []
+    known = set(fp["line_hashes"])
+    return [l.strip() for l in excerpt.splitlines()
+            if l.strip() and l.strip() not in ("...", "…", "[...]", "(no output)") and output_line_key(l) not in known]
+
+
 def cmd_report_ran(args) -> int:
     report, cfg = load_for_edit(args)
     entry = {"command": args.command_text, "exit_code": args.exit_code, "result_summary": args.summary}
@@ -3196,9 +3271,13 @@ def cmd_report_ran(args) -> int:
         entry["workdir"] = args.workdir
     if args.env:
         entry["env"] = args.env
+    if args.output:
+        entry["output"] = output_fingerprint(read_text_arg(args.output if args.output == "-" else "@" + args.output) or "")
     report["commands_run"].append(entry)
     save_edit(args, report, cfg)
-    emit(args, {"command": entry}, f"recorded `{args.command_text}`")
+    n = len(report["commands_run"])
+    emit(args, {"command": entry, "n": n}, f"recorded `{args.command_text}` as command {n} (cite its output with `--command @{n}`)"
+         + (f"; kept a fingerprint of its {entry['output']['lines']} output lines" if args.output else ""))
     return 0
 
 
@@ -3272,17 +3351,28 @@ def report_todo(report: dict, pdir: Path | None = None) -> list[str]:
 
 
 def unrecorded_commands(report: dict) -> list[str]:
-    """Command evidence whose command isn't in commands_run: the excerpt can't be traced to a recorded run."""
-    ran = {norm(str(c.get("command") or "")) for c in report.get("commands_run") or []}
+    """Command evidence whose command isn't in commands_run (the excerpt can't be traced to a recorded run), and
+    excerpts with lines that aren't in the output recorded with `report ran --output`."""
+    ran: dict = {}
+    for c in report.get("commands_run") or []:
+        ran.setdefault(norm(str(c.get("command") or "")), c.get("output"))
     out, seen = [], set()
     def walk(where, evs):
         for ev in evs or []:
-            if ev.get("type") == "command" and norm(str(ev.get("command") or "")) not in ran:
-                key = (where, ev.get("command"))
-                if key not in seen:
-                    seen.add(key)
+            if ev.get("type") != "command":
+                continue
+            key = norm(str(ev.get("command") or ""))
+            if key not in ran:
+                if (where, key) not in seen:
+                    seen.add((where, key))
                     out.append(f"{where}: its excerpt is from `{str(ev.get('command'))[:60]}`, which isn't in commands_run: record it with "
                                "`report ran`, then cite it as `--command @N`")
+                continue
+            bad = excerpt_mismatches(str(ev.get("excerpt") or ""), ran[key] or {})
+            if bad:
+                out.append(f"{where}: {plural(len(bad), 'line')} of its excerpt from `{str(ev.get('command'))[:40]}` "
+                           f"{'is' if len(bad) == 1 else 'are'}n't in that command's recorded output (e.g. {bad[0][:60]!r}): "
+                           "copy excerpts from the output, never from your own notes")
     for f in report.get("findings") or []:
         walk(f.get("id"), f.get("evidence"))
     for b in report.get("benchmarks") or []:
@@ -7274,12 +7364,13 @@ def build_parser() -> argparse.ArgumentParser:
     def evidence_args(q, cite_help="FILE:LINE or FILE:START-END; the quote is copied from the file (repeatable)"):
         q.add_argument("--cite", action=InOrderAppend, metavar="FILE:LINES", help=cite_help)
         q.add_argument("--repo", metavar="DIR_OR_ZIP", help="the code checkout (or a zip of it) that --cite reads")
-        q.add_argument("--command", action=InOrder, metavar="CMD",
-                       help="evidence from a command you ran (@N: the Nth command recorded with `report ran`)…")
-        q.add_argument("--excerpt", metavar="TEXT", help="…and the relevant part of its output, copied ('@file' or '-' for stdin)")
-        q.add_argument("--no-output", action="store_true", help="…or: it printed nothing (say what happened in --note)")
-        q.add_argument("--absence", action=InOrder, metavar="WHAT", help="evidence that something is missing: what you looked for…")
-        q.add_argument("--method", metavar="HOW", help="…and how you searched")
+        q.add_argument("--command", action=InOrderAppend, metavar="CMD",
+                       help="evidence from a command you ran (@N: the Nth command recorded with `report ran`; repeatable)…")
+        q.add_argument("--excerpt", action=InOrderAppend, metavar="TEXT",
+                       help="…and the relevant part of its output, copied ('@file' or '-' for stdin); one per --command, in order")
+        q.add_argument("--no-output", action=InOrderTrue, help="…or: it printed nothing (say what happened in --note)")
+        q.add_argument("--absence", action=InOrderAppend, metavar="WHAT", help="evidence that something is missing: what you looked for (repeatable)…")
+        q.add_argument("--method", action=InOrderAppend, metavar="HOW", help="…and how you searched; one per --absence, in order")
         q.add_argument("--note", action=InOrderAppend, help="a note on the evidence given just before it (repeatable); "
                        "given once, it goes on every evidence item of this command")
 
@@ -7392,7 +7483,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     q = rsub.add_parser("update", help="change a strength, enforcement item, action or gap (findings: `report finding update`)")
     report_arg(q)
-    q.add_argument("ref", metavar="REF", help=EDIT_REF_HELP.replace(", command/N, feature/N, or, for remove, a finding ID", ""))
+    q.add_argument("ref", metavar="REF", help=EDIT_REF_HELP.replace(", feature/N, or, for remove, a finding ID", ""))
     q.add_argument("--text", help="strength or enforcement: the new text")
     evidence_args(q)
     q.add_argument("--replace-evidence", action="store_true", help="strength or enforcement: replace its evidence instead of adding to it")
@@ -7411,6 +7502,11 @@ def build_parser() -> argparse.ArgumentParser:
     q.add_argument("--status", choices=GAP_STATUSES)
     q.add_argument("--rationale")
     q.add_argument("--benchmarks", nargs="+", metavar="ID", help="gap: the benchmarks it affects (replaces the list)")
+    q.add_argument("--command-text", metavar="CMD", help="command/N: exactly what ran (evidence quoting the old text follows it)")
+    q.add_argument("--exit-code", type=int, help="command/N")
+    q.add_argument("--summary", help="command/N: what it showed")
+    q.add_argument("--workdir", metavar="DIR", help="command/N ('' to clear)")
+    q.add_argument("--env", metavar="TEXT", help="command/N ('' to clear)")
     q.set_defaults(fn=cmd_report_update)
 
     q = rsub.add_parser("remove", help="remove a strength, enforcement item, action, feature, or a finding or gap new in this report")
@@ -7449,6 +7545,8 @@ def build_parser() -> argparse.ArgumentParser:
     q.add_argument("--exit-code", type=int)
     q.add_argument("--summary", required=True)
     q.add_argument("--workdir", metavar="DIR", help="where it ran, if not the code checkout (e.g. 'a copy of CODE')")
+    q.add_argument("--output", metavar="FILE", help="its output (saved to a file, or '-' for stdin): gradekit keeps a fingerprint, "
+                   "so `report check` can tell whether excerpts were copied from it")
     q.add_argument("--env", metavar="TEXT", help="what it ran with, e.g. 'Python 3.13 venv with requirements-dev.txt'")
     q.set_defaults(fn=cmd_report_ran)
 

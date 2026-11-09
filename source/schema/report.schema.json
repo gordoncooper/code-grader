@@ -263,6 +263,30 @@
           "env": {
             "type": "string",
             "description": "What it ran with (interpreter, virtualenv, tools)"
+          },
+          "output": {
+            "type": "object",
+            "description": "`report ran --output`: a fingerprint of what the command printed (one short hash per distinct line), so `report check` can tell whether excerpts were copied from it",
+            "properties": {
+              "lines": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "line_hashes": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{10}$"
+                }
+              },
+              "too_long": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "lines"
+            ],
+            "additionalProperties": false
           }
         }
       }
