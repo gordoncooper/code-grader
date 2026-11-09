@@ -9,7 +9,7 @@
       "preset": "service",
       "code_repo": "examples/sample-repo",
       "path": null,
-      "config_hash": "c068a92b5feead6f",
+      "config_hash": "99965e49bb3352f4",
       "latest": {
         "folder": "2026-11-07-a1b2c3d",
         "date": "2026-11-07",
@@ -19,9 +19,9 @@
         "next_level": "L1",
         "failed_gates": [],
         "open_findings": {
-          "critical": 10,
-          "major": 14,
-          "minor": 3
+          "critical": 5,
+          "major": 13,
+          "minor": 9
         }
       },
       "pending_decisions": [

@@ -255,6 +255,14 @@
           },
           "result_summary": {
             "type": "string"
+          },
+          "workdir": {
+            "type": "string",
+            "description": "Where it ran, when that isn't the code checkout"
+          },
+          "env": {
+            "type": "string",
+            "description": "What it ran with (interpreter, virtualenv, tools)"
           }
         }
       }

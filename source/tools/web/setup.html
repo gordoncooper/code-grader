@@ -66,7 +66,7 @@
 
       <section class="card">
         <h2 data-term="zone"><span class="num">5</span>Mark hot and cold zones</h2>
-        <p class="hint"><b>Hot</b> zones (money, auth, data writes) count more: problems there are one severity higher, and fixes rank first. <b>Cold</b> zones (scripts, examples) count less. Everything else is normal. The first matching zone wins, so put specific ones first.</p>
+        <p class="hint"><b>Hot</b> zones (money, auth, data writes) are held to a higher bar: graders read them in full, fixes there rank first, and production-ready (L3) allows no major problem in them. <b>Cold</b> zones (scripts, examples) rank last. Everything else is normal. Keep hot zones to the code where a bug really costs more. The first matching zone wins, so put specific ones first.</p>
         <div id="zones"></div>
         <div class="row-btns mt-3">
           <button class="btn" type="button" id="add-hot">+ Hot zone</button>

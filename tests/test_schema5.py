@@ -42,8 +42,9 @@ def load(repo, rel):
     return json.loads((repo / rel).read_text())
 
 
-def config(gk_mod):
-    return gk_mod.resolve_config([str(EXAMPLE / PROJ / "project.toml")])
+def config(gk_mod, report=None):
+    """The example project's config, under the scoring rules the report was graded with (the current ones if none)."""
+    return gk_mod.resolve_config([str(EXAMPLE / PROJ / "project.toml")], scoring=gk_mod.scoring_version_of(report) if report else None)
 
 
 def finish(repo, rel):
@@ -106,10 +107,10 @@ def test_format_5_needs_utc_timestamps(gk, repo):
 def test_4x_reports_are_read_with_the_format_4_schema(gk):
     r = json.loads(NEW.read_text())
     assert "schema_version" not in r
-    errors, _ = gk.validate_report(r, config(gk), gk.load_catalog())
+    errors, _ = gk.validate_report(r, config(gk, r), gk.load_catalog())
     assert errors == []
     r["schema_version"] = 5     # claiming format 5 without its fields fails
-    errors, _ = gk.validate_report(r, config(gk), gk.load_catalog())
+    errors, _ = gk.validate_report(r, config(gk, r), gk.load_catalog())
     assert any("schema:" in e for e in errors)
 
 

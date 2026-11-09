@@ -17,7 +17,7 @@
   - Low integration friction with common stacks.
   - No lock-in surprises.
 - **Not this:** The contributor experience (E3). Docs accuracy in general (E2).
-- **Assess:** From a clean environment, follow the quickstart literally. Count the steps, minutes and stumbles to the first meaningful result.
+- **Assess:** From a clean environment, follow the quickstart literally. Count the steps, minutes and stumbles to the first meaningful result. A quickstart that needs something the documented install doesn't provide (an extra package, a system library) fails as written.
 - **Anchors:**
   - **1–3:** Can't get started without help from the author.
   - **4–6:** Gets working after real effort.
@@ -27,8 +27,8 @@
 
 ## E2. Documentation
 - **Measures:** Quality and accuracy of the documentation at every layer: README (purpose, setup, usage, configuration), API reference, architecture overview, decision records, runbooks, changelog, and inline comments explaining *why*. Above all, docs must match the code.
-- **Not this:** The onboarding experience (E1). Agent-specific instructions (X6).
-- **Assess:** Spot-check documented behavior against the code. Check coverage of public APIs and config options. Look for stale sections.
+- **Not this:** The onboarding experience (E1). A contributor setup or test command that doesn't work, even where it's documented (E3). Agent-specific instructions (X6).
+- **Assess:** Spot-check documented behavior against the code. Check coverage of public APIs and config options. Look for stale sections. `E2-cap-1` is for instructions users follow to install, configure or run the project; a contributor setup that fails is E3.
 - **Anchors:**
   - **1–3:** Missing or misleading.
   - **4–6:** Basic, with gaps and stale parts.
@@ -47,7 +47,7 @@
   - A contribution guide.
   - Fast CI feedback.
 - **Not this:** The outsider-adopter experience (E1). Choice of standard toolchain (E4).
-- **Assess:** Measure time from clone to passing tests, time to run one test, incremental build time, and how many undocumented steps you hit.
+- **Assess:** Measure time from clone to passing tests, time to run one test, incremental build time, and how many undocumented steps you hit. A documented dev setup or test command that fails is an E3 finding, not an E2 one.
 - **Anchors:**
   - **1–3:** Painful setup; slow loops.
   - **4–6:** Workable with tribal knowledge.

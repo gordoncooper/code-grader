@@ -75,7 +75,7 @@ python3 SUITE_DIR/tools/gradekit.py diff PROJECT_DIR/reports/<newest>/report.jso
 The PR **fails** if any of these hold:
 - any benchmark score dropped;
 - a gate newly failed;
-- a new finding the change introduced with **effective** severity `critical` or `major` (so a minor issue in a hot zone counts as major), or any `regressed` finding;
+- a new finding the change introduced with severity `critical` or `major`, or any `regressed` finding;
 - any gaming flag or integrity flag;
 - the maturity level dropped;
 - the hidden-check pass rate dropped (if hidden checks were run).
@@ -96,7 +96,7 @@ Without Python, keep it short and in this shape:
 **PR check: PASS | FAIL**
 Re-graded: A1, A4, C4, F2 (others carried forward)
 Changes: A4 5 → 7 (A4-001 fixed) · C4 7 → 7 · F2 8 → 9
-New findings: none | <ID: title, effective severity, zone>
+New findings: none | <ID: title, severity, zone>
 Regressions: none | <...>
 Decisions needed: none | <decision questions>
 ```

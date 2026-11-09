@@ -25,8 +25,9 @@
 
 # The version of the scoring rules, which is not always the kit's version. It changes only
 # when the scoring rules change, so releases that only add tools, fields or wording (such as
-# 4.2.2 and 4.3.0) keep config fingerprints, and older reports, valid.
-suite_version = "4.2.0"
+# 4.2.2 and 4.3.0) keep config fingerprints, and older reports, valid. 5.0.0 changed what
+# severity means (see ZONES); reports graded under 4.x keep their rules (config/scoring/4.2.0.toml).
+suite_version = "5.0.0"
 
 
 # -----------------------------------------------------------------------------
@@ -233,18 +234,19 @@ overall_cap = 4.0
 # first. Unmatched files are `default`. A finding takes the hottest zone among
 # the files it cites.
 #
-# Effects:
-#   - severity_shift: hot findings count one severity higher, cold one lower
-#     (never lower than minor or higher than critical).
-#   - never_downgrade: findings in these benchmarks keep their severity in cold zones.
-#   - Maturity levels limit open findings by severity and zone (see MATURITY).
+# Zones say where a problem costs more, and so where the bar is higher. They don't
+# change how bad a problem is: the grader judges a finding's severity by its
+# consequence where the code runs (a wrong total in payments is critical; a style
+# nit there is still minor). Effects:
+#   - Maturity levels hold hot zones to a higher standard (see MATURITY: L2 allows
+#     no critical findings there, L3 no major ones).
 #   - priority_multiplier: hot-zone work is ranked first (see PRIORITIES).
 #   - The grader reads hot zones in full and weighs them most when scoring.
+# (Until scoring 5.0, a zone shifted severity instead: hot one level up, cold one
+# down. That made one major-or-minor call move a score by 2-3 points.)
 # -----------------------------------------------------------------------------
 [zone_settings]
 default         = "normal"
-severity_shift  = { hot = 1, normal = 0, cold = -1 }
-never_downgrade = ["A2"]
 priority_multiplier = { hot = 2.0, normal = 1.0, cold = 0.5 }
 
 
@@ -268,8 +270,7 @@ overrides   = {}
 #   gate_min                every gate benchmark
 #   any_min                 every applicable benchmark
 #   max_critical_gaps / max_major_must_have_gaps   open gaps in the gap register
-#   findings_limits         open findings by EFFECTIVE severity (after zone
-#                           shift), optionally limited to one zone
+#   findings_limits         open findings by severity, optionally limited to one zone
 #   tens_require_enforcement   every 10 must cite enforcement evidence
 #   holdout_pass_rate_min   only checked when hidden checks were run
 # Any integrity flag caps maturity at `integrity_cap`.
@@ -304,7 +305,7 @@ gate_min                 = 8
 any_min                  = 6
 max_critical_gaps        = 0
 max_major_must_have_gaps = 0
-findings_limits          = [ { severity = "critical", max = 0 } ]
+findings_limits          = [ { severity = "critical", max = 0 }, { severity = "major", zone = "hot", max = 0 } ]
 holdout_pass_rate_min    = 0.8
 
 [[maturity.levels]]
@@ -324,7 +325,7 @@ holdout_pass_rate_min    = 0.95
 # PRIORITIES: how gradekit ranks improvement actions
 #   score = weight × points gained (capped at target) × zone multiplier ÷ effort cost
 # Actions are grouped into tiers before sorting by score:
-#   tier 0: fixes a failed gate (at or below hard_floor) or an effective-critical hot-zone finding
+#   tier 0: fixes a failed gate (at or below hard_floor) or a critical finding in a hot zone
 #   tier 1: unblocks the next maturity level
 #   tier 2: everything else below target
 #   tier 3: optional (benchmark already at target)

@@ -13,6 +13,7 @@
 
 ## X3. Concurrency Safety (*concurrent, parallel or async code*)
 - **Measures:** Shared state is protected; no races, deadlocks or unawaited promises; no blocking the event loop; cancellation is propagated; parallelism is bounded. Race detectors or stress tests are used (`go test -race`, TSan, loom...).
+- **Assess:** `limited` for code that isn't concurrent itself but is commonly called from threads or async code, or whose docs show it used that way: grade what it promises about thread safety, and whether it says where it isn't safe. `not_applicable` only when neither the code nor its documented use is concurrent.
 - **Caps:** A demonstrable data race on shared mutable state → max 3 (`X3-cap-1`).
 
 ## X4. Cost Efficiency (*code that runs on paid infrastructure or APIs*)

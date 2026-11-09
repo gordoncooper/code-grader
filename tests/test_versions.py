@@ -54,9 +54,11 @@ def test_4x_reports_stay_valid(gk):
     """The example's reports were written by 4.2.0; a 5.x kit validates them as they are."""
     report = json.loads(NEW.read_text())
     assert report["suite_version"].startswith("4.")
-    c = gk.resolve_config([str(EXAMPLE / PROJ / "project.toml")])
+    c = gk.resolve_config([str(EXAMPLE / PROJ / "project.toml")], scoring=gk.scoring_version_of(report))
+    assert c["sources"][0] == "config/scoring/4.2.0.toml", "a 4.x report is checked under the 4.x scoring rules"
     errors, _ = gk.validate_report(report, c, gk.load_catalog())
     assert errors == []
+    assert gk.compute_rollup(report, c)["overall_score"] == report["rollup"]["overall_score"], "and recomputes as it was graded"
 
 
 def test_reports_from_older_majors_are_refused(gk):
@@ -72,8 +74,8 @@ def test_new_reports_record_both_versions(repo):
     r = json.loads((repo / out["report"]).read_text())
     catalog = json.loads((SRC / "rubric" / "catalog.json").read_text())
     assert r["suite_version"] == catalog["suite_version"]
-    assert r["config"]["scoring_version"] == "4.2.0"
-    assert r["config"]["hash"] == json.loads(NEW.read_text())["config"]["hash"], "the fingerprint carries over from 4.x"
+    assert r["config"]["scoring_version"] == "5.0.0"
+    assert r["config"]["hash"] != json.loads(NEW.read_text())["config"]["hash"], "5.0 changed the scoring rules, so the fingerprint"
 
 
 def test_a_dropped_score_is_a_regression_across_kit_majors(gk):
@@ -100,8 +102,8 @@ def test_different_scoring_majors_are_not_compared(gk):
 
 def test_a_config_cant_change_the_scoring_version(gk, tmp_path):
     t = tmp_path / "p.toml"
-    t.write_text('suite_version = "5.0.0"\n[project]\nname = "x"\npreset = "default"\n')
-    with pytest.raises(gk.GradekitError, match="this kit scores with 4.2.0"):
+    t.write_text('suite_version = "4.2.0"\n[project]\nname = "x"\npreset = "default"\n')
+    with pytest.raises(gk.GradekitError, match="this kit scores with 5.0.0"):
         gk.resolve_config([str(t)])
 
 

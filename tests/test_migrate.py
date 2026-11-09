@@ -84,7 +84,7 @@ def test_a_migration_pull_request_end_to_end(gk_mod, repo):
         assert all(f.get("fingerprint") or f["evidence"][0]["type"] == "withheld" for f in after["findings"])
         md = (repo / rel / "report.md").read_text()
         assert "(migrated)" in md
-    cfg = gk_mod.resolve_config([str(repo / PROJ / "project.toml")])
+    cfg = gk_mod.resolve_config([str(repo / PROJ / "project.toml")], scoring=gk_mod.scoring_version_of(after))   # its own rules
     after = json.loads((repo / NEWEST / "report.json").read_text())
     errors, _ = gk_mod.validate_report(after, cfg, gk_mod.load_catalog())
     assert errors == [], "a migrated report is a valid format-5 report"

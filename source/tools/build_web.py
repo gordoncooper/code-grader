@@ -449,7 +449,7 @@ def landing(version: str, weights: dict, zip_name: str, zip_sha: str, zip_size: 
     <div class="trio">
       <div class="pillar"><h3><span class="pid">1</span>Weights from questions</h3><p>Answer eight questions ({questions}) or start from a preset ({preset_names}). Each answer moves specific weights.</p></div>
       <div class="pillar"><h3><span class="pid">2</span>Gates</h3><p>Correctness and Security always, plus whatever your answers add. A failed gate caps the overall score: a weighted average can't make up for a security hole.</p></div>
-      <div class="pillar"><h3><span class="pid">3</span>Zones</h3><p>Mark hot code (money, auth, data writes) and cold code (scripts, examples). Problems count one severity higher in hot zones, and hot-zone fixes are ranked first.</p></div>
+      <div class="pillar"><h3><span class="pid">3</span>Zones</h3><p>Mark hot code (money, auth, data writes) and cold code (scripts, examples). Hot code is held to a higher bar for maturity, and hot-zone fixes are ranked first.</p></div>
     </div>
     <div class="row-btns"><a class="btn primary" href="app/setup.html">Try it in Set up a project</a><a class="btn" href="docs/rubric/weights.html">How scoring works</a><a class="btn" href="docs/TUNING.html">Tuning guide</a></div>
   </section>
