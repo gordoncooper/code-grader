@@ -119,6 +119,8 @@ Then repeat: grade again after a batch of improvements, and the new report is co
 
 **Monorepo.** One project per part, e.g. `shop-web` with `path = "apps/web"` and `shop-api` with `path = "services/api"`. Each gets its own reports and decisions.
 
+**Grading on a schedule.** Set **Grade on a schedule** under *Advanced* on Set up a project (`[schedule]` in `project.toml`), e.g. every 30 days, only if the code has changed. The grading CI's scheduled job (weekly, or on demand) runs `gradekit due --check-code --write-orders`. For each project that's due, it opens a pull request adding a grade **work order**, and merging it records the request. Whatever runs your graders then picks up open orders. That can be you with Start a run, or an agent on its own schedule given a prompt like: *"In the grading repo, run `gradekit order list --json`. For each open grade order, act as the GRADER for its project, with `Work order: ID`."* The report that answers an order closes it. **Projects** shows each project's schedule, when it's next due, and what its grades took in time and cost. *Needs the permissions in the grading CI's notes: on GitHub, letting Actions open pull requests, and a `CODE_READ_TOKEN` for private code.*
+
 ## Keeping agents honest
 
 - **Every grading is a fresh session,** never the agent that did the improving.

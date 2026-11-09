@@ -43,6 +43,9 @@ LAYOUT = """() => {
   for (let i = 0; i < controls.length; i++) for (let j = i + 1; j < controls.length; j++) {
     const a = controls[i], b = controls[j];
     if (a.contains(b) || b.contains(a)) continue;
+    // The sticky top bar sits over whatever has scrolled under it: that's not an overlap in the layout.
+    if (!!a.closest('.topbar') !== !!b.closest('.topbar')) continue;
+    if (!!a.closest('dialog[open]') !== !!b.closest('dialog[open]')) continue;   // a modal dialog covers the page, likewise
     const ra = a.getBoundingClientRect(), rb = b.getBoundingClientRect();
     const w = Math.min(ra.right, rb.right) - Math.max(ra.left, rb.left), h = Math.min(ra.bottom, rb.bottom) - Math.max(ra.top, rb.top);
     if (w > 2 && h > 2) problems.push(`${name(a)} overlaps ${name(b)}`);

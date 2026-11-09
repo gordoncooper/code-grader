@@ -313,6 +313,23 @@ button.link:focus-visible{outline:2px solid currentColor;outline-offset:2px}
 .out-pre{max-height:560px;overflow:auto;margin:0}
 .kbd-note{font-size:.8rem;color:var(--muted)}
 details.advanced>summary{cursor:pointer;font-weight:600;font-size:.9rem;color:var(--accent);margin:4px 0}
+.pal-btn{display:inline-flex;align-items:center;gap:var(--s2);border:1px solid var(--line);background:var(--panel);color:var(--muted);border-radius:var(--r-sm);padding:4px 8px 4px 10px;font:500 .82rem var(--sans);cursor:pointer;min-height:28px}
+.pal-btn:hover{color:var(--ink);border-color:var(--accent)}
+.pal-btn kbd,.pal-foot kbd{font:600 .7rem var(--mono);border:1px solid var(--line);border-radius:4px;padding:1px 5px;background:var(--soft);color:var(--muted)}
+dialog.palette{border:1px solid var(--line);border-radius:var(--r-lg);padding:0;width:min(640px,calc(100vw - 32px));margin:12vh auto auto;background:var(--panel);color:var(--ink);box-shadow:0 20px 60px var(--shadow)}
+dialog.palette::backdrop{background:color-mix(in srgb,var(--ink) 30%,transparent)}
+.pal-box{display:flex;flex-direction:column;max-height:70vh}
+.pal-input{border:0;border-bottom:1px solid var(--line);border-radius:var(--r-lg) var(--r-lg) 0 0;padding:var(--s4);font:1rem var(--sans);background:transparent;color:var(--ink)}
+.pal-input:focus{outline:2px solid var(--accent);outline-offset:-2px}
+.pal-list{list-style:none;margin:0;padding:var(--s2);overflow-y:auto}
+.pal-group{font:700 .7rem var(--sans);text-transform:uppercase;letter-spacing:.06em;color:var(--muted);padding:var(--s3) var(--s3) var(--s1)}
+.pal-item{display:flex;flex-direction:column;gap:2px;padding:var(--s2) var(--s3);border-radius:var(--r-sm);cursor:pointer}
+.pal-item[aria-selected=true]{background:var(--accent-soft);box-shadow:inset 3px 0 0 var(--accent)}
+.pal-label{font-size:.92rem}
+.pal-hint{font-size:.78rem;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pal-empty{padding:var(--s4);color:var(--muted);font-size:.9rem}
+.pal-foot{margin:0;padding:var(--s2) var(--s4);border-top:1px solid var(--line)}
+@media (max-width:640px){.pal-btn kbd{display:none}}
 .tour-bar{background:var(--accent-soft);border:1px solid color-mix(in srgb,var(--accent) 30%,var(--line));border-radius:var(--r-lg);padding:var(--s3) var(--s4);margin:0 0 var(--s4)}
 .tour-head{display:flex;flex-wrap:wrap;align-items:center;gap:var(--s2) var(--s3)}
 .tour-head progress{width:120px;accent-color:var(--accent)}

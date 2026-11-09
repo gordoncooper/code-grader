@@ -105,6 +105,14 @@
         </details>
       </section>
 
+        <section class="card mt-4">
+          <h2>Grade on a schedule</h2>
+          <p class="hint">The grading CI's scheduled job asks for a grade when one is due, by writing a work order for your graders. Leave it empty to grade only when someone asks.</p>
+          <div class="grid2">
+            <div class="field"><label for="s-every">Grade every … days</label><input type="number" id="s-every" min="0" step="1" placeholder="e.g. 30" class="maxw-sm"></div>
+            <div class="field"><span class="label">When it's due</span><label class="check"><input type="checkbox" id="s-changed" checked> Only if the code has changed since the last grade</label></div>
+          </div>
+        </section>
       </details>
 
       <section class="card" id="output">

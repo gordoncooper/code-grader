@@ -5,6 +5,9 @@
 #   decide: when someone ticks a box in a report pull request's "Decisions needed" checklist, records the answer
 #           in that project's decisions.json on the pull request's branch, under their GitHub login.
 #   index: when reports or decisions land on the default branch, rebuilds projects/index.json and commits it.
+#   schedule: every Monday (and on demand: Actions → Grading check → Run workflow), asks for a grade for each
+#             project that's due under its [schedule] in project.toml: one pull request per project, adding a
+#             grade work order. Whoever runs graders picks open orders up with `gradekit order list`.
 #
 # Settings → Secrets and variables → Actions → Variables: SUITE_SITE = your suite website's address.
 # Permissions: the default GITHUB_TOKEN with each job's `permissions` below. Pull requests from forks get
@@ -14,6 +17,10 @@
 # Who can answer by ticking: anyone who can edit the pull request's description, which is people with write access
 # and the pull request's author. Pull requests from forks are skipped. Commits made with GITHUB_TOKEN don't start
 # workflows, so the check job doesn't re-run on the decide job's commit; `gradekit decide` checks each answer itself.
+# The schedule job needs Settings → Actions → General → "Allow GitHub Actions to create and approve pull requests".
+# To tell whether private code has changed, add a CODE_READ_TOKEN secret that can read the code repos (a fine-grained
+# token with Contents: read); without it, only public code repos are checked. GitHub pauses schedules in a public
+# repository after 60 days without activity.
 name: Grading check
 
 on:
@@ -22,6 +29,9 @@ on:
     paths: ["projects/**", "org.toml"]
   push:
     paths: ["projects/**", "org.toml"]
+  schedule:
+    - cron: "23 14 * * 1"
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -150,3 +160,49 @@ jobs:
           git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
             commit -m "Update projects/index.json [skip ci]"
           git push
+
+  schedule:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    env:
+      SUITE_SITE: ${{ vars.SUITE_SITE || '__SUITE_SITE__' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Get the grading kit
+        run: |
+          curl -fsSL "${SUITE_SITE%/}/suite/ci/fetch-kit.py" -o "$RUNNER_TEMP/fetch-kit.py"
+          echo "KIT=$(python3 "$RUNNER_TEMP/fetch-kit.py" "$SUITE_SITE" "$RUNNER_TEMP/kit")" >> "$GITHUB_ENV"
+
+      - name: Ask for the grades that are due
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CODE_READ_TOKEN: ${{ secrets.CODE_READ_TOKEN }}
+          BASE: ${{ github.event.repository.default_branch }}
+        run: |
+          if [ -n "$CODE_READ_TOKEN" ]; then
+            git config --global url."https://x-access-token:${CODE_READ_TOKEN}@github.com/".insteadOf "https://github.com/"
+          fi
+          python3 "$KIT/tools/gradekit.py" due --check-code --write-orders | tee "$RUNNER_TEMP/due.txt"
+          day=$(date -u +%F)
+          for proj in $(git status --porcelain --untracked-files=all -- projects | sed -n 's#^?? projects/\([^/]*\)/orders/.*#\1#p' | sort -u); do
+            branch="orders/$proj/schedule-$day"
+            git switch -q -c "$branch" "origin/$BASE"
+            git add "projects/$proj/orders"
+            git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+              commit -q -m "Scheduled grade for $proj"
+            git push -q origin "$branch"
+            { echo "**$proj** is due for a grade under its \`[schedule]\`:"; echo
+              grep "^due  $proj:" "$RUNNER_TEMP/due.txt" | sed 's/^due  /- /'
+              echo; echo "Merging records the request as a work order. Whoever runs graders picks it up with \`gradekit order list\`,"
+              echo "and the report that answers it closes it."; } > "$RUNNER_TEMP/body.md"
+            gh pr create --base "$BASE" --head "$branch" --title "Scheduled grade: $proj ($day)" --body-file "$RUNNER_TEMP/body.md"
+            git switch -q "$BASE"
+          done

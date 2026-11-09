@@ -162,7 +162,8 @@
     box.appendChild(h("div", { class: "stats-row" },
       h("div", { class: "stat" }, h("div", { class: "k" }, "Projects"), h("div", { class: "v" }, String(ps.length)), h("div", { class: "s" }, graded.length + " graded")),
       h("div", { class: "stat" }, h("div", { class: "k" }, "Decisions waiting"), h("div", { class: "v" }, String(waiting)), h("div", { class: "s" }, "across " + plural(ps.filter(function (p) { return (p.pending_decisions || []).length; }).length, "project"))),
-      h("div", { class: "stat" }, h("div", { class: "k", dataset: { term: "maturity level" } }, "Production-ready"), h("div", { class: "v" }, String(graded.filter(function (p) { return /^L[34]$/.test(p.latest.level || ""); }).length)), h("div", { class: "s" }, "at L3 or L4"))));
+      h("div", { class: "stat" }, h("div", { class: "k", dataset: { term: "maturity level" } }, "Production-ready"), h("div", { class: "v" }, String(graded.filter(function (p) { return /^L[34]$/.test(p.latest.level || ""); }).length)), h("div", { class: "s" }, "at L3 or L4")),
+      spendStat(ps)));
     box.appendChild(UI.table({ cls: "proj-table", caption: "Every project", rows: ps, columns: [
       { label: "Project", cell: function (p) {
           var rv = reviewHref(p.name);
@@ -182,10 +183,48 @@
           var w = (p.cycle || {}).waiting_on || [];
           return w.length ? h("span", { class: "small" }, w.map(function (x) { return x.who + ": " + x.what; }).join("; ")) : h("span", { class: "kbd-note" }, "nothing");
         } },
-      { label: "Graded", cell: function (p) { return p.latest ? h("span", { class: "small" }, p.latest.date) : "–"; } }
+      { label: "Graded", cell: function (p) {
+          var sch = UI.scheduleOf(p), last = full(p).slice(-1)[0], u = last && UI.usageParts(last.usage);
+          return h("div", { class: "small" }, p.latest ? p.latest.date : "–",
+            u && u.length ? h("span", { class: "kbd-note" }, " · " + u.filter(function (x) { return !/tokens/.test(x); }).join(" · ")) : null,
+            sch ? h("div", null, sch.due ? UI.badge("due" + (sch.onlyIfChanged ? " if the code changed" : ""), "warn") : h("span", { class: "kbd-note" }, "next " + sch.next)) : null);
+        } }
     ] }));
     var problems = ps.filter(function (p) { return (p.problems || []).length; });
     problems.forEach(function (p) { box.appendChild(UI.banner("warn", h("b", null, p.name + ": "), p.problems.join("; "))); });
+  }
+
+  // Agent time and cost over the last 30 days, from every report that recorded them.
+  function spendStat(ps) {
+    var since = new Date(Date.now() - 30 * 864e5).toISOString().slice(0, 10), runs = [];
+    ps.forEach(function (p) { (p.history || []).forEach(function (r) { if (r.date >= since) runs.push(r.usage || {}); }); });
+    var t = UI.usageTotals(runs);
+    return h("div", { class: "stat" }, h("div", { class: "k" }, "Agent time, 30 days"),
+      h("div", { class: "v" }, t.timed ? UI.fmtMinutes(t.minutes) : "–"),
+      h("div", { class: "s" }, !t.runs ? "no reports in 30 days" : [plural(t.runs, "report"), t.priced ? UI.fmtCost(t.cost) + (t.priced < t.runs ? " (" + t.priced + " priced)" : "") : "cost not recorded",
+                                  t.timed && t.timed < t.runs ? t.timed + " timed" : null].filter(Boolean).join(" · ")));
+  }
+
+  // Time and cost of every run of one project (N3).
+  function costCard(p) {
+    var runs = (p.history || []).slice().reverse();
+    var card = UI.card({ title: "Time and cost", small: true, cls: "mt-4",
+      hint: "What each grading run took, as its report recorded it (run.usage). Graders record minutes automatically; tokens and cost when their tools report them." });
+    if (!runs.some(function (r) { return r.usage; })) {
+      card.appendChild(UI.state("empty", { title: "Not recorded yet", message: "Reports from 5.0 graders record how long they took. Older reports don't." }));
+      return card;
+    }
+    var grades = runs.filter(function (r) { return r.mode !== "pr"; }), t = UI.usageTotals(grades.map(function (r) { return r.usage; }));
+    if (t.timed) card.appendChild(h("p", { class: "small" }, "A full grade takes about ", h("b", null, UI.fmtMinutes(t.minutes / t.timed)),
+      t.priced ? h("span", null, " and costs about ", h("b", null, UI.fmtCost(t.cost / t.priced))) : null, " (average of " + plural(t.timed, "full grade") + ")."));
+    card.appendChild(UI.table({ caption: "Time and cost by report", rows: runs, columns: [
+      { label: "Report", cell: function (r) { return r.date + " · " + r.commit + (r.mode === "pr" ? " (PR check)" : ""); } },
+      { label: "Model", cell: function (r) { return r.model ? h("code", null, r.model) : "–"; } },
+      { label: "Time", cls: "num", cell: function (r) { return UI.fmtMinutes((r.usage || {}).minutes) || "–"; } },
+      { label: "Tokens", cls: "num", cell: function (r) { var u = r.usage || {}; return UI.usageParts({ tokens_in: u.tokens_in, tokens_out: u.tokens_out })[0] || "–"; } },
+      { label: "Cost", cls: "num", cell: function (r) { return UI.fmtCost((r.usage || {}).cost_usd) || "–"; } }
+    ] }));
+    return card;
   }
 
   // ------------------------------------------------------------------ one project: cycle (H5), trends and heatmap (U5)
@@ -223,7 +262,13 @@
     } else {
       cyc.appendChild(h("p", { class: "kbd-note mt-2" }, "Load the index from a GitHub grading repo to see its open pull requests. On another host, look for branches named report/" + p.name + "/… and decisions/" + p.name + "/…"));
     }
+    var sch = UI.scheduleOf(p);
+    cyc.appendChild(h("p", { class: "kbd-note mt-2" }, sch
+      ? "Graded every " + plural(sch.every, "day") + (sch.onlyIfChanged ? " when the code has changed" : "") + ": " +
+        (sch.due ? "due now. The grading CI's scheduled job writes a work order." : "next on " + sch.next + ".")
+      : "No schedule: grades happen when someone asks. Set one under [schedule] in project.toml."));
     box.appendChild(cyc);
+    box.appendChild(costCard(p));
 
     if (!f.length) { box.appendChild(UI.state("empty", { title: "No full report yet", message: "The first grade puts its scores here." })); return; }
 
@@ -346,6 +391,17 @@
   document.addEventListener("DOMContentLoaded", function () {
     UI.tabs($("#load-tabs")).select("repo");
     tabs = UI.tabs($("#pj-tabs"));
+    UI.palette.add(function () {
+      if (!IDX) return [{ group: "This page", label: "Open the sample grading repo", run: loadSample }];
+      var out = [["all", "All projects"], ["decisions", "Decisions waiting"], ["project", "One project"]].map(function (t) {
+        return { group: "This page", label: "Go to " + t[1], keywords: "tab", run: function () { tabs.select(t[0]); remember({ tab: t[0], project: t[0] === "project" ? selected : null }); } };
+      });
+      IDX.projects.forEach(function (p) {
+        out.push({ group: "Projects", label: p.name, hint: [p.latest ? (p.latest.overall == null ? "–" : p.latest.overall) + " · " + p.latest.level : "not graded", (p.cycle || {}).stage].filter(Boolean).join(" · "),
+                   keywords: "project " + (p.description || ""), run: function () { choose(p.name); } });
+      });
+      return out;
+    });
     $("#pj-tabs").addEventListener("click", function (e) {
       var t = e.target.closest("button[data-tab]"); if (t) remember({ tab: t.dataset.tab, project: t.dataset.tab === "project" ? selected : null });
     });

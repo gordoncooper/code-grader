@@ -486,6 +486,47 @@
   document.addEventListener("click", function (e) {
     if (!e.target.closest(".term-pop")) $$(".term-pop:not([hidden])").forEach(function (b) { b.hidden = true; var t = $("[aria-controls='" + b.id + "']"); if (t) t.setAttribute("aria-expanded", "false"); });
   });
+  // ------------------------------------------------------------------ time and cost of runs (N3)
+  // run.usage is {minutes, tokens_in, tokens_out, cost_usd}, each where known.
+  function fmtMinutes(m) {
+    if (m == null) return null;
+    if (m < 90) return Math.round(m) + " min";
+    var hrs = m / 60; return (hrs < 10 ? hrs.toFixed(1).replace(/\.0$/, "") : String(Math.round(hrs))) + " h";
+  }
+  function fmtTokens(n) {
+    if (n == null) return null;
+    return n >= 1e6 ? (n / 1e6).toFixed(n >= 1e7 ? 0 : 1).replace(/\.0$/, "") + "M" : n >= 1e3 ? Math.round(n / 1e3) + "k" : String(n);
+  }
+  function fmtCost(c) { return c == null ? null : "$" + (c >= 100 ? Math.round(c) : c.toFixed(2)); }
+  function usageParts(u) {
+    u = u || {};
+    var tok = u.tokens_in != null || u.tokens_out != null
+      ? [fmtTokens(u.tokens_in) && fmtTokens(u.tokens_in) + " in", fmtTokens(u.tokens_out) && fmtTokens(u.tokens_out) + " out"].filter(Boolean).join(", ") + " tokens" : null;
+    return [fmtMinutes(u.minutes), tok, fmtCost(u.cost_usd)].filter(Boolean);
+  }
+  // Totals over runs: {runs, timed, minutes, priced, cost} (timed/priced: how many runs recorded each).
+  function usageTotals(list) {
+    var t = { runs: 0, timed: 0, minutes: 0, priced: 0, cost: 0 };
+    (list || []).forEach(function (u) {
+      t.runs++; u = u || {};
+      if (u.minutes != null) { t.timed++; t.minutes += u.minutes; }
+      if (u.cost_usd != null) { t.priced++; t.cost += u.cost_usd; }
+    });
+    return t;
+  }
+  // A project's schedule: {every, onlyIfChanged, next: "YYYY-MM-DD" | null, due: bool} from its index entry.
+  function scheduleOf(p, today) {
+    var s = p && p.schedule;
+    if (!s || !s.grade_every_days) return null;
+    var last = p.latest && p.latest.date, out = { every: s.grade_every_days, onlyIfChanged: s.only_if_code_changed !== false, next: null, due: !last };
+    if (last) {
+      var d = new Date(last + "T00:00:00Z"); d.setUTCDate(d.getUTCDate() + s.grade_every_days);
+      out.next = d.toISOString().slice(0, 10);
+      out.due = (today || new Date().toISOString().slice(0, 10)) >= out.next;
+    }
+    return out;
+  }
+
   // ------------------------------------------------------------------ guided first run (U4)
   // ?tour=1 on any app page starts it; progress is kept in this browser. Each page marks its steps with
   // UI.tour.done(id). A bar at the top of every app page shows what's done and links to the next step.
@@ -538,8 +579,132 @@
     }
   };
 
+  // ------------------------------------------------------------------ command palette (U2)
+  // Ctrl/Cmd+K, or the Search button in the top bar: jump to any page, doc, benchmark or glossary term, and to what's
+  // on this page (pages add their own with UI.palette.add(function () { return [items] })). An item is
+  // {group, label, hint, keywords, href} or {…, run: function}.
+  var ROOT = (function () { try { return new URL("../", document.currentScript.src).href; } catch (e) { return "../"; } })();
+  var palette = (function () {
+    var sources = [], dlg = null, input, list, items = [], active = 0, uid = 0;
+    var isMac = /Mac|iP(hone|ad)/.test(navigator.platform || navigator.userAgent || "");
+    function base() {
+      var tourOn = (tour.state() || {}).on, out = [
+        { group: "Pages", label: "Home", href: ROOT + "index.html" },
+        { group: "Pages", label: "Get started", href: ROOT + "docs/GETTING-STARTED.html", keywords: "guide walkthrough" },
+        { group: "Pages", label: "Set up a project", href: ROOT + "app/setup.html", keywords: "project.toml preset questions zones schedule" },
+        { group: "Pages", label: "Start a run", href: ROOT + "app/run.html", keywords: "prompt grader improver agent work order" },
+        { group: "Pages", label: "Review a report", href: ROOT + "app/review.html", keywords: "decisions scorecard findings" },
+        { group: "Pages", label: "Projects", href: ROOT + "app/projects.html", keywords: "index trends heatmap cost" },
+        { group: "Actions", label: tourOn ? "End the guided first run" : "Take the guided first run", keywords: "tour tutorial sample",
+          run: function () { if (tourOn) tour.end(); else location.href = ROOT + "app/review.html?sample=1&tour=1"; } },
+        { group: "Actions", label: "Open the sample report", href: ROOT + "app/review.html?sample=1", keywords: "example demo" }
+      ];
+      var S = window.SEARCH || {};
+      (S.benchmarks || []).forEach(function (b) { out.push({ group: "Rubric", label: b.id + " " + b.name, hint: "the rubric", href: ROOT + b.href, keywords: "benchmark" }); });
+      (S.terms || []).forEach(function (t) { out.push({ group: "Glossary", label: t.term, hint: t.definition, href: ROOT + t.href }); });
+      (S.docs || []).forEach(function (d) { out.push({ group: "Docs", label: d.title, href: ROOT + d.href }); });
+      return out;
+    }
+    function all() {
+      var mine = [];
+      sources.forEach(function (fn) { try { mine = mine.concat(fn() || []); } catch (e) { /* a page's items failed: show the rest */ } });
+      return mine.concat(base());
+    }
+    function score(it, words) {
+      var label = it.label.toLowerCase(), hay = (label + " " + (it.keywords || "") + " " + (it.group || "")).toLowerCase(), sc = 0;
+      for (var i = 0; i < words.length; i++) {
+        var w = words[i], at = hay.indexOf(w);
+        if (at < 0) return -1;
+        sc += label.indexOf(w) === 0 ? 30 : new RegExp("(^|[^a-z0-9])" + w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).test(label) ? 20 : label.indexOf(w) >= 0 ? 10 : 2;
+      }
+      return sc;
+    }
+    function filter(q) {
+      var words = q.toLowerCase().split(/\s+/).filter(Boolean), pool = all(), order = [];
+      if (!words.length) {   // nothing typed: this page's items, then pages and actions
+        var groups = {};
+        pool.forEach(function (it) { if (["Rubric", "Glossary", "Docs"].indexOf(it.group) < 0) (groups[it.group] = groups[it.group] || []).push(it); });
+        Object.keys(groups).forEach(function (g) { order = order.concat(groups[g].slice(0, 6)); });
+        return order;
+      }
+      pool.forEach(function (it, i) { var sc = score(it, words); if (sc >= 0) order.push({ it: it, sc: sc, i: i }); });
+      order.sort(function (a, b) { return b.sc - a.sc || a.i - b.i; });
+      return order.slice(0, 40).map(function (x) { return x.it; });
+    }
+    function render() {
+      items = filter(input.value);
+      clear(list);
+      if (active >= items.length) active = Math.max(0, items.length - 1);
+      var last = null;
+      items.forEach(function (it, i) {
+        if (it.group !== last) { list.appendChild(h("li", { role: "presentation", class: "pal-group" }, it.group)); last = it.group; }
+        var li = h("li", { role: "option", id: "pal-" + uid + "-" + i, class: "pal-item", "aria-selected": String(i === active) },
+          h("span", { class: "pal-label" }, it.label), it.hint ? h("span", { class: "pal-hint" }, it.hint) : null);
+        li.addEventListener("mousedown", function (e) { e.preventDefault(); });   // keep focus in the input
+        li.addEventListener("click", function () { choose(i); });
+        li.addEventListener("mousemove", function () { if (active !== i) { active = i; mark(); } });
+        list.appendChild(li);
+      });
+      if (!items.length) list.appendChild(h("li", { role: "presentation", class: "pal-empty" }, "Nothing matches. Try a benchmark ID (A3), a term (gate), or a page."));
+      input.setAttribute("aria-expanded", String(items.length > 0));
+      mark();
+    }
+    function mark() {
+      $$(".pal-item", list).forEach(function (li, i) { li.setAttribute("aria-selected", String(i === active)); });
+      var cur = items.length ? document.getElementById("pal-" + uid + "-" + active) : null;
+      if (cur) { input.setAttribute("aria-activedescendant", cur.id); cur.scrollIntoView({ block: "nearest" }); }
+      else input.removeAttribute("aria-activedescendant");
+    }
+    function choose(i) {
+      var it = items[i]; if (!it) return;
+      close();
+      if (it.run) it.run(); else if (it.href) location.href = it.href;
+    }
+    function build() {
+      uid++;
+      input = h("input", { type: "text", class: "pal-input", role: "combobox", "aria-autocomplete": "list", "aria-expanded": "false",
+                           "aria-controls": "pal-list", "aria-label": "Search pages, benchmarks, terms and this page", placeholder: "Search pages, benchmarks, terms…",
+                           autocomplete: "off", spellcheck: "false" });
+      list = h("ul", { id: "pal-list", role: "listbox", class: "pal-list", "aria-label": "Results" });
+      dlg = h("dialog", { class: "palette", "aria-label": "Search and commands" },
+        h("div", { class: "pal-box" }, input, list,
+          h("p", { class: "pal-foot kbd-note" }, h("kbd", null, "↑"), h("kbd", null, "↓"), " to move · ", h("kbd", null, "Enter"), " to open · ", h("kbd", null, "Esc"), " to close")));
+      input.addEventListener("input", function () { active = 0; render(); });
+      input.addEventListener("keydown", function (e) {
+        if (e.key === "ArrowDown") { e.preventDefault(); if (items.length) { active = (active + 1) % items.length; mark(); } }
+        else if (e.key === "ArrowUp") { e.preventDefault(); if (items.length) { active = (active - 1 + items.length) % items.length; mark(); } }
+        else if (e.key === "Home" && e.ctrlKey) { e.preventDefault(); active = 0; mark(); }
+        else if (e.key === "Enter") { e.preventDefault(); choose(active); }
+      });
+      dlg.addEventListener("click", function (e) { if (e.target === dlg) close(); });   // a click on the backdrop
+      dlg.addEventListener("close", function () { if (open.from && open.from.focus) open.from.focus(); });
+      document.body.appendChild(dlg);
+    }
+    function open() {
+      if (!dlg) build();
+      if (dlg.open) return;
+      open.from = document.activeElement;
+      input.value = ""; active = 0; render();
+      if (dlg.showModal) dlg.showModal(); else dlg.setAttribute("open", "");
+      input.focus();
+    }
+    function close() { if (dlg && dlg.open) { if (dlg.close) dlg.close(); else dlg.removeAttribute("open"); } }
+    function button() {
+      var bar = $(".topbar"), spacer = bar && $(".spacer", bar);
+      if (!bar || $(".pal-btn", bar)) return;
+      var b = h("button", { type: "button", class: "pal-btn", "aria-keyshortcuts": isMac ? "Meta+K" : "Control+K", onclick: open },
+        "Search", h("kbd", { "aria-hidden": "true" }, isMac ? "⌘K" : "Ctrl K"));
+      bar.insertBefore(b, spacer ? spacer.nextSibling : null);
+    }
+    document.addEventListener("keydown", function (e) {
+      if ((e.key === "k" || e.key === "K") && (e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey) { e.preventDefault(); if (dlg && dlg.open) close(); else open(); }
+    });
+    return { add: function (fn) { sources.push(fn); }, open: open, close: close, button: button };
+  })();
+
   document.addEventListener("DOMContentLoaded", function () {
     terms(document);
+    palette.button();
     if (new URLSearchParams(location.search).get("tour")) tour.start();
     tour.render();
   });
@@ -551,5 +716,6 @@
   window.UI = { h: h, $: $, $$: $$, inline: inline, clear: clear, toast: toast, copyText: copyText, download: download, readFile: readFile,
                 store: store, debounce: debounce, bindEnginePill: bindEnginePill, engineHelp: engineHelp, dropZone: dropZone, tabs: tabs, tabKeys: tabKeys, terms: terms,
                 banner: banner, state: state, show: show, failed: failed, skeleton: skeleton, chip: chip, badge: badge, card: card,
-                field: field, seg: seg, table: table, tabBar: tabBar, svg: svg, gh: gh, saveDecisions: saveDecisions, saveFile: saveFile, tour: tour, newFileLink: newFileLink, repoHost: repoHost, decideCommands: decideCommands, codeLink: codeLink, codeBlock: codeBlock };
+                field: field, seg: seg, table: table, tabBar: tabBar, svg: svg, gh: gh, saveDecisions: saveDecisions, saveFile: saveFile, tour: tour, palette: palette,
+                usageParts: usageParts, usageTotals: usageTotals, fmtMinutes: fmtMinutes, fmtCost: fmtCost, scheduleOf: scheduleOf, newFileLink: newFileLink, repoHost: repoHost, decideCommands: decideCommands, codeLink: codeLink, codeBlock: codeBlock };
 })();
