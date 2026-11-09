@@ -173,6 +173,14 @@ Major release, in progress: a beta for agents first, then the pages for people. 
 - **Tests keep it that way:** they fail on an inline style, a raw color outside the tokens, or a banner or state built by hand in a page.
 - The screenshot baselines are remade for the new look.
 
+**The Projects page: every project at once (H3, H4, H5, U5)**
+- **All projects (H3):** every project in a grading repo with its overall score, maturity, a trend line, its stage, and what it's waiting on. Projects that need a person come first. It reads `projects/index.json` from a public GitHub grading repo, from a file (any host), or from the sample.
+- **Decisions (H4):** every decision question waiting across all projects, answered in one sitting. Each project's answers are appended to its `decisions.json` by the engine, exactly as on Review, with the steps to save it. From GitHub, the page loads each project's existing `decisions.json` first, so earlier answers are kept.
+- **Where it stands (H5):** each project's place in the cycle (set up → grade → decide → improve → check → done) and what's waiting on whom: a grader, people, an improver or a PR checker. From GitHub, it also shows the project's open pull requests.
+- **Trends and heatmap (U5):** the overall score and each pillar over every full report, as small charts on one 0–10 scale. Each point's value shows on hover or keyboard focus, and a table has the numbers. Maturity history, and a heatmap of every benchmark in every report on one blue scale, with its own steps for dark mode and a text color chosen for contrast in each cell.
+- **The index carries it all, computed by gradekit:** each report's pillar and benchmark scores; each pending decision's benchmark and action; `latest.below_target` and `latest.actions_ready`; and `cycle` (stage and waiting-on). The pages only draw them. `schema/index.schema.json` documents the new fields.
+- Review and Projects share the GitHub loader and the "save your decisions" steps (`common.js`). Every table that scrolls sideways can be focused and scrolled with the keyboard.
+
 ## 4.3.0
 Minor release: tools that let agents run the whole cycle without custom scripts, and safer publishing. No scoring changes; config fingerprints and existing reports stay valid. Tested by running the whole cycle on a real repository (dbader/schedule) with `gradekit` commands only: it reproduced the 4.2.2 grade exactly.
 

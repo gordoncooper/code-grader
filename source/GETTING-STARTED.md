@@ -79,6 +79,13 @@ Then read the tabs in order:
 - **Suggested:** on the report's PR, edit `projects/orders-api/decisions.json`, paste the updated file, commit to the PR's branch, then **merge the PR**. Merging means "accepted."
 - **Already merged?** Edit the file on the default branch and let GitHub create a small pull request on a branch named `decisions/orders-api/<date>`.
 
+### Several projects
+
+**[Projects](../app/projects.html)** reads the grading repo's `projects/index.json` (CI keeps it current) and shows every project at once:
+- **All projects:** each one's score, level, trend, and what it's waiting on.
+- **Decisions:** every question waiting for a person, across projects, answered in one sitting. Each project's answers become its `decisions.json`, saved the same way as above.
+- **One project:** where it stands in the cycle, with its open pull requests; trends for the overall score and each pillar; and every benchmark's score in every report.
+
 *Needs write access to the grading repo.*
 
 ### 4. Improve

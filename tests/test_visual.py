@@ -17,7 +17,7 @@ from pathlib import Path
 
 import pytest
 
-from states import STATES, components, dark, home, docs, setup_filled, run_page, review_tab
+from states import STATES, components, dark, home, docs, projects_tab, setup_filled, run_page, review_tab
 
 pytestmark = pytest.mark.browser
 
@@ -65,7 +65,8 @@ def test_layout(page, site, state, width):
 SHOTS = [("home", home, 1280), ("docs", docs, 1280), ("setup", setup_filled, 1280), ("run", run_page, 1280),
          ("review-overview", review_tab("overview"), 1280), ("review-scorecard", review_tab("scorecard"), 1280),
          ("review-decisions", review_tab("decisions"), 1280), ("review-overview-phone", review_tab("overview"), 390),
-         ("setup-phone", setup_filled, 390), ("components", components, 1280), ("components-dark", dark(components), 1280)]
+         ("setup-phone", setup_filled, 390), ("components", components, 1280), ("components-dark", dark(components), 1280),
+         ("projects", projects_tab("all"), 1280), ("projects-project", projects_tab("project"), 1280)]
 # Things that change on their own: the kit version, build date, download size, engine status, timings.
 MASK = [".ver", ".engine-pill", "[data-built]", ".dl-meta", "#pv-hash", ".built", "time",
         ".files", ".hash", "footer.site"]   # the home page's download sizes and checksums, and the build date

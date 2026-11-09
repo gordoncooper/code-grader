@@ -54,6 +54,22 @@ def components(page, site):
     page.wait_for_selector("#gallery .demo")
 
 
+def projects_tab(tab):
+    def go(page, site):
+        page.goto(site + "app/projects.html", wait_until="networkidle")
+        page.click("#pj-sample")
+        page.wait_for_selector("#pj-results:not([hidden])")
+        page.click(f"#pj-tabs button[data-tab={tab}]")
+        if tab == "project":
+            page.wait_for_selector("table.heat")
+    go.__name__ = f"projects_{tab}"
+    return go
+
+
+def projects_empty(page, site):
+    page.goto(site + "app/projects.html", wait_until="networkidle")
+
+
 def dark(state):
     """The same state with the system set to dark mode (every color comes from the tokens in style.css)."""
     def go(page, site):
@@ -65,4 +81,5 @@ def dark(state):
 
 TABS = ["overview", "decisions", "priorities", "scorecard", "findings", "compare", "more"]
 STATES = ([home, docs, setup_empty, setup_filled, run_page, run_three, review_empty] + [review_tab(t) for t in TABS]
-          + [components, dark(components), dark(setup_filled), dark(review_tab("findings"))])
+          + [components, dark(components), dark(setup_filled), dark(review_tab("findings"))]
+          + [projects_empty, projects_tab("all"), projects_tab("decisions"), projects_tab("project"), dark(projects_tab("project"))])
