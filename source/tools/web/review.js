@@ -15,6 +15,10 @@
   var answers = {};   // action_id -> {choice, answer}
   var fileSeq = 0;
   var resultTabs = null;
+  // Deep links (U6): ?repo=&ref=&project=&report=&compare= pick the source and reports; #tab=&bench=&finding= the view.
+  var want = { report: null, compare: null, view: null };
+  var rubric = null;    // rubric anchors, from the kit on this site
+  var histCache = {};   // folder → report, for per-benchmark history
   async function engineInfo() { if (!info) info = await GK.call("info", {}); return info; }
 
   function projectName() {
@@ -102,6 +106,12 @@
                runs: async function () { var out = []; for (var i = 0; i < r.runs.length; i++) out.push(JSON.parse(await r.runs[i].text())); return out; } };
     }) };
     sel.report = source.history.length - 1; sel.compare = source.history.length - 2;
+    var at = function (folder) { return source.history.map(function (x) { return x.folder; }).indexOf(folder); };
+    if (want.report && at(want.report) >= 0) { sel.report = at(want.report); sel.compare = sel.report - 1; }
+    if (want.compare && at(want.compare) >= 0) sel.compare = at(want.compare);
+    else if (want.compare === "none") sel.compare = -1;
+    want.report = want.compare = null;
+    histCache = {};
     renderFiles();
     if (source.history.length) await analyze();   // finish before more dropped files (e.g. a code zip) are added
     else UI.toast("Loaded " + p.name + ": no reports yet");
@@ -258,7 +268,7 @@
       var entries = manifest.files.filter(function (f) { return f.path.indexOf(prefix) === 0 && /\.(json|toml)$/.test(f.path); }).map(function (f) {
         return { path: f.path.slice(prefix.length), text: function () { return getText(new URL(f.path, GK.site).href); } };
       });
-      await chooseProject(await scanEntries(entries), "the sample grading repo");
+      await chooseProject(await scanEntries(entries), "the sample grading repo", { sample: true });
     } catch (err) { UI.toast("Couldn't load the sample: " + err.message); }
   }
 
@@ -275,6 +285,7 @@
         current = await hr.get();
         runs = await hr.runs();
         if (sel.compare >= 0 && sel.compare !== sel.report) prev = await source.history[sel.compare].get();
+        histCache[hr.folder] = current;
       }
       var looseReport = byRole("report")[0];
       if (!current && looseReport) current = looseReport.json;
@@ -292,8 +303,14 @@
       var check = await GK.call("check", Object.assign({ report: current }, base));
       var diff = prev ? (await GK.call("compare", Object.assign({ old: prev, new: current }, base))).diff : null;
       var verify = null, zip = byRole("zip")[0];
-      if (zip) { var path = await GK.putFile(zip.bytes, ".zip"); verify = await GK.call("verify_zip", { report: current, zip_path: path }); }
-      R = { report: current, check: check, diff: diff, verify: verify, consensus: consensus, project: byRole("project")[0] };
+      var context = {};
+      if (zip) {
+        var path = await GK.putFile(zip.bytes, ".zip");
+        verify = await GK.call("verify_zip", { report: current, zip_path: path });
+        var locs = codeLocations(current);   // the lines around each quote, for the code viewer
+        if (locs.length) (await GK.call("code_context", { zip_path: path, locations: locs })).locations.forEach(function (c, i) { if (!c.error) context[locKey(locs[i])] = c; });
+      }
+      R = { report: current, check: check, diff: diff, verify: verify, consensus: consensus, project: byRole("project")[0], context: context };
       answers = {};
       UI.clear(status);
       renderHistory();
@@ -336,13 +353,82 @@
                     : h("span", { class: "badge warn", title: "Its details must be withheld before this report goes in a public repo" }, "sensitive");
   }
   function section(title, sub) { return h("div", { class: "section-head" }, h("h2", null, title), sub ? h("p", null, sub) : null); }
+  function locKey(e) { return e.file + "|" + (e.lines || "") + "|" + (e.quote || ""); }
+  function codeLocations(report) {
+    var out = [], seen = {};
+    function add(evs) { (evs || []).forEach(function (e) { if (e.type === "code" && !seen[locKey(e)]) { seen[locKey(e)] = 1; out.push({ file: e.file, lines: e.lines, quote: e.quote }); } }); }
+    (report.findings || []).forEach(function (f) { add(f.evidence); });
+    (report.benchmarks || []).forEach(function (b) {
+      (b.strengths || []).forEach(function (x) { add(x.evidence); });
+      (b.enforcement || []).forEach(function (x) { add(x.type ? [x] : x.evidence); });
+    });
+    return out;
+  }
+  function codeRepo() { return R && R.check.config && R.check.config.project ? R.check.config.project.code_repo : null; }
   function evidenceList(evs) {
     return h("ul", { class: "evidence" }, (evs || []).map(function (e) {
-      if (e.type === "code") return h("li", null, h("code", null, e.file + (e.lines ? ":" + e.lines : "")), " ", e.note || "", e.quote ? h("pre", null, e.quote) : null);
+      if (e.type === "code") {
+        var ctx = R && R.context ? R.context[locKey(e)] : null;
+        return h("li", null, e.note ? h("span", null, e.note) : null,
+          UI.codeBlock({ file: e.file, lines: e.lines || (ctx ? ctx.cited.join("-") : null), quote: e.quote, context: ctx,
+                         href: UI.codeLink(codeRepo(), R && R.report.run && R.report.run.commit, e.file, e.lines || (ctx ? ctx.cited[0] + "-" + ctx.cited[1] : null)) }));
+      }
       if (e.type === "command") return h("li", null, h("code", null, e.command), " ", e.note || "", h("pre", null, e.excerpt));
       if (e.type === "withheld") return h("li", null, h("span", { class: "badge" }, "details withheld"), " ", e.note || "");
       return h("li", null, "Searched for ", h("b", null, e.searched), " (", e.method, ") ", e.note || "");
     }));
+  }
+
+  // ------------------------------------------------------------------ deep links (U6)
+  // Works on any host: the query picks the source and reports, the hash the view. A link to a report loaded from
+  // files can't bring the files with it, so it opens the view once the same files are loaded again.
+  function linkFor(view) {
+    var q = new URLSearchParams();
+    if (source && source.meta && source.meta.repo) {
+      q.set("repo", source.meta.owner + "/" + source.meta.repo);
+      if (source.meta.ref) q.set("ref", source.meta.ref);
+      q.set("project", source.project);
+    } else if (source && source.meta && source.meta.sample) { q.set("sample", "1"); q.set("project", source.project); }
+    if (source && source.history.length) {
+      q.set("report", source.history[sel.report].folder);
+      q.set("compare", sel.compare >= 0 ? source.history[sel.compare].folder : "none");
+    }
+    var hv = new URLSearchParams();
+    Object.keys(view || {}).forEach(function (k) { if (view[k]) hv.set(k, view[k]); });
+    var qs = q.toString(), hs = hv.toString();
+    return location.pathname + (qs ? "?" + qs : "") + (hs ? "#" + hs : "");
+  }
+  function absolute(view) { return new URL(linkFor(view), location.href).href; }
+  function remember(view) { try { history.replaceState(null, "", linkFor(view)); } catch (e) { /* file:// */ } }
+  function copyLink(view, label) {
+    return h("button", { type: "button", class: "btn sm copy-link", "aria-label": label, onclick: function () {
+      UI.copyText(absolute(view));
+      if (!(source && source.meta && (source.meta.repo || source.meta.sample))) UI.toast("Copied. It opens this view once the same files are loaded.");
+    } }, "Copy link");
+  }
+  function applyView(v) {
+    v = v || {};
+    if (v.finding) { resultTabs.select("findings"); openFinding(v.finding); }
+    else if (v.bench) { resultTabs.select("scorecard"); openBench(v.bench); }
+    else resultTabs.select(v.tab && $("#panel-" + v.tab) ? v.tab : "overview");
+    remember(v.finding ? { finding: v.finding } : v.bench ? { bench: v.bench } : { tab: v.tab && $("#panel-" + v.tab) ? v.tab : null });
+  }
+  function flash(el) { el.classList.add("target-flash"); el.scrollIntoView({ block: "center" }); setTimeout(function () { el.classList.remove("target-flash"); }, 2400); }
+  function openBench(id) {
+    var wrap = $("#bench-" + id);
+    if (!wrap) return;
+    var head = wrap.querySelector("button");
+    if (head.getAttribute("aria-expanded") !== "true") head.click();
+    flash(wrap); head.focus({ preventScroll: true });
+  }
+  function openFinding(id) {
+    var panel = $("#panel-findings");
+    var row = panel.querySelector('tr[data-id="' + CSS.escape(id) + '"]');
+    if (!row) { var all = panel.querySelector('select[aria-label="Status"]'); if (all) { all.value = "all"; all.dispatchEvent(new Event("change")); } row = panel.querySelector('tr[data-id="' + CSS.escape(id) + '"]'); }
+    if (!row) { UI.toast(id + " isn't in this report"); return; }
+    var btn = row.querySelector("button.fid");
+    if (btn.getAttribute("aria-expanded") !== "true") btn.click();
+    flash(row); btn.focus({ preventScroll: true });
   }
 
   // ------------------------------------------------------------------ render
@@ -363,8 +449,12 @@
     UI.terms($("#results"));
     var pending = roll.priorities.filter(function (p) { return p.decision && p.decision.status === "pending"; }).length;
     var cnt = $("#dec-count"); cnt.hidden = !pending; cnt.textContent = pending;
-    resultTabs.select("overview");
-    $("#results").scrollIntoView({ behavior: "smooth", block: "start" });
+    var run = R.report.run || {};
+    UI.clear($("#print-head")).appendChild(h("div", null, h("h1", null, (run.project || projectName()) + ": grading report"),
+      h("p", null, "Commit " + String(run.commit || "").slice(0, 12) + " · " + String(run.date || "").slice(0, 10) + " · overall " + roll.overall_score + " · " + roll.maturity.current_level)));
+    var v = want.view; want.view = null;
+    applyView(v);
+    if (!v || (!v.bench && !v.finding)) $("#results").scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
   function renderOverview() {
@@ -504,32 +594,60 @@
             h("span", { class: "kbd-note" }, "  weight " + b.weight)),
           bar, h("span", { class: "score" }, na ? "–" : String(b.score)), h("span", { class: "chev" }, "›"));
         var body = h("div", { class: "body", hidden: true });
-        var wrap = h("div", { class: "bench" }, head, body);
+        var wrap = h("div", { class: "bench", id: "bench-" + b.id }, head, body);
         head.addEventListener("click", function () {
           var open = body.hidden; body.hidden = !open; head.setAttribute("aria-expanded", String(open)); wrap.setAttribute("open-state", open ? "open" : "");
           if (open && !body.firstChild) fillBench(body, b, findings, fz, target);
+          remember(open ? { bench: b.id } : { tab: "scorecard" });
         });
         return wrap;
       })));
     });
   }
   function fillBench(body, b, findings, fz, target) {
+    // Why this score (H6): the grader's reasoning, any limit that holds it, and the rubric's words for each band.
+    var lim = (R.check.rollup.limits || {})[b.id];
+    var why = h("div", { class: "why" }, h("b", null, "Why " + (b.score === null || b.score === undefined ? "no score" : b.score) + ": "), b.rationale ? UI.inline(b.rationale) : h("span", { class: "kbd-note" }, "the grader didn't record why (report score --rationale)."));
+    var binding = lim && lim.why ? lim.why.filter(function (w) { return w.max === lim.max; }) : [];
+    if (binding.length) why.appendChild(h("p", { class: "mt-2 mb-0" }, h("b", null, "Held at " + lim.max + " or below: "),
+      binding.map(function (w) { return w.why || w.kind; }).join("; ") + "."));
+    body.appendChild(why);
+    var anchors = h("div");
+    body.appendChild(anchors);
+    rubricFor(b.id).then(function (rb) {
+      if (!rb || !rb.anchors) return;
+      anchors.appendChild(h("h3", null, "What the scores mean"));
+      anchors.appendChild(h("ul", { class: "anchors" }, Object.keys(rb.anchors).map(function (band) {
+        var m = band.match(/^(\d+)\D+(\d+)$/), here = m && b.score >= +m[1] && b.score <= +m[2];
+        return h("li", { class: here ? "here" : null, "aria-current": here ? "true" : null }, h("b", null, band), rb.anchors[band]);
+      })));
+      if (rb.caps && rb.caps.length) anchors.appendChild(h("p", { class: "kbd-note" }, "Caps: " + rb.caps.map(function (c) { return c.when + " → max " + c.max + " (" + c.id + ")"; }).join("; ")));
+    });
+    var hist = h("div");
+    body.appendChild(hist);
+    benchHistory(b.id).then(function (pts) {
+      if (!pts || pts.length < 2) return;
+      hist.appendChild(h("h3", null, "Over time"));
+      hist.appendChild(h("div", { class: "bench-history" }, pts.map(function (p, i) {
+        return h("span", null, i ? "→ " : "", h("b", null, p.score === null || p.score === undefined ? "–" : String(p.score)), " ", h("span", { class: "kbd-note" }, p.folder));
+      })));
+    });
     if (b.applicability !== "full") body.appendChild(h("p", null, h("b", null, "Applicability: "), b.applicability + " — " + (b.applicability_reason || "")));
     if (b.weight_note) body.appendChild(h("p", null, h("b", null, "Grader's weight note: "), b.weight_note));
     body.appendChild(h("p", { class: "kbd-note" }, "Score " + (b.score === null ? "–" : b.score) + (target ? " · target " + target : "") + " · confidence " + (b.confidence || "–") + (b.previous_score !== null && b.previous_score !== undefined ? " · was " + b.previous_score : "")));
     if (b.change_explanation) body.appendChild(h("p", null, h("b", null, "What changed: "), b.change_explanation));
     if ((b.caps_applied || []).length) body.appendChild(h("p", null, h("b", null, "Capped: "), b.caps_applied.join("; ")));
     if ((b.gaming_flags || []).length) body.appendChild(UI.banner("bad", h("b", null, "Gaming flags: "), b.gaming_flags.join("; ")));
-    if ((b.strengths || []).length) { body.appendChild(h("h4", null, "Strengths")); b.strengths.forEach(function (s) { body.appendChild(h("div", null, s.note, evidenceList(s.evidence))); }); }
+    if ((b.strengths || []).length) { body.appendChild(h("h3", null, "Strengths")); b.strengths.forEach(function (s) { body.appendChild(h("div", null, s.note, evidenceList(s.evidence))); }); }
     if ((b.enforcement || []).length) {
-      body.appendChild(h("h4", null, "Enforced by"));
+      body.appendChild(h("h3", null, "Enforced by"));
       b.enforcement.forEach(function (e) {   // format 5: {note, evidence}; format 4: a bare evidence object
         var item = e && e.type ? { note: e.note || "", evidence: [e] } : e;
         body.appendChild(h("div", null, item.note, evidenceList(item.evidence)));
       });
     }
     if ((b.finding_ids || []).length) {
-      body.appendChild(h("h4", null, "Findings"));
+      body.appendChild(h("h3", null, "Findings"));
       b.finding_ids.forEach(function (id) {
         var f = findings[id], z = fz[id] || {};
         if (!f) return;
@@ -537,11 +655,31 @@
       });
     }
     if ((b.path_to_target || []).length) {
-      body.appendChild(h("h4", null, "Path to target"));
+      body.appendChild(h("h3", null, "Path to target"));
       body.appendChild(h("ol", { class: "list-tight" }, b.path_to_target.map(function (a) {
         return h("li", null, a.action, h("span", { class: "kbd-note" }, "  (" + a.id + ", effort " + a.effort + ", → " + a.expected_new_score + (a.requires_human_decision ? ", needs a decision" : "") + ")"));
       })));
     }
+    body.appendChild(h("div", { class: "bench-tools" }, copyLink({ bench: b.id }, "Copy link to " + b.id)));
+  }
+  async function rubricFor(id) {
+    if (!rubric) {
+      try { rubric = await (await fetch(new URL("suite/rubric/rubric.json", GK.site).href)).json(); }
+      catch (e) { rubric = { benchmarks: [] }; }
+    }
+    return (rubric.benchmarks || []).filter(function (x) { return x.id === id; })[0];
+  }
+  // A benchmark's score in every report of the loaded project, oldest first (reports are fetched once, then cached).
+  async function benchHistory(id) {
+    if (!source || source.history.length < 2) return null;
+    var out = [];
+    for (var i = 0; i < source.history.length; i++) {
+      var x = source.history[i];
+      try { histCache[x.folder] = histCache[x.folder] || await x.get(); } catch (e) { continue; }
+      var bb = (histCache[x.folder].benchmarks || []).filter(function (y) { return y.id === id; })[0];
+      if (bb) out.push({ folder: x.folder, score: bb.applicability === "not_applicable" ? "n/a" : bb.score });
+    }
+    return out;
   }
 
   // ------------------------------------------------------------------ findings
@@ -550,6 +688,7 @@
     var fz = R.check.rollup.finding_zones, list = R.report.findings || [];
     if (!list.length) { box.appendChild(UI.state("empty", { title: "No findings", message: "The grader recorded no problems in this report." })); return; }
     var f = { zone: "all", sev: "all", status: "open" };
+    var shifted = list.some(function (x) { var z = fz[x.id] || {}; return z.effective_severity && z.effective_severity !== x.severity; });
     function selectFilter(label, key, opts) {
       var sel = h("select", { "aria-label": label, class: "w-auto" }, opts.map(function (o) { return h("option", { value: o[0] }, o[1]); }));
       sel.value = f[key]; sel.addEventListener("change", function () { f[key] = sel.value; draw(); });
@@ -559,7 +698,7 @@
       selectFilter("Zone", "zone", [["all", "All"], ["hot", "Hot"], ["normal", "Normal"], ["cold", "Cold"]]),
       selectFilter("Severity", "sev", [["all", "All"], ["critical", "Critical"], ["major", "Major"], ["minor", "Minor"]]),
       selectFilter("Status", "status", [["open", "Open: not fixed or accepted"], ["all", "All"], ["fixed", "Fixed"], ["accepted", "Accepted"]]),
-      h("span", { class: "kbd-note" }, "Severity shown is effective: one higher in hot zones, one lower in cold.")));
+      shifted ? h("span", { class: "kbd-note" }, "Graded under the 4.x rules: severity shown is effective, one higher in hot zones and one lower in cold.") : null));
     var tableWrap = h("div", { class: "card tight" });
     box.appendChild(tableWrap);
     function draw() {
@@ -572,11 +711,28 @@
       UI.clear(tableWrap).appendChild(rows.length ? h("table", { class: "findings" }, h("thead", null, h("tr", null, ["ID", "Severity", "Zone", "Status", "Finding"].map(function (t) { return h("th", null, t); }))),
         h("tbody", null, rows.map(function (x) {
           var z = fz[x.id] || {};
-          return h("tr", null, h("td", null, h("code", null, x.id)), h("td", null, sevBadge(z.effective_severity || x.severity), z.effective_severity && z.effective_severity !== x.severity ? h("div", { class: "kbd-note" }, "was " + x.severity) : null),
-            h("td", null, zoneBadge(z.criticality), z.zone ? h("div", { class: "kbd-note" }, z.zone) : null), h("td", null, x.status), h("td", null, x.title, " ", withheldBadge(x), x.disposition ? h("div", { class: "kbd-note" }, "Accepted: " + x.disposition) : null));
+          var detail = h("tr", { class: "finding-detail", hidden: true }, h("td", { colspan: "5" }));
+          var toggle = h("button", { type: "button", class: "link fid", "aria-expanded": "false", "aria-label": x.id + ": show its evidence" }, h("code", null, x.id));
+          toggle.addEventListener("click", function () {
+            var open = detail.hidden; detail.hidden = !open; toggle.setAttribute("aria-expanded", String(open));
+            if (open && !detail.firstChild.firstChild) findingDetail(detail.firstChild, x, z);
+            remember(open ? { finding: x.id } : { tab: "findings" });
+          });
+          return [h("tr", { dataset: { id: x.id } }, h("td", null, toggle), h("td", null, sevBadge(z.effective_severity || x.severity), z.effective_severity && z.effective_severity !== x.severity ? h("div", { class: "kbd-note" }, "was " + x.severity) : null),
+            h("td", null, zoneBadge(z.criticality), z.zone ? h("div", { class: "kbd-note" }, z.zone) : null), h("td", null, x.status), h("td", null, x.title, " ", withheldBadge(x), x.disposition ? h("div", { class: "kbd-note" }, "Accepted: " + x.disposition) : null)), detail];
         }))) : UI.state("empty", { title: "No findings match these filters", message: "Change or clear the filters above." }));
     }
     draw();
+  }
+
+  function findingDetail(cell, x, z) {
+    cell.appendChild(h("p", { class: "m-0" }, h("b", null, x.benchmark_id + " · " + bname(x.benchmark_id)),
+      x.first_seen_commit ? h("span", { class: "kbd-note" }, " · first seen at " + String(x.first_seen_commit).slice(0, 8)) : null,
+      x.cap ? h("span", { class: "kbd-note" }, " · holds " + x.cap) : null));
+    if (x.dispute) cell.appendChild(UI.banner("warn", h("b", null, "Disputed: "), x.dispute.reason || "", x.dispute.answer ? h("div", null, h("b", null, "Answer: "), x.dispute.answer) : null));
+    cell.appendChild(evidenceList(x.evidence));
+    cell.appendChild(h("div", { class: "bench-tools" }, copyLink({ finding: x.id }, "Copy link to " + x.id),
+      h("button", { type: "button", class: "btn sm", onclick: function () { applyView({ bench: x.benchmark_id }); } }, "Open " + x.benchmark_id)));
   }
 
   // ------------------------------------------------------------------ compare
@@ -680,6 +836,14 @@
     }
   }
 
+  // ------------------------------------------------------------------ print / save as PDF (U3)
+  // Every section, in order, every benchmark open, without the controls (style.css @media print).
+  function printReport() {
+    $$(".bench").forEach(function (w) { var b = w.querySelector("button"); if (b.getAttribute("aria-expanded") !== "true") b.click(); });
+    $$("#panel-findings button.fid").forEach(function (b) { if (b.getAttribute("aria-expanded") !== "true") b.click(); });
+    window.print();
+  }
+
   // ------------------------------------------------------------------ wiring
   document.addEventListener("DOMContentLoaded", function () {
     UI.bindEnginePill($("#engine-pill"));
@@ -687,6 +851,14 @@
     var loadTabs = UI.tabs($("#load-tabs"));
     loadTabs.select("repo");
     resultTabs = UI.tabs($("#result-tabs"));
+    $("#result-tabs").addEventListener("click", function (e) { var t = e.target.closest("button[data-tab]"); if (t) remember({ tab: t.dataset.tab }); });
+    $("#print-report").addEventListener("click", printReport);
+    $("#copy-report-link").addEventListener("click", function () {
+      var hv = new URLSearchParams(location.hash.slice(1)), v = {};
+      hv.forEach(function (val, k) { v[k] = val; });
+      UI.copyText(absolute(v));
+      if (!(source && source.meta && (source.meta.repo || source.meta.sample))) UI.toast("Copied. It opens this view once the same files are loaded.");
+    });
     UI.dropZone($("#drop"), $("#file-input"), onFiles);
     $("#pick-folder").addEventListener("click", function () { $("#folder-input").click(); });
     $("#folder-input").addEventListener("change", function () { var l = Array.prototype.slice.call(this.files); this.value = ""; if (l.length) onFolder(l); });
@@ -702,10 +874,13 @@
     $("#clear-files").addEventListener("click", function () { files = []; source = null; R = null; pendingPicker = null; renderFiles(); $("#results").hidden = true; UI.clear($("#gh-status")); });
     $("#sample").addEventListener("click", function () { loadTabs.select("files"); loadSample(); });
     var gh = UI.store.get("gh", {});
-    var q = new URLSearchParams(location.search);
+    var q = new URLSearchParams(location.search), hv = new URLSearchParams(location.hash.slice(1));
+    want.report = q.get("report"); want.compare = q.get("compare");
+    want.view = { tab: hv.get("tab"), bench: hv.get("bench"), finding: hv.get("finding") };
     $("#gh-repo").value = q.get("repo") || gh.repo || "";
     $("#gh-project").value = q.get("project") || gh.project || "";
     $("#gh-ref").value = q.get("ref") || "";
     if (q.get("repo")) loadGitHub();
+    else if (q.get("sample")) { loadTabs.select("files"); loadSample(); }
   });
 })();

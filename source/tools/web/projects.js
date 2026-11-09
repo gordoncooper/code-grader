@@ -8,6 +8,29 @@
   var answers = {};   // project → action_id → {choice, answer}
   var tabs = null;
   var STAGES = ["set up", "grade", "decide", "improve", "check", "done"];
+  var want = null;   // a deep link's view: {tab, project}, applied once the index is loaded
+
+  // ------------------------------------------------------------------ links (U6)
+  // This page: ?repo=&ref= (or ?sample=1) and #tab=&project=. Review: the same source, a project, a report, a view.
+  function sourceQuery() {
+    var q = new URLSearchParams();
+    if (SRC && SRC.kind === "github") { q.set("repo", SRC.at.owner + "/" + SRC.at.repo); q.set("ref", SRC.at.ref); }
+    else if (SRC && SRC.kind === "sample") q.set("sample", "1");
+    return q;
+  }
+  function remember(view) {
+    var q = sourceQuery().toString(), hv = new URLSearchParams();
+    Object.keys(view).forEach(function (k) { if (view[k]) hv.set(k, view[k]); });
+    try { history.replaceState(null, "", location.pathname + (q ? "?" + q : "") + (hv.toString() ? "#" + hv : "")); } catch (e) { /* file:// */ }
+  }
+  // A link into Review for a project (and a report and a view), or null when the index came from a file.
+  function reviewHref(name, folder, view) {
+    if (!SRC || SRC.kind === "file") return null;
+    var q = sourceQuery(); q.set("project", name);
+    if (folder) q.set("report", folder);
+    var hv = new URLSearchParams(); Object.keys(view || {}).forEach(function (k) { if (view[k]) hv.set(k, view[k]); });
+    return "review.html?" + q + (hv.toString() ? "#" + hv : "");
+  }
   var PILLARS = ["A", "B", "C", "D", "E", "F", "X"];
 
   // ------------------------------------------------------------------ loading
@@ -19,8 +42,12 @@
     selected = (index.projects[0] || {}).name || null;
     status(null);
     $("#pj-results").hidden = false;
+    var v = want || {}; want = null;
+    if (v.project && project(v.project)) selected = v.project;
     render();
-    tabs.select("all");
+    var tab = ["all", "decisions", "project"].indexOf(v.tab) >= 0 ? v.tab : "all";
+    tabs.select(tab);
+    remember({ tab: tab, project: tab === "project" ? selected : null });
   }
 
   async function loadRepo() {
@@ -119,7 +146,7 @@
   function stageBadge(c) { return UI.badge((c && c.stage) || "–", c && c.stage === "decide" ? "warn" : c && c.stage === "done" ? "ok" : "info"); }
   function plural(n, w) { return n + " " + w + (n === 1 ? "" : "s"); }
   function project(name) { return IDX.projects.filter(function (p) { return p.name === name; })[0]; }
-  function choose(name) { selected = name; renderProject(); tabs.select("project"); }
+  function choose(name) { selected = name; renderProject(); tabs.select("project"); remember({ tab: "project", project: name }); }
 
   // ------------------------------------------------------------------ all projects (H3)
   function renderAll() {
@@ -136,7 +163,11 @@
       h("div", { class: "stat" }, h("div", { class: "k" }, "Decisions waiting"), h("div", { class: "v" }, String(waiting)), h("div", { class: "s" }, "across " + plural(ps.filter(function (p) { return (p.pending_decisions || []).length; }).length, "project"))),
       h("div", { class: "stat" }, h("div", { class: "k", dataset: { term: "maturity level" } }, "Production-ready"), h("div", { class: "v" }, String(graded.filter(function (p) { return /^L[34]$/.test(p.latest.level || ""); }).length)), h("div", { class: "s" }, "at L3 or L4"))));
     box.appendChild(UI.table({ cls: "proj-table", caption: "Every project", rows: ps, columns: [
-      { label: "Project", cell: function (p) { return h("button", { type: "button", class: "link name", onclick: function () { choose(p.name); } }, p.name); } },
+      { label: "Project", cell: function (p) {
+          var rv = reviewHref(p.name);
+          return h("span", null, h("button", { type: "button", class: "link name", onclick: function () { choose(p.name); } }, p.name),
+                   rv ? h("a", { class: "btn sm ml-2", href: rv, "aria-label": "Review " + p.name }, "Review") : null);
+        } },
       { label: "Overall", cls: "num", cell: function (p) { return p.latest && p.latest.overall != null ? String(p.latest.overall) : "–"; } },
       { label: "Level", cell: function (p) { return p.latest ? levelBadge(p.latest.level) : UI.badge("not graded"); } },
       { label: "Trend", cls: "spark", cell: function (p) {
@@ -166,10 +197,11 @@
   async function renderProject() {
     var box = UI.clear($("#panel-project"));
     if (!IDX || !IDX.projects.length) { box.appendChild(UI.state("empty", { title: "No projects yet" })); return; }
-    var pick = h("select", { "aria-label": "Project", class: "w-auto ml-2", onchange: function () { selected = pick.value; renderProject(); } },
+    var pick = h("select", { "aria-label": "Project", class: "w-auto ml-2", onchange: function () { selected = pick.value; renderProject(); remember({ tab: "project", project: selected }); } },
       IDX.projects.map(function (p) { return h("option", { value: p.name, selected: p.name === selected }, p.name); }));
-    box.appendChild(h("label", { class: "label" }, "Project", pick));
     var p = project(selected) || IDX.projects[0];
+    var rv = reviewHref(p.name);
+    box.appendChild(h("div", { class: "row-btns" }, h("label", { class: "label" }, "Project", pick), rv ? h("a", { class: "btn sm ml-auto", href: rv }, "Open in Review") : null));
     var f = full(p);
 
     // the cycle
@@ -233,8 +265,10 @@
           f.map(function (r) {
             var v = (r.scores || {})[id];
             var num = typeof v === "number";
+            var label = num ? String(v) : (v === "n/a" ? "n/a" : "–"), href = num ? reviewHref(p.name, r.folder, { bench: id }) : null;
             return h("td", { class: num ? "s" + Math.max(1, Math.min(10, Math.round(v))) : null,
-                             title: id + (nm[id] ? " " + nm[id] : "") + " · " + r.date + ": " + (v == null ? "not scored" : v) }, num ? String(v) : (v === "n/a" ? "n/a" : "–"));
+                             title: id + (nm[id] ? " " + nm[id] : "") + " · " + r.date + ": " + (v == null ? "not scored" : v) },
+                     href ? h("a", { class: "cell-link", href: href, "aria-label": id + " in the report of " + r.date + ": " + v + ". Open in Review" }, label) : label);
           })));
       });
     });
@@ -308,11 +342,18 @@
   document.addEventListener("DOMContentLoaded", function () {
     UI.tabs($("#load-tabs")).select("repo");
     tabs = UI.tabs($("#pj-tabs"));
+    $("#pj-tabs").addEventListener("click", function (e) {
+      var t = e.target.closest("button[data-tab]"); if (t) remember({ tab: t.dataset.tab, project: t.dataset.tab === "project" ? selected : null });
+    });
     var saved = UI.store.get("pj", null);
     if (saved) { $("#pj-repo").value = saved.repo || ""; $("#pj-ref").value = saved.ref || ""; }
     $("#pj-load").addEventListener("click", loadRepo);
     $("#pj-repo").addEventListener("keydown", function (e) { if (e.key === "Enter") loadRepo(); });
     UI.dropZone($("#pj-drop"), $("#pj-file"), loadFile);
     $("#pj-sample").addEventListener("click", loadSample);
+    var q = new URLSearchParams(location.search), hv = new URLSearchParams(location.hash.slice(1));
+    want = { tab: hv.get("tab"), project: hv.get("project") };
+    if (q.get("repo")) { $("#pj-repo").value = q.get("repo"); $("#pj-ref").value = q.get("ref") || ""; loadRepo(); }
+    else if (q.get("sample")) loadSample();
   });
 })();

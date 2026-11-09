@@ -5417,11 +5417,21 @@ def render_report_md(report: dict, cfg: dict, catalog: dict | None = None) -> st
     return "\n".join(out)
 
 
-def review_link(site: str | None, grading_repo: str | None, project: str, ref: str) -> str | None:
+def roll_pending(roll: dict) -> bool:
+    return any(p.get("requires_human_decision") and (p.get("decision") or {}).get("status") == "pending" for p in roll.get("priorities", []))
+
+
+def review_link(site: str | None, grading_repo: str | None, project: str, ref: str, folder: str | None = None,
+                view: str | None = None) -> str | None:
+    """A deep link to Review (any host serving the site): the project at a ref, and optionally one report and a view
+    such as "tab=decisions"."""
     if not (site and grading_repo):
         return None
     from urllib.parse import quote
-    return f"{site.rstrip('/')}/app/review.html?repo={quote(grading_repo, safe='/:')}&project={quote(project)}&ref={quote(ref, safe='/')}"
+    link = f"{site.rstrip('/')}/app/review.html?repo={quote(grading_repo, safe='/:')}&project={quote(project)}&ref={quote(ref, safe='/')}"
+    if folder:
+        link += f"&report={quote(folder)}"
+    return link + (f"#{view}" if view else "")
 
 
 def render_report_pr(report: dict, cfg: dict, site: str | None = None, grading_repo: str | None = None,
@@ -5444,7 +5454,7 @@ def render_report_pr(report: dict, cfg: dict, site: str | None = None, grading_r
     if mat.get("next_level"):
         body += ["", f"Blocking {mat['next_level']}: {blockers or 'nothing'}"]
     body += ["", "**Decisions needed**", ""] + decisions_block(roll)
-    link = review_link(site, grading_repo, project, branch)
+    link = review_link(site, grading_repo, project, branch, folder, "tab=decisions" if roll_pending(roll) else None)
     if link:
         body += ["", f"[Review this report and answer the decisions]({link})"]
     body += ["", f"Files: `projects/{project}/reports/{folder}/` (report.json, report.md)."]
@@ -6577,6 +6587,31 @@ def _api_verify_zip(p):
     return verify_evidence(p["report"], zip_reader(p["zip_path"]), int(p.get("tolerance", 2)))
 
 
+def _api_code_context(p):
+    """Each cited code location with the lines around it, from a code archive: [{file, lines, start, text: [...], cited: [a, b]}]."""
+    read = zip_reader(p["zip_path"])
+    out, ctx = [], int(p.get("context", 3))
+    for loc in p.get("locations", []):
+        lines = read(loc["file"])
+        if isinstance(lines, str):
+            out.append({"file": loc["file"], "lines": loc.get("lines"), "error": lines})
+            continue
+        m = re.fullmatch(r"(\d+)(?:-(\d+))?", str(loc.get("lines") or ""))
+        if m:
+            a = int(m.group(1)); b = int(m.group(2) or a)
+        else:   # format 5 without line numbers: the quote is the anchor
+            q = [x.strip() for x in str(loc.get("quote") or "").strip("\n").splitlines()]
+            hit = next((i for i in range(len(lines)) if q and lines[i].strip() == q[0]
+                        and [x.strip() for x in lines[i:i + len(q)]] == q), None)
+            if hit is None:
+                out.append({"file": loc["file"], "lines": None, "error": "quote not found in the archive"})
+                continue
+            a, b = hit + 1, hit + len(q)
+        start, end = max(1, a - ctx), min(len(lines), b + ctx)
+        out.append({"file": loc["file"], "lines": loc.get("lines"), "start": start, "text": lines[start - 1:end], "cited": [a, b]})
+    return {"locations": out}
+
+
 def _api_redact(p):
     public, leaks = redact_report(p["report"])
     return {"report": public, "leaks": leaks, "withheld": public["publishing"]["withheld"]}
@@ -6725,7 +6760,7 @@ def _api_classify(p):
 
 WEB_API = {"info": _api_info, "build": _api_build, "parse": _api_parse, "zone_test": _api_zone_test,
            "check": _api_check, "consensus": _api_consensus, "compare": _api_compare,
-           "verify_zip": _api_verify_zip, "redact": _api_redact, "decisions_update": _api_decisions_update,
+           "verify_zip": _api_verify_zip, "code_context": _api_code_context, "redact": _api_redact, "decisions_update": _api_decisions_update,
            "scan_zip": _api_scan_zip, "scan_layout": _api_scan_layout, "glossary": _api_glossary, "order_reports": _api_order_reports,
            "classify": _api_classify}
 
