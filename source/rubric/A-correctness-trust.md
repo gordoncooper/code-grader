@@ -1,4 +1,4 @@
-<!-- Part of the Code Grading Suite v5.0.0. Read together with prompts/grader.md, which holds the scoring rules, anti-gaming rules and output format. -->
+<!-- Part of the Code Grading Suite v5.0.1. Read together with prompts/grader.md, which holds the scoring rules, anti-gaming rules and output format. -->
 
 # Pillar A rubric: Correctness & Trust
 

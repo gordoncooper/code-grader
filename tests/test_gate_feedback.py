@@ -139,8 +139,8 @@ def test_only_a_finding_new_to_this_report_can_be_removed(repo, rel, code):
 # --------------------------------------------------------------------------- quotes
 
 def test_a_quote_is_three_lines_at_most(code):
-    r = cli("report", "cite", "m.py:1-4", "--repo", code, cwd=code, code=1)
-    assert "a quote is 1–3 lines" in r.stderr
+    r = cli("report", "cite", "m.py:1-4", "--repo", code, cwd=code)   # 5.0: kept to its first three lines, with a note
+    assert json.loads(r.stdout)["lines"] == "1-3" and "a quote is at most 3: cited m.py:1-3" in r.stderr
     trimmed = json.loads(cli("report", "cite", "m.py:3-6", "--repo", code, cwd=code).stdout)
     assert trimmed["lines"] == "3-4" and trimmed["quote"] == "    z = y * 2\n    return z", "blank lines at the ends are dropped"
 

@@ -132,12 +132,41 @@ def test_a_command_record_can_be_corrected_in_place(repo, rel, code):
 def test_excerpts_are_checked_against_the_recorded_output(repo, rel, code, tmp_path):
     out = tmp_path / "out.txt"
     out.write_text("collected 3 items\n\ntest_a.py ..F\n  FAILED test_a.py::test_f - assert 4 == 5\n3 run, 1 failed\n")
+    bad = add(repo, rel, code, "--command", "pytest -q", "--excerpt", "test_f fails: 4 != 5")   # before the run was recorded
     rec = cli("report", "ran", rel, "--command", "pytest -q", "--exit-code", "1", "--summary", "1 failed", "--output", out, cwd=repo)
     assert "as command 1" in rec.stdout and "fingerprint of its 4 output lines" in rec.stdout
     r = load(repo, rel)
     assert r["commands_run"][0]["output"]["lines"] == 4 and "collected" not in json.dumps(r), "only hashes are kept"
     good = add(repo, rel, code, "--command", "@1", "--excerpt", "FAILED   test_a.py::test_f - assert 4 == 5\n...\n3 run, 1 failed")
-    bad = add(repo, rel, code, "--command", "@1", "--excerpt", "test_f fails: 4 != 5")
     warnings = js("report", "check", rel, cwd=repo, code=5)["result"]["warnings"]
     assert not any(w.startswith(good + ":") for w in warnings), "whitespace evens out, and '...' elides"
     assert any(w.startswith(f"{bad}: 1 line of its excerpt") and "never from your own notes" in w for w in warnings)
+
+
+# --------------------------------------------------------------------------- from calibration runs 14 and 15
+
+def test_a_long_citation_keeps_its_first_three_lines(repo, rel, code):
+    r = cli("report", "finding", "add", rel, "--benchmark", "A1", "--title", "t", "--severity", "minor", "--repo", code,
+            "--cite", "m.py:1-6", cwd=repo)
+    assert "is 6 lines and a quote is at most 3: cited m.py:1-3" in r.stderr
+    ev = load(repo, rel)["findings"][-1]["evidence"][0]
+    assert ev["quote"].count("\n") == 2 and ev["quote"].startswith("def f(x):")
+
+
+def test_one_limitation_can_be_changed_or_removed(repo, rel):
+    for t in ("first", "second", "third"):
+        cli("report", "set", rel, "limitations", t, "--append", cwd=repo)
+    cli("report", "set", rel, "limitations.2", "the second, corrected", cwd=repo)
+    cli("report", "set", rel, "limitations.1", "--remove", cwd=repo)
+    assert load(repo, rel)["limitations"] == ["the second, corrected", "third"]
+    assert "has 2 items" in cli("report", "set", rel, "limitations.5", "x", cwd=repo, code=1).stderr
+    assert "change one item" in cli("report", "set", rel, "limitations", "x", cwd=repo, code=1).stderr
+
+
+def test_an_excerpt_that_cuts_a_line_short_is_refused_on_entry(repo, rel, code, tmp_path):
+    out = tmp_path / "out.txt"
+    out.write_text("====== 81 passed in 0.66s ======\n")
+    cli("report", "ran", rel, "--command", "pytest", "--exit-code", "0", "--summary", "81 passed", "--output", out, cwd=repo)
+    r = cli("report", "strength", rel, "A1", "--text", "tests pass", "--command", "@1", "--excerpt", "81 passed in 0.66s", cwd=repo, code=1)
+    assert "isn't a whole line of what `pytest` printed" in r.stderr
+    cli("report", "strength", rel, "A1", "--text", "tests pass", "--command", "@1", "--excerpt", "====== 81 passed   in 0.66s ======", cwd=repo)

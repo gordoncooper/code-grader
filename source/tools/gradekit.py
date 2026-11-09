@@ -2520,10 +2520,14 @@ def cite(spec: str, read_lines, note: str | None = None) -> dict:
         start += 1
     while not lines[end - 1].strip():
         end -= 1
-    if end - start + 1 > MAX_QUOTE_LINES:
-        die(f"{rel}:{start}-{end} is {end - start + 1} lines; a quote is 1–{MAX_QUOTE_LINES} lines. Cite the lines that "
-            f"show it (e.g. {rel}:{start}-{start + MAX_QUOTE_LINES - 1}), and give --cite again for another place")
-    if (start, end) != asked:
+    if end - start + 1 > MAX_QUOTE_LINES:   # a quote is 1-3 lines: keep the first three, and say so
+        say_later(f"note: {rel}:{asked[0]}-{asked[1]} is {asked[1] - asked[0] + 1} lines and a quote is at most {MAX_QUOTE_LINES}: cited "
+                  f"{rel}:{start}-{start + MAX_QUOTE_LINES - 1}. If the line that shows it is further down, cite that instead, "
+                  "or give --cite again for it")
+        end = start + MAX_QUOTE_LINES - 1
+        while not lines[end - 1].strip():
+            end -= 1
+    elif (start, end) != asked:
         say_later(f"note: {rel}:{asked[0]}-{asked[1]} has blank lines at its ends; cited {rel}:{start}-{end}")
     quote = "\n".join(lines[start - 1:end])
     first = quote.strip().splitlines()[0].strip()
@@ -2655,6 +2659,12 @@ def evidence_from_args(args, required: bool = False, report: dict | None = None)
             if not (excerpt or "").strip():
                 die("--command needs --excerpt (the relevant output, copied; '@file' or '-' for stdin), or --no-output "
                     "for a command that printed nothing (say what happened, e.g. the exit code or a timeout, in --note)")
+            fp = next((c.get("output") for c in ran if norm(str(c.get("command") or "")) == norm(command) and c.get("output")), None)
+            bad = excerpt_mismatches(excerpt, fp or {})
+            if bad:
+                die(f"{plural(len(bad), 'line')} of this excerpt {'is' if len(bad) == 1 else 'are'}n't "
+                    f"{'a whole line' if len(bad) == 1 else 'whole lines'} of what `{command[:50]}` printed (e.g. {bad[0][:70]!r}). "
+                    "Copy whole lines from its output (spacing can differ, and '...' can stand for lines you leave out)")
         note = cmd_notes[k] if k < len(cmd_notes) else None
         out.append({"type": "command", "command": command, "excerpt": excerpt.strip("\n"), **({"note": note} if note else {})})
     abs_notes = by_kind["absence"] or []
@@ -3290,6 +3300,29 @@ def cmd_report_set(args) -> int:
     parts = args.key.split(".")
     if parts[0] not in SETTABLE:
         die(f"`report set` covers {', '.join(SETTABLE)}; use the other report commands for findings, scores and evidence")
+    if len(parts) == 2 and parts[1].isdigit() and isinstance(report.get(parts[0]), list):   # one item of a list: limitations.2
+        items, n = report[parts[0]], int(parts[1])
+        if not 1 <= n <= len(items):
+            die(f"{parts[0]} has {plural(len(items), 'item')}; `report show REPORT {parts[0]}` numbers them")
+        if args.remove:
+            gone = items.pop(n - 1)
+            save_edit(args, report, cfg)
+            emit(args, {"key": args.key, "removed": gone}, f"removed {args.key}: {str(gone)[:70]}")
+            return 0
+        if args.value is None:
+            die(f"give the new text for {args.key}, or --remove")
+        raw = read_text_arg(args.value)
+        try:
+            items[n - 1] = json.loads(raw) if parts[0] != "limitations" else raw
+        except json.JSONDecodeError:
+            items[n - 1] = raw
+        save_edit(args, report, cfg)
+        emit(args, {"key": args.key, "value": items[n - 1]}, f"set {args.key}")
+        return 0
+    if args.remove:
+        die(f"--remove takes one item of a list, e.g. `report set REPORT {parts[0]}.2 --remove`")
+    if args.value is None:
+        die(f"give a value for {args.key}")
     raw = read_text_arg(args.value)
     try:
         value = json.loads(raw)
@@ -3310,7 +3343,8 @@ def cmd_report_set(args) -> int:
         node[last].append(value)
     else:
         if isinstance(node.get(last), list) and not isinstance(value, list):
-            die(f"{args.key} is a list: add to it with --append, or give the whole list as JSON ('[\"…\"]')")
+            die(f"{args.key} is a list: add to it with --append, change one item with `report set REPORT {args.key}.N TEXT` "
+                f"(or `--remove` it), or give the whole list as JSON ('[\"…\"]')")
         node[last] = value
     save_edit(args, report, cfg)
     emit(args, {"key": args.key, "value": node[last]}, f"set {args.key}")
@@ -3879,8 +3913,8 @@ def doctor_checks(args) -> list[dict]:
                                   f"hot zones cover {round(hot['share'] * 100)}% of the code's lines ({', '.join(hot['files'][:3])}"
                                   f"{' …' if len(hot['files']) > 3 else ''}). A zone that covers everything can't say where problems "
                                   "cost more, and L3 allows no major findings in it",
-                                  "ask the project's owner to keep hot zones to the code where a bug costs more (money, access, "
-                                  "important data) in project.toml [[zones]]"))
+                                  "for the project's owner: keep hot zones to the code where a bug costs more (money, access, "
+                                  "important data) in project.toml [[zones]]. A grader just notes it under limitations"))
         else:
             out.append(_check("code repo", "fail", f"not found: {repo}", "pass the code checkout (or a zip of it) with --repo"))
 
@@ -7552,9 +7586,10 @@ def build_parser() -> argparse.ArgumentParser:
 
     q = rsub.add_parser("set", help=f"set a field: {', '.join(SETTABLE)} (dotted keys, e.g. metrics.line_coverage_pct)")
     report_arg(q)
-    q.add_argument("key")
-    q.add_argument("value", help="JSON (a number, true, an object…) or plain text")
+    q.add_argument("key", help="e.g. summary, metrics.line_coverage_pct, or limitations.2 (one item of a list)")
+    q.add_argument("value", nargs="?", help="JSON (a number, true, an object…) or plain text")
     q.add_argument("--append", action="store_true", help="append to a list")
+    q.add_argument("--remove", action="store_true", help="remove one item of a list (key LIST.N)")
     q.set_defaults(fn=cmd_report_set)
 
     q = rsub.add_parser("check", help="what's missing or wrong; with --write, store the rollup when it's complete")

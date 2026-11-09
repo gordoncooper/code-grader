@@ -1,6 +1,6 @@
 {
   "_about": "Generated from the rubric files by `gradekit rubric --json --out rubric/rubric.json`. Don't edit.",
-  "suite_version": "5.0.0",
+  "suite_version": "5.0.1",
   "pillars": {
     "A": {
       "name": "Correctness & Trust",
