@@ -184,6 +184,7 @@ def test_a_whole_report_without_writing_json(repo):
 
     done = json.loads(gk("report", "check", rel, "--repo", CODE, "--json", "--write", cwd=repo).stdout)["result"]
     assert done["status"] == "ready" and done["errors"] == [] and done["todo"] == []
+    assert done["wrote"].startswith(f"wrote {rel}: the rollup (overall {done['overall_score']}, ") and "finish time" in done["wrote"]
     assert done["evidence"]["checked"] == 1 and done["evidence"]["failures"] == []
     r = load(repo, rel)
     assert r["rollup"]["overall_score"] == done["overall_score"]

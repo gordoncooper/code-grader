@@ -154,8 +154,15 @@ Major release, in progress: a beta for agents first, then the pages for people. 
     - `report set` refuses to turn a list (such as `limitations`) into text, and takes `@file` (for example, all the metrics at once).
     - `report score` notes when a score needs a strength or enforcement it doesn't have yet.
     - Maturity blockers name their benchmark in `report.md`.
-    - The card exports `TMPDIR=SCRATCH`, so `doctor` checks the scratch folder.
+    - The card has `doctor` check the scratch folder.
     - The card says everything in a first report is `new`.
+  - From the fourth round:
+    - **A note per piece of evidence:** each `--note` belongs to the `--cite`, `--command` or `--absence` just before it. A single `--note` still goes on every item, as before. A `--note` before any evidence fills in for items without their own, and one note per item after all the evidence pairs up in order, which is how MCP clients send them.
+    - **Command evidence is tied to what was run:** `--command @N` takes the exact text of the Nth command recorded with `report ran`. `report check` warns about an excerpt from a command that isn't in `commands_run`.
+    - **Limited first, score later:** `report score REPORT A5 --applicability limited --reason "…"` works without a score. A later `--score` keeps it limited, and `report check` lists the score as still to do.
+    - **No half-success:** citations are echoed only once the command succeeds. If anything fails, it says nothing was saved.
+    - **`report check --write` says what it stored:** the rollup, the finish time and the minutes, or that the rollup waits until nothing is left to do.
+    - **An `export` may not outlast an agent's tool call:** the card makes `SCRATCH` and prefixes commands with `TMPDIR=SCRATCH`, instead of exporting it once.
 - **Rubric wording, from where graders split:**
   - X3 is `limited` for code that's often called from threads or async code even though it isn't concurrent itself.
   - A broken contributor setup is E3, even when the fault is in its docs. `E2-cap-1` is for instructions users follow.

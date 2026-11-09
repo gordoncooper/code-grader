@@ -68,7 +68,7 @@ python3 SUITE_DIR/tools/gradekit.py doctor --project-dir PROJECT_DIR --repo CODE
 Fix anything marked `FAIL` (each comes with the fix), or tell whoever started you what's missing and stop. If you can't fix a `pr` delivery problem, say so and use `return` instead. Then resolve the config:
 
 ```
-python3 SUITE_DIR/tools/gradekit.py resolve --project-dir PROJECT_DIR --out SCRATCH/effective.json   # SCRATCH: $TMPDIR, or the scratch folder you were given
+python3 SUITE_DIR/tools/gradekit.py resolve --project-dir PROJECT_DIR --out SCRATCH/effective.json   # SCRATCH: the scratch folder you were given, or one you made
 # picks up org.toml at the grading repo root automatically, and decisions.json / dispositions.json
 ```
 
@@ -113,7 +113,7 @@ Work in phases. If your context is limited, run Phase 4 one pillar per pass, car
 $K report new --project-dir PROJECT_DIR --commit COMMIT --grader NAME --model MODEL [--started UTC_TIME] [--session ID] [--work-order ID] [--run N/COUNT]   # prints the report's path
 $K report finding add $R --benchmark A3 --title "..." --severity major --cite src/x.py:40-44 --repo CODE --note "..." [--cap A3-cap-1]
 $K report finding add $R --benchmark F2 --title "No CI" --severity critical --absence "CI config" --method "ls -a; …"
-$K report finding add $R --benchmark C4 --title "..." --severity major --command "pytest -q" --excerpt @out.txt
+$K report finding add $R --benchmark C4 --title "..." --severity major --command @2 --excerpt @out.txt   # @2: the 2nd command you recorded with `report ran`
 $K report score $R A3 --score 5 --confidence medium --rationale "one line: why 5" --why "what changed since the last report"
 $K report score $R X1 --applicability not_applicable --reason "HTTP API with no user interface"
 $K report strength $R A1 --text "..." --cite src/y.py:10 --repo CODE
