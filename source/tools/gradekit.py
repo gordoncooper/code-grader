@@ -1042,6 +1042,36 @@ def verify_evidence(report: dict, read_lines, tolerance: int = 2) -> dict:
             "command": other.get("command", 0), "absence": other.get("absence", 0), "withheld": other.get("withheld", 0)}
 
 
+def code_citations(report: dict) -> int:
+    carried = {b["id"] for b in report.get("benchmarks", []) if b.get("carried_forward")}
+    return sum(1 for _, ev, bid in iter_evidence(report) if ev.get("type") == "code" and bid not in carried)
+
+
+def record_citations_checked(report: dict, result: dict) -> None:
+    """run.citations_checked: that every code quote was just checked against the code, with --repo. `gradekit ci`
+    can't see the code, so this record is how it knows; any later edit drops it."""
+    if report_format(report) < 5 or result.get("failures"):
+        return
+    report.setdefault("run", {})["citations_checked"] = {"code_citations": result["checked"], "date": utc_now(),
+                                                         "kit": load_catalog()["suite_version"]}
+
+
+def citations_check_note(report: dict) -> str | None:
+    """What `gradekit ci` says when a report's quotes weren't checked against the code, or changed since."""
+    if report_format(report) < 5:
+        return None
+    n, rec = code_citations(report), (report.get("run") or {}).get("citations_checked")
+    if not n:
+        return None
+    if not rec:
+        return (f"{'its code quote wasn' if n == 1 else f'its {n} code quotes weren'}'t checked against the code: the grader runs `report check REPORT "
+                "--repo CODE --write` (or `deliver --repo CODE`), which records it")
+    if rec.get("code_citations") != n:
+        return (f"its code quotes changed after they were checked against the code ({rec.get('code_citations')} then, {n} now): "
+                "check them again with `report check REPORT --repo CODE --write`")
+    return None
+
+
 def cmd_verify_evidence(args) -> int:
     report = load_json(args.report)
     repo = Path(args.repo)
@@ -2855,6 +2885,7 @@ def save_edit(args, report: dict, cfg: dict) -> None:
     if report.get("rollup"):   # stored by `report check --write`; any edit after it would leave it stale
         report.pop("rollup")
         say_later("note: the stored rollup was dropped, because the report changed; `report check --write` stores it again")
+    (report.get("run") or {}).pop("citations_checked", None)   # likewise: the quotes may have changed
     write_json(args.report, report)
 
 
@@ -3492,6 +3523,8 @@ def cmd_report_check(args) -> int:
     if args.write:
         if roll is not None:
             apply_rollup(report, cfg)
+            if evidence is not None:
+                record_citations_checked(report, evidence)
             report["run"]["date"] = utc_now()
             if report_format(report) >= 5:
                 usage = report["run"].setdefault("usage", {})
@@ -4089,11 +4122,14 @@ def prepare_delivery(args, report: dict, cfg: dict) -> dict:
     normalize_report(report, cfg)
     errors, _ = validate_report(report, cfg, load_catalog())
     todo = report_todo(report, project_dir_for_report(args.report))
-    if args.repo:
-        errors += [f"citation: {f}" for f in verify_evidence(report, repo_reader(args.repo), 2)["failures"]]
+    checked = verify_evidence(report, repo_reader(args.repo), 2) if args.repo else None
+    if checked:
+        errors += [f"citation: {f}" for f in checked["failures"]]
     if errors or todo:
         args._exit = 1 if errors else EXIT_INCOMPLETE
         raise DeliveryBlocked(errors, todo)
+    if checked:
+        record_citations_checked(report, checked)
     apply_rollup(report, cfg)   # always: a stored rollup can be older than the last score change
     write_json(args.report, report)
     files = {"report": args.report, "private": None}
@@ -5358,6 +5394,9 @@ def ci_check(root: Path, base: str, head: str, changes: list[tuple[str, str]], s
                 commit = str(run.get("commit") or "")
                 if commit and not folder.endswith("-" + commit[:7]):
                     problems.append(f"the folder is {folder}, but the report grades commit {commit[:7]} (expected <date>-{commit[:7]})")
+                note = citations_check_note(report)
+                if note:
+                    warnings.append(note)
                 roll = compute_rollup(report, cfg)
                 stored = report.get("rollup") or {}
                 if not stored:

@@ -175,6 +175,27 @@
             }
           },
           "additionalProperties": false
+        },
+        "citations_checked": {
+          "type": "object",
+          "description": "Set by `report check --repo CODE --write` and `deliver --repo CODE`: every code quote was checked against the code (gradekit ci can't see the code, so it relies on this). Any later edit drops it.",
+          "required": [
+            "code_citations",
+            "date"
+          ],
+          "properties": {
+            "code_citations": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "date": {
+              "type": "string"
+            },
+            "kit": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
         }
       }
     },
