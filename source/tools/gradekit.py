@@ -2180,7 +2180,7 @@ def render_project_toml(data: dict, defaults: dict | None = None, path: str = "p
     answers = d.pop("answers", {}) or {}
     questions = defaults.get("questions", {})
     out.append("# Answers override the preset. Each one moves specific weights; see `gradekit resolve --explain ID`.")
-    out.append("# A commented-out answer is the preset's: it follows the preset, including when a new suite version improves it.")
+    out.append("# A commented-out answer is the preset's: it follows the preset, including later improvements to it.")
     out.append("[answers]")
     preset = (defaults.get("presets") or {}).get(proj.get("preset") or "", {})
     for q in list(questions) + [q for q in answers if q not in questions]:
