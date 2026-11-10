@@ -59,6 +59,7 @@ jobs:
         run: |
           curl -fsSL "${SUITE_SITE%/}/suite/ci/fetch-kit.py" -o "$RUNNER_TEMP/fetch-kit.py"
           echo "KIT=$(python3 "$RUNNER_TEMP/fetch-kit.py" "$SUITE_SITE" "$RUNNER_TEMP/kit")" >> "$GITHUB_ENV"
+          python3 -m pip install --quiet "jsonschema>=4.18,<5"   # the reports' structural check; without it, only semantic checks run
 
       - name: Check the change
         id: check
@@ -116,6 +117,7 @@ jobs:
         run: |
           curl -fsSL "${SUITE_SITE%/}/suite/ci/fetch-kit.py" -o "$RUNNER_TEMP/fetch-kit.py"
           echo "KIT=$(python3 "$RUNNER_TEMP/fetch-kit.py" "$SUITE_SITE" "$RUNNER_TEMP/kit")" >> "$GITHUB_ENV"
+          python3 -m pip install --quiet "jsonschema>=4.18,<5"   # the reports' structural check; without it, only semantic checks run
 
       - name: Record ticked answers
         env:
@@ -126,7 +128,7 @@ jobs:
           printf '%s\n' "$BODY" > "$RUNNER_TEMP/body.md"
           grep -q '<!-- gradekit:project=' "$RUNNER_TEMP/body.md" || { echo "not a report pull request"; exit 0; }
           python3 "$KIT/tools/gradekit.py" decide --from-checklist "$RUNNER_TEMP/body.md" --by "$BY"
-          git add projects/*/decisions.json
+          git add projects/*/decisions.json projects/*/reports/*/report.md
           git diff --cached --quiet && exit 0
           git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
             commit -m "Record decisions ticked by $BY"
@@ -151,6 +153,7 @@ jobs:
         run: |
           curl -fsSL "${SUITE_SITE%/}/suite/ci/fetch-kit.py" -o "$RUNNER_TEMP/fetch-kit.py"
           echo "KIT=$(python3 "$RUNNER_TEMP/fetch-kit.py" "$SUITE_SITE" "$RUNNER_TEMP/kit")" >> "$GITHUB_ENV"
+          python3 -m pip install --quiet "jsonschema>=4.18,<5"   # the reports' structural check; without it, only semantic checks run
 
       - name: Rebuild projects/index.json
         run: |
@@ -180,6 +183,7 @@ jobs:
         run: |
           curl -fsSL "${SUITE_SITE%/}/suite/ci/fetch-kit.py" -o "$RUNNER_TEMP/fetch-kit.py"
           echo "KIT=$(python3 "$RUNNER_TEMP/fetch-kit.py" "$SUITE_SITE" "$RUNNER_TEMP/kit")" >> "$GITHUB_ENV"
+          python3 -m pip install --quiet "jsonschema>=4.18,<5"   # the reports' structural check; without it, only semantic checks run
 
       - name: Ask for the grades that are due
         env:

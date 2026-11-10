@@ -144,3 +144,19 @@ def test_ci_templates_record_ticked_answers_safely(name):
     else:
         job = text[text.index("\ngrading-decide:"):text.index("\ngrading-index:")]
         assert "when: manual" in job and "$GRADING_BOT_TOKEN" in job and "$CI_MERGE_REQUEST_SOURCE_PROJECT_ID == $CI_PROJECT_ID" in job
+
+
+def test_deciding_keeps_report_md_in_step(repo):
+    """report.md shows each decision's status; without re-rendering, CI would call it stale after every answer."""
+    import sys as _s
+    _s.path.insert(0, str(SRC / "tools"))
+    import argparse
+    import gradekit as gk
+    rpath, _ = gk.decision_rows(repo / PROJ)
+    md = rpath.with_name("report.md")
+    res = js("decide", "--project", "orders-api", "--approve", "D1-act-1", "--by", "gordon", cwd=repo)
+    assert res["report_md"] == str(md.relative_to(repo)) or res["report_md"].endswith("report.md")
+    pdir = repo / PROJ
+    cfg = gk.load_config(argparse.Namespace(project_dir=str(pdir), project=None, config=None, component=None), gk.load_json(rpath), quiet=True)
+    assert md.read_text() == gk.render_report_md(gk.load_json(rpath), cfg)
+    assert "decision approved" in md.read_text()
