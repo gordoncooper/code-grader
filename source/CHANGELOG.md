@@ -34,6 +34,12 @@ Fixes from the 5.0 calibration runs and the suite's first grade of itself. No sc
 - **A report records that its code quotes were checked against the code.** `report check --repo CODE --write` and `deliver --repo CODE` set `run.citations_checked`, with the number of quotes, the date and the kit version. Any later edit drops it. `gradekit ci` can't see the code, so it warns when a format-5 report's quotes weren't checked, or changed after they were. Review's run line says which. This is the lighter alternative to the grading CI reading each project's code, which was declined on the self-grade.
 - **Answering decisions keeps `report.md` in step.** `report.md` shows each decision's status, so after any answer the grading check warned that it "differs from what `gradekit render report` makes". `gradekit decide` now re-renders the newest report's `report.md`, and the CI decide jobs commit it with `decisions.json`.
 - **The grading CI templates install `jsonschema`.** Without it, every grading repo's check skipped the reports' structural schema check and said so in each comment.
+- **The grading CI's kit is pinned.** The templates used to download `fetch-kit.py`, then whatever kit the website served, at run time, and checked it against a checksum from that same website. That ran in jobs that hold write tokens, so a changed site would have gone unnoticed.
+  - Now each template names one exact kit zip, with `GRADEKIT_VERSION`, `GRADEKIT_URL` and `GRADEKIT_SHA256`. Every job downloads it and refuses it unless the hash matches.
+  - `gradekit init --ci` pins the kit it's run with, by default the suite's release asset, using that release's `SHA256SUMS`.
+  - The new `gradekit ci-pin --version X.Y.Z` changes the pin and nothing else. A new kit's `init --ci HOST --force` also brings its template.
+  - `--kit-url` and `--kit-sha256` take any copy, for another host or offline.
+  - `fetch-kit.py` stays for older workflows. `SUITE_SITE` now only builds the Review links.
 - `grader.md` said 4.x and 5.x reports share scoring version 4.2.0. They don't: 5.x is scoring 5.0.0, so a 5.x report isn't compared for regressions with a 4.x one.
 
 ## 5.0.0

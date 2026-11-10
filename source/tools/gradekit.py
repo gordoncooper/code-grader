@@ -2374,11 +2374,82 @@ def slug(name: str) -> str:
 CI_DIR = SUITE_DIR / "ci"
 
 
-def install_ci(root: Path, host: str, site: str | None, force: bool = False) -> Path:
-    """Add the grading check to a grading repo. Returns the file written."""
+# Where a pinned grading CI gets its kit: the suite's own release assets, which keep every version (the website keeps
+# only each major's newest). Any copy works with --kit-url and --kit-sha256.
+KIT_RELEASES = "https://github.com/gordoncooper/code-grader/releases/download/v{version}/"
+KIT_ASSET = "code-grading-suite-v{version}.zip"
+
+
+def kit_pin(version: str | None = None, url: str | None = None, sha256: str | None = None) -> dict:
+    """{version, url, sha256} for a grading CI: the given values, or the release's own (its SHA256SUMS), by version."""
+    version = (version or load_catalog()["suite_version"]).lstrip("v")
+    if not re.fullmatch(r"\d+\.\d+\.\d+", version):
+        die(f"--kit-version {version}: expected X.Y.Z")
+    url = url or KIT_RELEASES.format(version=version) + KIT_ASSET.format(version=version)
+    if sha256:
+        if not re.fullmatch(r"[0-9a-f]{64}", sha256.lower()):
+            die("--kit-sha256: expected 64 hex digits (`sha256sum kit.zip`)")
+        return {"version": version, "url": url, "sha256": sha256.lower()}
+    sums_url = url.rsplit("/", 1)[0] + "/SHA256SUMS"
+    try:
+        import urllib.request
+        with urllib.request.urlopen(sums_url, timeout=60) as r:
+            sums = r.read().decode("utf-8", "replace")
+    except Exception as exc:  # noqa: BLE001 - say what to do, whatever went wrong
+        die(f"couldn't read {sums_url} ({exc}). Is {version} released? Pin a released version (--kit-version), "
+            "or give --kit-url URL --kit-sha256 HEX for a copy you have")
+    name = url.rsplit("/", 1)[1]
+    for line in sums.splitlines():
+        parts = line.split()
+        if len(parts) == 2 and parts[1].lstrip("*") == name:
+            return {"version": version, "url": url, "sha256": parts[0].lower()}
+    die(f"{sums_url} has no checksum for {name}")
+
+
+PIN_LINE = re.compile(r'^(\s*GRADEKIT_(VERSION|URL|SHA256):\s*)"[^"]*"', re.M)
+
+
+def apply_pin(text: str, pin: dict) -> str:
+    vals = {"VERSION": pin["version"], "URL": pin["url"], "SHA256": pin["sha256"]}
+    out, n = PIN_LINE.subn(lambda m: f'{m.group(1)}"{vals[m.group(2)]}"', text)
+    if n != 3:
+        die("this workflow has no GRADEKIT_VERSION, GRADEKIT_URL and GRADEKIT_SHA256 to pin (it's older than 5.0.1): "
+            "reinstall it with `gradekit init --ci HOST --force`")
+    return out
+
+
+def ci_files(root: Path) -> list[Path]:
+    return [p for p in (root / ".github" / "workflows" / "grading.yml", root / ".gitlab-ci.yml", root / ".gitlab" / "grading.yml")
+            if p.exists() and "gradekit" in p.read_text(encoding="utf-8").lower()]
+
+
+def cmd_ci_pin(args) -> int:
+    root = Path(args.grading_repo or ".")
+    files = ci_files(root)
+    if not files:
+        die(f"no grading CI in {root} (.github/workflows/grading.yml or .gitlab-ci.yml); `gradekit init --ci HOST` adds it")
+    pin = kit_pin(args.version, args.kit_url, args.kit_sha256)
+    changed = []
+    for f in files:
+        old = f.read_text(encoding="utf-8")
+        new = apply_pin(old, pin)
+        if new != old:
+            f.write_text(new, encoding="utf-8")
+            changed.append(str(f))
+    emit(args, {"pin": pin, "changed": changed},
+         (f"pinned the grading CI to kit {pin['version']} ({pin['sha256'][:12]}…) in {', '.join(changed)}" if changed
+          else f"already pinned to kit {pin['version']}") +
+         ". The workflow template is still the one you installed; a new kit's `init --ci HOST --force` brings its own.")
+    return 0
+
+
+def install_ci(root: Path, host: str, site: str | None, force: bool = False, pin: dict | None = None) -> Path:
+    """Add the grading check to a grading repo, pinned to one kit zip (by default this kit's release). Returns the file."""
     text = (CI_DIR / f"{host}-grading.yml").read_text(encoding="utf-8")
     if site:
         text = text.replace("__SUITE_SITE__", site.rstrip("/"))
+    pin = pin or kit_pin()
+    text = text.replace("__KIT_VERSION__", pin["version"]).replace("__KIT_URL__", pin["url"]).replace("__KIT_SHA256__", pin["sha256"])
     if host == "github":
         dest = root / ".github" / "workflows" / "grading.yml"
     else:
@@ -2391,7 +2462,7 @@ def install_ci(root: Path, host: str, site: str | None, force: bool = False) -> 
         return dest
     dest.parent.mkdir(parents=True, exist_ok=True)
     dest.write_text(text, encoding="utf-8")
-    print(f"wrote {dest}" + ("" if site else "  (set SUITE_SITE in the CI settings: your suite website's address)"))
+    print(f"wrote {dest}, pinned to kit {pin['version']}" + ("" if site else "  (set SUITE_SITE in the CI settings: your suite website's address)"))
     return dest
 
 
@@ -2460,7 +2531,8 @@ def cmd_init(args) -> int:
     if getattr(args, "ci", None):
         if root is None:
             die("--ci needs --project (it sets up a grading repo)")
-        ci_file = install_ci(root, args.ci, args.site, args.force)
+        ci_file = install_ci(root, args.ci, args.site, args.force,
+                             pin=kit_pin(args.kit_version, args.kit_url, args.kit_sha256))
     print(f"next: edit {out}, then run: {invocation()} resolve " + (f"--project {name}" if pdir else f"--config {out}"))
     args._result = {"project": name, "project_toml": str(out), "project_dir": str(pdir) if pdir else None,
                     "ci": str(ci_file) if ci_file else None}
@@ -7399,8 +7471,18 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--out", default="project.toml")
     p.add_argument("--ci", choices=["github", "gitlab"], help="also add the grading check for pull requests (see the kit's ci/)")
     p.add_argument("--site", metavar="URL", help="with --ci: your suite website's address (else set SUITE_SITE in the CI settings)")
+    p.add_argument("--kit-version", metavar="X.Y.Z", help="with --ci: the kit the CI runs (default: this one); it's pinned by hash")
+    p.add_argument("--kit-url", metavar="URL", help="with --ci: where the CI downloads that kit's zip (default: the suite's releases)")
+    p.add_argument("--kit-sha256", metavar="HEX", help="with --ci: the zip's SHA-256, for a copy that isn't a release (no download needed)")
     p.add_argument("--force", action="store_true")
     p.set_defaults(fn=cmd_init)
+
+    p = sub.add_parser("ci-pin", help="pin the grading CI to an exact kit version and hash (the deliberate way to upgrade it)")
+    p.add_argument("--grading-repo", metavar="DIR")
+    p.add_argument("--version", metavar="X.Y.Z", help="a released kit version (default: this kit's)")
+    p.add_argument("--kit-url", metavar="URL", help="another copy of the zip")
+    p.add_argument("--kit-sha256", metavar="HEX", help="its SHA-256 (then nothing is downloaded)")
+    p.set_defaults(fn=cmd_ci_pin)
 
     p = sub.add_parser("resolve", help="show / write the effective config")
     with_config(p)
