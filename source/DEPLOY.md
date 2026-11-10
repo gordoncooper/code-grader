@@ -104,7 +104,7 @@ python3 tools/vendor_pyodide.py path/to/site                       # downloads t
 python3 tools/vendor_pyodide.py path/to/site --from ./pyodide-0.29.3  # or uses files you already have
 ```
 
-It copies Pyodide's core files and the packages the pages use into `pyodide/`. It refuses any file that doesn't match its pinned hash or Pyodide's lock file. Then it points `assets/engine-config.js` at the local copy and updates `manifest.json` and `SHA256SUMS`. The pages still check every file as they load it.
+It copies Pyodide's core files and the packages the pages use into `pyodide/`. It refuses any file that doesn't match its pinned hash or Pyodide's lock file. It also writes `pyodide/THIRD-PARTY-NOTICES.md` and `pyodide/licenses/`: the licenses of what it copied (Pyodide's MPL-2.0 with where its source is, CPython's for the standard library, and each package's, taken from its own wheel), which their terms ask anyone redistributing them to include. It downloads Pyodide's and CPython's license texts for the exact versions; offline, give `--licenses-from DIR` with `pyodide-LICENSE` and `cpython-LICENSE`. Then it points `assets/engine-config.js` at the local copy and updates `manifest.json` and `SHA256SUMS`. The pages still check every file as they load it.
 
 To set it up by hand instead:
 

@@ -1097,9 +1097,19 @@ def compute_targets(report: dict, cfg: dict) -> dict:
     return out
 
 
-def weighted(items) -> float | None:
-    tw = sum(w for _, w in items)
-    return round(sum(s * w for s, w in items) / tw, 1) if tw else None
+def weighted(items, half_up: bool = True) -> float | None:
+    """The weighted mean to one decimal, rounded half-up on the exact values: Python's round() rounds halves to even
+    and works on floats, so 6.25 became 6.2 and a mean of 7.95 could show 7.9. Maturity levels use this value, the one
+    people see. 4.x reports (half_up=False) recompute with round(), as they were graded."""
+    if not half_up:
+        tw = sum(w for _, w in items)
+        return round(sum(sc * w for sc, w in items) / tw, 1) if tw else None
+    from decimal import ROUND_HALF_UP, Decimal
+    pairs = [(Decimal(str(sc)), Decimal(str(w))) for sc, w in items]
+    tw = sum((w for _, w in pairs), Decimal(0))
+    if not tw:
+        return None
+    return float((sum((sc * w for sc, w in pairs), Decimal(0)) / tw).quantize(Decimal("0.1"), rounding=ROUND_HALF_UP))
 
 
 # --------------------------------------------------------------- score limits
@@ -1208,8 +1218,9 @@ def compute_rollup(report: dict, cfg: dict) -> dict:
             scored.append(b)
     by_id = {b["id"]: b for b in scored}
 
-    pillar_scores = {p: weighted([(b["score"], b["weight"]) for b in scored if b.get("pillar") == p]) for p in PILLARS}
-    overall_raw = weighted([(b["score"], b["weight"]) for b in scored])
+    half_up = "severity_shift" not in cfg["zones"]   # scoring 5 rounds half-up; 4.x rules keep round()
+    pillar_scores = {p: weighted([(b["score"], b["weight"]) for b in scored if b.get("pillar") == p], half_up) for p in PILLARS}
+    overall_raw = weighted([(b["score"], b["weight"]) for b in scored], half_up)
 
     g = cfg["gates"]
     gates = [bid for bid in g["benchmarks"]]
@@ -1915,6 +1926,11 @@ def cmd_redact(args) -> int:
     return 0
 
 
+def rows_half_up(paths) -> bool:
+    """Combining component reports rounds half-up unless any of them is graded under 4.x rules."""
+    return all(int(major(scoring_version_of(load_json(p))) or 0) >= 5 for p in paths)
+
+
 def repo_rollup(paths: list) -> dict:
     """The repo-wide result of a monorepo's reports: overall weighted by component weight, maturity the lowest."""
     rows = []
@@ -1933,7 +1949,7 @@ def repo_rollup(paths: list) -> dict:
         die("no component reports (components/NAME.json) to combine")
     scored = [(x["overall"], x["weight"]) for x in rows if x["overall"] is not None]
     tw = sum(w for _, w in scored)
-    overall = round(sum(s * w for s, w in scored) / tw, 1) if tw else None
+    overall = weighted(scored, rows_half_up(paths)) if tw else None
     lowest = min(rows, key=lambda x: level_num(x["level"]))
     return {"computed_by": "gradekit.py rollup-repo", "overall_score": overall, "maturity": lowest["level"],
             "limited_by": lowest["component"], "components": rows}
@@ -1978,7 +1994,7 @@ def cmd_rollup_repo(args) -> int:
                      "level": roll["maturity"]["current_level"], "failed_gates": [g["benchmark_id"] for g in roll["gates"] if g["status"] == "failed"]})
     scored = [(x["overall"], x["weight"]) for x in rows if x["overall"] is not None]
     tw = sum(w for _, w in scored)
-    overall = round(sum(s * w for s, w in scored) / tw, 1) if tw else None
+    overall = weighted(scored, rows_half_up(args.reports)) if tw else None
     lowest = min(rows, key=lambda x: level_num(x["level"]))
     print(f"{'component':<20} {'preset':<14} {'weight':>6} {'overall':>7} level")
     for x in rows:
@@ -2164,12 +2180,18 @@ def render_project_toml(data: dict, defaults: dict | None = None, path: str = "p
     answers = d.pop("answers", {}) or {}
     questions = defaults.get("questions", {})
     out.append("# Answers override the preset. Each one moves specific weights; see `gradekit resolve --explain ID`.")
+    out.append("# A commented-out answer is the preset's: it follows the preset, including later improvements to it.")
     out.append("[answers]")
+    preset = (defaults.get("presets") or {}).get(proj.get("preset") or "", {})
     for q in list(questions) + [q for q in answers if q not in questions]:
-        if q not in answers:
-            continue
         qd = questions.get(q, {})
         opts = " | ".join(qd.get("options", {}))
+        if q not in answers:
+            if preset and qd:
+                pval = (preset.get("answers") or {}).get(q, qd.get("default"))
+                if pval is not None:
+                    out.append(f"# {toml_key(q):<15} = {toml_value(pval)}   # the {proj.get('preset')} preset's; uncomment to change ({opts})")
+            continue
         comment = f"   # {qd.get('prompt', '')} ({opts})" if qd else ""
         out.append(f"{toml_key(q):<17} = {toml_value(answers[q])}{comment}")
     out.append("")
@@ -2343,11 +2365,17 @@ def install_ci(root: Path, host: str, site: str | None, force: bool = False) -> 
     return dest
 
 
+def invocation() -> str:
+    """How to run gradekit again, as this run was started (a script path, or an installed `gradekit`)."""
+    import shlex
+    cmd = sys.argv[0] if sys.argv and sys.argv[0] else "gradekit"
+    return f"python3 {shlex.quote(cmd)}" if cmd.endswith(".py") else shlex.quote(Path(cmd).name)
+
+
 def cmd_init(args) -> int:
     defaults = load_toml(DEFAULTS_PATH)
     if args.preset not in defaults["presets"]:
         die(f"unknown preset '{args.preset}' (known: {', '.join(defaults['presets'])})")
-    preset_answers = defaults["presets"][args.preset].get("answers", {}) or {}
     given = {}
     for kv in args.answer or []:
         if "=" not in kv:
@@ -2358,7 +2386,8 @@ def cmd_init(args) -> int:
         if q not in defaults["questions"]:
             die(f"unknown question '{q}'")
     name = slug(args.project or args.name)
-    answers = {q: given.get(q, preset_answers.get(q, qd.get("default"))) for q, qd in defaults["questions"].items()}
+    # Only the answers given are written: the rest stay the preset's (as comments), so the project follows its preset.
+    answers = {q: given[q] for q in defaults["questions"] if q in given}
     proj = {"name": name, "description": "<what it is, in one sentence>"}
     if args.code_repo:
         proj["code_repo"] = args.code_repo
@@ -2402,7 +2431,7 @@ def cmd_init(args) -> int:
         if root is None:
             die("--ci needs --project (it sets up a grading repo)")
         ci_file = install_ci(root, args.ci, args.site, args.force)
-    print(f"next: edit {out}, then run: gradekit resolve " + (f"--project {name}" if pdir else f"--config {out}"))
+    print(f"next: edit {out}, then run: {invocation()} resolve " + (f"--project {name}" if pdir else f"--config {out}"))
     args._result = {"project": name, "project_toml": str(out), "project_dir": str(pdir) if pdir else None,
                     "ci": str(ci_file) if ci_file else None}
     return 0
