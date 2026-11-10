@@ -8,6 +8,7 @@ import re
 import shutil
 import subprocess
 import sys
+from pathlib import Path
 
 import pytest
 
@@ -186,7 +187,7 @@ def test_fetch_kit_refuses_a_tampered_kit(built, tmp_path):
 @pytest.mark.parametrize("name", ["github-grading.yml", "gitlab-grading.yml"])
 def test_templates_call_ci_with_real_flags(name):
     text = (SRC / "ci" / name).read_text()
-    assert "__SUITE_SITE__" in text and "fetch-kit.py" in text
+    assert "__SUITE_SITE__" in text and "__KIT_SHA256__" in text and "fetch-kit.py" not in text, "the kit is pinned, not fetched from the site"
     call = re.search(r'gradekit\.py" ci (.+?)(?:\|\| status|\n\s*\n|\n      - )', text, re.S).group(1)
     helptext = subprocess.run(KIT + ["ci", "--help"], capture_output=True, text=True).stdout
     for flag in set(re.findall(r"--[a-z-]+", call)):
@@ -194,11 +195,14 @@ def test_templates_call_ci_with_real_flags(name):
 
 
 def test_init_adds_the_check(tmp_path):
-    subprocess.run(KIT + ["init", "--project", "a", "--ci", "github", "--site", "https://acme.example/g/"], cwd=tmp_path, check=True, capture_output=True)
+    pin = ["--kit-version", "5.0.0", "--kit-sha256", "ab" * 32]   # no download in tests
+    subprocess.run(KIT + ["init", "--project", "a", "--ci", "github", "--site", "https://acme.example/g/", *pin], cwd=tmp_path, check=True, capture_output=True)
     wf = (tmp_path / ".github" / "workflows" / "grading.yml").read_text()
     assert "vars.SUITE_SITE || 'https://acme.example/g'" in wf
+    assert 'GRADEKIT_VERSION: "5.0.0"' in wf and f'GRADEKIT_SHA256: "{"ab" * 32}"' in wf
+    assert 'GRADEKIT_URL: "https://github.com/gordoncooper/code-grader/releases/download/v5.0.0/code-grading-suite-v5.0.0.zip"' in wf
     (tmp_path / ".gitlab-ci.yml").write_text("build:\n  script: [make]\n")
-    out = subprocess.run(KIT + ["init", "--project", "b", "--ci", "gitlab"], cwd=tmp_path, check=True, capture_output=True, text=True).stdout
+    out = subprocess.run(KIT + ["init", "--project", "b", "--ci", "gitlab", *pin], cwd=tmp_path, check=True, capture_output=True, text=True).stdout
     assert (tmp_path / ".gitlab" / "grading.yml").exists() and "include:" in out
     assert (tmp_path / ".gitlab-ci.yml").read_text() == "build:\n  script: [make]\n", "an existing pipeline is never overwritten"
 
@@ -228,3 +232,59 @@ def test_answers_on_a_report_pull_request_are_still_append_only(repo):
     commit(repo)
     res = ci(repo)
     assert not res["ok"] and any("append-only" in p for p in res["problems"]), res["problems"]
+
+
+# --------------------------------------------------------------------------- the pinned kit (A2-act-1)
+
+def test_ci_pin_changes_the_pin_and_nothing_else(tmp_path):
+    pin = ["--kit-version", "5.0.0", "--kit-sha256", "ab" * 32]
+    subprocess.run(KIT + ["init", "--project", "a", "--ci", "github", *pin], cwd=tmp_path, check=True, capture_output=True)
+    wf = tmp_path / ".github" / "workflows" / "grading.yml"
+    before = wf.read_text()
+    r = subprocess.run(KIT + ["ci-pin", "--version", "5.0.1", "--kit-sha256", "cd" * 32], cwd=tmp_path, capture_output=True, text=True)
+    assert r.returncode == 0 and "pinned the grading CI to kit 5.0.1" in r.stdout, r.stderr
+    after = wf.read_text()
+    assert 'GRADEKIT_VERSION: "5.0.1"' in after and f'GRADEKIT_SHA256: "{"cd" * 32}"' in after and "v5.0.1/code-grading-suite-v5.0.1.zip" in after
+    changed = [(a, b) for a, b in zip(before.splitlines(), after.splitlines()) if a != b]
+    assert len(changed) == 3 and all("GRADEKIT_" in a for a, _ in changed)
+    bad = subprocess.run(KIT + ["ci-pin", "--kit-sha256", "nothex"], cwd=tmp_path, capture_output=True, text=True)
+    assert bad.returncode != 0 and "64 hex digits" in bad.stderr
+
+
+def test_ci_pin_says_when_a_workflow_is_too_old_to_pin(tmp_path):
+    (tmp_path / ".github" / "workflows").mkdir(parents=True)
+    (tmp_path / ".github" / "workflows" / "grading.yml").write_text("# gradekit\njobs: {}\n")
+    r = subprocess.run(KIT + ["ci-pin", "--kit-sha256", "ab" * 32, "--version", "5.0.0"], cwd=tmp_path, capture_output=True, text=True)
+    assert r.returncode != 0 and "reinstall it with `gradekit init --ci HOST --force`" in r.stderr
+
+
+@pytest.mark.parametrize("name", ["github-grading.yml", "gitlab-grading.yml"])
+def test_the_fetch_step_takes_only_the_pinned_zip(tmp_path, name):
+    """The step's own commands, run against a real kit zip: the right hash gives a kit, any other is refused."""
+    import hashlib
+    import zipfile
+    zpath = tmp_path / "kit.zip"
+    with zipfile.ZipFile(zpath, "w") as z:
+        z.writestr("code-grading-suite/tools/gradekit.py", "print('kit')\n")
+    good = hashlib.sha256(zpath.read_bytes()).hexdigest()
+    text = (SRC / "ci" / name).read_text()
+    if name.startswith("github"):
+        block = text[text.index('          curl -fsSL "$GRADEKIT_URL"'):]
+        lines = [l[10:] for l in block.splitlines()[:4]]
+        tmp = "$RUNNER_TEMP"
+    else:
+        block = text[text.index('    - curl -fsSL "$GRADEKIT_URL"'):]
+        lines = [l[6:] for l in block.splitlines()[:4]]
+        tmp = "/tmp"
+    script = "\n".join(lines).replace("/tmp/", str(tmp_path / "t") + "/") + ("\necho \"KIT=$KIT\"" if tmp == "/tmp" else "")
+    (tmp_path / "t").mkdir()
+    for sha, ok in ((good, True), ("0" * 64, False)):
+        env = dict(os.environ, GRADEKIT_URL=zpath.as_uri(), GRADEKIT_SHA256=sha, GRADEKIT_VERSION="5.0.0",
+                   RUNNER_TEMP=str(tmp_path / "t"), GITHUB_ENV=str(tmp_path / "t" / "env"))
+        r = subprocess.run(["bash", "-e", "-c", script], env=env, capture_output=True, text=True)
+        if ok:
+            assert r.returncode == 0, r.stdout + r.stderr
+            kit = ((tmp_path / "t" / "env").read_text() if tmp != "/tmp" else r.stdout).strip().split("KIT=")[-1]
+            assert (Path(kit) / "tools" / "gradekit.py").exists()
+        else:
+            assert r.returncode != 0 and "isn't the pinned one (5.0.0)" in r.stdout

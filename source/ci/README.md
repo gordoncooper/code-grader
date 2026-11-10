@@ -17,7 +17,16 @@ When reports or decisions land on the default branch, a second job rebuilds `pro
 |---|---|---|
 | `github-grading.yml` | GitHub Actions | `gradekit init --ci github --site URL`, or copy to `.github/workflows/grading.yml` |
 | `gitlab-grading.yml` | GitLab CI | `gradekit init --ci gitlab --site URL`, or add to `.gitlab-ci.yml` |
-| `fetch-kit.py` | any | downloads the kit from your suite website and checks its checksum (both templates use it) |
+| `fetch-kit.py` | any | downloads the kit from a suite website and checks it against that site's checksum. Templates before 5.0.1 used it; the current ones pin the kit instead (below) |
+
+**The kit is pinned.** Each template names one exact kit zip, with `GRADEKIT_VERSION`, `GRADEKIT_URL` and `GRADEKIT_SHA256` at the top. Every job downloads that zip and refuses it unless its SHA-256 matches. The website can't change what your CI runs: the kit doesn't come from it, and neither does the checksum.
+- `gradekit init --ci HOST` pins the kit you ran it with, using the checksum from that release's `SHA256SUMS`, downloaded once when you install.
+- **To upgrade on purpose**, use either:
+  - `gradekit ci-pin --version X.Y.Z`, which changes only the pin;
+  - the new kit's own `gradekit init --ci HOST --force`, which also brings that version's template (new jobs and fixes).
+- **Another host or an offline copy:** give `--kit-url URL --kit-sha256 HEX` to either command (`sha256sum kit.zip` gives the hash).
+
+`SUITE_SITE` is still used, but only for the Review links in comments.
 
 **Permissions:**
 - **GitHub:** the workflow's own token, with `contents: read`, `pull-requests: write` and `issues: write` (for labels). Pull requests from forks are checked but not commented on.
@@ -30,7 +39,8 @@ When reports or decisions land on the default branch, a second job rebuilds `pro
 **Another host:** run the same two steps in any CI that gives you a checkout with history:
 
 ```
-KIT=$(python3 fetch-kit.py "$SUITE_SITE" /tmp/kit)
+curl -fsSL "$GRADEKIT_URL" -o kit.zip && echo "$GRADEKIT_SHA256  kit.zip" | sha256sum --check -
+unzip -q kit.zip -d /tmp/kit && KIT=/tmp/kit/code-grading-suite
 python3 "$KIT/tools/gradekit.py" ci --base origin/main --comment-file comment.md --labels-file labels.txt
 ```
 
