@@ -41,9 +41,9 @@ permissions:
   contents: read
 
 env:
-  GRADEKIT_VERSION: "5.0.0"
-  GRADEKIT_URL: "https://github.com/gordoncooper/code-grader/releases/download/v5.0.0/code-grading-suite-v5.0.0.zip"
-  GRADEKIT_SHA256: "14e2d1d56c9379bf0e155ce81915c0e633d0d17f9ed3a2eadfc67725edbe5f9e"
+  GRADEKIT_VERSION: "5.0.1"
+  GRADEKIT_URL: "https://github.com/gordoncooper/code-grader/releases/download/v5.0.1/code-grading-suite-v5.0.1.zip"
+  GRADEKIT_SHA256: "ed6889429961caeea4325dd68d44a5e949feaf4eeb43730580acd955294f8bae"
 
 jobs:
   check:
