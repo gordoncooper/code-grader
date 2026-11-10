@@ -16,11 +16,11 @@
 <header class="topbar">
   <button class='menu-btn' type='button'>Menu</button>
   <a class="brand" href="../index.html">Code <span>Grading</span> Suite</a>
-  <span class="ver">v5.0.0</span>
+  <span class="ver">v5.0.1</span>
   <nav class="main" aria-label="Main"><a href="../docs/GETTING-STARTED.html">Get started</a><a href="../app/setup.html">Set up</a><a href="../app/run.html">Start a run</a><a href="../app/review.html">Review</a><a href="../app/projects.html">Projects</a><a href="../docs/README.html" class="active" aria-current="page">Docs</a></nav>
   <span class="spacer"></span>
   <a class="top opt" href="../AGENT.md">AGENT.md</a>
-  <a class="top opt" href="../downloads/code-grading-suite-5.0.0.zip">Download</a>
+  <a class="top opt" href="../downloads/code-grading-suite-5.0.1.zip">Download</a>
 </header>
 <div class="layout"><nav class="sidebar" aria-label="Documentation"><h4>Start</h4><a href="../docs/GETTING-STARTED.html">Getting started</a><a href="../docs/README.html">Overview &amp; reference</a><a href="../docs/GLOSSARY.html">Glossary</a><a href="../docs/AGENT.html">Agent entry point</a><a href="../docs/DEPLOY.html" class="active" aria-current="page">Hosting this site</a><h4>Configuration</h4><a href="../docs/TUNING.html">Tuning guide</a><a href="../docs/rubric/weights.html">How scoring works</a><a href="../docs/config/defaults.html">Default config</a><a href="../docs/config/project.example.html">Example project config</a><h4>Prompts</h4><a href="../docs/prompts/grader.html">Grader</a><a href="../docs/prompts/reviewer.html">Report reviewer</a><a href="../docs/prompts/improver.html">Improver</a><a href="../docs/prompts/pr-review.html">PR check</a><h4>Rubric</h4><a href="../docs/rubric/A-correctness-trust.html">A · Correctness &amp; Trust</a><a href="../docs/rubric/B-design-structure.html">B · Design &amp; Structure</a><a href="../docs/rubric/C-code-health.html">C · Code Health</a><a href="../docs/rubric/D-value-fitness.html">D · Value &amp; Fitness</a><a href="../docs/rubric/E-adoption-experience.html">E · Adoption &amp; Experience</a><a href="../docs/rubric/F-operations-delivery.html">F · Operations &amp; Delivery</a><a href="../docs/rubric/X-conditional.html">X · Conditional</a><h4>Guides</h4><a href="../docs/calibration/README.html">Calibration</a><a href="../docs/holdout/README.html">Hidden checks</a><a href="../docs/CHANGELOG.html">Changelog</a></nav><main class="doc" id="main"><div class="docbar"><a class="btn" href="../suite/DEPLOY.md">View raw .md</a><button class="btn" type="button" data-copy="../suite/DEPLOY.md">Copy raw URL for an agent</button></div><details class="toc"><summary>On this page</summary><ul><li><a href="#1-build-the-site">1. Build the site</a></li><li><a href="#2-upload-it">2. Upload it</a></li><li><a href="#3-make-sure-file-types-are-served-correctly">3. Make sure file types are served correctly</a></li><li><a href="#4-check-it">4. Check it</a></li><li><a href="#5-point-an-agent-at-it">5. Point an agent at it</a></li><li><a href="#self-hosting-the-python-runtime">Self-hosting the Python runtime</a></li><li><a href="#security-notes">Security notes</a></li></ul></details><h1 id="hosting-the-suite-on-a-web-server">Hosting the suite on a web server<a class="anchor" href="#hosting-the-suite-on-a-web-server" aria-label="Link to this section">#</a></h1>
 <p>The website has three parts: documentation, the agent entry point (<code>AGENT.md</code> plus the raw kit files), and the browser tools (<strong>Set up a project</strong>, <strong>Start a run</strong>, <strong>Review a report</strong>, <strong>Projects</strong>). It is all static files, so any web server works.</p>
@@ -39,8 +39,8 @@
 /grading/versions.json and one in each vN/ directory
 </code></pre>
 <p><code>versions.json</code> lists the versions, newest first, with paths relative to the file. With it, the pages show a version menu, <strong>Start a run</strong> writes prompts that point at the page's own major (<code>…/v5/AGENT.md</code>), and <code>AGENT.md</code> sends agents to the project's pinned major. Every built site ships a <code>versions.json</code> that lists only itself, so a single version needs nothing. To host several, replace the one beside each copy's <code>index.html</code>. It isn't in <code>SHA256SUMS</code>, because it describes your host rather than the kit:</p>
-<pre tabindex="0"><code class="language-json">{&quot;latest&quot;: &quot;5.0.0&quot;,
- &quot;versions&quot;: [{&quot;major&quot;: &quot;5&quot;, &quot;version&quot;: &quot;5.0.0&quot;, &quot;path&quot;: &quot;v5/&quot;}, {&quot;major&quot;: &quot;4&quot;, &quot;version&quot;: &quot;4.3.0&quot;, &quot;path&quot;: &quot;v4/&quot;}]}
+<pre tabindex="0"><code class="language-json">{&quot;latest&quot;: &quot;5.0.1&quot;,
+ &quot;versions&quot;: [{&quot;major&quot;: &quot;5&quot;, &quot;version&quot;: &quot;5.0.1&quot;, &quot;path&quot;: &quot;v5/&quot;}, {&quot;major&quot;: &quot;4&quot;, &quot;version&quot;: &quot;4.3.0&quot;, &quot;path&quot;: &quot;v4/&quot;}]}
 </code></pre>
 <p>In <code>/grading/v4/versions.json</code> the paths are <code>../v5/</code> and <code>../v4/</code>. On GitHub Pages, this repo's <em>Publish website</em> workflow builds the whole layout from the release tags (<code>.github/scripts/site_versions.py</code>).</p>
 <h2 id="3-make-sure-file-types-are-served-correctly">3. Make sure file types are served correctly<a class="anchor" href="#3-make-sure-file-types-are-served-correctly" aria-label="Link to this section">#</a></h2>
@@ -75,7 +75,7 @@
 <pre tabindex="0"><code class="language-bash">BASE=https://your-server/grading/v5
 curl -sI &quot;$BASE/AGENT.md&quot; | grep -i content-type     # expect text/markdown; charset=utf-8
 curl -s  &quot;$BASE/SHA256SUMS&quot; -o SHA256SUMS
-curl -s  &quot;$BASE/downloads/code-grading-suite-5.0.0.zip&quot; -o code-grading-suite-5.0.0.zip
+curl -s  &quot;$BASE/downloads/code-grading-suite-5.0.1.zip&quot; -o code-grading-suite-5.0.1.zip
 sha256sum -c SHA256SUMS --ignore-missing              # expect: OK
 </code></pre>
 <h2 id="5-point-an-agent-at-it">5. Point an agent at it<a class="anchor" href="#5-point-an-agent-at-it" aria-label="Link to this section">#</a></h2>
@@ -91,7 +91,7 @@ sha256sum -c SHA256SUMS --ignore-missing              # expect: OK
 <pre tabindex="0"><code class="language-bash">python3 tools/vendor_pyodide.py path/to/site                       # downloads the pinned Pyodide from the CDN
 python3 tools/vendor_pyodide.py path/to/site --from ./pyodide-0.29.3  # or uses files you already have
 </code></pre>
-<p>It copies Pyodide's core files and the packages the pages use into <code>pyodide/</code>. It refuses any file that doesn't match its pinned hash or Pyodide's lock file. Then it points <code>assets/engine-config.js</code> at the local copy and updates <code>manifest.json</code> and <code>SHA256SUMS</code>. The pages still check every file as they load it.</p>
+<p>It copies Pyodide's core files and the packages the pages use into <code>pyodide/</code>. It refuses any file that doesn't match its pinned hash or Pyodide's lock file. It also writes <code>pyodide/THIRD-PARTY-NOTICES.md</code> and <code>pyodide/licenses/</code>: the licenses of what it copied (Pyodide's MPL-2.0 with where its source is, CPython's for the standard library, and each package's, taken from its own wheel), which their terms ask anyone redistributing them to include. It downloads Pyodide's and CPython's license texts for the exact versions; offline, give <code>--licenses-from DIR</code> with <code>pyodide-LICENSE</code> and <code>cpython-LICENSE</code>. Then it points <code>assets/engine-config.js</code> at the local copy and updates <code>manifest.json</code> and <code>SHA256SUMS</code>. The pages still check every file as they load it.</p>
 <p>To set it up by hand instead:</p>
 <ol>
 <li>Download the Pyodide release named in <code>assets/engine-config.js</code> from the Pyodide GitHub releases page. The &quot;core&quot; archive is enough to run everything. <strong>Review a report</strong> also uses Pyodide's <code>jsonschema</code> package (and its dependencies) for the full report-format check; it's in the full archive. Without it, the page still checks every scoring rule and notes that the structural schema check was skipped.</li>

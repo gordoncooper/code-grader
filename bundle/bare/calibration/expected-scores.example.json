@@ -1,5 +1,5 @@
 {
- "suite_version": "5.0.0",
+ "suite_version": "5.0.1",
  "reference": "sample-repo @ a1b2c3d",
  "criteria": {
   "within_tolerance_pct": 90,

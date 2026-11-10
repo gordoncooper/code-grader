@@ -1,11 +1,11 @@
 {
   "name": "Code Grading Suite",
-  "version": "5.0.0",
-  "built": "2026-11-09",
+  "version": "5.0.1",
+  "built": "2026-11-10",
   "entry_point": "AGENT.md",
   "download": {
-    "path": "downloads/code-grading-suite-5.0.0.zip",
-    "sha256": "535a911fd20defd7fe59b4f98d98e6ff46c91458a6ff06fee2fef0912dddc553"
+    "path": "downloads/code-grading-suite-5.0.1.zip",
+    "sha256": "0b86b41505bf003222632ab8043f12543eec118ed6358439e2dff975aa5298c5"
   },
   "renderer": "markdown-it-py",
   "files": [
@@ -17,32 +17,32 @@
     {
       "path": "AGENT.md",
       "bytes": 7763,
-      "sha256": "7723f21d994d17e1787627da10f22d048a48b45eca3fdfac4ce2f81a0c683643"
+      "sha256": "686ae8d0f4a354cbe85efddd3656b808755b3465acc11cde22dfba5696ac6963"
     },
     {
       "path": "app/components.html",
       "bytes": 2505,
-      "sha256": "599125fa0f3b1cccfb695410021e63a0c0c8d48b2a2031395bdfdf4e60aa3fa2"
+      "sha256": "c513f2238be27ffea9c184c33bedd3251007ab76ec6344a4a8cb15dd0f426197"
     },
     {
       "path": "app/projects.html",
       "bytes": 4520,
-      "sha256": "bc352d5351dcba60a39ed93527b6c43dba2c0cec991fe21744dda7b1b0483ddb"
+      "sha256": "41b5a7cbbe9433bc38caaceff176d4946b725ffa35d1065db589df2a472e494b"
     },
     {
       "path": "app/review.html",
       "bytes": 7147,
-      "sha256": "e1a9878557be7b6b98990c50e7892b3abc246dd2a30a8fa5acdefecb6c4701cf"
+      "sha256": "6cc3743eec2adefe984dcf7786ea5e2b883f9d7ab060e3d4bd11b9d8771b530e"
     },
     {
       "path": "app/run.html",
       "bytes": 7305,
-      "sha256": "66351c81f4817bb433b1f46a874d2495b153b8f6d289d0fed0af63d1285a61c8"
+      "sha256": "f89c59a94ab038c71758323b639a9ec96c6fc5793aee9cbe50c94e4391d32ae2"
     },
     {
       "path": "app/setup.html",
       "bytes": 13994,
-      "sha256": "ba5beab2d992a37447e35e0d4c43c7cffd890aafbcb1c9127acf1dd8ba2d3b49"
+      "sha256": "03b9a69df12ee604e18a60ddb983ad321f8dfc5626a09116230d1dea6f7dd3e7"
     },
     {
       "path": "assets/common.js",
@@ -81,8 +81,8 @@
     },
     {
       "path": "assets/review.js",
-      "bytes": 68013,
-      "sha256": "6742a7685c50fb849d73bb7f028a913388b8a476ce145dd1d66f149f2c717a00"
+      "bytes": 68273,
+      "sha256": "425c399d93bf5225fce482f55db2e1a648655d455babde085c5f321811a41f2f"
     },
     {
       "path": "assets/run.js",
@@ -112,142 +112,142 @@
     {
       "path": "docs/AGENT.html",
       "bytes": 15404,
-      "sha256": "27500253d54a59ac8e136e0bf06e12a3c1a3b4ac8e90a4b5ee7896ab81055c25"
+      "sha256": "6fd445dc6f4b6db50dd25a54ed15c7d2f7e3455360e7eed7fdf38258499b62e6"
     },
     {
       "path": "docs/CHANGELOG.html",
-      "bytes": 87885,
-      "sha256": "91ca9305b75475ba4d16aa3d2978b6a5d41dab63ab7f651908b4117a3791ad53"
+      "bytes": 95941,
+      "sha256": "91cbb78251207cfd8897753a895897d8edbee65bc7ea6c398b3f65ec2133495e"
     },
     {
       "path": "docs/DEPLOY.html",
-      "bytes": 17443,
-      "sha256": "ea782d91f916754d6efaeb145045c3c87fd2473572c5d99aed0f60013dd28558"
+      "bytes": 17948,
+      "sha256": "f97d9c1226f7a0e41f6d4be32677af3b32d82a8ce30c153f9a11bfc1ebc56eef"
     },
     {
       "path": "docs/GETTING-STARTED.html",
       "bytes": 22018,
-      "sha256": "fb9b6f7ca11944bbfe9de95186343024107149645e926c4d70d630b3eed29d0f"
+      "sha256": "9f493a837de0fe2ec314836a82d0413baf81122ccac4cedb10982e22bcd3da6d"
     },
     {
       "path": "docs/GLOSSARY.html",
       "bytes": 14175,
-      "sha256": "2cca3379e111804c953b913071ccc4f6872a3941eb8d2d6d612beb3192858b88"
+      "sha256": "aed1ff3afb2f69a5db885d1d6ee1e2b9789abfbc2f731eadc43df49b4e4b8911"
     },
     {
       "path": "docs/README.html",
       "bytes": 25597,
-      "sha256": "5aff50ed5b362ced795637ed5cd40a3b4a6dc2c31109d49ae13708303fcdb88e"
+      "sha256": "26091e027eeef18cb1befd270ec93dc24886f404085d5f4bc3afa646a8b60a88"
     },
     {
       "path": "docs/TUNING.html",
       "bytes": 17115,
-      "sha256": "e34b7e4d70298ddd35d3b028f2e6d5231088df7d9058e8129a0643289d737e71"
+      "sha256": "e2380ec41f68706d7eee3cd8c62099bce4b143fa197da7bac501447ba9c11138"
     },
     {
       "path": "docs/calibration/README.html",
-      "bytes": 11537,
-      "sha256": "2d3c1eef204aa10f3ae1630456a05bf5c20ebf628e34cdfc9128cfc294477c78"
+      "bytes": 11604,
+      "sha256": "75985fd02eb83875877c84444006e6bdbc086f64cf2bad328490e62ceff88152"
     },
     {
       "path": "docs/config/defaults.html",
       "bytes": 23859,
-      "sha256": "260aa8d9438cec43c176ecfd77fd5c56504897245c5ab32c513571fc0d870875"
+      "sha256": "cd54ab5e0be606807c3f4649f52986e9db0a3e665b8336b580ccc07f0a92828b"
     },
     {
       "path": "docs/config/project.example.html",
       "bytes": 8627,
-      "sha256": "f79a06f8203627c35b2f3a36e367a465457bad2c0060114b44db3bd844f756e5"
+      "sha256": "cd5d085a45280c9d0d0c7f4fe4f97e6ffdc44c2aa9344677701c78eb1971ac8b"
     },
     {
       "path": "docs/holdout/README.html",
       "bytes": 7761,
-      "sha256": "de4bd9e2e3bed45ae2cc816bce87def00b5c0022aa4447e0cfd2e747d94ccbad"
+      "sha256": "1d82010ea9e2a461d31996739e2cb60d9f4c3ab0db3070c1ba4bcc75a5b726e7"
     },
     {
       "path": "docs/prompts/grader.html",
-      "bytes": 67528,
-      "sha256": "a4717a93cea634a0005d14cb051acb89e0a17aeff8c24f5f7b247110446c9644"
+      "bytes": 67922,
+      "sha256": "d7ac22e793400343517657341e082a7df99f7bb59856dc759447f1ee82adc7e9"
     },
     {
       "path": "docs/prompts/improver.html",
       "bytes": 16431,
-      "sha256": "beb9c7ee29f62b177e3ba5a0924cae89dbe2731f7d9ad874071783cfbdadf75d"
+      "sha256": "b9e294cf8f16247a2d1ec83968e5c45384ae833d73caeed7d1ded8191c46394e"
     },
     {
       "path": "docs/prompts/pr-review.html",
       "bytes": 15377,
-      "sha256": "ec8f55a3efe4a9d2b4efefebda46341ac832e460ff538894bee3b0727a1b30e5"
+      "sha256": "a9c8339e21374ca55719d9b924e4eae0787c8ffd8e0f693e6f0593d9ff4f22f3"
     },
     {
       "path": "docs/prompts/reviewer.html",
       "bytes": 12595,
-      "sha256": "87424e805ce919d0a8091d133385711433d2f4d29aacabc564274c938a285d8f"
+      "sha256": "f9fd195d246253ddfb4e758dc076a8f6a0b197a8d0616aa9f7d2ee29fb60e7c1"
     },
     {
       "path": "docs/rubric/A-correctness-trust.html",
       "bytes": 13604,
-      "sha256": "f1f58ee06fa99103ad84d6476f30746e6f311a1e411f64db05662adb64c645d0"
+      "sha256": "54a712324a6a47afd7fd3276a145cfcc7d399e585b8e1623596247899cd063c6"
     },
     {
       "path": "docs/rubric/B-design-structure.html",
       "bytes": 12999,
-      "sha256": "f8b445302727c0dc7726c3cce02343d2248a1fc43f24e9261e58e1c73aa183df"
+      "sha256": "c3a23ba5eb53cafb5b28860953ac86561b7e97a34359e93bec38dfa5c1f9b7c1"
     },
     {
       "path": "docs/rubric/C-code-health.html",
       "bytes": 9321,
-      "sha256": "fa6ea0354e09242aa3673fa411f3fa910a0aab852e8d11c948b29498b064bac7"
+      "sha256": "750a1e4b57eaf14e808d5a60aa8b6805b285c2817784a367a087c8d81ef7370a"
     },
     {
       "path": "docs/rubric/D-value-fitness.html",
       "bytes": 10286,
-      "sha256": "5f98b3d65ad5f17c9b06599aa4811df132861ff95375bd529eeedaf5599aa497"
+      "sha256": "cdbb2f1ea92660ef5a4863f1003f9c2ebcff6e7ace92ff4b7dea2c271a19b9e3"
     },
     {
       "path": "docs/rubric/E-adoption-experience.html",
       "bytes": 12017,
-      "sha256": "5100a8cadb0370605265231de9747ea1584513e3dd1f1b71a22267f76773b1fb"
+      "sha256": "4706c81a41abe8ae3229f5ae57ed87fdd2353028cad93085272ae3dbf7a768c0"
     },
     {
       "path": "docs/rubric/F-operations-delivery.html",
       "bytes": 12416,
-      "sha256": "b482624ba9bc80c6beb28bc07658658526d117c82eb53a3539479538c56ff506"
+      "sha256": "49ef33d28c9d13344d469ce8b172f88c4eba69b9b320dd2d8099badd889341aa"
     },
     {
       "path": "docs/rubric/X-conditional.html",
       "bytes": 9999,
-      "sha256": "d7ce1fa974739040bfe530ae5def1ba2ea640a7fed9fec3ca8ffdcb6c7fef98a"
+      "sha256": "470a3369f8688548e93acf3d27a9068ee5854be4a622ba27de729895c2797c3b"
     },
     {
       "path": "docs/rubric/weights.html",
       "bytes": 28935,
-      "sha256": "ee171148df2e0b86ed1a00e5caaa9c3ee726611778092bde510e6780de86591c"
+      "sha256": "ba2b6082d9673d4b9caa73488e16bde6dddc6daca22cf07552e24d158683d410"
     },
     {
-      "path": "downloads/code-grading-suite-5.0.0.zip",
-      "bytes": 445175,
-      "sha256": "535a911fd20defd7fe59b4f98d98e6ff46c91458a6ff06fee2fef0912dddc553"
+      "path": "downloads/code-grading-suite-5.0.1.zip",
+      "bytes": 456920,
+      "sha256": "0b86b41505bf003222632ab8043f12543eec118ed6358439e2dff975aa5298c5"
     },
     {
       "path": "index.html",
       "bytes": 12197,
-      "sha256": "3b481d709f50827aaf5e83b817babf0c269511e066da0cf2959a7036f72d0c64"
+      "sha256": "2dff4c8e357859a4f068ff84e5fc4adcc0c14f19d33bbb974d737926b36952dc"
     },
     {
       "path": "llms.txt",
       "bytes": 1395,
-      "sha256": "347df1a7caf48abaa46099784b713fa4050c3e5001dc9a653633fe33b8ecaf1e"
+      "sha256": "1b7a586e43c2dad6fe0b670888046e5cae2913e49dc79fd2cc760d261d30f524"
     },
     {
       "path": "suite/CHANGELOG.md",
-      "bytes": 68041,
-      "sha256": "cddcb716c584f7b3d589da1a5fc662eb7a0f71e4f1ad71263a3f32a77c52c685"
+      "bytes": 74758,
+      "sha256": "cd81f2299187148b409d8c7ad2861a151b6c9ab94e4c21c8a266b8d9564f375f"
     },
     {
       "path": "suite/DEPLOY.md",
-      "bytes": 9981,
-      "sha256": "e3939091b671cd669fa46209c346529adf724c911a53f03ee1ff36fa99f0d07d"
+      "bytes": 10431,
+      "sha256": "c30dffbb3401fe3ceedb5de42357aa983c2c6e094348bbda64e089a12a0fb0c3"
     },
     {
       "path": "suite/GETTING-STARTED.md",
@@ -262,7 +262,7 @@
     {
       "path": "suite/README.md",
       "bytes": 17034,
-      "sha256": "9cfa677812eb2f6a2ce0889f53babe87f5a88ea41b32c7e26a00ec83edfeb515"
+      "sha256": "48bdba3e86d514c0ea1b3e4ab0778240cae86140408712643abc13da7ccb929e"
     },
     {
       "path": "suite/TUNING.md",
@@ -271,18 +271,18 @@
     },
     {
       "path": "suite/calibration/README.md",
-      "bytes": 5857,
-      "sha256": "959d61a7b72785dcb708dfeb6c6d01160878024909f3e37d578255cead52a3ba"
+      "bytes": 5924,
+      "sha256": "b4611d23c7bd83058a3ea1695a413308776f420bd71b6efccd13d5523c5eb048"
     },
     {
       "path": "suite/calibration/RESULTS.md",
-      "bytes": 1452,
-      "sha256": "280b1e87bf4c0bf578e432ed52f95555859e4182b766e471e77f4ef438a89aeb"
+      "bytes": 1544,
+      "sha256": "94d6b28e40b3236556bfc46aebd191ef90b9a1efc7cc21079f09d1c38c3d8580"
     },
     {
       "path": "suite/calibration/expected-scores.example.json",
       "bytes": 515,
-      "sha256": "939ca3df72fdda9b5cc96cf6d427bc538366b9124f82a8284b737355f9b56701"
+      "sha256": "1ca28868dae689a4ed485effbc4a565d1232db70ba19a9204726fbda07ec6bd9"
     },
     {
       "path": "suite/calibration/golden/schedule/expected.json",
@@ -318,6 +318,16 @@
       "path": "suite/calibration/golden/schedule/runs/run-13.json",
       "bytes": 2840,
       "sha256": "7cec8ba76a789d9afabe7d418fc11a123242c0c3876c1a92de5ac88204c828c3"
+    },
+    {
+      "path": "suite/calibration/golden/schedule/runs/run-14.json",
+      "bytes": 2875,
+      "sha256": "d8f92026c371361e85b94a0d79cccc650ab52bad5d43a736b90eb094b5cf5ad9"
+    },
+    {
+      "path": "suite/calibration/golden/schedule/runs/run-15.json",
+      "bytes": 2875,
+      "sha256": "dd6ef6736ef2c44c05fe831750cb3b9d0a881d4283e1336fb8585987c706252d"
     },
     {
       "path": "suite/calibration/golden/schedule/runs/run-2.json",
@@ -361,13 +371,13 @@
     },
     {
       "path": "suite/calibration/results.json",
-      "bytes": 3135,
-      "sha256": "77d247584bce0bc045401e50a39ae76dfadb20fa2082cfabb7e8997a92fba197"
+      "bytes": 3687,
+      "sha256": "a9840beac0dbaa658093361826432d3c452c948136fecbadb909a2751bdba5a7"
     },
     {
       "path": "suite/ci/README.md",
-      "bytes": 5915,
-      "sha256": "b8a36bca27f6ad05b8dd1703909d8c036ff20f5515dc1748aaccba3eac2aefa6"
+      "bytes": 6987,
+      "sha256": "1f93e68bf16a8a84a228ca3c0d86e542a3a89f0522e83916bdd0d007363efc39"
     },
     {
       "path": "suite/ci/fetch-kit.py",
@@ -376,23 +386,23 @@
     },
     {
       "path": "suite/ci/github-grading.yml",
-      "bytes": 9746,
-      "sha256": "4c175c6084e5425fd26dd0313b41de6c5ba327ce7c1979884a3a872b685ba617"
+      "bytes": 12744,
+      "sha256": "51d96e044d09ec14930a727b27401aad289921d14eab80f6736cedebcc7d17b7"
     },
     {
       "path": "suite/ci/gitlab-grading.yml",
-      "bytes": 6959,
-      "sha256": "1a5ef424fece82327e8ca34955f202e3b95fcc884d65ac24b1e06df80d39ff42"
+      "bytes": 7930,
+      "sha256": "9612e3c2e7f6dfd34a978c0f476678de699f68308eb144f7c1a87d97bc409753"
     },
     {
       "path": "suite/config/defaults.toml",
       "bytes": 18228,
-      "sha256": "ee22690553612cf595da8691fa53827c8fd8b77583f7df4e4b6ddd53c522b6ad"
+      "sha256": "1880ad955c1a0a739c79976cf554c50af9d13909a550b9abe0c3155e41985507"
     },
     {
       "path": "suite/config/project.example.toml",
       "bytes": 3907,
-      "sha256": "c90799940ce79f8dc4d1a0be60e94fec51269811f55ec3fcbc2b7834e8992709"
+      "sha256": "0fbfaf907b9704cec8f44a1e0de7147bd9b33e2fe63dcc1cf8313e7a1dad1081"
     },
     {
       "path": "suite/config/scoring/4.2.0.toml",
@@ -412,7 +422,7 @@
     {
       "path": "suite/examples/grading-repo/projects/index.json",
       "bytes": 3982,
-      "sha256": "643a7830e8a728a03a3b23fbe7d58e88d5bfe2b8efc1765c9d5a953e582b811f"
+      "sha256": "10c1ec9b666f9614ac76d4f58f48c0cad4c05a4e6cd9a40a260ffe03696a815f"
     },
     {
       "path": "suite/examples/grading-repo/projects/orders-api/decisions.json",
@@ -501,68 +511,68 @@
     },
     {
       "path": "suite/prompts/grader.md",
-      "bytes": 46799,
-      "sha256": "2bdfdbf695445e7e7977b882f7e81756ca4a4b673a27b0e1e19eaaea41160867"
+      "bytes": 47171,
+      "sha256": "353f0f3dcafbec1def841e5841c8fa3f213319c6bc1ae8ea1bdda9fb34302dd8"
     },
     {
       "path": "suite/prompts/improver.md",
       "bytes": 9292,
-      "sha256": "ad823db2409156afbd0021d1507109aa39996e7066c5914df20ecea9f9dac390"
+      "sha256": "ef8b0cafbcd4fe6a042433a87884c09b02cd79a2076b3bb37d1345abd5aa96b4"
     },
     {
       "path": "suite/prompts/pr-review.md",
       "bytes": 7977,
-      "sha256": "50e899b3cf21e02a1d5a00d326266ad1e695901bb2d901ff8486e4f4f5a259d5"
+      "sha256": "b14d3ad585b06098efa404d0f92e9e06d5428bfe3749c6a59269c19a2c952dbb"
     },
     {
       "path": "suite/prompts/reviewer.md",
       "bytes": 5844,
-      "sha256": "96e2ed1d686abf99aa7182d07aadfafa09591a023ae1dbbf8340282de40debc0"
+      "sha256": "55324420f66df5a6470615cecb379cd10a5bad882a3bce718828c158ed9875cf"
     },
     {
       "path": "suite/prompts/rules.json",
-      "bytes": 10622,
-      "sha256": "7288277235b0a9168a6bacf4a74797e32277535086905d71d10f16299a624ce2"
+      "bytes": 10626,
+      "sha256": "f285b3b7926ff44ae778f0c8f32b0dce7e0315c36baf1be5500fcc1056d12905"
     },
     {
       "path": "suite/rubric/A-correctness-trust.md",
       "bytes": 7071,
-      "sha256": "4c1ab4f38cda38aeec318cb9188817c2a2caadf9ed0c43b3e30fba4b7700e2e8"
+      "sha256": "6b97d8918e1a39e0fa661802d24f72aabf39de738d0c55bc9506690ede39557c"
     },
     {
       "path": "suite/rubric/B-design-structure.md",
       "bytes": 6236,
-      "sha256": "c38cf85f185f5a94aa01f03bfce6d775e519065c3355bacc3263ca230878f7d8"
+      "sha256": "7894ff8fc1ae42cbff3ac2a560e163de3ad379f23e28841c6353f11bb5abdc0c"
     },
     {
       "path": "suite/rubric/C-code-health.md",
       "bytes": 3434,
-      "sha256": "4f3954b60f5fc9ab10b59d0f210d0900b82e53fc7ad5d124406f25b7825f7bab"
+      "sha256": "6dd2103df922eafd2eaa025c93e3f72f6825790fba7c22e5777ab7dde5e4ca43"
     },
     {
       "path": "suite/rubric/D-value-fitness.md",
       "bytes": 4340,
-      "sha256": "832cc414b50c66aab1938ed0d7fb22f893a184c552a1b7261330f529777759a7"
+      "sha256": "7c13cad91a2631db84e130136ae791f5ff71cfe3d8cbba1b83031c5c24a25a23"
     },
     {
       "path": "suite/rubric/E-adoption-experience.md",
       "bytes": 5709,
-      "sha256": "3c1578da56d10b59bf411d54b9719bf432d77fdfc6ff7dfdfa86f0159df80085"
+      "sha256": "cffdb9550acb27c6f3e39fd6b3e6a44f31366c1e66041d18200faad95bbf071c"
     },
     {
       "path": "suite/rubric/F-operations-delivery.md",
       "bytes": 5649,
-      "sha256": "21e4c7dd7ed24d70de7b4b8e765d06f358d85bc2a06e57a38f9ffa8f92b3c6c7"
+      "sha256": "f4e912e4dd375f173838a5a72cc4df47a583e16e32b021862be171e907ed571a"
     },
     {
       "path": "suite/rubric/X-conditional.md",
       "bytes": 3105,
-      "sha256": "0f55fb5dce26bf776d63dec66a894358ad36026c310ab3c528b13ddc34cbddec"
+      "sha256": "9e62ce5ecec6217b48f41d4d4334d8d15bf8f9c79ff1b1ddd6f450a8ce2025f5"
     },
     {
       "path": "suite/rubric/catalog.json",
       "bytes": 8792,
-      "sha256": "4610253f08b06616111c7e142cb537350cdf2f0d9878d76b23f592be30748bb5"
+      "sha256": "22bda3392ca856704193e161427eec6d0ad1c7b38cd6d47722fd712a040f11a3"
     },
     {
       "path": "suite/rubric/glossary.json",
@@ -572,12 +582,12 @@
     {
       "path": "suite/rubric/rubric.json",
       "bytes": 41168,
-      "sha256": "ed2da68b90c58e213e66f0320bc70abccb1d59c6f9084d5cc557f599a77dae1a"
+      "sha256": "1b099d3daacee6829373ce86b69c5a77135ac11b16d445804dacc90f613bea6a"
     },
     {
       "path": "suite/rubric/weights.md",
       "bytes": 11481,
-      "sha256": "03fadd16806ba02240da99608cc8306388717ce07acbb620a71e8e278ec6e857"
+      "sha256": "0c4564e75bbc3fab322b566dd0c77e2935038057a559e981d9e7e9cede82ef58"
     },
     {
       "path": "suite/schema/index.schema.json",
@@ -591,8 +601,8 @@
     },
     {
       "path": "suite/schema/report.schema.json",
-      "bytes": 24761,
-      "sha256": "5abe0d8a8f1bba8d4053d8417240e71b4545920627c91c138015ceea33361615"
+      "bytes": 25461,
+      "sha256": "e0e6c02b294d249652eebc71289c946d63b0c782ce81c16bac76ca313fde0493"
     },
     {
       "path": "suite/schema/work-order.schema.json",
@@ -606,13 +616,13 @@
     },
     {
       "path": "suite/tools/gradekit.py",
-      "bytes": 429154,
-      "sha256": "560cbf74777572dc273e1b054f1e8edf2a0f31e873cece161df695112700968f"
+      "bytes": 442833,
+      "sha256": "ac27c6347b3fa7944b0c2fcfda357ffdba8b95a69185e082c6599ed6d15fd504"
     },
     {
       "path": "suite/tools/vendor_pyodide.py",
-      "bytes": 6561,
-      "sha256": "8ad37aeaaaa88bf0ffc9bf11b38a37b79321a2dd7027ccf4749d603154b8987a"
+      "bytes": 11674,
+      "sha256": "e95359606977eee19a225cce38a496cd2aca844cfa989bfe12801d59db37cbe3"
     },
     {
       "path": "suite/tools/web/common.js",
@@ -666,8 +676,8 @@
     },
     {
       "path": "suite/tools/web/review.js",
-      "bytes": 68013,
-      "sha256": "6742a7685c50fb849d73bb7f028a913388b8a476ce145dd1d66f149f2c717a00"
+      "bytes": 68273,
+      "sha256": "425c399d93bf5225fce482f55db2e1a648655d455babde085c5f321811a41f2f"
     },
     {
       "path": "suite/tools/web/run.html",

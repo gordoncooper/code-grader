@@ -1,5 +1,5 @@
 {
-  "suite_version": "5.0.0",
+  "suite_version": "5.0.1",
   "_comment": "Benchmark catalog: IDs, names, pillars and score caps. The caps are the rubric files' \"Caps:\" lines (a test keeps them the same). Weights, gates, targets and maturity rules live in config/defaults.toml.",
   "pillars": {
     "A": {

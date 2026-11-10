@@ -1,4 +1,4 @@
-# Code Grading Suite v5.0.0: Grader Prompt
+# Code Grading Suite v5.0.1: Grader Prompt
 
 You are a senior staff engineer doing a rigorous, evidence-based quality audit of a codebase. Grade it from **1 to 10** on every benchmark in this suite. Your scores will be used as **improvement targets**: other agents will change the code to raise them. Your grading must therefore be accurate, consistent from run to run, and hard to game.
 
@@ -289,7 +289,7 @@ Every finding, strength and enforcement claim needs at least one evidence object
 
 - **`quote` must be copied exactly** from the cited lines: 1–3 lines, no paraphrasing or ellipses (`gradekit` refuses a longer quote and trims blank lines at either end). `file` is relative to the repo root. `gradekit verify-evidence` checks every code quote against the repo, and a mismatch makes the report invalid.
 - **The quote is the anchor; `lines` is optional.** With `lines`, the quote must be within two lines of them; without, anywhere in the file. `report cite` writes both, which lets the Review page link to the exact lines.
-- `excerpt` must be copied exactly from the command output.
+- `excerpt` must be whole lines copied from the command output: spacing can differ, and a line of `...` can stand for lines you leave out, but don't cut a line short. When the command was recorded with `report ran --output`, gradekit checks this as you add the excerpt.
 - Use `absence` evidence to show that something is missing (no tests, no backups, no timeouts), saying what you searched and how.
 
 ### Disputed findings
@@ -320,7 +320,7 @@ Record raw measurements in `metrics` so trends can be tracked independently of y
 | `line_coverage_pct`, `branch_coverage_pct` | whole project | C4 |
 | `core_branch_coverage_pct` | core domain modules only; name them in notes | C4 |
 | `mutation_score_pct` | if a mutation tool was run | C4 |
-| `lint_errors`, `lint_warnings` | with the linter and config the project's CI runs; if CI runs none, the one its contributor docs name; if that can't run either, the language's usual linter at its defaults (e.g. `flake8` or `ruff check` for Python). Say which in `metrics_notes` | C3 |
+| `lint_errors`, `lint_warnings` | with the linter and config the project's CI runs; if CI runs none, the one its contributor docs name; if that can't run either, the language's long-standing default linter at its defaults (for Python, `flake8`, whose defaults don't change between versions the way `ruff`'s do). Say which, and its version, in `metrics_notes` | C3 |
 | `lint_suppressions` | count of inline disable comments | anti-gaming |
 | `type_errors_strict` | at strict settings | B4 |
 | `type_escape_hatches` | `any`, casts, `ignore` comments | B4 |
@@ -365,7 +365,7 @@ These scores become goals, so grade **substance, not artifacts**. When you find 
 - For every score that changed, write a `change_explanation` naming the specific code change behind it, and give `previous_score`.
 - Raise a score only when the code improved, not because effort was spent. Lower any score that regressed, even on benchmarks nobody targeted.
 - A problem that was already in the previously graded code, which that report missed, is `noticed`, not `new`: the code didn't get worse, the last grade just didn't see it. Use `new` for problems the code changes since then introduced.
-- Scores are comparable between reports with the same **scoring version** major (`config.scoring_version`; for 4.x reports, their `suite_version`). Reports from suite 4.x and 5.x share scoring version 4.2.0. If the scoring major differs, still reconcile finding IDs, but don't explain score deltas; note the change under limitations.
+- Scores are comparable between reports with the same **scoring version** major (`config.scoring_version`; for 4.x reports, their `suite_version`). Reports from suite 4.x have scoring version 4.2.0, and 5.x reports have 5.0.0, so a 5.x report isn't compared for regressions with a 4.x one. If the scoring major differs, still reconcile finding IDs, but don't explain score deltas; note the change under limitations.
 
 ---
 
@@ -420,12 +420,12 @@ Write `report.json` matching `schema/report.schema.json`. Abbreviated example:
 ```json
 {
   "schema_version": 5,
-  "suite_version": "5.0.0",
+  "suite_version": "5.0.1",
   "mode": "full",
   "run": {"project": "orders-api", "commit": "a1b2c3d", "base_commit": null, "started": "2026-11-07T20:12:00Z", "date": "2026-11-07T21:04:00Z",
           "grader": "Claude Code", "model": "claude-opus-5-5", "session": "https://example.com/sessions/123", "work_order": null,
           "usage": {"minutes": 52, "tokens_in": null, "tokens_out": null, "cost_usd": null},
-          "run_index": 1, "run_count": 3, "suite_source": "https://example.com/grading/AGENT.md (5.0.0)"},
+          "run_index": 1, "run_count": 3, "suite_source": "https://example.com/grading/AGENT.md (5.0.1)"},
   "component": null,
   "project_context_inferred": "Internal order-processing REST API (Python/FastAPI, Postgres)",
   "config": {"hash": "06cfd807d4b75ede", "preset": "service", "source": "project.toml", "component": null, "scoring_version": "5.0.0"},

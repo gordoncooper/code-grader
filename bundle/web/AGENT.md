@@ -1,8 +1,8 @@
-# Code Grading Suite 5.0.0: start here (for AI agents)
+# Code Grading Suite 5.0.1: start here (for AI agents)
 
 You have been pointed at a hosted copy of the **Code Grading Suite**: a rubric and set of prompts for grading a codebase from 1 to 10 on 35 benchmarks (29 core, 6 conditional), and for improving code against those grades.
 
-**Every path in this file is relative to the URL you loaded it from.** Call that directory `BASE`. For example, if you loaded `https://example.com/grading/v5.0.0/AGENT.md`, then `BASE` is `https://example.com/grading/v5.0.0/`, and `suite/prompts/grader.md` means `https://example.com/grading/v5.0.0/suite/prompts/grader.md`.
+**Every path in this file is relative to the URL you loaded it from.** Call that directory `BASE`. For example, if you loaded `https://example.com/grading/v5.0.1/AGENT.md`, then `BASE` is `https://example.com/grading/v5.0.1/`, and `suite/prompts/grader.md` means `https://example.com/grading/v5.0.1/suite/prompts/grader.md`.
 
 ## 1. Pick your role
 
@@ -21,7 +21,7 @@ If the role isn't clear, ask. Take **one role per session**: never grade code yo
 
 ## 2. Use the project's version of the suite
 
-Each project pins the suite's major version it uses: `suite = "N"` under `[project]` in its `project.toml`, in the grading repo. If the pin's number differs from this file's first number (5.0.0), **don't use this copy**. Use version N instead:
+Each project pins the suite's major version it uses: `suite = "N"` under `[project]` in its `project.toml`, in the grading repo. If the pin's number differs from this file's first number (5.0.1), **don't use this copy**. Use version N instead:
 - if `BASE/versions.json` exists, it lists the versions this site hosts: load `AGENT.md` from the `path` given for major N (relative to `versions.json`) and start again there;
 - otherwise, ask the person for a copy of version N.
 
@@ -35,8 +35,8 @@ The prompts expect the suite in a local directory, `SUITE_DIR`, so the tools can
 
 ```bash
 DEST="$(mktemp -d)"
-curl -fsSL "BASE/downloads/code-grading-suite-5.0.0.zip" -o "$DEST/suite.zip"
-echo "535a911fd20defd7fe59b4f98d98e6ff46c91458a6ff06fee2fef0912dddc553  $DEST/suite.zip" | sha256sum -c -        # must print: OK
+curl -fsSL "BASE/downloads/code-grading-suite-5.0.1.zip" -o "$DEST/suite.zip"
+echo "0b86b41505bf003222632ab8043f12543eec118ed6358439e2dff975aa5298c5  $DEST/suite.zip" | sha256sum -c -        # must print: OK
 unzip -q "$DEST/suite.zip" -d "$DEST"
 SUITE_DIR="$DEST/code-grading-suite"
 ```
@@ -57,7 +57,7 @@ Replace `BASE` with the real URL. On macOS, use `shasum -a 256 -c -` instead of 
 
 Every prompt starts with a short table of inputs: where the code is, where the **grading repo** is and which **project** (its folder `projects/<project>/` holds `project.toml`, `decisions.json`, `dispositions.json` and one dated folder per report), and how to deliver results. The person's instructions usually fill in that table, and this site's **Start a run** page writes complete instructions. Anything not given has a stated default, and each delivery option says which permissions it needs.
 
-- **Grader:** read `suite/prompts/cards/grader.md` completely before starting. Load the rubric one pillar at a time: `gradekit rubric A` prints pillar A's benchmarks, and `suite/rubric/rubric.json` has the same as data if you can't run Python. Set `run.suite_source` to this file's URL followed by ` (5.0.0)`.
+- **Grader:** read `suite/prompts/cards/grader.md` completely before starting. Load the rubric one pillar at a time: `gradekit rubric A` prints pillar A's benchmarks, and `suite/rubric/rubric.json` has the same as data if you can't run Python. Set `run.suite_source` to this file's URL followed by ` (5.0.1)`.
 - **Report reviewer:** read `suite/prompts/cards/reviewer.md`. Only humans approve decision questions, unless `project.toml` says agents may.
 - **Improver:** read `suite/prompts/cards/improver.md`. Never change grading files, and look only at the ones you're pointed to.
 - **PR checker:** read `suite/prompts/cards/pr-check.md`, plus the rules on the grader card, which it builds on.
@@ -92,6 +92,6 @@ Every prompt starts with a short table of inputs: where the code is, where the *
 | `suite/schema/report.schema.json` | JSON Schema for reports |
 | `suite/tools/gradekit.py` | Builds reports (`gradekit report …`), resolves configs, validates reports, checks evidence, computes the rollup and priorities (Python 3.11+, standard library only) |
 | `suite/examples/` | A sample repo and a complete example report |
-| `downloads/code-grading-suite-5.0.0.zip` | Everything above as one zip (SHA-256 `535a911fd20defd7fe59b4f98d98e6ff46c91458a6ff06fee2fef0912dddc553`) |
+| `downloads/code-grading-suite-5.0.1.zip` | Everything above as one zip (SHA-256 `0b86b41505bf003222632ab8043f12543eec118ed6358439e2dff975aa5298c5`) |
 | `manifest.json`, `SHA256SUMS` | Version, sizes and checksums for every file on this site |
 | `docs/` | Human-readable HTML versions of every document |
