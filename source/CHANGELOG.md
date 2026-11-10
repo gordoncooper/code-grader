@@ -28,6 +28,9 @@ Fixes from the 5.0 calibration runs and the suite's first grade of itself. No sc
   - `report check` warns about a stored rollup that doesn't match the scores.
   - `gradekit ci` already refused one.
 - **An open gap explains a low score too:** "score N but no findings explain what is wrong" no longer fires when an open gap names the benchmark.
+- **Overall and pillar scores round half-up on the exact values.** `round()` rounded halves to even and worked on floats, so 6.25 showed 6.2 and a mean of 7.95 could show 7.9. Maturity levels are judged on the score as shown. Reports graded under 4.x rules recompute as they were graded, and benchmark scores and calibration are unaffected.
+- **`gradekit init` writes only the answers you give.** The preset's answers are written as comments, so the project keeps following its preset, including improvements in later suite versions. Its "next" line is a command you can run as typed.
+- **The website-with-Pyodide download includes the licenses of what it redistributes.** `vendor_pyodide.py` writes `pyodide/THIRD-PARTY-NOTICES.md` and `pyodide/licenses/`: Pyodide's MPL-2.0 with where its source is, CPython's PSF license for the standard library, and each package's license, taken from its own wheel. `--licenses-from DIR` works offline.
 - `grader.md` said 4.x and 5.x reports share scoring version 4.2.0. They don't: 5.x is scoring 5.0.0, so a 5.x report isn't compared for regressions with a 4.x one.
 
 ## 5.0.0

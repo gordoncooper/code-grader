@@ -113,3 +113,31 @@ def test_deliver_always_ships_the_current_rollup(ready):
     assert (shipped["overall_score"], shipped["maturity"]["current_level"]) == right
     md = (repo / rel).with_name("report.md").read_text()
     assert f"**{right[0]}**" in md or str(right[0]) in md
+
+
+# --------------------------------------------------------------------------- rounding (A1-act-3)
+
+@pytest.mark.parametrize("items, want", [
+    ([(6, 1), (6.5, 1)], 6.3),          # 6.25: round() gave 6.2 (half to even)
+    ([(6.45, 1)], 6.5),                 # float 6.45 is 6.4499…: round() gave 6.4
+    ([(7.9, 1), (8, 1)], 8.0),          # 7.95 reaches the L3 threshold as shown
+    ([(7, 1.15), (8, 0.85)], 7.4),      # 7.425 with float weights
+    ([], None),
+])
+def test_scores_round_half_up_on_exact_values(gk, items, want):
+    assert gk.weighted(items) == want
+
+
+def test_reports_graded_under_4x_rules_keep_their_rounding(gk):
+    assert gk.weighted([(6, 1), (6.5, 1)], half_up=False) == round(6.25, 1) == 6.2
+
+
+def test_init_writes_only_the_answers_given(tmp_path):
+    out = tmp_path / "p.toml"
+    r = subprocess.run(KIT + ["init", "--preset", "service", "--name", "demo", "--answer", "audience=public", "--out", str(out)],
+                       capture_output=True, text=True)
+    assert r.returncode == 0 and "next: edit" in r.stdout and "gradekit.py resolve --config" in r.stdout, "a command you can run"
+    text = out.read_text()
+    assert 'audience          = "public"' in text and '# failure_impact  = "revenue_loss"   # the service preset\'s' in text
+    import tomllib
+    assert tomllib.loads(text)["answers"] == {"audience": "public"}, "the rest follow the preset"

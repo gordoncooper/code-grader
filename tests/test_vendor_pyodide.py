@@ -79,3 +79,46 @@ def test_runs_with_no_cdn_at_all(strict_page, vendored):
         assert any("/pyodide/jsonschema-" in u for u in loaded) and any(u.endswith("/pyodide/pyodide.asm.wasm") for u in loaded)
     finally:
         server.shutdown()
+
+
+# --------------------------------------------------------------------------- license notices (5.0.1)
+
+def test_notices_list_everything_copied_with_its_license(tmp_path):
+    import importlib.util
+    import io
+    import zipfile
+    spec = importlib.util.spec_from_file_location("vendor_pyodide", SRC / "tools" / "vendor_pyodide.py")
+    vp = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(vp)
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as z:
+        z.writestr("attrs-25.3.0.dist-info/licenses/LICENSE", "The MIT License (MIT)\nCopyright (c) 2015 Hynek")
+        z.writestr("attrs-25.3.0.dist-info/METADATA", "Name: attrs")
+        z.writestr("attrs/__init__.py", "")
+    lic = vp.wheel_licenses(buf.getvalue())
+    assert list(lic) == ["attrs-25.3.0.dist-info/licenses/LICENSE"]
+    texts = tmp_path / "texts"
+    texts.mkdir()
+    (texts / "pyodide-LICENSE").write_text("Mozilla Public License Version 2.0")
+    (texts / "cpython-LICENSE").write_text("PYTHON SOFTWARE FOUNDATION LICENSE VERSION 2")
+    dest = tmp_path / "pyodide"
+    dest.mkdir()
+    vp.write_notices(dest, "0.29.3", "3.13.2",
+                     [{"name": "attrs", "version": "25.3.0", "file_name": "attrs-25.3.0-py3-none-any.whl", "licenses": lic},
+                      {"name": "bare", "version": "1.0", "file_name": "bare-1.0.zip", "licenses": {}}], str(texts))
+    notes = (dest / "THIRD-PARTY-NOTICES.md").read_text()
+    assert "| Pyodide (" in notes and "MPL-2.0 | https://github.com/pyodide/pyodide/tree/0.29.3" in notes
+    assert "PSF-2.0 | https://github.com/python/cpython/tree/v3.13.2" in notes
+    assert "`licenses/attrs-25.3.0/licenses/LICENSE`" in notes and "none in its wheel: see https://pypi.org/project/bare/1.0/" in notes
+    assert (dest / "licenses" / "attrs-25.3.0" / "licenses" / "LICENSE").read_text().startswith("The MIT License")
+    assert (dest / "licenses" / "pyodide-LICENSE").read_text().startswith("Mozilla Public License")
+    assert vp.pyodide_version("https://cdn.jsdelivr.net/pyodide/v0.29.3/full/") == "0.29.3"
+
+
+@pytest.mark.network
+def test_the_vendored_site_carries_the_notices(vendored):
+    notes = (vendored / "pyodide" / "THIRD-PARTY-NOTICES.md").read_text()
+    assert "MPL-2.0" in notes and "PSF-2.0" in notes and "jsonschema" in notes
+    assert "Mozilla Public License" in (vendored / "pyodide" / "licenses" / "pyodide-LICENSE").read_text()
+    paths = {f["path"] for f in json.loads((vendored / "manifest.json").read_text())["files"]}
+    assert "pyodide/THIRD-PARTY-NOTICES.md" in paths, "the notices are part of the checked site"
