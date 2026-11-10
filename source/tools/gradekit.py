@@ -5804,15 +5804,24 @@ def cmd_decide(args) -> int:
             e["answer"] = args.answer
         e.update({"decided_by": args.by, "date": date})
         added.append(e)
+    rerendered = None
     if added:
         f = pdir / DECISIONS_FILE
         f.write_text(append_entries(f.read_text(encoding="utf-8") if f.exists() else None, "decisions", added), encoding="utf-8")
+        md = rpath.with_name("report.md") if rpath else None
+        if md and md.exists():   # report.md shows each decision's status: keep it in step, or CI calls it stale
+            report = load_json(rpath)
+            cfg = load_config(argparse.Namespace(project_dir=str(pdir), project=None, config=None, component=None), report, quiet=True)
+            md.write_text(render_report_md(report, cfg), encoding="utf-8")
+            rerendered = str(md)
     msg = [f"{'approved' if e['approved'] else 'declined'} {e['action_id']} (by {e['decided_by']})" for e in added]
     msg += [f"{a}: already {by_id[a]['status']}" for a in skipped]
     msg += [f"{a}: both approve and decline are ticked, so no answer was recorded" for a in both]
     if added and args.by.lower().startswith("agent"):
         msg.append("note: answers by an agent count only with [review] allow_agent_decisions = true in project.toml")
-    emit(args, {"file": str(pdir / DECISIONS_FILE), "added": added, "skipped": skipped, "conflicting": both},
+    if rerendered:
+        msg.append(f"updated {rerendered} to show them")
+    emit(args, {"file": str(pdir / DECISIONS_FILE), "added": added, "skipped": skipped, "conflicting": both, "report_md": rerendered},
          "\n".join(msg) or "nothing new")
     return 0
 
