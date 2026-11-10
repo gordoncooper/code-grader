@@ -21,6 +21,13 @@ Fixes from the 5.0 calibration runs and the suite's first grade of itself. No sc
 - **`doctor`'s hot-zone warning is addressed to the project's owner**, and tells a grader just to note it under limitations.
 
 **From the self-grade**
+- **The open-critical limit (max 5) can't be escaped by leaving a finding off its benchmark's list.** It used to count only the benchmark's `finding_ids`, so a report edited by hand to drop a critical finding's ID could keep C4 at 8. Now a finding counts for a benchmark if the benchmark lists it, or if the finding names that benchmark. Finding caps work the same way. A format-5 report where a benchmark doesn't list its own open finding is now an error, not a "not referenced" warning.
+- **`deliver` never ships a stored rollup older than the scores.** It used to keep a stored rollup when the config hadn't changed, even if a score had changed since `report check --write`; `report.json` could say 4.9 L0 while `report.md` said 5.0 L1. Now:
+  - `deliver` always recomputes the rollup.
+  - Any `report` edit drops a stored rollup, and says so.
+  - `report check` warns about a stored rollup that doesn't match the scores.
+  - `gradekit ci` already refused one.
+- **An open gap explains a low score too:** "score N but no findings explain what is wrong" no longer fires when an open gap names the benchmark.
 - `grader.md` said 4.x and 5.x reports share scoring version 4.2.0. They don't: 5.x is scoring 5.0.0, so a 5.x report isn't compared for regressions with a 4.x one.
 
 ## 5.0.0
