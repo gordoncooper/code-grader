@@ -50,6 +50,14 @@
       "answer": "A grader opens the PR with its user's own token, so ignoring the author's ticks would lock the owner out; agent answers are already gated by allow_agent_decisions.",
       "decided_by": "gordoncooper",
       "date": "2026-11-09"
+    },
+    {
+      "action_id": "D2-act-1",
+      "question": "Let the grading CI read each project's code repo (with a read token for private code) to verify citations?",
+      "approved": false,
+      "answer": "Too invasive and heavy: the grading CI would need read access to every project's code. Citations are already verified where the code is, when graders run report check and deliver with --repo.",
+      "decided_by": "gordoncooper",
+      "date": "2026-11-10"
     }
   ]
 }
