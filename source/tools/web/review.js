@@ -475,7 +475,9 @@
         h("div", { class: "s" }, [run.date, (R.report.config || {}).preset ? "preset " + R.report.config.preset : null, R.report.mode === "pr" ? "PR mode" : null].filter(Boolean).join(" · ")))));
 
     var who = [run.grader, run.model ? "(" + run.model + ")" : null].filter(Boolean).join(" ");
-    var runBits = [who ? "Graded by " + who : null].concat(UI.usageParts(run.usage)).concat([run.work_order ? "work order " + run.work_order : null]).filter(Boolean);
+    var cc = run.citations_checked, five = typeof R.report.schema_version === "number" && R.report.schema_version >= 5;
+    var runBits = [who ? "Graded by " + who : null].concat(UI.usageParts(run.usage)).concat([run.work_order ? "work order " + run.work_order : null,
+      cc ? "its " + cc.code_citations + " code quotes checked against the code" : five ? "code quotes not checked against the code" : null]).filter(Boolean);
     box.appendChild(h("p", { class: "kbd-note run-line" }, runBits.length ? runBits.join(" · ") : "The report doesn't say who graded it or how long it took.",
       (run.usage && (run.usage.minutes != null || run.usage.cost_usd != null)) ? null : h("span", null, runBits.length ? " · time and cost not recorded" : "")));
 
