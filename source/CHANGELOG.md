@@ -8,8 +8,14 @@ Versioning rules for the suite itself:
 
 After any major or minor change, re-run calibration (`calibration/README.md`) before trusting new scores.
 
-## 5.0.1 (unreleased)
-Fixes from the 5.0 calibration runs and the suite's first grade of itself. No scoring rules change: the calibration fingerprint is the same, so runs 13–15 still count.
+## 5.0.1
+Fixes from the 5.0 calibration runs and from the suite's first grade of itself. Calibration now passes under scoring 5.0. No scoring rule changes, so the calibration fingerprint is the same and runs 13–15 count. One thing to know before upgrading:
+
+- **5.0 reports can show a pillar 0.1 higher when re-rendered.** Rounding is now exact (half-up), so a pillar or overall score at exactly .x5 moves up. For example, the self-grade's F pillar goes from 7.2 to 7.3.
+- **Graded overall scores and maturity levels stay the same.** The self-grade and all three calibration runs recompute to the same overall score and level.
+- **For CI:** `gradekit ci` compares the stored overall score and level, so it passes. A `report.md` rendered by 5.0.0 can get a warning that it differs; `gradekit render report` brings it up to date.
+
+Also new: the grading CI runs a pinned kit, never what the website serves. Upgrade an installed check with `gradekit ci-pin --version 5.0.1`, or with this kit's `gradekit init --ci HOST --force` to also get the new template.
 
 **Calibration passes under scoring 5.0.** Runs 13, 14 and 15 on the `schedule` golden were three independent graders on the released kit. Each is 100% within tolerance (MAE 0.28, 0.41 and 0.31), and no benchmark spreads more than 1 across them. All three gave overall 7.0 and L2, and E2 7 as keyed.
 
@@ -28,7 +34,7 @@ Fixes from the 5.0 calibration runs and the suite's first grade of itself. No sc
   - `report check` warns about a stored rollup that doesn't match the scores.
   - `gradekit ci` already refused one.
 - **An open gap explains a low score too:** "score N but no findings explain what is wrong" no longer fires when an open gap names the benchmark.
-- **Overall and pillar scores round half-up on the exact values.** `round()` rounded halves to even and worked on floats, so 6.25 showed 6.2 and a mean of 7.95 could show 7.9. Maturity levels are judged on the score as shown. Reports graded under 4.x rules recompute as they were graded, and benchmark scores and calibration are unaffected.
+- **Overall and pillar scores round half-up on the exact values.** `round()` rounded halves to even and worked on floats, so 6.25 showed 6.2 and a mean of 7.95 could show 7.9. Maturity levels are judged on the score as shown. Benchmark scores and calibration are unaffected. A 5.0 report recomputed by 5.0.1 can show a pillar or overall 0.1 higher at an exact .x5. Reports graded under 4.x rules recompute as they were graded.
 - **`gradekit init` writes only the answers you give.** The preset's answers are written as comments, so the project keeps following its preset, including improvements in later suite versions. Its "next" line is a command you can run as typed.
 - **The website-with-Pyodide download includes the licenses of what it redistributes.** `vendor_pyodide.py` writes `pyodide/THIRD-PARTY-NOTICES.md` and `pyodide/licenses/`: Pyodide's MPL-2.0 with where its source is, CPython's PSF license for the standard library, and each package's license, taken from its own wheel. `--licenses-from DIR` works offline.
 - **A report records that its code quotes were checked against the code.** `report check --repo CODE --write` and `deliver --repo CODE` set `run.citations_checked`, with the number of quotes, the date and the kit version. Any later edit drops it. `gradekit ci` can't see the code, so it warns when a format-5 report's quotes weren't checked, or changed after they were. Review's run line says which. This is the lighter alternative to the grading CI reading each project's code, which was declined on the self-grade.

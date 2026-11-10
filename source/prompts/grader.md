@@ -420,12 +420,12 @@ Write `report.json` matching `schema/report.schema.json`. Abbreviated example:
 ```json
 {
   "schema_version": 5,
-  "suite_version": "5.0.0",
+  "suite_version": "5.0.1",
   "mode": "full",
   "run": {"project": "orders-api", "commit": "a1b2c3d", "base_commit": null, "started": "2026-11-07T20:12:00Z", "date": "2026-11-07T21:04:00Z",
           "grader": "Claude Code", "model": "claude-opus-5-5", "session": "https://example.com/sessions/123", "work_order": null,
           "usage": {"minutes": 52, "tokens_in": null, "tokens_out": null, "cost_usd": null},
-          "run_index": 1, "run_count": 3, "suite_source": "https://example.com/grading/AGENT.md (5.0.0)"},
+          "run_index": 1, "run_count": 3, "suite_source": "https://example.com/grading/AGENT.md (5.0.1)"},
   "component": null,
   "project_context_inferred": "Internal order-processing REST API (Python/FastAPI, Postgres)",
   "config": {"hash": "06cfd807d4b75ede", "preset": "service", "source": "project.toml", "component": null, "scoring_version": "5.0.0"},
