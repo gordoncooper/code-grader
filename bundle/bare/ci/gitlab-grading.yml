@@ -13,7 +13,9 @@
 #                  and commits it (only with GRADING_BOT_TOKEN).
 #
 # Settings → CI/CD → Variables:
-#   SUITE_SITE          your suite website's address
+#   SUITE_SITE          your suite website's address (for the Review links only; the kit doesn't come from it)
+# The kit is pinned: GRADEKIT_URL and GRADEKIT_SHA256 name one exact kit zip, and every job refuses any other.
+# Change it on purpose: `gradekit ci-pin --version X.Y.Z` (or a new kit's `gradekit init --ci gitlab --force`).
 #   GRADING_BOT_TOKEN   optional: a project access token with the `api` and `write_repository` scopes, and a role
 #                       that may push to the default branch (Maintainer if it's protected). It's used to comment,
 #                       label, commit the index and record decisions. Without it the check still runs; the summary
@@ -23,12 +25,18 @@
 #                       schedule can tell whether their code has changed. Without it, only public code is checked.
 variables:
   SUITE_SITE: "__SUITE_SITE__"
+  GRADEKIT_VERSION: "__KIT_VERSION__"
+  GRADEKIT_URL: "__KIT_URL__"
+  GRADEKIT_SHA256: "__KIT_SHA256__"
 
 .grading-kit:
   image: python:3.12
   before_script:
-    - curl -fsSL "${SUITE_SITE%/}/suite/ci/fetch-kit.py" -o /tmp/fetch-kit.py
-    - KIT=$(python3 /tmp/fetch-kit.py "$SUITE_SITE" /tmp/kit)
+    - curl -fsSL "$GRADEKIT_URL" -o /tmp/kit.zip
+    - echo "$GRADEKIT_SHA256  /tmp/kit.zip" | sha256sum --check --quiet - || { echo "the kit at $GRADEKIT_URL isn't the pinned one ($GRADEKIT_VERSION); not using it"; exit 1; }
+    - python3 -c 'import sys, zipfile, pathlib; z = zipfile.ZipFile(sys.argv[1]); bad = [n for n in z.namelist() if n.startswith("/") or ".." in pathlib.PurePosixPath(n).parts]; sys.exit(f"unsafe path in the kit: {bad[0]}") if bad else z.extractall(sys.argv[2])' /tmp/kit.zip /tmp/kit
+    - KIT=$(dirname "$(dirname "$(find /tmp/kit -path '*/tools/gradekit.py' | head -1)")")
+    - python3 -m pip install --quiet "jsonschema>=4.18,<5"   # the reports' structural check
 
 grading-check:
   extends: .grading-kit
@@ -73,7 +81,7 @@ grading-decide:
     - git fetch -q origin "$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME"
     - git switch -C "$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME" FETCH_HEAD
     - python3 "$KIT/tools/gradekit.py" decide --from-checklist /tmp/body.md --by "$GITLAB_USER_LOGIN"
-    - git add projects/*/decisions.json
+    - git add projects/*/decisions.json projects/*/reports/*/report.md
     - git diff --cached --quiet && exit 0
     - git -c user.name="grading bot" -c user.email="grading-bot@$CI_SERVER_HOST" commit -m "Record decisions ticked by $GITLAB_USER_LOGIN"
     - git push "https://oauth2:${GRADING_BOT_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git" "HEAD:${CI_MERGE_REQUEST_SOURCE_BRANCH_NAME}"

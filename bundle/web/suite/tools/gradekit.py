@@ -835,8 +835,9 @@ def validate_report(report: dict, cfg: dict, catalog: dict) -> tuple[list[str], 
                 errors.append(f"{bid}: score {score} requires positive evidence in 'strengths'")
             if score == 10 and not b.get("enforcement"):
                 errors.append(f"{bid}: score 10 requires 'enforcement' evidence (otherwise max 9)")
-            if score <= 6 and not b.get("finding_ids") and not b.get("carried_forward"):
-                warnings.append(f"{bid}: score {score} but no findings explain what is wrong")
+            gaps = [g for g in report.get("gap_register", []) if bid in (g.get("benchmark_ids") or []) and g.get("status") in OPEN_STATUSES]
+            if score <= 6 and not b.get("finding_ids") and not gaps and not b.get("carried_forward"):
+                warnings.append(f"{bid}: score {score} but no findings or gaps explain what is wrong")
             for w in over_limit(b, limits.get(bid)):
                 msg = f"{bid}: score {score} is above its limit of {w['max']} ({w['why']})"
                 (errors if limits_enforced(report) else warnings).append(msg)
@@ -872,8 +873,13 @@ def validate_report(report: dict, cfg: dict, catalog: dict) -> tuple[list[str], 
             if isinstance(act.get("expected_new_score"), int):
                 prev_expected = max(act["expected_new_score"], prev_expected or 0)
 
+    listed_by = {fid: b.get("id") for b in report.get("benchmarks", []) for fid in b.get("finding_ids", []) or []}
     for fid, f in findings.items():
-        if f.get("status") in OPEN_STATUSES and fid not in referenced:
+        own = f.get("benchmark_id")
+        if report_format(report) >= 5 and f.get("status") in OPEN_STATUSES and own and fid not in referenced:
+            errors.append(f"finding {fid} ({f.get('status')}) is {own}'s, but {own}'s finding_ids doesn't list it: "
+                          "edit reports with `gradekit report` commands, which keep the lists, never by hand")
+        elif f.get("status") in OPEN_STATUSES and fid not in referenced:
             warnings.append(f"finding {fid} ({f.get('status')}) is not referenced by any benchmark")
 
     gap_ids = [g.get("id") for g in report.get("gap_register", [])]
@@ -1036,6 +1042,36 @@ def verify_evidence(report: dict, read_lines, tolerance: int = 2) -> dict:
             "command": other.get("command", 0), "absence": other.get("absence", 0), "withheld": other.get("withheld", 0)}
 
 
+def code_citations(report: dict) -> int:
+    carried = {b["id"] for b in report.get("benchmarks", []) if b.get("carried_forward")}
+    return sum(1 for _, ev, bid in iter_evidence(report) if ev.get("type") == "code" and bid not in carried)
+
+
+def record_citations_checked(report: dict, result: dict) -> None:
+    """run.citations_checked: that every code quote was just checked against the code, with --repo. `gradekit ci`
+    can't see the code, so this record is how it knows; any later edit drops it."""
+    if report_format(report) < 5 or result.get("failures"):
+        return
+    report.setdefault("run", {})["citations_checked"] = {"code_citations": result["checked"], "date": utc_now(),
+                                                         "kit": load_catalog()["suite_version"]}
+
+
+def citations_check_note(report: dict) -> str | None:
+    """What `gradekit ci` says when a report's quotes weren't checked against the code, or changed since."""
+    if report_format(report) < 5:
+        return None
+    n, rec = code_citations(report), (report.get("run") or {}).get("citations_checked")
+    if not n:
+        return None
+    if not rec:
+        return (f"{'its code quote wasn' if n == 1 else f'its {n} code quotes weren'}'t checked against the code: the grader runs `report check REPORT "
+                "--repo CODE --write` (or `deliver --repo CODE`), which records it")
+    if rec.get("code_citations") != n:
+        return (f"its code quotes changed after they were checked against the code ({rec.get('code_citations')} then, {n} now): "
+                "check them again with `report check REPORT --repo CODE --write`")
+    return None
+
+
 def cmd_verify_evidence(args) -> int:
     report = load_json(args.report)
     repo = Path(args.repo)
@@ -1091,9 +1127,19 @@ def compute_targets(report: dict, cfg: dict) -> dict:
     return out
 
 
-def weighted(items) -> float | None:
-    tw = sum(w for _, w in items)
-    return round(sum(s * w for s, w in items) / tw, 1) if tw else None
+def weighted(items, half_up: bool = True) -> float | None:
+    """The weighted mean to one decimal, rounded half-up on the exact values: Python's round() rounds halves to even
+    and works on floats, so 6.25 became 6.2 and a mean of 7.95 could show 7.9. Maturity levels use this value, the one
+    people see. 4.x reports (half_up=False) recompute with round(), as they were graded."""
+    if not half_up:
+        tw = sum(w for _, w in items)
+        return round(sum(sc * w for sc, w in items) / tw, 1) if tw else None
+    from decimal import ROUND_HALF_UP, Decimal
+    pairs = [(Decimal(str(sc)), Decimal(str(w))) for sc, w in items]
+    tw = sum((w for _, w in pairs), Decimal(0))
+    if not tw:
+        return None
+    return float((sum((sc * w for sc, w in pairs), Decimal(0)) / tw).quantize(Decimal("0.1"), rounding=ROUND_HALF_UP))
 
 
 # --------------------------------------------------------------- score limits
@@ -1140,7 +1186,11 @@ def score_limits(report: dict, cfg: dict, fz: dict | None = None, catalog: dict 
             why.append({"kind": "strengths", "max": NO_STRENGTH_MAX, "why": "no strengths (positive evidence)"})
         if not b.get("enforcement"):
             why.append({"kind": "enforcement", "max": NO_ENFORCEMENT_MAX, "why": "no enforcement evidence"})
-        crit = [fid for fid in b.get("finding_ids", []) if fz.get(fid, {}).get("effective_severity") == "critical"
+        # A finding is the benchmark's if the benchmark lists it or the finding names the benchmark: dropping it from
+        # finding_ids by hand mustn't lift the limit.
+        mine = list(dict.fromkeys(list(b.get("finding_ids", [])) +
+                                  [f.get("id") for f in report.get("findings", []) if f.get("benchmark_id") == bid]))
+        crit = [fid for fid in mine if fz.get(fid, {}).get("effective_severity") == "critical"
                 and fz.get(fid, {}).get("status") in OPEN_STATUSES]
         if crit:
             why.append({"kind": "critical", "max": CRITICAL_MAX, "why": f"open critical finding {', '.join(crit)}"})
@@ -1155,6 +1205,9 @@ def score_limits(report: dict, cfg: dict, fz: dict | None = None, catalog: dict 
                 continue
             if c and c["benchmark"] == bid:
                 why.append({"kind": "cap", "max": c["max"], "why": f"{c['id']}: {c['when']} ({f.get('id')})"})
+            elif not c and f.get("cap") and f.get("benchmark_id") == bid and resolve_cap(f["cap"], bid, caps):
+                c2 = resolve_cap(f["cap"], bid, caps)
+                why.append({"kind": "cap", "max": c2["max"], "why": (f"{c2['id']}: " if c2["id"] else "") + f"{c2['when']} ({f.get('id')})"})
         for cid, cond in AUTO_CAPS.items():
             c = caps.get(cid)
             if c and c["benchmark"] == bid and critical_gaps:
@@ -1195,8 +1248,9 @@ def compute_rollup(report: dict, cfg: dict) -> dict:
             scored.append(b)
     by_id = {b["id"]: b for b in scored}
 
-    pillar_scores = {p: weighted([(b["score"], b["weight"]) for b in scored if b.get("pillar") == p]) for p in PILLARS}
-    overall_raw = weighted([(b["score"], b["weight"]) for b in scored])
+    half_up = "severity_shift" not in cfg["zones"]   # scoring 5 rounds half-up; 4.x rules keep round()
+    pillar_scores = {p: weighted([(b["score"], b["weight"]) for b in scored if b.get("pillar") == p], half_up) for p in PILLARS}
+    overall_raw = weighted([(b["score"], b["weight"]) for b in scored], half_up)
 
     g = cfg["gates"]
     gates = [bid for bid in g["benchmarks"]]
@@ -1902,6 +1956,11 @@ def cmd_redact(args) -> int:
     return 0
 
 
+def rows_half_up(paths) -> bool:
+    """Combining component reports rounds half-up unless any of them is graded under 4.x rules."""
+    return all(int(major(scoring_version_of(load_json(p))) or 0) >= 5 for p in paths)
+
+
 def repo_rollup(paths: list) -> dict:
     """The repo-wide result of a monorepo's reports: overall weighted by component weight, maturity the lowest."""
     rows = []
@@ -1920,7 +1979,7 @@ def repo_rollup(paths: list) -> dict:
         die("no component reports (components/NAME.json) to combine")
     scored = [(x["overall"], x["weight"]) for x in rows if x["overall"] is not None]
     tw = sum(w for _, w in scored)
-    overall = round(sum(s * w for s, w in scored) / tw, 1) if tw else None
+    overall = weighted(scored, rows_half_up(paths)) if tw else None
     lowest = min(rows, key=lambda x: level_num(x["level"]))
     return {"computed_by": "gradekit.py rollup-repo", "overall_score": overall, "maturity": lowest["level"],
             "limited_by": lowest["component"], "components": rows}
@@ -1965,7 +2024,7 @@ def cmd_rollup_repo(args) -> int:
                      "level": roll["maturity"]["current_level"], "failed_gates": [g["benchmark_id"] for g in roll["gates"] if g["status"] == "failed"]})
     scored = [(x["overall"], x["weight"]) for x in rows if x["overall"] is not None]
     tw = sum(w for _, w in scored)
-    overall = round(sum(s * w for s, w in scored) / tw, 1) if tw else None
+    overall = weighted(scored, rows_half_up(args.reports)) if tw else None
     lowest = min(rows, key=lambda x: level_num(x["level"]))
     print(f"{'component':<20} {'preset':<14} {'weight':>6} {'overall':>7} level")
     for x in rows:
@@ -2151,12 +2210,18 @@ def render_project_toml(data: dict, defaults: dict | None = None, path: str = "p
     answers = d.pop("answers", {}) or {}
     questions = defaults.get("questions", {})
     out.append("# Answers override the preset. Each one moves specific weights; see `gradekit resolve --explain ID`.")
+    out.append("# A commented-out answer is the preset's: it follows the preset, including later improvements to it.")
     out.append("[answers]")
+    preset = (defaults.get("presets") or {}).get(proj.get("preset") or "", {})
     for q in list(questions) + [q for q in answers if q not in questions]:
-        if q not in answers:
-            continue
         qd = questions.get(q, {})
         opts = " | ".join(qd.get("options", {}))
+        if q not in answers:
+            if preset and qd:
+                pval = (preset.get("answers") or {}).get(q, qd.get("default"))
+                if pval is not None:
+                    out.append(f"# {toml_key(q):<15} = {toml_value(pval)}   # the {proj.get('preset')} preset's; uncomment to change ({opts})")
+            continue
         comment = f"   # {qd.get('prompt', '')} ({opts})" if qd else ""
         out.append(f"{toml_key(q):<17} = {toml_value(answers[q])}{comment}")
     out.append("")
@@ -2309,11 +2374,82 @@ def slug(name: str) -> str:
 CI_DIR = SUITE_DIR / "ci"
 
 
-def install_ci(root: Path, host: str, site: str | None, force: bool = False) -> Path:
-    """Add the grading check to a grading repo. Returns the file written."""
+# Where a pinned grading CI gets its kit: the suite's own release assets, which keep every version (the website keeps
+# only each major's newest). Any copy works with --kit-url and --kit-sha256.
+KIT_RELEASES = "https://github.com/gordoncooper/code-grader/releases/download/v{version}/"
+KIT_ASSET = "code-grading-suite-v{version}.zip"
+
+
+def kit_pin(version: str | None = None, url: str | None = None, sha256: str | None = None) -> dict:
+    """{version, url, sha256} for a grading CI: the given values, or the release's own (its SHA256SUMS), by version."""
+    version = (version or load_catalog()["suite_version"]).lstrip("v")
+    if not re.fullmatch(r"\d+\.\d+\.\d+", version):
+        die(f"--kit-version {version}: expected X.Y.Z")
+    url = url or KIT_RELEASES.format(version=version) + KIT_ASSET.format(version=version)
+    if sha256:
+        if not re.fullmatch(r"[0-9a-f]{64}", sha256.lower()):
+            die("--kit-sha256: expected 64 hex digits (`sha256sum kit.zip`)")
+        return {"version": version, "url": url, "sha256": sha256.lower()}
+    sums_url = url.rsplit("/", 1)[0] + "/SHA256SUMS"
+    try:
+        import urllib.request
+        with urllib.request.urlopen(sums_url, timeout=60) as r:
+            sums = r.read().decode("utf-8", "replace")
+    except Exception as exc:  # noqa: BLE001 - say what to do, whatever went wrong
+        die(f"couldn't read {sums_url} ({exc}). Is {version} released? Pin a released version (--kit-version), "
+            "or give --kit-url URL --kit-sha256 HEX for a copy you have")
+    name = url.rsplit("/", 1)[1]
+    for line in sums.splitlines():
+        parts = line.split()
+        if len(parts) == 2 and parts[1].lstrip("*") == name:
+            return {"version": version, "url": url, "sha256": parts[0].lower()}
+    die(f"{sums_url} has no checksum for {name}")
+
+
+PIN_LINE = re.compile(r'^(\s*GRADEKIT_(VERSION|URL|SHA256):\s*)"[^"]*"', re.M)
+
+
+def apply_pin(text: str, pin: dict) -> str:
+    vals = {"VERSION": pin["version"], "URL": pin["url"], "SHA256": pin["sha256"]}
+    out, n = PIN_LINE.subn(lambda m: f'{m.group(1)}"{vals[m.group(2)]}"', text)
+    if n != 3:
+        die("this workflow has no GRADEKIT_VERSION, GRADEKIT_URL and GRADEKIT_SHA256 to pin (it's older than 5.0.1): "
+            "reinstall it with `gradekit init --ci HOST --force`")
+    return out
+
+
+def ci_files(root: Path) -> list[Path]:
+    return [p for p in (root / ".github" / "workflows" / "grading.yml", root / ".gitlab-ci.yml", root / ".gitlab" / "grading.yml")
+            if p.exists() and "gradekit" in p.read_text(encoding="utf-8").lower()]
+
+
+def cmd_ci_pin(args) -> int:
+    root = Path(args.grading_repo or ".")
+    files = ci_files(root)
+    if not files:
+        die(f"no grading CI in {root} (.github/workflows/grading.yml or .gitlab-ci.yml); `gradekit init --ci HOST` adds it")
+    pin = kit_pin(args.version, args.kit_url, args.kit_sha256)
+    changed = []
+    for f in files:
+        old = f.read_text(encoding="utf-8")
+        new = apply_pin(old, pin)
+        if new != old:
+            f.write_text(new, encoding="utf-8")
+            changed.append(str(f))
+    emit(args, {"pin": pin, "changed": changed},
+         (f"pinned the grading CI to kit {pin['version']} ({pin['sha256'][:12]}…) in {', '.join(changed)}" if changed
+          else f"already pinned to kit {pin['version']}") +
+         ". The workflow template is still the one you installed; a new kit's `init --ci HOST --force` brings its own.")
+    return 0
+
+
+def install_ci(root: Path, host: str, site: str | None, force: bool = False, pin: dict | None = None) -> Path:
+    """Add the grading check to a grading repo, pinned to one kit zip (by default this kit's release). Returns the file."""
     text = (CI_DIR / f"{host}-grading.yml").read_text(encoding="utf-8")
     if site:
         text = text.replace("__SUITE_SITE__", site.rstrip("/"))
+    pin = pin or kit_pin()
+    text = text.replace("__KIT_VERSION__", pin["version"]).replace("__KIT_URL__", pin["url"]).replace("__KIT_SHA256__", pin["sha256"])
     if host == "github":
         dest = root / ".github" / "workflows" / "grading.yml"
     else:
@@ -2326,15 +2462,21 @@ def install_ci(root: Path, host: str, site: str | None, force: bool = False) -> 
         return dest
     dest.parent.mkdir(parents=True, exist_ok=True)
     dest.write_text(text, encoding="utf-8")
-    print(f"wrote {dest}" + ("" if site else "  (set SUITE_SITE in the CI settings: your suite website's address)"))
+    print(f"wrote {dest}, pinned to kit {pin['version']}" + ("" if site else "  (set SUITE_SITE in the CI settings: your suite website's address)"))
     return dest
+
+
+def invocation() -> str:
+    """How to run gradekit again, as this run was started (a script path, or an installed `gradekit`)."""
+    import shlex
+    cmd = sys.argv[0] if sys.argv and sys.argv[0] else "gradekit"
+    return f"python3 {shlex.quote(cmd)}" if cmd.endswith(".py") else shlex.quote(Path(cmd).name)
 
 
 def cmd_init(args) -> int:
     defaults = load_toml(DEFAULTS_PATH)
     if args.preset not in defaults["presets"]:
         die(f"unknown preset '{args.preset}' (known: {', '.join(defaults['presets'])})")
-    preset_answers = defaults["presets"][args.preset].get("answers", {}) or {}
     given = {}
     for kv in args.answer or []:
         if "=" not in kv:
@@ -2345,7 +2487,8 @@ def cmd_init(args) -> int:
         if q not in defaults["questions"]:
             die(f"unknown question '{q}'")
     name = slug(args.project or args.name)
-    answers = {q: given.get(q, preset_answers.get(q, qd.get("default"))) for q, qd in defaults["questions"].items()}
+    # Only the answers given are written: the rest stay the preset's (as comments), so the project follows its preset.
+    answers = {q: given[q] for q in defaults["questions"] if q in given}
     proj = {"name": name, "description": "<what it is, in one sentence>"}
     if args.code_repo:
         proj["code_repo"] = args.code_repo
@@ -2388,8 +2531,9 @@ def cmd_init(args) -> int:
     if getattr(args, "ci", None):
         if root is None:
             die("--ci needs --project (it sets up a grading repo)")
-        ci_file = install_ci(root, args.ci, args.site, args.force)
-    print(f"next: edit {out}, then run: gradekit resolve " + (f"--project {name}" if pdir else f"--config {out}"))
+        ci_file = install_ci(root, args.ci, args.site, args.force,
+                             pin=kit_pin(args.kit_version, args.kit_url, args.kit_sha256))
+    print(f"next: edit {out}, then run: {invocation()} resolve " + (f"--project {name}" if pdir else f"--config {out}"))
     args._result = {"project": name, "project_toml": str(out), "project_dir": str(pdir) if pdir else None,
                     "ci": str(ci_file) if ci_file else None}
     return 0
@@ -2520,10 +2664,14 @@ def cite(spec: str, read_lines, note: str | None = None) -> dict:
         start += 1
     while not lines[end - 1].strip():
         end -= 1
-    if end - start + 1 > MAX_QUOTE_LINES:
-        die(f"{rel}:{start}-{end} is {end - start + 1} lines; a quote is 1–{MAX_QUOTE_LINES} lines. Cite the lines that "
-            f"show it (e.g. {rel}:{start}-{start + MAX_QUOTE_LINES - 1}), and give --cite again for another place")
-    if (start, end) != asked:
+    if end - start + 1 > MAX_QUOTE_LINES:   # a quote is 1-3 lines: keep the first three, and say so
+        say_later(f"note: {rel}:{asked[0]}-{asked[1]} is {asked[1] - asked[0] + 1} lines and a quote is at most {MAX_QUOTE_LINES}: cited "
+                  f"{rel}:{start}-{start + MAX_QUOTE_LINES - 1}. If the line that shows it is further down, cite that instead, "
+                  "or give --cite again for it")
+        end = start + MAX_QUOTE_LINES - 1
+        while not lines[end - 1].strip():
+            end -= 1
+    elif (start, end) != asked:
         say_later(f"note: {rel}:{asked[0]}-{asked[1]} has blank lines at its ends; cited {rel}:{start}-{end}")
     quote = "\n".join(lines[start - 1:end])
     first = quote.strip().splitlines()[0].strip()
@@ -2655,6 +2803,12 @@ def evidence_from_args(args, required: bool = False, report: dict | None = None)
             if not (excerpt or "").strip():
                 die("--command needs --excerpt (the relevant output, copied; '@file' or '-' for stdin), or --no-output "
                     "for a command that printed nothing (say what happened, e.g. the exit code or a timeout, in --note)")
+            fp = next((c.get("output") for c in ran if norm(str(c.get("command") or "")) == norm(command) and c.get("output")), None)
+            bad = excerpt_mismatches(excerpt, fp or {})
+            if bad:
+                die(f"{plural(len(bad), 'line')} of this excerpt {'is' if len(bad) == 1 else 'are'}n't "
+                    f"{'a whole line' if len(bad) == 1 else 'whole lines'} of what `{command[:50]}` printed (e.g. {bad[0][:70]!r}). "
+                    "Copy whole lines from its output (spacing can differ, and '...' can stand for lines you leave out)")
         note = cmd_notes[k] if k < len(cmd_notes) else None
         out.append({"type": "command", "command": command, "excerpt": excerpt.strip("\n"), **({"note": note} if note else {})})
     abs_notes = by_kind["absence"] or []
@@ -2800,6 +2954,10 @@ def load_for_edit(args) -> tuple[dict, dict]:
 
 def save_edit(args, report: dict, cfg: dict) -> None:
     normalize_report(report, cfg)
+    if report.get("rollup"):   # stored by `report check --write`; any edit after it would leave it stale
+        report.pop("rollup")
+        say_later("note: the stored rollup was dropped, because the report changed; `report check --write` stores it again")
+    (report.get("run") or {}).pop("citations_checked", None)   # likewise: the quotes may have changed
     write_json(args.report, report)
 
 
@@ -3290,6 +3448,29 @@ def cmd_report_set(args) -> int:
     parts = args.key.split(".")
     if parts[0] not in SETTABLE:
         die(f"`report set` covers {', '.join(SETTABLE)}; use the other report commands for findings, scores and evidence")
+    if len(parts) == 2 and parts[1].isdigit() and isinstance(report.get(parts[0]), list):   # one item of a list: limitations.2
+        items, n = report[parts[0]], int(parts[1])
+        if not 1 <= n <= len(items):
+            die(f"{parts[0]} has {plural(len(items), 'item')}; `report show REPORT {parts[0]}` numbers them")
+        if args.remove:
+            gone = items.pop(n - 1)
+            save_edit(args, report, cfg)
+            emit(args, {"key": args.key, "removed": gone}, f"removed {args.key}: {str(gone)[:70]}")
+            return 0
+        if args.value is None:
+            die(f"give the new text for {args.key}, or --remove")
+        raw = read_text_arg(args.value)
+        try:
+            items[n - 1] = json.loads(raw) if parts[0] != "limitations" else raw
+        except json.JSONDecodeError:
+            items[n - 1] = raw
+        save_edit(args, report, cfg)
+        emit(args, {"key": args.key, "value": items[n - 1]}, f"set {args.key}")
+        return 0
+    if args.remove:
+        die(f"--remove takes one item of a list, e.g. `report set REPORT {parts[0]}.2 --remove`")
+    if args.value is None:
+        die(f"give a value for {args.key}")
     raw = read_text_arg(args.value)
     try:
         value = json.loads(raw)
@@ -3310,7 +3491,8 @@ def cmd_report_set(args) -> int:
         node[last].append(value)
     else:
         if isinstance(node.get(last), list) and not isinstance(value, list):
-            die(f"{args.key} is a list: add to it with --append, or give the whole list as JSON ('[\"…\"]')")
+            die(f"{args.key} is a list: add to it with --append, change one item with `report set REPORT {args.key}.N TEXT` "
+                f"(or `--remove` it), or give the whole list as JSON ('[\"…\"]')")
         node[last] = value
     save_edit(args, report, cfg)
     emit(args, {"key": args.key, "value": node[last]}, f"set {args.key}")
@@ -3403,10 +3585,18 @@ def cmd_report_check(args) -> int:
     if not todo:
         roll = compute_rollup(report, cfg)
         errors += [f"weight: {w}" for w in roll["weight_issues"]]
+    stored = report.get("rollup") or {}
+    if stored and roll is not None and (stored.get("overall_score"), (stored.get("maturity") or {}).get("current_level")) != (
+            roll["overall_score"], roll["maturity"]["current_level"]):
+        warnings.append(f"the stored rollup ({stored.get('overall_score')}, {(stored.get('maturity') or {}).get('current_level')}) "
+                        f"doesn't match the scores ({roll['overall_score']}, {roll['maturity']['current_level']}); "
+                        "`report check --write` stores the current one, and `deliver` always does")
     wrote = None
     if args.write:
         if roll is not None:
             apply_rollup(report, cfg)
+            if evidence is not None:
+                record_citations_checked(report, evidence)
             report["run"]["date"] = utc_now()
             if report_format(report) >= 5:
                 usage = report["run"].setdefault("usage", {})
@@ -3879,8 +4069,8 @@ def doctor_checks(args) -> list[dict]:
                                   f"hot zones cover {round(hot['share'] * 100)}% of the code's lines ({', '.join(hot['files'][:3])}"
                                   f"{' …' if len(hot['files']) > 3 else ''}). A zone that covers everything can't say where problems "
                                   "cost more, and L3 allows no major findings in it",
-                                  "ask the project's owner to keep hot zones to the code where a bug costs more (money, access, "
-                                  "important data) in project.toml [[zones]]"))
+                                  "for the project's owner: keep hot zones to the code where a bug costs more (money, access, "
+                                  "important data) in project.toml [[zones]]. A grader just notes it under limitations"))
         else:
             out.append(_check("code repo", "fail", f"not found: {repo}", "pass the code checkout (or a zip of it) with --repo"))
 
@@ -4004,13 +4194,15 @@ def prepare_delivery(args, report: dict, cfg: dict) -> dict:
     normalize_report(report, cfg)
     errors, _ = validate_report(report, cfg, load_catalog())
     todo = report_todo(report, project_dir_for_report(args.report))
-    if args.repo:
-        errors += [f"citation: {f}" for f in verify_evidence(report, repo_reader(args.repo), 2)["failures"]]
+    checked = verify_evidence(report, repo_reader(args.repo), 2) if args.repo else None
+    if checked:
+        errors += [f"citation: {f}" for f in checked["failures"]]
     if errors or todo:
         args._exit = 1 if errors else EXIT_INCOMPLETE
         raise DeliveryBlocked(errors, todo)
-    if not report.get("rollup") or report["rollup"].get("config_hash") != cfg["hash"]:
-        apply_rollup(report, cfg)
+    if checked:
+        record_citations_checked(report, checked)
+    apply_rollup(report, cfg)   # always: a stored rollup can be older than the last score change
     write_json(args.report, report)
     files = {"report": args.report, "private": None}
     public = bool((cfg.get("publishing") or PUBLISHING_DEFAULTS).get("public"))
@@ -5274,6 +5466,9 @@ def ci_check(root: Path, base: str, head: str, changes: list[tuple[str, str]], s
                 commit = str(run.get("commit") or "")
                 if commit and not folder.endswith("-" + commit[:7]):
                     problems.append(f"the folder is {folder}, but the report grades commit {commit[:7]} (expected <date>-{commit[:7]})")
+                note = citations_check_note(report)
+                if note:
+                    warnings.append(note)
                 roll = compute_rollup(report, cfg)
                 stored = report.get("rollup") or {}
                 if not stored:
@@ -5681,15 +5876,24 @@ def cmd_decide(args) -> int:
             e["answer"] = args.answer
         e.update({"decided_by": args.by, "date": date})
         added.append(e)
+    rerendered = None
     if added:
         f = pdir / DECISIONS_FILE
         f.write_text(append_entries(f.read_text(encoding="utf-8") if f.exists() else None, "decisions", added), encoding="utf-8")
+        md = rpath.with_name("report.md") if rpath else None
+        if md and md.exists():   # report.md shows each decision's status: keep it in step, or CI calls it stale
+            report = load_json(rpath)
+            cfg = load_config(argparse.Namespace(project_dir=str(pdir), project=None, config=None, component=None), report, quiet=True)
+            md.write_text(render_report_md(report, cfg), encoding="utf-8")
+            rerendered = str(md)
     msg = [f"{'approved' if e['approved'] else 'declined'} {e['action_id']} (by {e['decided_by']})" for e in added]
     msg += [f"{a}: already {by_id[a]['status']}" for a in skipped]
     msg += [f"{a}: both approve and decline are ticked, so no answer was recorded" for a in both]
     if added and args.by.lower().startswith("agent"):
         msg.append("note: answers by an agent count only with [review] allow_agent_decisions = true in project.toml")
-    emit(args, {"file": str(pdir / DECISIONS_FILE), "added": added, "skipped": skipped, "conflicting": both},
+    if rerendered:
+        msg.append(f"updated {rerendered} to show them")
+    emit(args, {"file": str(pdir / DECISIONS_FILE), "added": added, "skipped": skipped, "conflicting": both, "report_md": rerendered},
          "\n".join(msg) or "nothing new")
     return 0
 
@@ -7267,8 +7471,18 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--out", default="project.toml")
     p.add_argument("--ci", choices=["github", "gitlab"], help="also add the grading check for pull requests (see the kit's ci/)")
     p.add_argument("--site", metavar="URL", help="with --ci: your suite website's address (else set SUITE_SITE in the CI settings)")
+    p.add_argument("--kit-version", metavar="X.Y.Z", help="with --ci: the kit the CI runs (default: this one); it's pinned by hash")
+    p.add_argument("--kit-url", metavar="URL", help="with --ci: where the CI downloads that kit's zip (default: the suite's releases)")
+    p.add_argument("--kit-sha256", metavar="HEX", help="with --ci: the zip's SHA-256, for a copy that isn't a release (no download needed)")
     p.add_argument("--force", action="store_true")
     p.set_defaults(fn=cmd_init)
+
+    p = sub.add_parser("ci-pin", help="pin the grading CI to an exact kit version and hash (the deliberate way to upgrade it)")
+    p.add_argument("--grading-repo", metavar="DIR")
+    p.add_argument("--version", metavar="X.Y.Z", help="a released kit version (default: this kit's)")
+    p.add_argument("--kit-url", metavar="URL", help="another copy of the zip")
+    p.add_argument("--kit-sha256", metavar="HEX", help="its SHA-256 (then nothing is downloaded)")
+    p.set_defaults(fn=cmd_ci_pin)
 
     p = sub.add_parser("resolve", help="show / write the effective config")
     with_config(p)
@@ -7552,9 +7766,10 @@ def build_parser() -> argparse.ArgumentParser:
 
     q = rsub.add_parser("set", help=f"set a field: {', '.join(SETTABLE)} (dotted keys, e.g. metrics.line_coverage_pct)")
     report_arg(q)
-    q.add_argument("key")
-    q.add_argument("value", help="JSON (a number, true, an object…) or plain text")
+    q.add_argument("key", help="e.g. summary, metrics.line_coverage_pct, or limitations.2 (one item of a list)")
+    q.add_argument("value", nargs="?", help="JSON (a number, true, an object…) or plain text")
     q.add_argument("--append", action="store_true", help="append to a list")
+    q.add_argument("--remove", action="store_true", help="remove one item of a list (key LIST.N)")
     q.set_defaults(fn=cmd_report_set)
 
     q = rsub.add_parser("check", help="what's missing or wrong; with --write, store the rollup when it's complete")

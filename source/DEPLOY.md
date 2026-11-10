@@ -30,8 +30,8 @@ Copy the *contents* of the built folder to a directory on your server, for examp
 `versions.json` lists the versions, newest first, with paths relative to the file. With it, the pages show a version menu, **Start a run** writes prompts that point at the page's own major (`…/v5/AGENT.md`), and `AGENT.md` sends agents to the project's pinned major. Every built site ships a `versions.json` that lists only itself, so a single version needs nothing. To host several, replace the one beside each copy's `index.html`. It isn't in `SHA256SUMS`, because it describes your host rather than the kit:
 
 ```json
-{"latest": "5.0.0",
- "versions": [{"major": "5", "version": "5.0.0", "path": "v5/"}, {"major": "4", "version": "4.3.0", "path": "v4/"}]}
+{"latest": "5.0.1",
+ "versions": [{"major": "5", "version": "5.0.1", "path": "v5/"}, {"major": "4", "version": "4.3.0", "path": "v4/"}]}
 ```
 
 In `/grading/v4/versions.json` the paths are `../v5/` and `../v4/`. On GitHub Pages, this repo's *Publish website* workflow builds the whole layout from the release tags (`.github/scripts/site_versions.py`).
@@ -79,7 +79,7 @@ cd web && python3 -m http.server 8000
 BASE=https://your-server/grading/v5
 curl -sI "$BASE/AGENT.md" | grep -i content-type     # expect text/markdown; charset=utf-8
 curl -s  "$BASE/SHA256SUMS" -o SHA256SUMS
-curl -s  "$BASE/downloads/code-grading-suite-5.0.0.zip" -o code-grading-suite-5.0.0.zip
+curl -s  "$BASE/downloads/code-grading-suite-5.0.1.zip" -o code-grading-suite-5.0.1.zip
 sha256sum -c SHA256SUMS --ignore-missing              # expect: OK
 ```
 
