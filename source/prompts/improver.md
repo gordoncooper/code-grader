@@ -28,7 +28,7 @@ Record how the code's own checks stand before you touch anything, so you can pro
 python3 SUITE_DIR/tools/gradekit.py guard snapshot CODE --from-report REPORT --check build="npm run build"
 ```
 
-- **Which checks:** `--from-report` takes the test, lint, type-check, coverage, build and audit commands the grader ran. Add any others the project has with `--check NAME=COMMAND`. `--list` shows what it will run without running anything. Use `--path` when `project.toml` sets `path`.
+- **Which checks:** `--from-report` takes the test, lint, type-check, coverage, build and audit commands the grader ran, when each is one plain command: the check tool itself (directly or through `python -m`, `npx`, `uv run` and the like), with no shell syntax, quotes, URLs or paths outside the checkout. It lists the others without running them, because a report mustn't choose what runs on your machine; give one with `--check NAME=COMMAND` if you've checked it's what the project runs. Add any other checks the same way. `--list` shows what it will run without running anything. Use `--path` when `project.toml` sets `path`.
 - **What it records:** each check's exit code and its counts (tests passed, failed and skipped, lint and type problems, coverage). It also counts suppressions and skipped tests in the code, and fingerprints the CI and lint settings.
 - **Where it goes:** the snapshot is kept inside `.git/`, so it can't be committed.
 - **Check it ran:** if a check can't run at all (a missing tool), fix the command first; a broken baseline proves nothing.

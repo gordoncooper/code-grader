@@ -6485,16 +6485,56 @@ GUARD_TAIL_LINES = 40
 # (git log, cloc, ls…) isn't a check and is left out.
 GUARD_KIND_PATTERNS = [
     ("types", r"\b(mypy|pyright|pytype|tsc|flow check|(npm|yarn|pnpm)( run)? (typecheck|type-check|types))\b"),
-    ("lint", r"\b(ruff|flake8|pylint|eslint|biome|golangci-lint|go vet|clippy|rubocop|shellcheck|stylelint|standardrb"
+    ("lint", r"\b(ruff|flake8|pylint|eslint|biome|golangci-lint|go vet|cargo clippy|clippy|rubocop|shellcheck|stylelint|standardrb"
              r"|prettier (--check|-c)|black --check|isort (--check|-c)|gofmt|cargo fmt|(npm|yarn|pnpm)( run)? lint)\b"),
     ("audit", r"\b(pip-audit|(npm|yarn|pnpm) audit|cargo audit|govulncheck|safety check|bundle audit|osv-scanner)\b"),
     ("coverage", r"\b(coverage (report|xml|json)|go tool cover)\b"),
     ("tests", r"\b(pytest|unittest|nose2?|tox|nox|jest|vitest|mocha|ava|go test|cargo test|rspec|phpunit|dotnet test|ctest"
               r"|bun test|deno test|coverage run|(npm|yarn|pnpm)( run)? test|make (test|check)"
-              r"|mvn\b.*\b(test|verify)|gradlew?\b.*\b(test|check))\b"),
-    ("build", r"\b((npm|yarn|pnpm) run build|cargo build|go build|mvn\b.*\b(package|compile|install)|gradlew?\b.*\bbuild"
+              r"|mvnw?\b.*\b(test|verify)|gradlew?\b.*\b(test|check))\b"),
+    ("build", r"\b((npm|yarn|pnpm) run build|cargo build|go build|mvnw?\b.*\b(package|compile|install)|gradlew?\b.*\bbuild"
               r"|python3? -m build|dotnet build|cmake --build)\b"),
 ]
+
+# From a report, guard runs a command only if it's one plain check command that stays inside the checkout. A report is
+# a grader's output, and graders read code they don't trust (prompt injection), while improvers hold push access: a
+# report mustn't choose what runs here. So: no shell syntax, quotes, globs or URLs; no absolute paths or `..`; and the
+# program is the check tool itself, run directly or through a runner (python -m, npx, uv run…). Anything else is
+# listed and left out, and `--check NAME=COMMAND` runs it on purpose.
+GUARD_NOT_PLAIN = re.compile(r"[;&|`$<>#\\(){}\[\]*?!~'\"\n\r]|://")
+GUARD_RUNNERS = (("python3", "-m"), ("python", "-m"), ("py", "-m"), ("npx",), ("bunx",), ("pnpm", "exec"), ("yarn", "exec"),
+                 ("uv", "run"), ("poetry", "run"), ("pipenv", "run"), ("hatch", "run"), ("pdm", "run"), ("rye", "run"),
+                 ("bundle", "exec"), ("env",))
+GUARD_ENV_WORD = re.compile(r"[A-Za-z_][A-Za-z0-9_]*=\S*")
+
+
+def guard_plain_kind(command: str) -> str | None:
+    """The kind of check a command from a report is, if guard may run it as it stands; None if it isn't one plain check."""
+    if not command or GUARD_NOT_PLAIN.search(command):
+        return None
+    words = command.split()
+    for w in words:   # paths stay inside the checkout, and so do flags' values (--basetemp=/home would be deleted)
+        value = w.split("=", 1)[1] if "=" in w else w
+        if value.startswith("/") or ".." in value.split("/"):
+            return None
+    forms = []
+    while words:
+        while words and GUARD_ENV_WORD.fullmatch(words[0]):
+            words = words[1:]
+        if not words:
+            break
+        forms.append([words[0][2:] if words[0].startswith("./") else words[0]] + words[1:])
+        runner = next((r for r in GUARD_RUNNERS if tuple(words[:len(r)]) == r), None)
+        if runner is None:
+            break
+        words = words[len(runner):]
+    for form in forms:
+        text = " ".join(form)
+        for kind, pat in GUARD_KIND_PATTERNS:
+            m = re.match(pat, text)
+            if m and m.group(0).split()[0] == form[0]:   # the program is the tool, not a name that starts like one
+                return kind
+    return None
 
 # Markers a change can add to make a check quieter without making the code better. Counted per line.
 GUARD_MARKERS = {
@@ -6797,7 +6837,7 @@ def guard_plan(args, code: Path) -> tuple[list[dict], list[str]]:
         checks.append({"name": name.strip(), "command": cmd.strip(), "from": "--check"})
     if args.from_report:
         rep = load_json(args.from_report)
-        skipped, installs, trimmed = [], [], []
+        skipped, installs, trimmed, not_plain = [], [], [], []
         for entry in rep.get("commands_run") or []:
             raw = str(entry.get("command") or "").strip()
             cmd = guard_trim_note(raw)
@@ -6806,8 +6846,10 @@ def guard_plan(args, code: Path) -> tuple[list[dict], list[str]]:
             kind = guard_kind(cmd) if cmd else None
             if kind and GUARD_INSTALL_RE.search(cmd):
                 installs.append(cmd)
+            elif kind and guard_plain_kind(cmd):
+                checks.append({"name": guard_plain_kind(cmd), "command": cmd, "from": "report"})
             elif kind:
-                checks.append({"name": kind, "command": cmd, "from": "report"})
+                not_plain.append(cmd)
             elif cmd:
                 skipped.append(cmd)
         if trimmed:
@@ -6815,6 +6857,10 @@ def guard_plan(args, code: Path) -> tuple[list[dict], list[str]]:
         if installs:
             notes.append(f"left out {len(installs)} command(s) that install packages (the guard never installs anything): "
                          f"{'; '.join(installs[:3])}")
+        if not_plain:
+            notes.append(f"left out {len(not_plain)} command(s) that aren't one plain check command (shell syntax, quotes, a URL, a path "
+                         f"outside the checkout, or a program other than the check tool), because a report mustn't choose what runs "
+                         f"here: {'; '.join(not_plain[:3])}{' …' if len(not_plain) > 3 else ''}. To run one, give it with --check NAME=COMMAND")
         if skipped:
             notes.append(f"left out {len(skipped)} command(s) from the report that aren't tests, lint, types, coverage, build "
                          f"or audit: {'; '.join(skipped[:5])}{' …' if len(skipped) > 5 else ''}")
