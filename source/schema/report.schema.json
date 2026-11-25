@@ -731,6 +731,14 @@
             "null"
           ]
         },
+        "disposition_ref": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1,
+          "description": "For a finding accepted by a `match` entry in dispositions.json: which entry (1 = the first). An entry naming the finding's ID needs no reference. `report finding accept` sets it."
+        },
         "disposition_concern": {
           "type": [
             "string",

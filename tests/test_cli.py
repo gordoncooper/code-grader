@@ -99,6 +99,40 @@ def test_json_envelope_on_success_and_failure(tmp_path):
     bad = run("validate", str(tmp_path / "missing.json"), "--json")
     env = json.loads(bad.stdout)
     assert bad.returncode == 1 and env["ok"] is False and "error" in env and env["result"] is None
+    (tmp_path / "list.json").write_text("[]")
+    bad = run("validate", str(tmp_path / "list.json"), "--json")
+    env = json.loads(bad.stdout)   # one JSON object, not a traceback (5.0.1 printed one)
+    assert bad.returncode == 1 and env["ok"] is False and "holds a list, but should hold an object" in env["error"]
+
+
+def test_json_output_is_always_valid_json(gk, monkeypatch, capsys, tmp_path):
+    """5.1.0, from a red-team review: a report with pass_rate 1e400 made `--json` print Infinity, which isn't JSON."""
+    strict = {"parse_constant": lambda c: pytest.fail(f"{c} in --json output")}
+    (tmp_path / "big.json").write_text('{"holdout": {"pass_rate": 1e400}}')
+    (tmp_path / "nan.json").write_text('{"x": NaN}')
+    for name, why in (("big.json", "too large for JSON"), ("nan.json", "NaN isn't valid JSON")):
+        assert gk.main(["validate", str(tmp_path / name), "--json"]) == 1
+        env = json.loads(capsys.readouterr().out, **strict)
+        assert why in env["error"], env["error"]
+
+    def odd(args):
+        args._result = {"x": float("inf")}
+        return 0
+    monkeypatch.setattr(gk, "cmd_presets", odd)
+    assert gk.main(["presets", "--json"]) == 1
+    env = json.loads(capsys.readouterr().out, **strict)
+    assert env["ok"] is False and "the result isn't JSON" in env["error"]
+
+
+def test_json_is_one_object_even_when_gradekit_breaks(gk, monkeypatch, capsys):
+    def boom(args):
+        raise RuntimeError("boom")
+    monkeypatch.setattr(gk, "cmd_presets", boom)
+    assert gk.main(["presets", "--json"]) == 1
+    out = capsys.readouterr()
+    env = json.loads(out.out)
+    assert env["ok"] is False and env["exit_code"] == 1 and env["error"].startswith("internal error (RuntimeError: boom)")
+    assert "Traceback" in out.err, "the traceback goes to stderr, for the bug report"
 
 
 @pytest.mark.parametrize("argv, key", [

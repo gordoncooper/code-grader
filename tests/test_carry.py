@@ -141,6 +141,7 @@ def test_full_carry_makes_the_next_report_folder(tmp_path, changed_repo):
     assert res["report"].endswith(f"-{head[:7]}/report.json")
     r = json.loads((grading / res["report"]).read_text() if not os.path.isabs(res["report"]) else open(res["report"]).read())
     assert all(b["score"] is None and not b["carried_forward"] for b in r["benchmarks"])
+    assert r["config"]["scoring_version"].startswith("5."), "a full re-grade uses this kit's rules, even from a 4.x report"
     assert r["metrics"] == {} and r["limitations"] == []
     assert len(r["findings"]) == len(json.loads(NEW.read_text())["findings"])
 

@@ -66,6 +66,60 @@ def test_a_good_report_pull_request(repo):
     assert "review.html?repo=https://github.com/acme/grading&project=orders-api&ref=report/orders-api/2026-11-07-a1b2c3d" in c
 
 
+def test_acceptances_and_withdrawals_are_held_to_peoples_records(repo):
+    """5.1.0: an accepted finding must be the one people accepted (here B5-001, minor in 2026-10-24), and a withdrawn
+    one needs a dispute in disputes.json."""
+    add_newest(repo)
+    path = repo / NEW / "report.json"
+    r = json.loads(path.read_text())
+    b5 = next(f for f in r["findings"] if f["id"] == "B5-001")
+    b5["severity"] = "critical"
+    other = next(f for f in r["findings"] if f["status"] in ("new", "open"))
+    other.update(status="withdrawn", dispute={"answer": "withdrawn", "note": "x", "disputed_on": "2026-11-01T00:00:00Z", "by": "someone"})
+    path.write_text(json.dumps(r, indent=2))
+    commit(repo)
+    problems = ci(repo)["problems"]
+    assert "report: finding B5-001 is accepted, but it isn't the finding people accepted: it's critical now, and in 2026-10-24-9f8e7d6 it was minor" in problems
+    assert f"report: finding {other['id']} is withdrawn, but disputes.json has no dispute on it dated 2026-11-01T00:00:00Z" in problems
+
+
+def test_a_new_report_is_no_older_than_the_projects_others(tmp_path):
+    """From a review of these fixes: an unpinned project took a 4.x report (where gates and limits are only warnings)
+    after 5.x ones, and a backdated folder sorted before the reports it should follow."""
+    g = tmp_path / "grading"
+    shutil.copytree(EXAMPLE, g)
+    shutil.move(str(g / NEW), str(tmp_path / "newest"))
+    old = g / "projects" / "orders-api" / "reports" / "2026-10-24-9f8e7d6" / "report.json"
+    r = json.loads(old.read_text())
+    r["schema_version"] = 5   # as if graded with 5.x (CI reads only the format of earlier reports)
+    old.write_text(json.dumps(r, indent=2))
+    git(g, "init", "-q", "-b", "main")
+    commit(g, "base")
+    git(g, "switch", "-q", "-c", "pr")
+    add_newest(g)
+    commit(g)
+    assert any("older than the project's earlier reports" in p for p in ci(g)["problems"])
+    git(g, "reset", "-q", "--hard", "HEAD~1")
+    shutil.copytree(tmp_path / "newest", g / "projects" / "orders-api" / "reports" / "2026-10-01-a1b2c3d")
+    commit(g)
+    problems = ci(g)["problems"]
+    assert any("but the report was graded on 2026-11-07" in p for p in problems)
+    assert any(p.startswith("2026-10-01-a1b2c3d sorts before 2026-10-24-9f8e7d6") for p in problems)
+
+
+def test_a_new_report_cant_say_it_was_migrated(repo):
+    """5.1.0: `migrated` keeps a converted 4.x report's 4.x rules (warnings). Migrations rewrite reports already in the
+    repo, in a pull request of their own, so a new report carrying the marker is refused."""
+    add_newest(repo)
+    path = repo / NEW / "report.json"
+    r = json.loads(path.read_text())
+    r["migrated"] = {"from": "4.2.0", "by": "5.0.1"}
+    path.write_text(json.dumps(r, indent=2))
+    commit(repo)
+    res = ci(repo)
+    assert not res["ok"] and any("its report says it was migrated" in p for p in res["problems"]), res["problems"]
+
+
 @pytest.mark.parametrize("change, expect", [
     ("private", "private report"),
     ("edit-old", "never edited"),
