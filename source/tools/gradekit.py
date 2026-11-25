@@ -984,9 +984,11 @@ def validate_report(report: dict, cfg: dict, catalog: dict) -> tuple[list[str], 
     if report.get("migrated") and not migrated_4x(report):
         errors.append(f"migrated: only a 4.x report that `gradekit migrate` converted carries this marker, and this report was "
                       f"graded under scoring {scoring_version_of(report)}; remove the marker")
-    if report_format(report) >= 5 and not report.get("migrated") and major(scoring_version_of(report)) == "4":
-        errors.append(f"config.scoring_version is {scoring_version_of(report)}, but a format-5 report is graded under the 5.x "
-                      "scoring rules (only a 4.x report `gradekit migrate` converted keeps its 4.x rules)")
+    if (report_format(report) >= 5 and not report.get("migrated") and major(scoring_version_of(report)) == "4"
+            and report.get("mode") != "pr"):   # a pull-request report keeps its 4.x base's rules, so the two compare
+        errors.append(f"config.scoring_version is {scoring_version_of(report)}, but a full format-5 report is graded under the 5.x "
+                      "scoring rules (only a 4.x report `gradekit migrate` converted keeps its 4.x rules, and a pull-request "
+                      "report its base's)")
     if report.get("repo_rollup") and not cfg.get("components"):
         errors.append("repo_rollup is only for a monorepo's repo report, and project.toml defines no [[components]]")
     fz = analyze_findings(report, cfg)
@@ -4063,7 +4065,10 @@ def cmd_carry(args) -> int:
     if args.mode == "pr" and not args.base_commit:
         die("--mode pr needs --base-commit (the pull request's base)")
     args.report = args.baseline
-    cfg = authoring_config(args, baseline)
+    # A pull-request report keeps its base's scoring rules, so the two compare; a full re-grade uses this kit's.
+    rules_from = baseline if args.mode == "pr" else {**baseline, "suite_version": load_catalog()["suite_version"],
+                                                      "config": {**(baseline.get("config") or {}), "scoring_version": None}}
+    cfg = authoring_config(args, rules_from)
     if pin_problem(cfg):
         die(pin_problem(cfg))
     read = repo_reader(args.repo)

@@ -350,9 +350,11 @@ def test_a_format_5_report_cant_choose_the_4x_rules(gk):
     cfg, r = config(gk), graded_here(gk)
     r["config"]["scoring_version"] = "4.2.0"
     errors, _ = gk.validate_report(r, cfg, gk.load_catalog())
-    assert any(e.startswith("config.scoring_version is 4.2.0, but a format-5 report is graded under the 5.x scoring rules")
+    assert any(e.startswith("config.scoring_version is 4.2.0, but a full format-5 report is graded under the 5.x scoring rules")
                for e in errors)
     assert not [e for e in gk.validate_report(migrated_from_4x(gk), cfg, gk.load_catalog())[0] if "scoring_version" in e]
+    r["mode"] = "pr"   # carried from a 4.x base for a pull request: it keeps the base's rules, so the two compare
+    assert not [e for e in gk.validate_report(r, cfg, gk.load_catalog())[0] if "scoring_version" in e]
 
 
 def test_repo_rollup_needs_a_monorepo(gk):
