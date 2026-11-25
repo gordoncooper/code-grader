@@ -736,6 +736,43 @@ def disposition_entry(f: dict, cfg: dict) -> tuple[int, dict] | None:
     return None
 
 
+def earlier_finding(pdir: Path | None, folder: str, fid: str, before: str | None = None) -> tuple[str, dict] | None:
+    """The newest report before `folder` (and, with `before`, dated no later than that day) with a finding `fid`, as
+    (its folder, the finding): for an acceptance, the finding people saw when they decided."""
+    if pdir is None:
+        return None
+    found = None
+    for d in report_folders(pdir):
+        if d.name == folder:
+            break
+        if before and d.name[:10] > str(before)[:10]:
+            continue
+        for path in folder_reports(d):
+            try:
+                hit = next((f for f in load_json(path).get("findings", []) if f.get("id") == fid), None) if path.exists() else None
+            except GradekitError:
+                hit = None
+            if hit:
+                found = (d.name, hit)
+                break
+    return found
+
+
+def not_the_same_finding(f: dict, earlier: tuple[str, dict] | None) -> str | None:
+    """Why a finding isn't the one an earlier report had under its ID (another benchmark, worse, or other evidence).
+    People accept the finding they saw; reusing its ID for another problem mustn't inherit the acceptance."""
+    if earlier is None:
+        return None
+    where, e = earlier
+    if e.get("benchmark_id") != f.get("benchmark_id"):
+        return f"in {where} {f.get('id')} was a {e.get('benchmark_id')} finding, not {f.get('benchmark_id')}"
+    if e.get("severity") in SEVERITIES and f.get("severity") in SEVERITIES and SEVERITIES.index(f["severity"]) > SEVERITIES.index(e["severity"]):
+        return f"it's {f['severity']} now, and in {where} it was {e['severity']}"
+    if (f.get("evidence") or e.get("evidence")) and finding_similarity(f, e) < 0.5:   # same file alone is 0.35
+        return f"its title and evidence don't match {f.get('id')} in {where} ({e.get('title')!r})"
+    return None
+
+
 def disposition_text(entry: dict) -> str:
     """What an accepted finding's `disposition` says: the entry's decision and reason."""
     decision, reason = str(entry.get("decision") or "").strip(), str(entry.get("reason") or entry.get("match") or "").strip()
@@ -908,6 +945,9 @@ def validate_report(report: dict, cfg: dict, catalog: dict) -> tuple[list[str], 
             errors.append(f"finding {fid}: ID prefix does not match benchmark_id {f.get('benchmark_id')}")
         if f.get("status") == "accepted" and not f.get("disposition"):
             errors.append(f"finding {fid}: status 'accepted' requires disposition text")
+        if f.get("status") == "withdrawn" and limits_enforced(report) and (f.get("dispute") or {}).get("answer") != "withdrawn":
+            errors.append(f"finding {fid} is withdrawn, but no answered dispute withdraws it: only a person's dispute (disputes.json) "
+                          f"does, answered with `report finding answer REPORT {fid} --withdraw`")
         if f.get("status") == "accepted" and limits_enforced(report):
             if disposition_entry(f, cfg) is None:
                 errors.append(f"finding {fid} is accepted, but no entry in dispositions.json accepts it: only people accept findings, "
@@ -3191,6 +3231,8 @@ def cmd_finding_add(args) -> int:
     run = report.get("run") or {}
     if args.status == "accepted":
         die(f"add it with its real status, then accept it with {ACCEPT_HINT}")
+    if args.status == "withdrawn":
+        die(f"a finding is withdrawn by answering a person's dispute: {WITHDRAW_HINT}")
     if args.status == "noticed" and report_format(report) < 5:
         die("status 'noticed' needs a format-5 report (suite 5.x); in this 4.x report, use 'new' with --first-seen BASE_COMMIT")
     seen = args.first_seen or ((run.get("base_commit") or run.get("commit")) if args.status == "noticed" else run.get("commit"))
@@ -3227,6 +3269,8 @@ def cmd_finding_update(args) -> int:
     f = finding_or_die(report, args.id)
     if args.status == "accepted" and f.get("status") != "accepted":
         die(f"accept a finding with {ACCEPT_HINT}")
+    if args.status == "withdrawn" and f.get("status") != "withdrawn":
+        die(f"a finding is withdrawn by answering a person's dispute: {WITHDRAW_HINT}")
     if args.status not in (None, "accepted") and f.get("status") == "accepted":
         f.pop("disposition_ref", None)   # no longer accepted: the people's entry no longer applies to it
         f["disposition"] = None
@@ -4997,6 +5041,7 @@ def cmd_finding_answer(args) -> int:
 
 
 ACCEPT_HINT = "`report finding accept REPORT ID`: it copies the people's entry from dispositions.json"
+WITHDRAW_HINT = "`report finding answer REPORT ID --withdraw --note …` (disputes come from people, in disputes.json)"
 
 
 def cmd_finding_accept(args) -> int:
@@ -5019,6 +5064,10 @@ def cmd_finding_accept(args) -> int:
             die(f"no entry in dispositions.json accepts {f['id']}: only people accept findings, by adding an entry with its "
                 f"finding_id{hint}")
     i, d = found
+    pdir = project_dir_for_report(args.report)
+    why = not_the_same_finding(f, earlier_finding(pdir, Path(args.report).resolve().parent.name, f["id"], d.get("date")))
+    if why:
+        die(f"{f['id']} isn't the finding people accepted: {why}. A new problem gets a new ID (`report finding add` without --id)")
     f["status"] = "accepted"
     f["disposition"] = disposition_text(d)
     if d.get("finding_id"):
@@ -5668,6 +5717,27 @@ def append_only(old_text: str | None, new_text: str, key: str, name: str) -> lis
     return []
 
 
+def people_records_problems(report: dict, pdir: Path, folder: str, cfg: dict) -> tuple[list[str], list[str]]:
+    """A new report's acceptances and withdrawals, held to what people wrote and to the reports before it."""
+    problems, warnings = [], []
+    disputes = load_disputes(pdir)
+    for f in report.get("findings", []):
+        fid = f.get("id")
+        entry = disposition_entry(f, cfg) if f.get("status") == "accepted" else None
+        if entry:   # (no entry at all: validate already says so)
+            why = not_the_same_finding(f, earlier_finding(pdir, folder, fid, entry[1].get("date")))
+            if why:
+                problems.append(f"finding {fid} is accepted, but it isn't the finding people accepted: {why}")
+            if not entry[1].get("finding_id"):
+                warnings.append(f"finding {fid} is accepted by a `match` entry ({DISPOSITIONS_FILE} entry {entry[0]}: "
+                                f"{entry[1].get('match')!r}); check that it describes this finding")
+        ans = f.get("dispute") or {}
+        if f.get("status") == "withdrawn" and ans.get("answer") == "withdrawn" and not any(
+                d.get("finding_id") == fid and d.get("date") == ans.get("disputed_on") for d in disputes):
+            problems.append(f"finding {fid} is withdrawn, but {DISPUTES_FILE} has no dispute on it dated {ans.get('disputed_on')}")
+    return problems, warnings
+
+
 def ci_check(root: Path, base: str, head: str, changes: list[tuple[str, str]], site: str | None = None,
              repo_url: str | None = None, branch: str | None = None) -> dict:
     mb = git_out(root, "merge-base", base, head, check=False) or base
@@ -5707,6 +5777,10 @@ def ci_check(root: Path, base: str, head: str, changes: list[tuple[str, str]], s
                     problems.append(f"the project is pinned to suite {pin}, but this report was made with suite {report.get('suite_version')}: "
                                     f"grade it with a {pin}.x kit, or change the pin in project.toml first (a settings change of its own)")
                 problems += [f"report: {e}" for e in errors]
+                for where, rep in [("report", report)] + [(f"components/{cp.name}", load_json(cp)) for cp in component_reports(root / rel)]:
+                    p_, w_ = people_records_problems(rep, pdir, folder, cfg)
+                    problems += [f"{where}: {x}" for x in p_]
+                    warnings += [f"{where}: {x}" for x in w_]
                 if report.get("migrated"):   # migrations rewrite existing reports, in a migration pull request
                     problems.append(f"{rel} is new, but its report says it was migrated: `gradekit migrate` converts reports already "
                                     "in the repo, in a pull request of its own; a new report is graded with this kit")

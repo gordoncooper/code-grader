@@ -273,14 +273,44 @@ def test_report_finding_accept_records_the_peoples_entry(ready):
     """The example project's dispositions.json accepts B5-001, so the grader records it, with the entry's text."""
     repo, rel = ready
     from test_authoring import CODE, gk as run
-    run("report", "finding", "add", rel, "--id", "B5-001", "--status", "open", "--benchmark", "B5", "--title", "One payment provider",
-        "--severity", "major", "--cite", "src/payments/api.py:1", "--repo", CODE, cwd=repo)
+    run("report", "finding", "add", rel, "--id", "B5-001", "--status", "open", "--benchmark", "B5", "--title", "Single payment gateway assumed",
+        "--severity", "minor", "--cite", "src/payments/api.py:5", "--note", "no currency or provider abstraction", "--repo", CODE, cwd=repo)
     out = run("report", "finding", "accept", rel, "B5-001", cwd=repo).stdout
     assert "B5-001: accepted (won't fix: One payment provider is a deliberate business constraint through 2027" in out
     f = next(f for f in json.loads((repo / rel).read_text())["findings"] if f["id"] == "B5-001")
     assert f["status"] == "accepted" and "disposition_ref" not in f, "the entry names it"
     check = json.loads(run("report", "check", rel, "--json", cwd=repo, ok=False).stdout)["result"]
     assert not [e for e in check["errors"] if "B5-001" in e], check["errors"]
+
+
+def test_an_id_people_accepted_doesnt_cover_another_problem(ready):
+    """5.1.0, from a red-team review: a new critical filed as B5-001 took over people's acceptance of B5-001, a minor
+    finding about the payment gateway, because acceptances matched on the ID alone."""
+    repo, rel = ready
+    from test_authoring import CODE, gk as run
+    run("report", "finding", "add", rel, "--id", "B5-001", "--status", "open", "--benchmark", "B5", "--title", "SQL built from user input",
+        "--severity", "critical", "--cite", "src/payments/api.py:1", "--repo", CODE, cwd=repo)
+    r = run("report", "finding", "accept", rel, "B5-001", cwd=repo, ok=False)
+    assert r.returncode == 1 and "B5-001 isn't the finding people accepted: it's critical now, and in 2026-10-24-9f8e7d6 it was minor" in r.stderr
+    run("report", "finding", "update", rel, "B5-001", "--severity", "minor", cwd=repo)
+    r = run("report", "finding", "accept", rel, "B5-001", cwd=repo, ok=False)
+    assert r.returncode == 1 and "its title and evidence don't match B5-001 in 2026-10-24-9f8e7d6" in r.stderr
+
+
+def test_only_an_answered_dispute_withdraws_a_finding(gk, ready):
+    """5.1.0, from a red-team review: `report finding update --status withdrawn` made any finding count nowhere."""
+    repo, rel = ready
+    from test_authoring import CODE, gk as run
+    run("report", "finding", "add", rel, "--benchmark", "C4", "--title", "Flaky tests", "--severity", "critical",
+        "--cite", "src/payments/api.py:1", "--repo", CODE, cwd=repo)
+    fid = next(f["id"] for f in json.loads((repo / rel).read_text())["findings"] if f["benchmark_id"] == "C4")
+    r = run("report", "finding", "update", rel, fid, "--status", "withdrawn", cwd=repo, ok=False)
+    assert r.returncode == 1 and "withdrawn by answering a person's dispute" in r.stderr
+    cfg, rep = config(gk), graded_here(gk)
+    f, _ = critical_on(rep)
+    f["status"] = "withdrawn"
+    errors, _ = gk.validate_report(rep, cfg, gk.load_catalog())
+    assert any(e.startswith(f"finding {f['id']} is withdrawn, but no answered dispute withdraws it") for e in errors)
 
 
 def test_a_finding_no_entry_accepts_cant_be_accepted(ready):
