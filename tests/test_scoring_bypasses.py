@@ -365,6 +365,36 @@ def test_repo_rollup_needs_a_monorepo(gk):
     assert "repo_rollup is only for a monorepo's repo report, and project.toml defines no [[components]]" in errors
 
 
+def test_a_carried_report_is_never_migrated(gk):
+    """From a review of these fixes: carrying a migrated report kept the marker, so the new report looked like a 4.x one."""
+    out, _ = gk.carry_report(five(gk), gk.repo_reader(str(EXAMPLE.parent / "sample-repo")), config(gk), "b2c3d4e5f6", "full", None, None)
+    assert "migrated" not in out
+
+
+def test_the_finding_people_accepted_is_found_from_any_folder(gk):
+    """A report in a backdated folder (2026-10-01, before the accepted finding's 2026-10-24) hid the earlier finding."""
+    pdir = EXAMPLE / PROJ
+    hit = gk.earlier_finding(pdir, "2026-10-01-b2c3d4e", "B5-001", "2026-10-25")
+    assert hit and hit[0] == "2026-10-24-9f8e7d6" and hit[1]["severity"] == "minor"
+    assert gk.report_folder_name(pdir / "reports" / "2026-11-07-a1b2c3d" / "components" / "web.json") == "2026-11-07-a1b2c3d"
+
+
+def test_a_withheld_copy_is_compared_by_benchmark_and_severity(gk):
+    """A public repo's earlier copy of a sensitive finding has its evidence withheld: people's acceptance still records."""
+    mine = {"id": "A2-001", "benchmark_id": "A2", "severity": "major", "title": "Card numbers in logs",
+            "evidence": [{"type": "code", "file": "src/log.py", "lines": "3", "quote": "log.info(card)"}]}
+    public = {"id": "A2-001", "benchmark_id": "A2", "severity": "major", "title": "Security & Privacy issue (details withheld)",
+              "evidence": [{"type": "withheld", "note": "details withheld"}]}
+    assert gk.not_the_same_finding(mine, ("2026-11-07-a1b2c3d", public)) is None
+    assert gk.not_the_same_finding(dict(mine, severity="critical"), ("2026-11-07-a1b2c3d", public))
+
+
+def test_the_kit_never_writes_nan_or_infinity(gk, tmp_path):
+    with pytest.raises(gk.GradekitError, match="NaN or Infinity"):
+        gk.write_json(tmp_path / "x.json", {"pass_rate": float("inf")})
+    assert not (tmp_path / "x.json").exists()
+
+
 # --------------------------------------------------------------------------- rounding (A1-act-3)
 
 @pytest.mark.parametrize("items, want", [

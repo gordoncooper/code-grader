@@ -276,6 +276,8 @@ def test_report_commands_that_install_packages_are_left_out(repo, tmp_path):
     ("pytest tests/test_x.py::test_y", "tests"), ("cargo clippy -- -D warnings", "lint"), ("npx eslint src", "lint"),
     ("isort --check-only .", "lint"), ("npx tsc --noEmit", "types"), ("python3 -m build", "build"), ("pip-audit", "audit"),
     ("coverage report", "coverage"), ("mvn -pl api -am -Dskip.it=true verify", "tests"), ("./gradlew clean check", "tests"),
+    ("make check", "tests"), ("make test -j4", "tests"), ("tox -e py312,lint", "tests"), ("nox -s tests", "tests"),
+    ("cmake --build build", "build"), ("coverage run -m pytest", "tests"), ("pytest -q --cov=src --cov-report=term", "tests"),
 ])
 def test_plain_check_commands_from_a_report_run(gk, command, kind):
     assert gk.guard_plain_kind(command) == kind
@@ -291,6 +293,9 @@ def test_plain_check_commands_from_a_report_run(gk, command, kind):
     # Maven and Gradle run any goal or task they're named (from a red-team review): only known ones from a report
     "mvn exec:java -Dexec.mainClass=Evil test", "mvn release:perform verify", "mvn install", "gradle uploadArchives build",
     "./gradlew evilTask check",
+    # from a review of these fixes: other build tools' targets and sessions, and flags that write or delete files
+    "make test deploy", "make test CC=evil", "tox -e release", "nox -s publish", "cmake --build build --target install",
+    "pytest --basetemp=.git", "pytest -q --junitxml=report.xml", "coverage xml -o .git/HEAD", "pytest tests/.git/x",
 ])
 def test_anything_else_from_a_report_is_left_out(gk, command):
     assert gk.guard_plain_kind(command) is None

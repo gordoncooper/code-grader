@@ -35,6 +35,15 @@ def test_basics_and_project():
     assert "2026-11-07-a1b2c3d" in c["previous report"]["detail"]
 
 
+def test_bare_list_people_files_are_fine(tmp_path):
+    """decisions.json and dispositions.json may be bare lists (read_list_file takes both); doctor used to fail them."""
+    g = tmp_path / "grading"
+    shutil.copytree(EXAMPLE, g)
+    (g / "projects" / "orders-api" / "dispositions.json").write_text("[]")
+    _, checks = doctor("--project", "orders-api", cwd=g)
+    assert checks.get("dispositions.json", {}).get("status") != "fail", checks.get("dispositions.json")
+
+
 def test_problems_come_with_fixes(tmp_path):
     g = tmp_path / "g"
     shutil.copytree(EXAMPLE, g)

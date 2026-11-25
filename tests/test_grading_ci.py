@@ -83,6 +83,30 @@ def test_acceptances_and_withdrawals_are_held_to_peoples_records(repo):
     assert f"report: finding {other['id']} is withdrawn, but disputes.json has no dispute on it dated 2026-11-01T00:00:00Z" in problems
 
 
+def test_a_new_report_is_no_older_than_the_projects_others(tmp_path):
+    """From a review of these fixes: an unpinned project took a 4.x report (where gates and limits are only warnings)
+    after 5.x ones, and a backdated folder sorted before the reports it should follow."""
+    g = tmp_path / "grading"
+    shutil.copytree(EXAMPLE, g)
+    shutil.move(str(g / NEW), str(tmp_path / "newest"))
+    old = g / "projects" / "orders-api" / "reports" / "2026-10-24-9f8e7d6" / "report.json"
+    r = json.loads(old.read_text())
+    r["schema_version"] = 5   # as if graded with 5.x (CI reads only the format of earlier reports)
+    old.write_text(json.dumps(r, indent=2))
+    git(g, "init", "-q", "-b", "main")
+    commit(g, "base")
+    git(g, "switch", "-q", "-c", "pr")
+    add_newest(g)
+    commit(g)
+    assert any("older than the project's earlier reports" in p for p in ci(g)["problems"])
+    git(g, "reset", "-q", "--hard", "HEAD~1")
+    shutil.copytree(tmp_path / "newest", g / "projects" / "orders-api" / "reports" / "2026-10-01-a1b2c3d")
+    commit(g)
+    problems = ci(g)["problems"]
+    assert any("but the report was graded on 2026-11-07" in p for p in problems)
+    assert any(p.startswith("2026-10-01-a1b2c3d sorts before 2026-10-24-9f8e7d6") for p in problems)
+
+
 def test_a_new_report_cant_say_it_was_migrated(repo):
     """5.1.0: `migrated` keeps a converted 4.x report's 4.x rules (warnings). Migrations rewrite reports already in the
     repo, in a pull request of their own, so a new report carrying the marker is refused."""

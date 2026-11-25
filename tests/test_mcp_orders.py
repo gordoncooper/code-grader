@@ -109,6 +109,19 @@ def test_a_malformed_report_is_an_error_and_the_server_keeps_going(tmp_path):
     assert out[3]["result"] == {}, "still answering"
 
 
+def session_raw(lines, cwd=EXAMPLE):
+    """Send raw lines to `gradekit mcp` and return its responses in order."""
+    r = subprocess.run(KIT + ["mcp"], input="".join(ln + "\n" for ln in lines), cwd=cwd, env=ENV, capture_output=True, text=True,
+                       timeout=120)
+    assert r.returncode == 0, r.stderr[-2000:]
+    return [json.loads(ln) for ln in r.stdout.splitlines() if ln.strip()]
+
+
+def test_a_deeply_nested_message_is_a_parse_error(tmp_path):
+    out = session_raw(["[" * 200000, json.dumps({"jsonrpc": "2.0", "id": 3, "method": "ping"})], cwd=tmp_path)
+    assert out[0]["error"]["code"] == -32700 and out[1] == {"jsonrpc": "2.0", "id": 3, "result": {}}
+
+
 def test_one_message_that_breaks_never_stops_the_server(gk, monkeypatch, capsys):
     import argparse
     import io

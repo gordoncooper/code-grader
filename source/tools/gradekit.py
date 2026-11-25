@@ -146,6 +146,8 @@ def load_json(path, want: type | tuple = dict):
         die(f"{path} isn't UTF-8 text: {exc}")
     except ValueError as exc:   # json.JSONDecodeError is one
         die(f"{path} is not valid JSON: {exc}")
+    except RecursionError:
+        die(f"{path} is nested too deeply to read")
     if want and not isinstance(data, want):
         should = " or ".join(dict.fromkeys(JSON_KINDS[t] for t in (want if isinstance(want, tuple) else (want,))))
         die(f"{path} holds {JSON_KINDS.get(type(data), type(data).__name__)}, but should hold {should}")
@@ -156,9 +158,12 @@ def write_json(path, data: dict) -> None:
     parent = Path(path).parent
     if str(parent) not in ("", "."):
         parent.mkdir(parents=True, exist_ok=True)
+    try:
+        text = json.dumps(data, indent=2, ensure_ascii=False, allow_nan=False)
+    except ValueError as exc:
+        die(f"not writing {path}: it would hold a number JSON can't store (NaN or Infinity): {exc}")
     with open(path, "w", encoding="utf-8") as fh:
-        json.dump(data, fh, indent=2, ensure_ascii=False)
-        fh.write("\n")
+        fh.write(text + "\n")
 
 
 def load_toml(path) -> dict:
@@ -748,6 +753,27 @@ def disposition_entry(f: dict, cfg: dict) -> tuple[int, dict] | None:
     return None
 
 
+def report_folder_name(path) -> str:
+    """The report folder a report file belongs to: …/<folder>/report.json or …/<folder>/components/NAME.json."""
+    parent = Path(path).resolve().parent
+    return parent.parent.name if parent.name == "components" else parent.name
+
+
+def finding_in(pdir: Path | None, folder: str | None, fid: str) -> tuple[str, dict] | None:
+    """The finding `fid` in a report folder (its report.json or a component report), as (folder, finding)."""
+    d = pdir / "reports" / str(folder) if pdir and folder else None
+    if d is None or not d.is_dir():
+        return None
+    for path in folder_reports(d):
+        try:
+            hit = next((f for f in load_json(path).get("findings", []) if f.get("id") == fid), None) if path.exists() else None
+        except GradekitError:
+            hit = None
+        if hit:
+            return d.name, hit
+    return None
+
+
 def earlier_finding(pdir: Path | None, folder: str, fid: str, before: str | None = None) -> tuple[str, dict] | None:
     """The newest report before `folder` (and, with `before`, dated no later than that day) with a finding `fid`, as
     (its folder, the finding): for an acceptance, the finding people saw when they decided."""
@@ -755,9 +781,7 @@ def earlier_finding(pdir: Path | None, folder: str, fid: str, before: str | None
         return None
     found = None
     for d in report_folders(pdir):
-        if d.name == folder:
-            break
-        if before and d.name[:10] > str(before)[:10]:
+        if d.name == folder or (before and d.name[:10] > str(before)[:10]):
             continue
         for path in folder_reports(d):
             try:
@@ -780,6 +804,8 @@ def not_the_same_finding(f: dict, earlier: tuple[str, dict] | None) -> str | Non
         return f"in {where} {f.get('id')} was a {e.get('benchmark_id')} finding, not {f.get('benchmark_id')}"
     if e.get("severity") in SEVERITIES and f.get("severity") in SEVERITIES and SEVERITIES.index(f["severity"]) > SEVERITIES.index(e["severity"]):
         return f"it's {f['severity']} now, and in {where} it was {e['severity']}"
+    if withheld(e):   # a public copy: its evidence is withheld, so only its benchmark and severity can be compared
+        return None
     if (f.get("evidence") or e.get("evidence")) and finding_similarity(f, e) < 0.5:   # same file alone is 0.35
         return f"its title and evidence don't match {f.get('id')} in {where} ({e.get('title')!r})"
     return None
@@ -3749,8 +3775,10 @@ def cmd_report_set(args) -> int:
         die(f"give a value for {args.key}")
     raw = read_text_arg(args.value)
     try:
-        value = json.loads(raw)
-    except json.JSONDecodeError:
+        value = json.loads(raw, parse_float=_finite_number, parse_constant=_not_json)
+    except ValueError as exc:
+        if "JSON" in str(exc) and not isinstance(exc, json.JSONDecodeError):
+            die(f"{args.key}: {exc}")
         value = raw
     node = report
     for p in parts[:-1]:
@@ -4001,7 +4029,7 @@ def carry_report(baseline: dict, read_lines, cfg: dict, commit: str, mode: str, 
                  touched: list[str] | None) -> tuple[dict, dict]:
     """The next report, started from `baseline`. touched=None means a full re-grade (every benchmark)."""
     r = copy.deepcopy(baseline)
-    for key in ("rollup", "publishing"):
+    for key in ("rollup", "publishing", "migrated"):   # a carried report is a new one, graded with this kit
         r.pop(key, None)
     r["suite_version"] = load_catalog()["suite_version"]
     r["mode"] = mode
@@ -4313,7 +4341,7 @@ def doctor_checks(args) -> list[dict]:
                 f = pdir / fname
                 if f.exists():
                     try:
-                        load_json(f)
+                        load_json(f, want=(dict, list))
                     except GradekitError as exc:
                         out.append(_check(fname, "fail", str(exc), f"fix the JSON in {f}"))
             reports = pdir / "reports"
@@ -5048,6 +5076,9 @@ def cmd_finding_answer(args) -> int:
     if not mine:
         die(f"no open dispute on {args.id} in {DISPUTES_FILE}")
     d = mine[-1]
+    why = not_the_same_finding(f, finding_in(pdir, d.get("report"), f["id"])) if args.withdraw else None
+    if why:
+        die(f"{f['id']} isn't the finding {d.get('by') or 'they'} disputed: {why}. Answer the dispute on that finding")
     f["dispute"] = {"answer": "withdrawn" if args.withdraw else "upheld", "note": args.note, "disputed_on": d["date"], "by": d.get("by")}
     if args.withdraw:
         f["status"] = "withdrawn"
@@ -5082,7 +5113,7 @@ def cmd_finding_accept(args) -> int:
                 f"finding_id{hint}")
     i, d = found
     pdir = project_dir_for_report(args.report)
-    why = not_the_same_finding(f, earlier_finding(pdir, Path(args.report).resolve().parent.name, f["id"], d.get("date")))
+    why = not_the_same_finding(f, earlier_finding(pdir, report_folder_name(args.report), f["id"], d.get("date")))
     if why:
         die(f"{f['id']} isn't the finding people accepted: {why}. A new problem gets a new ID (`report finding add` without --id)")
     f["status"] = "accepted"
@@ -5749,9 +5780,14 @@ def people_records_problems(report: dict, pdir: Path, folder: str, cfg: dict) ->
                 warnings.append(f"finding {fid} is accepted by a `match` entry ({DISPOSITIONS_FILE} entry {entry[0]}: "
                                 f"{entry[1].get('match')!r}); check that it describes this finding")
         ans = f.get("dispute") or {}
-        if f.get("status") == "withdrawn" and ans.get("answer") == "withdrawn" and not any(
-                d.get("finding_id") == fid and d.get("date") == ans.get("disputed_on") for d in disputes):
-            problems.append(f"finding {fid} is withdrawn, but {DISPUTES_FILE} has no dispute on it dated {ans.get('disputed_on')}")
+        if f.get("status") == "withdrawn" and ans.get("answer") == "withdrawn":
+            d = next((d for d in disputes if d.get("finding_id") == fid and d.get("date") == ans.get("disputed_on")), None)
+            if d is None:
+                problems.append(f"finding {fid} is withdrawn, but {DISPUTES_FILE} has no dispute on it dated {ans.get('disputed_on')}")
+            else:
+                why = not_the_same_finding(f, finding_in(pdir, d.get("report"), fid))
+                if why:
+                    problems.append(f"finding {fid} is withdrawn, but it isn't the finding that was disputed: {why}")
     return problems, warnings
 
 
@@ -5798,6 +5834,15 @@ def ci_check(root: Path, base: str, head: str, changes: list[tuple[str, str]], s
                     p_, w_ = people_records_problems(rep, pdir, folder, cfg)
                     problems += [f"{where}: {x}" for x in p_]
                     warnings += [f"{where}: {x}" for x in w_]
+                earlier = [d for d in report_folders(pdir) if d.name != folder]
+                if earlier and report_format(report) < max(report_format(load_json(d / "report.json")) for d in earlier):
+                    problems.append(f"this report is format {report_format(report)}, older than the project's earlier reports: "
+                                    "a project's reports never go back to an older format (grade it with this kit)")
+                run_day = str((report.get("run") or {}).get("date") or "")[:10]
+                if run_day and not folder.startswith(run_day):
+                    problems.append(f"the folder is {folder}, but the report was graded on {run_day} (expected {run_day}-<commit>)")
+                if earlier and folder < max(d.name for d in earlier):
+                    problems.append(f"{folder} sorts before {max(d.name for d in earlier)}: a new report comes after the project's others")
                 if report.get("migrated"):   # migrations rewrite existing reports, in a migration pull request
                     problems.append(f"{rel} is new, but its report says it was migrated: `gradekit migrate` converts reports already "
                                     "in the repo, in a pull request of its own; a new report is graded with this kit")
@@ -5848,6 +5893,10 @@ def ci_check(root: Path, base: str, head: str, changes: list[tuple[str, str]], s
                         problems += [f"components/{cp.name}: {e}" for e in cerr]
                         if cr.get("migrated"):
                             problems.append(f"components/{cp.name} is new, but says it was migrated: a new report is graded with this kit")
+                        if report_format(cr) != report_format(report) or (pin and major(cr.get("suite_version", "0")) != pin):
+                            problems.append(f"components/{cp.name} was made with suite {cr.get('suite_version')} (format {report_format(cr)}); "
+                                            f"every report in the folder is made with the same kit"
+                                            + (f", and the project is pinned to {pin}" if pin else ""))
                         if (cr.get("component") or {}).get("name") != cp.stem:
                             problems.append(f"components/{cp.name} grades component '{(cr.get('component') or {}).get('name')}', not '{cp.stem}'")
                         if (ccfg.get("publishing") or PUBLISHING_DEFAULTS).get("public"):
@@ -6654,9 +6703,11 @@ def guard_plain_kind(command: str) -> str | None:
     if not command or GUARD_NOT_PLAIN.search(command):
         return None
     words = command.split()
-    for w in words:   # paths stay inside the checkout, and so do flags' values (--basetemp=/home would be deleted)
+    for w in words:   # paths stay inside the checkout and out of .git, and so do flags' values
         value = w.split("=", 1)[1] if "=" in w else w
-        if value.startswith("/") or ".." in value.split("/"):
+        if value.startswith("/") or ".." in value.split("/") or ".git" in value.split("/"):
+            return None
+        if w.split("=", 1)[0] in GUARD_WRITE_FLAGS:
             return None
     forms = []
     while words:
@@ -6678,25 +6729,43 @@ def guard_plain_kind(command: str) -> str | None:
     return None
 
 
-# Maven and Gradle run whatever goals or tasks they're given (exec:java, deploy, uploadArchives…), so a report's
-# command may name only these, plus flags and the values of the flags listed.
+# Build tools run whatever goals, targets or sessions they're given (exec:java, deploy, `make release`, a tox env
+# that publishes…), so a report's command may name only these, plus flags and the values of the flags listed. Flags
+# that write or delete files (pytest deletes its --basetemp) aren't taken from a report at all.
+GUARD_WRITE_FLAGS = {"--basetemp", "--junitxml", "--junit-xml", "--report-log", "--resultlog", "--output", "--output-file",
+                     "--outfile", "--out", "--log-file"}
+GUARD_TEST_ENVS = r"(py[0-9.]*|pypy[0-9.]*|tests?|unit|lint|ruff|flake8|mypy|types?|typing|coverage|cov)"
 GUARD_BUILD_GOALS = {"mvn": {"clean", "validate", "compile", "test-compile", "test", "package", "verify", "integration-test"},
-                     "gradle": {"clean", "test", "check", "build", "assemble", "compileJava", "compileTestJava"}}
+                     "gradle": {"clean", "test", "check", "build", "assemble", "compileJava", "compileTestJava"},
+                     "make": {"test", "check", "tests"}, "cmake": set(), "tox": set(), "nox": set(), "coverage": None}
 GUARD_BUILD_VALUE_FLAGS = {"mvn": {"-pl", "--projects", "-P", "--activate-profiles", "-T", "--threads", "-rf", "--resume-from"},
-                           "gradle": {"-p", "--project-dir", "-x", "--exclude-task"}}
+                           "gradle": {"-p", "--project-dir", "-x", "--exclude-task"}, "make": {"-j", "--jobs"},
+                           "cmake": {"--build", "-j", "--parallel", "--config"}, "tox": {"-e", "--parallel", "-p"},
+                           "nox": {"-s", "--session", "--sessions", "-p", "--python"}, "coverage": set()}
 
 
 def guard_build_goals_ok(form: list[str]) -> bool:
-    tool = {"mvn": "mvn", "mvnw": "mvn", "gradle": "gradle", "gradlew": "gradle"}.get(form[0])
+    tool = {"mvn": "mvn", "mvnw": "mvn", "gradle": "gradle", "gradlew": "gradle", "make": "make", "cmake": "cmake",
+            "tox": "tox", "nox": "nox", "coverage": "coverage"}.get(form[0])
     if tool is None:
         return True
     words, i = form[1:], 0
     while i < len(words):
         w = words[i]
+        if tool == "coverage" and (w == "-o" or w.startswith("-o")):   # writes its report wherever -o says
+            return False
+        if tool in ("tox", "nox") and w in ("-e", "-s", "--session", "--sessions") and i + 1 < len(words):
+            if not all(re.fullmatch(GUARD_TEST_ENVS, e) for e in words[i + 1].split(",")):
+                return False   # a tox env or nox session that isn't a test, lint or type run could publish or deploy
+        if tool == "cmake" and w in ("--target", "-t"):
+            return False
         if w.startswith("-"):
             i += 2 if w in GUARD_BUILD_VALUE_FLAGS[tool] else 1
             continue
-        if w not in GUARD_BUILD_GOALS[tool]:
+        if tool == "coverage":
+            i += 1
+            continue
+        if "=" in w or w not in GUARD_BUILD_GOALS[tool]:   # make VAR=value changes what a target runs
             return False
         i += 1
     return True
@@ -7566,8 +7635,8 @@ def cmd_mcp(args) -> int:
             continue
         try:
             msg = json.loads(line)
-        except json.JSONDecodeError as e:
-            resp = {"jsonrpc": "2.0", "id": None, "error": {"code": -32700, "message": f"parse error: {e}"}}
+        except (ValueError, RecursionError) as e:   # json.JSONDecodeError is a ValueError; deep nesting recurses
+            resp = {"jsonrpc": "2.0", "id": None, "error": {"code": -32700, "message": f"parse error: {e or 'nested too deeply'}"}}
         else:
             try:
                 resp = mcp_handle(msg, state) if isinstance(msg, dict) else {"jsonrpc": "2.0", "id": None,

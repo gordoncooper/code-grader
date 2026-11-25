@@ -155,12 +155,27 @@ def test_ci_holds_a_monorepo_report_to_its_config(grading):
         cr = json.loads(web.read_text())
         cr["component"]["weight"] = 0.01
         web.write_text(json.dumps(cr, indent=2))
+        res = j(cli("rollup-repo", folder, "--json", cwd=grading))   # with the report saying 0.01
+        assert {c["component"]: c["weight"] for c in res["components"]} == {"api": 2, "web": 1}, "weights come from project.toml"
         r = json.loads((folder / "report.json").read_text())
         r["repo_rollup"] = j(cli("rollup-repo", web, folder / "components" / "api.json", "--json", cwd=grading))
         (folder / "report.json").write_text(json.dumps(r, indent=2))
     assert any(p.startswith("repo_rollup (") and "doesn't match the component reports" in p for p in ci_after(lighter))
-    res = j(cli("rollup-repo", folder, "--json", cwd=grading))
-    assert {c["component"]: c["weight"] for c in res["components"]} == {"api": 2, "web": 1}, "weights come from project.toml"
+
+
+def test_every_report_in_a_monorepo_folder_is_made_with_the_same_kit(grading):
+    """From a review of these fixes: the pin covered report.json only, so a 4.x component report (gates and limits
+    only warnings) passed in a project pinned to 5."""
+    grading, folder = monorepo_pr(grading)
+    web = folder / "components" / "web.json"
+    cr = json.loads(web.read_text())
+    cr.pop("schema_version")
+    cr["suite_version"] = "4.2.0"
+    web.write_text(json.dumps(cr, indent=2))
+    git(grading, "add", "-A")
+    git(grading, "commit", "-qm", "tamper")
+    problems = j(cli("ci", "--base", "main", "--json", cwd=grading, code=None))["problems"]
+    assert any(p.startswith("components/web.json was made with suite 4.2.0 (format 4)") for p in problems), problems
 
 
 # --------------------------------------------------------------------------- disputes (N9)
@@ -186,6 +201,22 @@ def test_a_dispute_must_be_answered_and_withdrawn_findings_count_nowhere(gk, gra
     assert "no open disputes" in cli("dispute", "list", cwd=grading).stdout
     rows = j(cli("dispute", "list", "--all", "--json", cwd=grading))["disputes"]
     assert rows[0]["status"] == "answered"
+
+
+def test_a_withdrawal_answers_the_finding_that_was_disputed(grading):
+    """From a review of these fixes: a dispute on A2-001 withdrew a different, critical problem filed as A2-001."""
+    cli("dispute", "add", "A2-001", "--project", "orders-api", "--reason", "amounts are validated by the gateway", "--by", "gordon",
+        cwd=grading)
+    out = cli("carry", PROJ + "/reports/2026-11-07-a1b2c3d/report.json", "--mode", "full", "--repo", CODE, "--commit", "b2c3d4e5f6",
+              "--allow-withheld", "--project", "orders-api", "--model", "m", "--json", cwd=grading)
+    rel = str((grading / j(out)["report"]).relative_to(grading)) if j(out).get("report") else j(out)["written"]
+    was = next(f for f in json.loads((grading / PROJ / "reports" / "2026-11-07-a1b2c3d" / "report.json").read_text())["findings"]
+               if f["id"] == "A2-001")
+    worse = {"critical": "critical", "major": "critical", "minor": "major"}[was["severity"]]
+    cli("report", "finding", "update", rel, "A2-001", "--severity", worse, cwd=grading)
+    r = cli("report", "finding", "answer", rel, "A2-001", "--withdraw", "--note", "x", cwd=grading, code=None)
+    assert worse != was["severity"], "the example's A2-001 is major"
+    assert r.returncode == 1 and "A2-001 isn't the finding gordon disputed" in r.stderr, r.stdout + r.stderr
 
 
 def test_upholding_keeps_the_finding(grading):
