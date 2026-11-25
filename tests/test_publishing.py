@@ -132,6 +132,7 @@ def test_public_repos_warn_about_unmarked_security_findings(gk):
     assert any("A2-001" in w and "sensitive" in w for w in warnings_for(gk, full))
     assert any("redact --in-place" in w for w in warnings_for(gk, full))
     assert not any("A2-001" in w for w in warnings_for(gk, full, "\n[publishing]\npublic = false\n"))
+    next(f for f in full["findings"] if f["id"] == "A2-001")["severity"] = "major"
     assert not any("A2-001" in w for w in warnings_for(gk, full, "\n[publishing]\nwarn_at = \"critical\"\n"))
 
 

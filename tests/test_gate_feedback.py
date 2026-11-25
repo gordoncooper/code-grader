@@ -76,16 +76,6 @@ def test_enforcement_has_text_and_evidence(repo, rel, code):
     assert "--text" in cli("report", "enforcement", rel, "A1", "--cite", "m.py:7", "--repo", code, cwd=repo, code=64).stderr
 
 
-def test_migrate_wraps_format_4_enforcement(gk):
-    old = json.loads((EXAMPLE / PROJ / "reports" / "2026-11-07-a1b2c3d" / "report.json").read_text())
-    ev = {"type": "command", "command": "ci", "excerpt": "ok", "note": "CI gate"}
-    old["benchmarks"][0]["enforcement"] = [ev]
-    new, notes = gk.migrate_report(old)
-    assert new["benchmarks"][0]["enforcement"] == [{"note": "CI gate", "evidence": [ev]}]
-    assert any("enforcement" in n for n in notes)
-    assert gk.enforcement_items(old["benchmarks"][0]) == new["benchmarks"][0]["enforcement"], "format 4 still reads"
-
-
 # --------------------------------------------------------------------------- show, update, remove
 
 def test_show_numbers_what_update_and_remove_change(repo, rel, code):
@@ -169,11 +159,9 @@ def test_check_wants_a_summary_and_a_path_for_each_benchmark_below_target(repo, 
     assert not any(t.startswith("A1:") for t in js("report", "check", rel, cwd=repo, code=5)["result"]["todo"])
 
 
-def two_steps(gk, fmt):
+def two_steps(gk):
     cfg = gk.resolve_config([str(EXAMPLE / PROJ / "project.toml")])
     r = json.loads((EXAMPLE / PROJ / "reports" / "2026-11-07-a1b2c3d" / "report.json").read_text())
-    if fmt == 5:
-        r, _ = gk.migrate_report(r)
     b = bench(r, "C4")
     b["score"] = 4
     b["path_to_target"] = [
@@ -184,30 +172,31 @@ def two_steps(gk, fmt):
 
 
 def test_each_action_gains_only_what_it_adds(gk):
-    gains, r, cfg = two_steps(gk, 5)
+    gains, r, cfg = two_steps(gk)
     tv = gk.compute_rollup(r, cfg)["targets"]["C4"]
     assert tv >= 8, "the example's C4 target leaves room for both steps"
     assert gains == {"C4-act-1": 2, "C4-act-2": 2}
-    old, *_ = two_steps(gk, 4)
-    assert old == {"C4-act-1": 2, "C4-act-2": 4}, "format-4 reports keep the gains their stored rollups have"
 
 
 def test_a_lower_score_after_an_earlier_action_is_flagged(gk):
-    _, r, cfg = two_steps(gk, 5)
+    _, r, cfg = two_steps(gk)
     bench(r, "C4")["path_to_target"][1]["expected_new_score"] = 5
     _, warnings = gk.validate_report(r, cfg, gk.load_catalog())
     assert any("C4-act-2" in w and "earlier action" in w for w in warnings)
 
 
 def test_check_write_fills_top_priorities(gk):
-    _, r, cfg = two_steps(gk, 5)
-    bench(r, "C4")["path_to_target"][0]["why_first"] = "The one test proves nothing"
+    _, r, cfg = two_steps(gk)
+    first = gk.compute_rollup(r, cfg)["priorities"][0]
+    act = next(a for b in r["benchmarks"] for a in b.get("path_to_target", []) if a["id"] == first["action_id"])
+    act["why_first"] = "The one test proves nothing"
     gk.apply_rollup(r, cfg)
     top = r["top_priorities"]
     assert len(top) == min(10, len(r["rollup"]["priorities"]))
     assert [p["action_id"] for p in top] == [p["action_id"] for p in r["rollup"]["priorities"][:10]]
-    mine = next(p for p in top if p["action_id"] == "C4-act-1")
-    assert mine["why_first"] == "The one test proves nothing" and mine["expected_gain"] == "+2 on C4"
+    mine = top[0]
+    assert mine["action_id"] == first["action_id"] and mine["why_first"] == "The one test proves nothing"
+    assert mine["expected_gain"] == f"+{first['gain']} on {first['benchmark_id']}"
     assert all(p["why_first"] for p in top)
     errors, _ = gk.validate_report(r, cfg, gk.load_catalog())
     assert not [e for e in errors if "top_priorities" in e]

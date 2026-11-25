@@ -8,6 +8,11 @@ Versioning rules for the suite itself:
 
 After any major or minor change, re-run calibration (`calibration/README.md`) before trusting new scores.
 
+## 6.0.0 (unreleased)
+A new major. **6.0 reads only reports made by 5.x and later kits:** reports graded with 4.x stay readable with the 4.x and 5.x kits, which the site keeps serving at `/v4/` and `/v5/`.
+
+**Removed**
+
 ## 5.1.0
 Closes ways around the scores, found by a review of 5.0.1 and a red-team pass over the fixes, and hardens the paths agents use. No scoring rules change: config fingerprints and the calibration fingerprint stay the same, and every graded score recomputes the same. Before upgrading:
 

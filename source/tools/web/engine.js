@@ -3,8 +3,7 @@
   "use strict";
   var script = document.currentScript && document.currentScript.src;
   var SITE = script ? new URL("../", script).href : new URL("./", location.href).href;
-  var SUITE_FILES = ["tools/gradekit.py", "config/defaults.toml", "config/scoring/4.2.0.toml", "rubric/catalog.json",
-                     "schema/report.schema.json", "schema/report-4.schema.json"];   // config/scoring: earlier rules, for older reports
+  var SUITE_FILES = ["tools/gradekit.py", "config/defaults.toml", "rubric/catalog.json", "schema/report.schema.json"];
   // Optional Pyodide packages, loaded the first time a call needs them (from the same place as Pyodide itself).
   // None since 5.1.0: gradekit checks the report schema itself, so the pages need only the Python standard library.
   var CALL_PACKAGES = {};

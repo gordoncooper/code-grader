@@ -5,6 +5,7 @@
 5.1.0 (the 5.0.1 review): a gate marked not_applicable dropped out of the gate check, lifting the overall cap; a
 grader could mark findings accepted itself (only a warning), while no command recorded people's acceptances; and a
 `migrated` marker on any report turned every format-5 rule into a warning."""
+import argparse
 import copy
 import json
 import shutil
@@ -133,17 +134,8 @@ def not_applicable(r, bid="A2"):
 
 
 def graded_here(gk):
-    """five(), as if this kit graded it (not migrated from 4.x), so its rules hold."""
-    r = five(gk)
-    r.pop("migrated", None)
-    return r
-
-
-def migrated_from_4x(gk):
-    """five(), still graded under the 4.x rules, as `gradekit migrate` leaves a 4.x report."""
-    r = five(gk)
-    r["config"]["scoring_version"] = "4.2.0"
-    return r
+    """five(): a report this kit graded, so its rules hold."""
+    return five(gk)
 
 
 def test_a_gate_cant_be_not_applicable(gk):
@@ -152,14 +144,6 @@ def test_a_gate_cant_be_not_applicable(gk):
     errors, _ = gk.validate_report(r, cfg, gk.load_catalog())
     assert any(e.startswith("A2 is a gate (always), so it can't be not_applicable") and '[gates] exclude = ["A2"]' in e
                for e in errors)
-
-
-def test_reports_graded_under_4x_keep_a_warning(gk):
-    cfg, r = config(gk), migrated_from_4x(gk)   # graded before the rule
-    not_applicable(r)
-    errors, warnings = gk.validate_report(r, cfg, gk.load_catalog())
-    assert not [e for e in errors if "can't be not_applicable" in e]
-    assert [w for w in warnings if "can't be not_applicable" in w]
 
 
 def test_a_person_drops_a_gate_in_the_config(gk):
@@ -244,14 +228,6 @@ def test_a_match_entry_accepts_only_the_findings_that_name_it(gk):
     assert acceptance_errors(gk, r, cfg), "an entry that isn't there"
 
 
-def test_reports_graded_under_4x_keep_their_warning(gk):
-    cfg, r = config(gk), migrated_from_4x(gk)
-    accepted_by_hand(r)
-    errors, warnings = gk.validate_report(r, cfg, gk.load_catalog())
-    assert not [e for e in errors if "dispositions.json" in e]
-    assert "finding C4-901 is 'accepted' but no entry in dispositions.json covers it" in warnings
-
-
 def test_diff_says_who_accepted_a_finding(gk):
     cfg, old = config(gk), graded_here(gk)
     f, _ = critical_on(old)
@@ -284,15 +260,15 @@ def test_report_finding_accept_records_the_peoples_entry(ready):
 
 
 def test_an_id_people_accepted_doesnt_cover_another_problem(ready):
-    """5.1.0, from a red-team review: a new critical filed as B5-001 took over people's acceptance of B5-001, a minor
+    """5.1.0, from a red-team review: a new critical filed as B5-001 took over people's acceptance of B5-001, a major
     finding about the payment gateway, because acceptances matched on the ID alone."""
     repo, rel = ready
     from test_authoring import CODE, gk as run
     run("report", "finding", "add", rel, "--id", "B5-001", "--status", "open", "--benchmark", "B5", "--title", "SQL built from user input",
         "--severity", "critical", "--cite", "src/payments/api.py:1", "--repo", CODE, cwd=repo)
     r = run("report", "finding", "accept", rel, "B5-001", cwd=repo, ok=False)
-    assert r.returncode == 1 and "B5-001 isn't the finding people accepted: it's critical now, and in 2026-10-24-9f8e7d6 it was minor" in r.stderr
-    run("report", "finding", "update", rel, "B5-001", "--severity", "minor", cwd=repo)
+    assert r.returncode == 1 and "B5-001 isn't the finding people accepted: it's critical now, and in 2026-10-24-9f8e7d6 it was major" in r.stderr
+    run("report", "finding", "update", rel, "B5-001", "--severity", "major", cwd=repo)
     r = run("report", "finding", "accept", rel, "B5-001", cwd=repo, ok=False)
     assert r.returncode == 1 and "its title and evidence don't match B5-001 in 2026-10-24-9f8e7d6" in r.stderr
 
@@ -329,32 +305,29 @@ def test_a_finding_no_entry_accepts_cant_be_accepted(ready):
     assert next(f for f in json.loads((repo / rel).read_text())["findings"] if f["id"] == fid)["status"] == "new"
 
 
-# --------------------------------------------------------------------------- the migrated marker (5.1.0)
-# `migrated` marks a 4.x report that `gradekit migrate` converted, which keeps its 4.x rules (warnings). Nothing checked
-# the claim, so adding it to any report relaxed every format-5 rule: limits, gates, acceptances.
+# --------------------------------------------------------------------------- one set of rules (6.0)
+# 5.x kept the 4.x rules for reports `gradekit migrate` converted (marked `migrated`), where limits were only warnings,
+# and the marker and an old scoring_version were ways around the limits. 6.0 has one set of rules.
 
-def test_a_migrated_marker_relaxes_nothing_on_a_report_graded_under_5x(gk):
+def test_a_migrated_marker_is_refused(gk):
     cfg, r = config(gk), graded_here(gk)
     r["migrated"] = {"from": "4.2.0", "by": "5.0.1"}
     not_applicable(r)
-    assert gk.limits_enforced(r)
     errors, _ = gk.validate_report(r, cfg, gk.load_catalog())
-    assert any(e.startswith("migrated: only a 4.x report that `gradekit migrate` converted carries this marker") for e in errors)
+    assert any(e.startswith("migrated: `gradekit migrate` marked 4.x reports it converted") for e in errors)
     assert any("so it can't be not_applicable" in e for e in errors), "the gate rule still holds"
-    assert not gk.limits_enforced(migrated_from_4x(gk)), "a real migration keeps its 4.x rules"
 
 
-def test_a_format_5_report_cant_choose_the_4x_rules(gk):
-    """5.1.0, from a red-team review: config.scoring_version 4.2.0 on a new report picked the 4.x rules, whose zone
-    severity shift turns a critical finding in cold code into a major one, so the open-critical limit never applied."""
+def test_a_report_cant_choose_other_scoring_rules(gk):
+    """5.1.0, from a red-team review: config.scoring_version 4.2.0 picked the 4.x rules, whose zone severity shift turns
+    a critical finding in cold code into a major one, so the open-critical limit never applied."""
     cfg, r = config(gk), graded_here(gk)
     r["config"]["scoring_version"] = "4.2.0"
-    errors, _ = gk.validate_report(r, cfg, gk.load_catalog())
-    assert any(e.startswith("config.scoring_version is 4.2.0, but a full format-5 report is graded under the 5.x scoring rules")
-               for e in errors)
-    assert not [e for e in gk.validate_report(migrated_from_4x(gk), cfg, gk.load_catalog())[0] if "scoring_version" in e]
-    r["mode"] = "pr"   # carried from a 4.x base for a pull request: it keeps the base's rules, so the two compare
-    assert not [e for e in gk.validate_report(r, cfg, gk.load_catalog())[0] if "scoring_version" in e]
+    want = "config.scoring_version is 4.2.0, but this kit grades under scoring 5.0.0 only"
+    assert any(e.startswith(want) for e in gk.validate_report(r, cfg, gk.load_catalog())[0])
+    r["mode"] = "pr"   # 5.x let a pull-request report keep its 4.x base's rules
+    assert any(e.startswith(want) for e in gk.validate_report(r, cfg, gk.load_catalog())[0])
+    assert cfg["zones"].get("severity_shift") is None and gk.analyze_findings(r, cfg), "no zone shifts severity"
 
 
 def test_repo_rollup_needs_a_monorepo(gk):
@@ -365,17 +338,21 @@ def test_repo_rollup_needs_a_monorepo(gk):
     assert "repo_rollup is only for a monorepo's repo report, and project.toml defines no [[components]]" in errors
 
 
-def test_a_carried_report_is_never_migrated(gk):
-    """From a review of these fixes: carrying a migrated report kept the marker, so the new report looked like a 4.x one."""
-    out, _ = gk.carry_report(five(gk), gk.repo_reader(str(EXAMPLE.parent / "sample-repo")), config(gk), "b2c3d4e5f6", "full", None, None)
-    assert "migrated" not in out
+def test_carry_refuses_a_baseline_graded_under_other_rules(gk, tmp_path):
+    r = five(gk)
+    r["config"]["scoring_version"] = "4.2.0"
+    base = tmp_path / "report.json"
+    base.write_text(json.dumps(r))
+    with pytest.raises(gk.GradekitError, match="graded under scoring 4.2.0, and this kit grades under scoring 5.0.0 only"):
+        gk.cmd_carry(argparse.Namespace(baseline=str(base), allow_withheld=True, mode="full", base_commit=None, config=None,
+                                        project=None, project_dir=str(EXAMPLE / "projects" / "orders-api"), component=None))
 
 
 def test_the_finding_people_accepted_is_found_from_any_folder(gk):
     """A report in a backdated folder (2026-10-01, before the accepted finding's 2026-10-24) hid the earlier finding."""
     pdir = EXAMPLE / PROJ
     hit = gk.earlier_finding(pdir, "2026-10-01-b2c3d4e", "B5-001", "2026-10-25")
-    assert hit and hit[0] == "2026-10-24-9f8e7d6" and hit[1]["severity"] == "minor"
+    assert hit and hit[0] == "2026-10-24-9f8e7d6" and hit[1]["severity"] == "major"
     assert gk.report_folder_name(pdir / "reports" / "2026-11-07-a1b2c3d" / "components" / "web.json") == "2026-11-07-a1b2c3d"
 
 
@@ -406,10 +383,6 @@ def test_the_kit_never_writes_nan_or_infinity(gk, tmp_path):
 ])
 def test_scores_round_half_up_on_exact_values(gk, items, want):
     assert gk.weighted(items) == want
-
-
-def test_reports_graded_under_4x_rules_keep_their_rounding(gk):
-    assert gk.weighted([(6, 1), (6.5, 1)], half_up=False) == round(6.25, 1) == 6.2
 
 
 def test_init_writes_only_the_answers_given(tmp_path):

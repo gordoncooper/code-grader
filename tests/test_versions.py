@@ -1,5 +1,5 @@
 """Versions and pins (5.0): the kit version, the scoring version and each report's version have separate jobs;
-5.x reads 4.x reports; projects pin the major they use."""
+projects pin the major they use. 6.0 reads format-5 reports, from 5.x and 6.x kits, and grades under one set of rules."""
 import copy
 import json
 import os
@@ -50,23 +50,26 @@ def cfg(gk_mod, repo):
 
 # --------------------------------------------------------------------------- reading reports across versions
 
-def test_4x_reports_stay_valid(gk):
-    """The example's reports were written by 4.2.0; a 5.x kit validates them as they are."""
-    report = json.loads(NEW.read_text())
-    assert report["suite_version"].startswith("4.")
-    c = gk.resolve_config([str(EXAMPLE / PROJ / "project.toml")], scoring=gk.scoring_version_of(report))
-    assert c["sources"][0] == "config/scoring/4.2.0.toml", "a 4.x report is checked under the 4.x scoring rules"
-    errors, _ = gk.validate_report(report, c, gk.load_catalog())
-    assert errors == []
-    assert gk.compute_rollup(report, c)["overall_score"] == report["rollup"]["overall_score"], "and recomputes as it was graded"
+def test_the_examples_are_current_reports(gk):
+    """The example's reports are format 5, graded under this kit's rules, and recompute as they were graded."""
+    for path in (OLD, NEW):
+        report = json.loads(path.read_text())
+        assert report["schema_version"] == 5 and report["suite_version"].split(".")[0] == KIT_MAJOR
+        c = gk.load_config(gk.argparse.Namespace(project_dir=str(EXAMPLE / PROJ), config=None, component=None), report, quiet=True)
+        assert c["sources"][0] == "config/defaults.toml"
+        errors, _ = gk.validate_report(report, c, gk.load_catalog())
+        assert errors == [], path
+        roll = gk.compute_rollup(report, c)
+        assert (roll["overall_score"], roll["maturity"]) == (report["rollup"]["overall_score"], report["rollup"]["maturity"])
 
 
 def test_reports_from_older_majors_are_refused(gk):
     report = json.loads(NEW.read_text())
-    report["suite_version"] = "3.1.0"
     c = gk.resolve_config([str(EXAMPLE / PROJ / "project.toml")])
-    errors, _ = gk.validate_report(report, c, gk.load_catalog())
-    assert any("reads reports from suite 4.x and 5.x" in e for e in errors)
+    for old in ("3.1.0", "4.3.0"):
+        report["suite_version"] = old
+        errors, _ = gk.validate_report(report, c, gk.load_catalog())
+        assert any("reads reports from suite 5.x and 6.x" in e for e in errors), old
 
 
 def test_new_reports_record_both_versions(repo):
@@ -75,14 +78,13 @@ def test_new_reports_record_both_versions(repo):
     catalog = json.loads((SRC / "rubric" / "catalog.json").read_text())
     assert r["suite_version"] == catalog["suite_version"]
     assert r["config"]["scoring_version"] == "5.0.0"
-    assert r["config"]["hash"] != json.loads(NEW.read_text())["config"]["hash"], "5.0 changed the scoring rules, so the fingerprint"
+    assert r["config"]["hash"] == json.loads(NEW.read_text())["config"]["hash"], "the example is graded under this kit's rules"
 
 
 def test_a_dropped_score_is_a_regression_across_kit_majors(gk):
-    """A PR check of a 5.x report against a 4.x baseline must still fail on a drop: the scoring rules are the same."""
+    """A PR check of a 6.x report against a 5.x baseline must still fail on a drop: the scoring rules are the same."""
     old, new = json.loads(NEW.read_text()), json.loads(NEW.read_text())
-    new["suite_version"] = f"{KIT_MAJOR}.0.0"
-    new["config"]["scoring_version"] = "4.2.0"
+    old["suite_version"] = "5.1.0"
     b = next(b for b in new["benchmarks"] if isinstance(b.get("score"), int) and b["score"] > 1)
     b["score"] -= 1
     c = gk.resolve_config([str(EXAMPLE / PROJ / "project.toml")])
@@ -155,11 +157,12 @@ def test_ci_needs_changes_when_a_report_comes_from_another_major(repo, tmp_path)
     git(repo, "add", "-A")
     git(repo, "commit", "-qm", "base")
     git(repo, "switch", "-q", "-c", "pr")
-    shutil.copytree(tmp_path / "newest", newest)   # written by 4.2.0, for a project pinned to this major
+    shutil.copytree(tmp_path / "newest", newest)
+    report = json.loads((newest / "report.json").read_text())
+    report["suite_version"] = "5.1.0"   # written by a 5.x kit, for a project pinned to this major
+    (newest / "report.json").write_text(json.dumps(report, indent=1))
     git(repo, "add", "-A")
     git(repo, "commit", "-qm", "report")
     r = subprocess.run(KIT + ["ci", "--base", "main", "--json"], cwd=repo, env=ENV, capture_output=True, text=True)
     res = json.loads(r.stdout)["result"]
-    if KIT_MAJOR == "4":
-        pytest.skip("the example's reports are 4.x")
     assert not res["ok"] and any("pinned to suite" in p for p in res["problems"]), res

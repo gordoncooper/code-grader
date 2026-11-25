@@ -16,11 +16,11 @@ from test_severity import five
 
 jsonschema = pytest.importorskip("jsonschema")
 
-SCHEMAS = {n: json.loads((SRC / "schema" / f"{n}.schema.json").read_text()) for n in ("report", "report-4", "index", "work-order")}
+SCHEMAS = {n: json.loads((SRC / "schema" / f"{n}.schema.json").read_text()) for n in ("report", "index", "work-order")}
 
 
 def documents(gk, tmp_path):
-    docs = [("report-4", json.loads(p.read_text())) for p in sorted((EXAMPLE / "projects" / "orders-api" / "reports").glob("*/report.json"))]
+    docs = [("report", json.loads(p.read_text())) for p in sorted((EXAMPLE / "projects" / "orders-api" / "reports").glob("*/report.json"))]
     docs.append(("report", five(gk)))
     docs.append(("index", json.loads((EXAMPLE / "projects" / "index.json").read_text())))
     order, _ = gk.write_order(tmp_path / "proj", "grade", requested_by="schedule", commit="0badc0ffee11", delivery="pr", notes="Scheduled")

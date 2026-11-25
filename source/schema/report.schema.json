@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://example.invalid/code-grading-suite/report.schema.json",
   "title": "Code Grading Suite report (format 5)",
-  "description": "Report format 5 (suite 5.x). Structural schema; gradekit.py validate adds semantic checks (config weights, IDs, caps, enforcement, leaks, fingerprints). Reports without schema_version are format 4: see report-4.schema.json.",
+  "description": "Report format 5 (suite 5.x and 6.x). Structural schema; gradekit.py validate adds semantic checks (config weights, IDs, caps, enforcement, leaks, fingerprints). Reports without schema_version are format 4 (suite 4.x), which this kit doesn't read.",
   "type": "object",
   "required": [
     "schema_version",
@@ -25,34 +25,12 @@
   "properties": {
     "schema_version": {
       "const": 5,
-      "description": "The report format. Reports without it are format 4 (suite 4.x), checked with report-4.schema.json."
+      "description": "The report format. Reports without it are format 4 (suite 4.x), which the 4.x and 5.x kits read."
     },
     "suite_version": {
       "type": "string",
-      "pattern": "^5\\.\\d+\\.\\d+$",
-      "description": "The kit version that wrote the report. 5.x reads 4.x reports unchanged."
-    },
-    "migrated": {
-      "type": "object",
-      "required": [
-        "from",
-        "by"
-      ],
-      "description": "Set by `gradekit migrate` on a 4.x report upgraded to format 5: its judgments, scores and rollup are unchanged.",
-      "properties": {
-        "from": {
-          "type": [
-            "string",
-            "null"
-          ],
-          "description": "The suite version that wrote the report"
-        },
-        "by": {
-          "type": "string",
-          "description": "The suite version that migrated it"
-        }
-      },
-      "additionalProperties": false
+      "pattern": "^[56]\\.\\d+\\.\\d+$",
+      "description": "The kit version that wrote the report."
     },
     "mode": {
       "enum": [
@@ -976,7 +954,7 @@
         },
         "enforcement": {
           "type": "array",
-          "description": "What enforces the benchmark's quality (a CI gate, lint rule, test), shaped like strengths. Format 4 stored bare evidence objects; `gradekit migrate` wraps them.",
+          "description": "What enforces the benchmark's quality (a CI gate, lint rule, test), shaped like strengths.",
           "items": {
             "type": "object",
             "required": [

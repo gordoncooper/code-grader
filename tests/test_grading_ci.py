@@ -67,7 +67,7 @@ def test_a_good_report_pull_request(repo):
 
 
 def test_acceptances_and_withdrawals_are_held_to_peoples_records(repo):
-    """5.1.0: an accepted finding must be the one people accepted (here B5-001, minor in 2026-10-24), and a withdrawn
+    """5.1.0: an accepted finding must be the one people accepted (here B5-001, major in 2026-10-24), and a withdrawn
     one needs a dispute in disputes.json."""
     add_newest(repo)
     path = repo / NEW / "report.json"
@@ -79,19 +79,19 @@ def test_acceptances_and_withdrawals_are_held_to_peoples_records(repo):
     path.write_text(json.dumps(r, indent=2))
     commit(repo)
     problems = ci(repo)["problems"]
-    assert "report: finding B5-001 is accepted, but it isn't the finding people accepted: it's critical now, and in 2026-10-24-9f8e7d6 it was minor" in problems
+    assert "report: finding B5-001 is accepted, but it isn't the finding people accepted: it's critical now, and in 2026-10-24-9f8e7d6 it was major" in problems
     assert f"report: finding {other['id']} is withdrawn, but disputes.json has no dispute on it dated 2026-11-01T00:00:00Z" in problems
 
 
 def test_a_new_report_is_no_older_than_the_projects_others(tmp_path):
-    """From a review of these fixes: an unpinned project took a 4.x report (where gates and limits are only warnings)
+    """From a review of these fixes: an unpinned project took a 4.x report (where gates and limits were only warnings)
     after 5.x ones, and a backdated folder sorted before the reports it should follow."""
     g = tmp_path / "grading"
     shutil.copytree(EXAMPLE, g)
     shutil.move(str(g / NEW), str(tmp_path / "newest"))
     old = g / "projects" / "orders-api" / "reports" / "2026-10-24-9f8e7d6" / "report.json"
     r = json.loads(old.read_text())
-    r["schema_version"] = 5   # as if graded with 5.x (CI reads only the format of earlier reports)
+    r["schema_version"] = 6   # as if graded in a later format (CI reads only the format of earlier reports)
     old.write_text(json.dumps(r, indent=2))
     git(g, "init", "-q", "-b", "main")
     commit(g, "base")
@@ -108,8 +108,7 @@ def test_a_new_report_is_no_older_than_the_projects_others(tmp_path):
 
 
 def test_a_new_report_cant_say_it_was_migrated(repo):
-    """5.1.0: `migrated` keeps a converted 4.x report's 4.x rules (warnings). Migrations rewrite reports already in the
-    repo, in a pull request of their own, so a new report carrying the marker is refused."""
+    """5.1.0: `migrated` kept a converted 4.x report's 4.x rules (warnings). 6.0 has only its own rules."""
     add_newest(repo)
     path = repo / NEW / "report.json"
     r = json.loads(path.read_text())
@@ -117,7 +116,7 @@ def test_a_new_report_cant_say_it_was_migrated(repo):
     path.write_text(json.dumps(r, indent=2))
     commit(repo)
     res = ci(repo)
-    assert not res["ok"] and any("its report says it was migrated" in p for p in res["problems"]), res["problems"]
+    assert not res["ok"] and any(p.startswith("report: migrated: `gradekit migrate` marked") for p in res["problems"]), res["problems"]
 
 
 @pytest.mark.parametrize("change, expect", [
