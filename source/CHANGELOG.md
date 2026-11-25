@@ -11,6 +11,18 @@ After any major or minor change, re-run calibration (`calibration/README.md`) be
 ## 5.1.0 (unreleased)
 Closes ways around the scores and hardens the paths agents use. No scoring rules change: config fingerprints and the calibration fingerprint stay the same, and every graded score recomputes the same.
 
+**Ways around the scores, closed**
+- **A gate can't be marked not applicable.** A gate marked `not_applicable` dropped out of the gate check, which lifted the overall cap and every level's `gate_min`: with every benchmark at 7 and A2 at 2, the overall went from 4.0 (L0) to 7.0 (L2), and `validate` and `diff` passed. Now `report score` refuses it, `validate` fails a format-5 report that does it, and `diff` and the PR check call a gate leaving the score a regression. Dropping a gate stays a person's call: `[gates] exclude` in `project.toml`. Reports graded under 4.x keep the warning.
+- **Only people accept findings.** A finding marked `accepted` needed only some text; with no entry in `dispositions.json` it was a warning, and a single `match` entry silenced that warning for every finding. Accepting a finding lifts its limits (an open critical holds its benchmark at 5), so this was a way past them. Now:
+  - `report finding accept REPORT ID` records an acceptance people made: it copies their entry's decision and reason, and refuses if no entry accepts the finding. For a `match` entry, `--entry N` says which one, and the finding keeps it as `disposition_ref`.
+  - `report finding update --status accepted` and `report finding add --status accepted` point to it. Before, nothing could write the entry's text, so a real acceptance failed `report check` unless the JSON was edited by hand.
+  - `validate` fails a format-5 report with an accepted finding that no entry accepts.
+  - `diff`, the PR-check comment and Review's comparison list newly accepted findings and who accepted them; one no entry accepts is a regression.
+
+**Every install checks a report's structure**
+- **gradekit checks reports against the schema itself.** The structural check used to need the `jsonschema` package, so with Python alone, the documented install, `validate` and `report check` passed a score of 11, an unknown `mode` or an unknown confidence with 0 errors, while the grading CI, which installs the package, failed them. The kit now has its own checker for the schema keywords it uses, held to `jsonschema`'s answers by a test over thousands of variants of the kit's documents. One difference, on purpose: a score like `8.0` isn't an integer (it would otherwise drop out of every average).
+- **Nothing to install, anywhere.** The grading CI templates no longer install `jsonschema`, the website no longer loads it into Pyodide, `vendor_pyodide.py` copies Pyodide's core files only (`--packages` still adds packages), and `doctor` no longer checks for it.
+
 ## 5.0.1
 Fixes from the 5.0 calibration runs and from the suite's first grade of itself. Calibration now passes under scoring 5.0. No scoring rule changes, so the calibration fingerprint is the same and runs 13–15 count. One thing to know before upgrading:
 

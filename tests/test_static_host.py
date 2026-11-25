@@ -19,7 +19,7 @@ def test_real_engine_on_a_plain_static_host(strict_page, static_site):
     page.click("#sample")
     page.wait_for_selector("#results:not([hidden])", timeout=60000)
     assert "Report format and rules: Valid" in page.inner_text("#panel-overview .checks")
-    assert any(u.endswith("/jsonschema-4.23.0-py3-none-any.whl") for u in requests), "packages load (and are checked)"
+    assert not [u for u in requests if u.endswith(".whl")], "the pages need no Pyodide packages (5.1.0: the schema check is built in)"
     page.goto(static_site + "app/setup.html")
     page.wait_for_selector("#engine-pill.ready", timeout=180000)
     page.wait_for_selector("#pv-status:has-text('Valid')", timeout=60000)

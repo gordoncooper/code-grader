@@ -52,7 +52,7 @@ def test_the_site_is_consistent_after(vendored):
     assert 'pyodideIndexURL: "../pyodide/"' in cfg
     manifest = json.loads((vendored / "manifest.json").read_text())
     paths = {f["path"]: f["sha256"] for f in manifest["files"]}
-    assert "pyodide/pyodide.asm.wasm" in paths and any(p.startswith("pyodide/jsonschema-") for p in paths)
+    assert "pyodide/pyodide.asm.wasm" in paths and not [p for p in paths if p.endswith(".whl")], "no packages: the pages need none"
     for path, digest in paths.items():
         assert hashlib.sha256((vendored / path).read_bytes()).hexdigest() == digest, path
     assert (vendored / "SHA256SUMS").read_text().count("\n") == len(paths)
@@ -74,9 +74,9 @@ def test_runs_with_no_cdn_at_all(strict_page, vendored):
         page.wait_for_selector("#engine-pill.ready", timeout=180000)
         page.click("#sample")
         page.wait_for_selector("#results:not([hidden])", timeout=60000)
-        assert "Report format and rules: Valid" in page.inner_text("#panel-overview .checks"), "jsonschema loaded locally"
+        assert "Report format and rules: Valid" in page.inner_text("#panel-overview .checks"), "checked with Python alone"
         assert cdn == [] and page.csp_violations() == []
-        assert any("/pyodide/jsonschema-" in u for u in loaded) and any(u.endswith("/pyodide/pyodide.asm.wasm") for u in loaded)
+        assert not [u for u in loaded if u.endswith(".whl")] and any(u.endswith("/pyodide/pyodide.asm.wasm") for u in loaded)
     finally:
         server.shutdown()
 
@@ -118,7 +118,7 @@ def test_notices_list_everything_copied_with_its_license(tmp_path):
 @pytest.mark.network
 def test_the_vendored_site_carries_the_notices(vendored):
     notes = (vendored / "pyodide" / "THIRD-PARTY-NOTICES.md").read_text()
-    assert "MPL-2.0" in notes and "PSF-2.0" in notes and "jsonschema" in notes
+    assert "MPL-2.0" in notes and "PSF-2.0" in notes
     assert "Mozilla Public License" in (vendored / "pyodide" / "licenses" / "pyodide-LICENSE").read_text()
     paths = {f["path"] for f in json.loads((vendored / "manifest.json").read_text())["files"]}
     assert "pyodide/THIRD-PARTY-NOTICES.md" in paths, "the notices are part of the checked site"

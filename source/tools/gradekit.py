@@ -43,7 +43,7 @@ effective-config JSON produced by `resolve --out`.
 
 The website runs this same file in the browser (Pyodide) through web_api().
 
-Python 3.11+ (uses tomllib); standard library only. Uses `jsonschema` when installed.
+Python 3.11+ (uses tomllib); standard library only, including the report schema check.
 Every command takes --json: one JSON object on stdout, {ok, exit_code, command, result, text}
 (with "error" when it failed), so agents never parse text.
 
@@ -736,23 +736,128 @@ def analyze_findings(report: dict, cfg: dict) -> dict:
     return out
 
 
+# =========================================================================== schema
+# The kit's own JSON Schema checker, so every install checks a report's structure the same way, with nothing to
+# install: the command line, the grading CI and the website. It covers the keywords the kit's schemas use (draft
+# 2020-12): type, enum, const, pattern, required, properties, additionalProperties, items, $ref (within the schema),
+# oneOf, minimum, maximum, exclusiveMinimum, minLength and minItems. tests/test_schema_check.py holds it to the
+# jsonschema package's answers. One difference, on purpose: "integer" means a JSON integer, so 8.0 isn't one (a
+# float score would otherwise pass here and then drop out of every average).
+
+SCHEMA_KEYWORDS = {"type", "enum", "const", "pattern", "required", "properties", "additionalProperties", "items", "$ref", "oneOf",
+                   "minimum", "maximum", "exclusiveMinimum", "minLength", "minItems",
+                   "$schema", "$id", "$defs", "title", "description"}   # the last five only describe
+
+
+def _json_type_ok(value, name: str) -> bool:
+    if name == "null":
+        return value is None
+    if name == "boolean":
+        return isinstance(value, bool)
+    if name == "integer":
+        return isinstance(value, int) and not isinstance(value, bool)
+    if name == "number":
+        return isinstance(value, (int, float)) and not isinstance(value, bool)
+    return isinstance(value, {"string": str, "object": dict, "array": list}[name])
+
+
+def _json_equal(a, b) -> bool:
+    """JSON equality: true is not 1, and 1 is 1.0."""
+    if isinstance(a, bool) or isinstance(b, bool):
+        return isinstance(a, bool) and isinstance(b, bool) and a == b
+    if isinstance(a, (int, float)) and isinstance(b, (int, float)):
+        return a == b
+    if isinstance(a, list) and isinstance(b, list):
+        return len(a) == len(b) and all(_json_equal(x, y) for x, y in zip(a, b))
+    if isinstance(a, dict) and isinstance(b, dict):
+        return a.keys() == b.keys() and all(_json_equal(a[k], b[k]) for k in a)
+    return type(a) is type(b) and a == b
+
+
+def _schema_ref(root: dict, ref: str) -> dict:
+    if not ref.startswith("#"):
+        die(f"schema: only references within the schema are supported, not {ref!r}")
+    node = root
+    for part in [p.replace("~1", "/").replace("~0", "~") for p in ref[1:].split("/") if p]:
+        node = node[part]
+    return node
+
+
+def schema_errors(value, schema: dict, root: dict | None = None, path: tuple = ()):
+    """Yield (path, message) for every way `value` breaks `schema`."""
+    root = root if root is not None else schema
+    if schema is True or schema == {}:
+        return
+    if schema is False:
+        yield path, f"{value!r} isn't allowed here"
+        return
+    unknown = set(schema) - SCHEMA_KEYWORDS
+    if unknown:
+        die(f"schema: keyword(s) {', '.join(sorted(unknown))} aren't supported by gradekit's schema check")
+    if "$ref" in schema:
+        yield from schema_errors(value, _schema_ref(root, schema["$ref"]), root, path)
+    if "type" in schema:
+        names = schema["type"] if isinstance(schema["type"], list) else [schema["type"]]
+        if not any(_json_type_ok(value, n) for n in names):
+            yield path, f"{value!r} is not of type {', '.join(repr(n) for n in names)}"
+            return   # the other keywords' messages would only repeat it
+    if "enum" in schema and not any(_json_equal(value, e) for e in schema["enum"]):
+        yield path, f"{value!r} is not one of {schema['enum']!r}"
+    if "const" in schema and not _json_equal(value, schema["const"]):
+        yield path, f"{schema['const']!r} was expected"
+    if "oneOf" in schema:
+        valid = [i for i, sub in enumerate(schema["oneOf"]) if next(schema_errors(value, sub, root, path), None) is None]
+        if not valid:
+            yield path, f"{value!r} is not valid under any of the given schemas"
+        elif len(valid) > 1:
+            yield path, f"{value!r} is valid under each of {', '.join(str(i) for i in valid)}"
+    if isinstance(value, str):
+        if "minLength" in schema and len(value) < schema["minLength"]:
+            yield path, f"{value!r} should be non-empty" if schema["minLength"] == 1 else f"{value!r} is too short"
+        if "pattern" in schema and not re.search(schema["pattern"], value):
+            yield path, f"{value!r} does not match {schema['pattern']!r}"
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        if "minimum" in schema and value < schema["minimum"]:
+            yield path, f"{value!r} is less than the minimum of {schema['minimum']!r}"
+        if "exclusiveMinimum" in schema and value <= schema["exclusiveMinimum"]:
+            yield path, f"{value!r} is less than or equal to the minimum of {schema['exclusiveMinimum']!r}"
+        if "maximum" in schema and value > schema["maximum"]:
+            yield path, f"{value!r} is greater than the maximum of {schema['maximum']!r}"
+    if isinstance(value, list):
+        if "minItems" in schema and len(value) < schema["minItems"]:
+            yield path, f"{value!r} should be non-empty" if schema["minItems"] == 1 else f"{value!r} is too short"
+        if "items" in schema:
+            for i, item in enumerate(value):
+                yield from schema_errors(item, schema["items"], root, path + (i,))
+    if isinstance(value, dict):
+        for key in schema.get("required", []):
+            if key not in value:
+                yield path, f"{key!r} is a required property"
+        props = schema.get("properties", {})
+        for key, sub in props.items():
+            if key in value:
+                yield from schema_errors(value[key], sub, root, path + (key,))
+        extra = [k for k in value if k not in props]
+        if extra and schema.get("additionalProperties") is False:
+            yield path, (f"Additional properties are not allowed ({', '.join(repr(k) for k in extra)} "
+                         f"{'was' if len(extra) == 1 else 'were'} unexpected)")
+        elif extra and isinstance(schema.get("additionalProperties"), dict):
+            for key in extra:
+                yield from schema_errors(value[key], schema["additionalProperties"], root, path + (key,))
+
+
+def schema_messages(value, schema: dict) -> list[str]:
+    """`schema: PATH: MESSAGE` lines, in path order."""
+    found = sorted(schema_errors(value, schema), key=lambda e: [(0, p, "") if isinstance(p, int) else (1, 0, p) for p in e[0]])
+    return [f"schema: {'/'.join(str(p) for p in loc) or '(root)'}: {msg}" for loc, msg in found]
+
+
 # =========================================================================== validate
 
 def validate_report(report: dict, cfg: dict, catalog: dict) -> tuple[list[str], list[str]]:
     errors: list[str] = []
     warnings: list[str] = []
-    try:
-        import jsonschema  # type: ignore
-
-        validator = jsonschema.Draft202012Validator(load_json(SCHEMA_PATH if report_format(report) >= 5 else SCHEMA4_PATH))
-        for err in sorted(validator.iter_errors(report), key=lambda e: list(e.path)):
-            loc = "/".join(str(p) for p in err.path) or "(root)"
-            errors.append(f"schema: {loc}: {err.message}")
-    except ImportError:
-        warnings.append("jsonschema not installed; structural schema check skipped (semantic checks still run)")
-        for key in ("suite_version", "mode", "run", "config", "benchmarks", "findings"):
-            if key not in report:
-                errors.append(f"missing required field '{key}'")
+    errors += schema_messages(report, load_json(SCHEMA_PATH if report_format(report) >= 5 else SCHEMA4_PATH))
     if not isinstance(report.get("benchmarks"), list):
         return errors, warnings
 
@@ -4066,12 +4171,6 @@ def doctor_checks(args) -> list[dict]:
     except Exception as exc:   # noqa: BLE001 - any failure here means a broken kit
         out.append(_check("kit", "fail", f"can't load the kit at {SUITE_DIR}: {exc}", "download the kit again"))
         return out
-    try:
-        import jsonschema  # type: ignore  # noqa: F401
-        out.append(_check("jsonschema", "ok", "installed: full schema checks"))
-    except ImportError:
-        out.append(_check("jsonschema", "warn", "not installed: validate skips the structural schema check",
-                          "pip install jsonschema (optional)"))
     tmp = Path(tempfile.gettempdir())
     try:
         with tempfile.NamedTemporaryFile(dir=tmp, prefix="gradekit-doctor-") as fh:
@@ -7325,8 +7424,7 @@ def _api_check(p):
     report = p["report"]
     cfg, source = _web_cfg(p, report)
     errors, warnings = validate_report(report, cfg, load_catalog())
-    notes = [w for w in warnings if w.startswith("jsonschema not installed")]  # about this browser, not the report
-    warnings = [w for w in warnings if w not in notes]
+    notes: list[str] = []   # about this browser, not the report (none since the schema check is built in)
     roll = compute_rollup(report, cfg)
     rc = report.get("config") or {}
     return {"validation": {"errors": errors, "warnings": cfg.get("warnings", []) + warnings, "notes": notes},
