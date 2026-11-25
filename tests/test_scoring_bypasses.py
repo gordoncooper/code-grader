@@ -1,5 +1,9 @@
-"""Two ways around the scores that the suite's self-grade found (5.0.1): a finding dropped from its benchmark's
-finding_ids escaped the open-critical limit, and `deliver` shipped a stored rollup older than the scores."""
+"""Ways around the scores, closed.
+
+5.0.1 (the suite's self-grade): a finding dropped from its benchmark's finding_ids escaped the open-critical limit, and
+`deliver` shipped a stored rollup older than the scores.
+5.1.0 (the 5.0.1 review): a gate marked not_applicable dropped out of the gate check, lifting the overall cap."""
+import copy
 import json
 import shutil
 import subprocess
@@ -113,6 +117,68 @@ def test_deliver_always_ships_the_current_rollup(ready):
     assert (shipped["overall_score"], shipped["maturity"]["current_level"]) == right
     md = (repo / rel).with_name("report.md").read_text()
     assert f"**{right[0]}**" in md or str(right[0]) in md
+
+
+# --------------------------------------------------------------------------- gates can't be not applicable (5.1.0)
+# The review's probe: every benchmark at 7 and A2 at 2 capped the overall at 4.0 (L0); `report score A2 --applicability
+# not_applicable` gave 7.0 (L2), and validate and diff both passed. Dropping a gate is a person's call, in the config.
+
+def not_applicable(r, bid="A2"):
+    b = next(b for b in r["benchmarks"] if b["id"] == bid)
+    b.update(applicability="not_applicable", applicability_reason="security is the platform team's job", score=None,
+             confidence=None, weight=0)
+    return b
+
+
+def graded_here(gk):
+    """five(), as if this kit graded it (not migrated from 4.x), so its rules hold."""
+    r = five(gk)
+    r.pop("migrated", None)
+    return r
+
+
+def test_a_gate_cant_be_not_applicable(gk):
+    cfg, r = config(gk), graded_here(gk)
+    not_applicable(r)
+    errors, _ = gk.validate_report(r, cfg, gk.load_catalog())
+    assert any(e.startswith("A2 is a gate (always), so it can't be not_applicable") and '[gates] exclude = ["A2"]' in e
+               for e in errors)
+
+
+def test_reports_graded_under_4x_keep_a_warning(gk):
+    cfg, r = config(gk), five(gk)   # migrated from 4.x: graded before the rule
+    not_applicable(r)
+    errors, warnings = gk.validate_report(r, cfg, gk.load_catalog())
+    assert not [e for e in errors if "can't be not_applicable" in e]
+    assert [w for w in warnings if "can't be not_applicable" in w]
+
+
+def test_a_person_drops_a_gate_in_the_config(gk):
+    layers = [("project.toml", gk.load_toml(EXAMPLE / PROJ / "project.toml")), ("org.toml", {"gates": {"exclude": ["A2"]}})]
+    cfg, r = gk.resolve_layers(layers), graded_here(gk)
+    r["config"]["hash"] = cfg["hash"]
+    not_applicable(r)
+    errors, _ = gk.validate_report(r, cfg, gk.load_catalog())
+    assert not [e for e in errors if e.startswith("A2")], errors
+
+
+def test_report_score_refuses_a_gate_as_not_applicable(ready):
+    repo, rel = ready
+    r = subprocess.run(KIT + ["report", "score", rel, "A2", "--applicability", "not_applicable", "--reason", "the platform team's"],
+                       cwd=repo, capture_output=True, text=True)
+    assert r.returncode == 1 and "A2 is a gate (always)" in r.stderr and "[gates] exclude" in r.stderr
+    a2 = next(b for b in json.loads((repo / rel).read_text())["benchmarks"] if b["id"] == "A2")
+    assert a2["applicability"] == "full" and a2["score"] == 7, "nothing was saved"
+
+
+def test_a_gate_leaving_the_score_is_a_regression(gk):
+    cfg, old = config(gk), graded_here(gk)
+    new = copy.deepcopy(old)
+    not_applicable(new)
+    d = gk.compute_diff(old, new, cfg, cfg)
+    assert d["verdict"] == "FAIL"
+    assert "gate A2 is no longer scored (it was 9): a gate can't be not_applicable" in d["regressions"]
+    assert not [n for n in d["notes"] if n.startswith("A2 went from")], "said once, as the regression"
 
 
 # --------------------------------------------------------------------------- rounding (A1-act-3)

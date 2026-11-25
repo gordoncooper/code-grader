@@ -8,6 +8,9 @@ Versioning rules for the suite itself:
 
 After any major or minor change, re-run calibration (`calibration/README.md`) before trusting new scores.
 
+## 5.1.0 (unreleased)
+Closes ways around the scores and hardens the paths agents use. No scoring rules change: config fingerprints and the calibration fingerprint stay the same, and every graded score recomputes the same.
+
 ## 5.0.1
 Fixes from the 5.0 calibration runs and from the suite's first grade of itself. Calibration now passes under scoring 5.0. No scoring rule changes, so the calibration fingerprint is the same and runs 13–15 count. One thing to know before upgrading:
 

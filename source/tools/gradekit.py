@@ -819,7 +819,9 @@ def validate_report(report: dict, cfg: dict, catalog: dict) -> tuple[list[str], 
             errors.append(f"{bid}: weight {b.get('weight')} should be {want} ({app} applicability, config weight {cw})")
         if app in ("limited", "not_applicable") and not (b.get("applicability_reason") or "").strip():
             errors.append(f"{bid}: applicability '{app}' requires applicability_reason")
-        if bid in gates and app != "full":
+        if bid in gates and app == "not_applicable":
+            (errors if limits_enforced(report) else warnings).append(gate_not_applicable(bid, cfg))
+        elif bid in gates and app != "full":
             warnings.append(f"{bid} is a gate but marked '{app}'; gates should almost always fully apply. Double-check.")
         score = b.get("score")
         if app == "not_applicable":
@@ -1227,6 +1229,17 @@ def limits_enforced(report: dict) -> bool:
     return report_format(report) >= 5 and not report.get("migrated")
 
 
+def gate_not_applicable(bid: str, cfg: dict) -> str | None:
+    """Why a gate can't be not_applicable: it would drop out of the gate check, and with it the overall cap and every
+    level's gate_min. Dropping a gate is a person's decision, made in the config, never a grader's."""
+    if bid not in cfg["gates"]["benchmarks"]:
+        return None
+    why = ", ".join(cfg["gates"]["why"].get(bid, [])) or "the config"
+    return (f"{bid} is a gate ({why}), so it can't be not_applicable: that would take it out of the gate check. If it truly "
+            f"doesn't apply to this project, a person removes the gate in project.toml ([gates] exclude = [\"{bid}\"]); "
+            "otherwise grade it, as limited if it applies only slightly")
+
+
 def over_limit(b: dict, limit: dict | None) -> list[dict]:
     """The reasons a benchmark's score is too high: caps and open critical findings. (Strengths and enforcement
     are checked on their own, since a grader adds them after scoring.)"""
@@ -1620,6 +1633,9 @@ def compute_diff(old: dict, new: dict, cfg_old: dict, cfg_new: dict) -> dict:
         notes.append(f"scoring versions differ ({scoring_version_of(old)} → {scoring_version_of(new)}); score deltas are not "
                      "comparable and are not used for regressions")
     ob, nb = benchmarks_by_id(old), benchmarks_by_id(new)
+    # A gate that stops being scored leaves the gate check, which lifts the overall cap: that's never an improvement.
+    gates_unscored = {g["benchmark_id"] for g in r_new["gates"] if g["status"] == "not scored"} & \
+                     {g["benchmark_id"] for g in r_old["gates"] if g["status"] in ("passed", "failed")}
     changes = []
     for bid in [b["id"] for b in load_catalog()["benchmarks"]]:
         so, sn = ob.get(bid, {}).get("score"), nb.get(bid, {}).get("score")
@@ -1628,7 +1644,10 @@ def compute_diff(old: dict, new: dict, cfg_old: dict, cfg_new: dict) -> dict:
             if same_major and isinstance(so, int) and isinstance(sn, int) and sn < so:
                 regressions.append(f"{bid} dropped {so} → {sn}")
             if same_major and isinstance(so, int) and sn is None:
-                notes.append(f"{bid} went from {so} to N/A; check the applicability reason")
+                if bid in gates_unscored:
+                    regressions.append(f"gate {bid} is no longer scored (it was {so}): a gate can't be not_applicable")
+                else:
+                    notes.append(f"{bid} went from {so} to N/A; check the applicability reason")
         go = set(ob.get(bid, {}).get("gaming_flags", []) or [])
         for gflag in sorted(set(nb.get(bid, {}).get("gaming_flags", []) or []) - go):
             regressions.append(f"{bid} new gaming flag: {gflag}")
@@ -3052,6 +3071,8 @@ def cmd_report_score(args) -> int:
         b["applicability_reason"] = args.reason or None
     if b["applicability"] in ("limited", "not_applicable") and not (b.get("applicability_reason") or "").strip():
         die(f"{b['id']} is {b['applicability']}: give --reason (based on the project's purpose, not its quality)")
+    if b["applicability"] == "not_applicable" and limits_enforced(report) and gate_not_applicable(b["id"], cfg):
+        die(gate_not_applicable(b["id"], cfg))
     if b["applicability"] == "not_applicable":
         if args.score is not None:
             die("a not_applicable benchmark has no score")
