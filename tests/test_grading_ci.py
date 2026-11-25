@@ -66,6 +66,19 @@ def test_a_good_report_pull_request(repo):
     assert "review.html?repo=https://github.com/acme/grading&project=orders-api&ref=report/orders-api/2026-11-07-a1b2c3d" in c
 
 
+def test_a_new_report_cant_say_it_was_migrated(repo):
+    """5.1.0: `migrated` keeps a converted 4.x report's 4.x rules (warnings). Migrations rewrite reports already in the
+    repo, in a pull request of their own, so a new report carrying the marker is refused."""
+    add_newest(repo)
+    path = repo / NEW / "report.json"
+    r = json.loads(path.read_text())
+    r["migrated"] = {"from": "4.2.0", "by": "5.0.1"}
+    path.write_text(json.dumps(r, indent=2))
+    commit(repo)
+    res = ci(repo)
+    assert not res["ok"] and any("its report says it was migrated" in p for p in res["problems"]), res["problems"]
+
+
 @pytest.mark.parametrize("change, expect", [
     ("private", "private report"),
     ("edit-old", "never edited"),

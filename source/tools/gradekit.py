@@ -924,9 +924,12 @@ def validate_report(report: dict, cfg: dict, catalog: dict) -> tuple[list[str], 
                               "`report check --write` or `rollup --write`)")
             elif not f.get("fingerprint"):
                 warnings.append(f"finding {fid}: no fingerprint yet (`report check --write` or `rollup --write` adds it)")
-    if (report_format(report) >= 5 and report.get("rollup") and not report.get("migrated")
+    if (report_format(report) >= 5 and report.get("rollup") and not migrated_4x(report)
             and not str((report.get("run") or {}).get("model") or "").strip()):
         errors.append("run.model is empty: a finished report records the model that graded it (`report set REPORT run.model NAME`)")
+    if report.get("migrated") and not migrated_4x(report):
+        errors.append(f"migrated: only a 4.x report that `gradekit migrate` converted carries this marker, and this report was "
+                      f"graded under scoring {scoring_version_of(report)}; remove the marker")
     fz = analyze_findings(report, cfg)
     limits = score_limits(report, cfg, fz, catalog)
     caps_ = catalog_caps(catalog)
@@ -1368,8 +1371,13 @@ def score_limits(report: dict, cfg: dict, fz: dict | None = None, catalog: dict 
 
 
 def limits_enforced(report: dict) -> bool:
-    """Format-5 reports are held to their limits; 4.x reports (and migrated ones, graded under 4.x) get warnings."""
-    return report_format(report) >= 5 and not report.get("migrated")
+    """Format-5 reports are held to their limits; 4.x reports, and 4.x reports `gradekit migrate` converted (still graded
+    under the 4.x rules), get warnings. A `migrated` marker on a report graded under later rules changes nothing."""
+    return report_format(report) >= 5 and not migrated_4x(report)
+
+
+def migrated_4x(report: dict) -> bool:
+    return bool(report.get("migrated")) and major(scoring_version_of(report)) == "4"
 
 
 def gate_not_applicable(bid: str, cfg: dict) -> str | None:
@@ -5674,6 +5682,9 @@ def ci_check(root: Path, base: str, head: str, changes: list[tuple[str, str]], s
                     problems.append(f"the project is pinned to suite {pin}, but this report was made with suite {report.get('suite_version')}: "
                                     f"grade it with a {pin}.x kit, or change the pin in project.toml first (a settings change of its own)")
                 problems += [f"report: {e}" for e in errors]
+                if report.get("migrated"):   # migrations rewrite existing reports, in a migration pull request
+                    problems.append(f"{rel} is new, but its report says it was migrated: `gradekit migrate` converts reports already "
+                                    "in the repo, in a pull request of its own; a new report is graded with this kit")
                 warnings += [f"report: {w}" for w in cfg.get("warnings", []) + warns if "run `gradekit redact" not in w]
                 if (cfg.get("publishing") or PUBLISHING_DEFAULTS).get("public"):
                     problems += [f"publish: {e}" for e in publish_problems(report)]

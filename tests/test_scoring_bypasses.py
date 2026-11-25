@@ -2,8 +2,9 @@
 
 5.0.1 (the suite's self-grade): a finding dropped from its benchmark's finding_ids escaped the open-critical limit, and
 `deliver` shipped a stored rollup older than the scores.
-5.1.0 (the 5.0.1 review): a gate marked not_applicable dropped out of the gate check, lifting the overall cap; and a
-grader could mark findings accepted itself (only a warning), while no command recorded people's acceptances."""
+5.1.0 (the 5.0.1 review): a gate marked not_applicable dropped out of the gate check, lifting the overall cap; a
+grader could mark findings accepted itself (only a warning), while no command recorded people's acceptances; and a
+`migrated` marker on any report turned every format-5 rule into a warning."""
 import copy
 import json
 import shutil
@@ -138,6 +139,13 @@ def graded_here(gk):
     return r
 
 
+def migrated_from_4x(gk):
+    """five(), still graded under the 4.x rules, as `gradekit migrate` leaves a 4.x report."""
+    r = five(gk)
+    r["config"]["scoring_version"] = "4.2.0"
+    return r
+
+
 def test_a_gate_cant_be_not_applicable(gk):
     cfg, r = config(gk), graded_here(gk)
     not_applicable(r)
@@ -147,7 +155,7 @@ def test_a_gate_cant_be_not_applicable(gk):
 
 
 def test_reports_graded_under_4x_keep_a_warning(gk):
-    cfg, r = config(gk), five(gk)   # migrated from 4.x: graded before the rule
+    cfg, r = config(gk), migrated_from_4x(gk)   # graded before the rule
     not_applicable(r)
     errors, warnings = gk.validate_report(r, cfg, gk.load_catalog())
     assert not [e for e in errors if "can't be not_applicable" in e]
@@ -223,7 +231,7 @@ def test_a_match_entry_accepts_only_the_findings_that_name_it(gk):
 
 
 def test_reports_graded_under_4x_keep_their_warning(gk):
-    cfg, r = config(gk), five(gk)
+    cfg, r = config(gk), migrated_from_4x(gk)
     accepted_by_hand(r)
     errors, warnings = gk.validate_report(r, cfg, gk.load_catalog())
     assert not [e for e in errors if "dispositions.json" in e]
@@ -275,6 +283,21 @@ def test_a_finding_no_entry_accepts_cant_be_accepted(ready):
             "--absence", "x", "--method", "y", cwd=repo, ok=False)
     assert r.returncode == 1 and "report finding accept REPORT ID" in r.stderr
     assert next(f for f in json.loads((repo / rel).read_text())["findings"] if f["id"] == fid)["status"] == "new"
+
+
+# --------------------------------------------------------------------------- the migrated marker (5.1.0)
+# `migrated` marks a 4.x report that `gradekit migrate` converted, which keeps its 4.x rules (warnings). Nothing checked
+# the claim, so adding it to any report relaxed every format-5 rule: limits, gates, acceptances.
+
+def test_a_migrated_marker_relaxes_nothing_on_a_report_graded_under_5x(gk):
+    cfg, r = config(gk), graded_here(gk)
+    r["migrated"] = {"from": "4.2.0", "by": "5.0.1"}
+    not_applicable(r)
+    assert gk.limits_enforced(r)
+    errors, _ = gk.validate_report(r, cfg, gk.load_catalog())
+    assert any(e.startswith("migrated: only a 4.x report that `gradekit migrate` converted carries this marker") for e in errors)
+    assert any("so it can't be not_applicable" in e for e in errors), "the gate rule still holds"
+    assert not gk.limits_enforced(migrated_from_4x(gk)), "a real migration keeps its 4.x rules"
 
 
 # --------------------------------------------------------------------------- rounding (A1-act-3)
