@@ -275,7 +275,7 @@ def test_report_commands_that_install_packages_are_left_out(repo, tmp_path):
     ("npm test --silent", "tests"), ("go test ./...", "tests"), ("./gradlew test", "tests"), ("./mvnw -q verify", "tests"),
     ("pytest tests/test_x.py::test_y", "tests"), ("cargo clippy -- -D warnings", "lint"), ("npx eslint src", "lint"),
     ("isort --check-only .", "lint"), ("npx tsc --noEmit", "types"), ("python3 -m build", "build"), ("pip-audit", "audit"),
-    ("coverage report", "coverage"),
+    ("coverage report", "coverage"), ("mvn -pl api -am -Dskip.it=true verify", "tests"), ("./gradlew clean check", "tests"),
 ])
 def test_plain_check_commands_from_a_report_run(gk, command, kind):
     assert gk.guard_plain_kind(command) == kind
@@ -288,6 +288,9 @@ def test_plain_check_commands_from_a_report_run(gk, command, kind):
     "npx pytest-lookalike", "npx --package=other eslint", "uv run --with other pytest",
     "pytest --basetemp=/home/someone",   # pytest deletes its basetemp first
     "go test -toolexec=/bin/sh ./...", "pytest ../elsewhere", "pytest -k 'not slow'", "pytest tests/*",
+    # Maven and Gradle run any goal or task they're named (from a red-team review): only known ones from a report
+    "mvn exec:java -Dexec.mainClass=Evil test", "mvn release:perform verify", "mvn install", "gradle uploadArchives build",
+    "./gradlew evilTask check",
 ])
 def test_anything_else_from_a_report_is_left_out(gk, command):
     assert gk.guard_plain_kind(command) is None

@@ -120,19 +120,31 @@ JSON_KINDS = {dict: "an object", list: "a list", str: "a string", int: "a number
               type(None): "null"}
 
 
+def _finite_number(text: str) -> float:
+    value = float(text)
+    if value != value or value in (float("inf"), float("-inf")):
+        raise ValueError(f"the number {text} is too large for JSON")
+    return value
+
+
+def _not_json(name: str):
+    raise ValueError(f"{name} isn't valid JSON")
+
+
 def load_json(path, want: type | tuple = dict):
     """A JSON file's content. Every file the kit reads holds an object ({…}) unless `want` says otherwise, and anything
-    else is refused here, so no command trips over a report that's a list or a string."""
+    else is refused here, so no command trips over a report that's a list or a string. NaN, Infinity and numbers too
+    large to store are refused too: the kit's own JSON output must stay JSON."""
     try:
         with open(path, encoding="utf-8") as fh:
-            data = json.load(fh)
+            data = json.load(fh, parse_float=_finite_number, parse_constant=_not_json)
     except FileNotFoundError:
         die(f"file not found: {path}")
     except IsADirectoryError:
         die(f"{path} is a folder, not a JSON file")
     except UnicodeDecodeError as exc:
         die(f"{path} isn't UTF-8 text: {exc}")
-    except json.JSONDecodeError as exc:
+    except ValueError as exc:   # json.JSONDecodeError is one
         die(f"{path} is not valid JSON: {exc}")
     if want and not isinstance(data, want):
         should = " or ".join(dict.fromkeys(JSON_KINDS[t] for t in (want if isinstance(want, tuple) else (want,))))
@@ -6657,8 +6669,32 @@ def guard_plain_kind(command: str) -> str | None:
         for kind, pat in GUARD_KIND_PATTERNS:
             m = re.match(pat, text)
             if m and m.group(0).split()[0] == form[0]:   # the program is the tool, not a name that starts like one
-                return kind
+                return kind if guard_build_goals_ok(form) else None
     return None
+
+
+# Maven and Gradle run whatever goals or tasks they're given (exec:java, deploy, uploadArchives…), so a report's
+# command may name only these, plus flags and the values of the flags listed.
+GUARD_BUILD_GOALS = {"mvn": {"clean", "validate", "compile", "test-compile", "test", "package", "verify", "integration-test"},
+                     "gradle": {"clean", "test", "check", "build", "assemble", "compileJava", "compileTestJava"}}
+GUARD_BUILD_VALUE_FLAGS = {"mvn": {"-pl", "--projects", "-P", "--activate-profiles", "-T", "--threads", "-rf", "--resume-from"},
+                           "gradle": {"-p", "--project-dir", "-x", "--exclude-task"}}
+
+
+def guard_build_goals_ok(form: list[str]) -> bool:
+    tool = {"mvn": "mvn", "mvnw": "mvn", "gradle": "gradle", "gradlew": "gradle"}.get(form[0])
+    if tool is None:
+        return True
+    words, i = form[1:], 0
+    while i < len(words):
+        w = words[i]
+        if w.startswith("-"):
+            i += 2 if w in GUARD_BUILD_VALUE_FLAGS[tool] else 1
+            continue
+        if w not in GUARD_BUILD_GOALS[tool]:
+            return False
+        i += 1
+    return True
 
 # Markers a change can add to make a check quieter without making the code better. Counted per line.
 GUARD_MARKERS = {
@@ -8437,7 +8473,12 @@ def main(argv=None) -> int:
            "text": buf.getvalue()}
     if error:
         out["error"] = error
-    print(json.dumps(out, indent=2, ensure_ascii=False))
+    try:
+        print(json.dumps(out, indent=2, ensure_ascii=False, allow_nan=False))   # NaN and Infinity aren't JSON
+    except (TypeError, ValueError) as e:
+        print(json.dumps({"ok": False, "exit_code": 1, "command": out["command"], "result": None, "text": out["text"],
+                          "error": f"internal error (the result isn't JSON: {e}): a gradekit bug"}, indent=2, ensure_ascii=False))
+        return 1
     return rc
 
 
