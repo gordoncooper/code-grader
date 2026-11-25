@@ -30,8 +30,8 @@ Copy the *contents* of the built folder to a directory on your server, for examp
 `versions.json` lists the versions, newest first, with paths relative to the file. With it, the pages show a version menu, **Start a run** writes prompts that point at the page's own major (`…/v5/AGENT.md`), and `AGENT.md` sends agents to the project's pinned major. Every built site ships a `versions.json` that lists only itself, so a single version needs nothing. To host several, replace the one beside each copy's `index.html`. It isn't in `SHA256SUMS`, because it describes your host rather than the kit:
 
 ```json
-{"latest": "5.0.1",
- "versions": [{"major": "5", "version": "5.0.1", "path": "v5/"}, {"major": "4", "version": "4.3.0", "path": "v4/"}]}
+{"latest": "5.1.0",
+ "versions": [{"major": "5", "version": "5.1.0", "path": "v5/"}, {"major": "4", "version": "4.3.0", "path": "v4/"}]}
 ```
 
 In `/grading/v4/versions.json` the paths are `../v5/` and `../v4/`. On GitHub Pages, this repo's *Publish website* workflow builds the whole layout from the release tags (`.github/scripts/site_versions.py`).
@@ -79,7 +79,7 @@ cd web && python3 -m http.server 8000
 BASE=https://your-server/grading/v5
 curl -sI "$BASE/AGENT.md" | grep -i content-type     # expect text/markdown; charset=utf-8
 curl -s  "$BASE/SHA256SUMS" -o SHA256SUMS
-curl -s  "$BASE/downloads/code-grading-suite-5.0.1.zip" -o code-grading-suite-5.0.1.zip
+curl -s  "$BASE/downloads/code-grading-suite-5.1.0.zip" -o code-grading-suite-5.1.0.zip
 sha256sum -c SHA256SUMS --ignore-missing              # expect: OK
 ```
 
@@ -104,11 +104,11 @@ python3 tools/vendor_pyodide.py path/to/site                       # downloads t
 python3 tools/vendor_pyodide.py path/to/site --from ./pyodide-0.29.3  # or uses files you already have
 ```
 
-It copies Pyodide's core files and the packages the pages use into `pyodide/`. It refuses any file that doesn't match its pinned hash or Pyodide's lock file. It also writes `pyodide/THIRD-PARTY-NOTICES.md` and `pyodide/licenses/`: the licenses of what it copied (Pyodide's MPL-2.0 with where its source is, CPython's for the standard library, and each package's, taken from its own wheel), which their terms ask anyone redistributing them to include. It downloads Pyodide's and CPython's license texts for the exact versions; offline, give `--licenses-from DIR` with `pyodide-LICENSE` and `cpython-LICENSE`. Then it points `assets/engine-config.js` at the local copy and updates `manifest.json` and `SHA256SUMS`. The pages still check every file as they load it.
+It copies Pyodide's core files into `pyodide/` (the pages need no Pyodide packages: gradekit checks the report schema itself). It refuses any file that doesn't match its pinned hash or Pyodide's lock file. It also writes `pyodide/THIRD-PARTY-NOTICES.md` and `pyodide/licenses/`: the licenses of what it copied (Pyodide's MPL-2.0 with where its source is, CPython's for the standard library, and the license of any package you add with `--packages`, taken from its own wheel), which their terms ask anyone redistributing them to include. It downloads Pyodide's and CPython's license texts for the exact versions; offline, give `--licenses-from DIR` with `pyodide-LICENSE` and `cpython-LICENSE`. Then it points `assets/engine-config.js` at the local copy and updates `manifest.json` and `SHA256SUMS`. The pages still check every file as they load it.
 
 To set it up by hand instead:
 
-1. Download the Pyodide release named in `assets/engine-config.js` from the Pyodide GitHub releases page. The "core" archive is enough to run everything. **Review a report** also uses Pyodide's `jsonschema` package (and its dependencies) for the full report-format check; it's in the full archive. Without it, the page still checks every scoring rule and notes that the structural schema check was skipped.
+1. Download the Pyodide release named in `assets/engine-config.js` from the Pyodide GitHub releases page. The "core" archive is enough to run everything, including the full report-format check.
 2. Unpack it into a folder on your server, e.g. `/grading/pyodide/`.
 3. Edit `assets/engine-config.js` and set `pyodideIndexURL` to that folder, e.g. `"../pyodide/"` or `"/grading/pyodide/"`. Keep the same Pyodide version: the pinned hashes still apply. A different version needs its own `pyodideIntegrity` hashes (`openssl dgst -sha384 -binary FILE | base64` for each file).
 4. Keep it on the same server as the site. The pages' content-security policy (below) allows scripts only from the site itself and `cdn.jsdelivr.net`.

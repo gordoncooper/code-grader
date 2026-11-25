@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Put the Python runtime (Pyodide) inside a built Code Grading Suite website.
 
-    python3 vendor_pyodide.py SITE_DIR [--from DIR_OR_URL] [--packages jsonschema …]
+    python3 vendor_pyodide.py SITE_DIR [--from DIR_OR_URL] [--packages NAME …]
 
 The website's Setup and Review pages run gradekit in the browser with Pyodide, which they normally
 load from the jsDelivr CDN. For an air-gapped network, or a host whose security policy allows only
@@ -9,8 +9,8 @@ its own origin, this copies Pyodide into SITE_DIR/pyodide/ and points the pages 
 
   1. reads the Pyodide version and the pinned SHA-384 hashes from SITE_DIR/assets/engine-config.js;
   2. gets the core files (from the pinned CDN address, or --from a folder or URL with the same release)
-     and the packages the pages use (jsonschema and what it needs), and refuses any file whose hash
-     doesn't match its pin (core files) or Pyodide's lock file (packages);
+     and any packages you name with --packages (the pages need none: gradekit's schema check is built in), and
+     refuses any file whose hash doesn't match its pin (core files) or Pyodide's lock file (packages);
   3. writes the licenses of what it copied, which their terms ask anyone redistributing them to include:
      pyodide/THIRD-PARTY-NOTICES.md, with Pyodide's (MPL-2.0, and where its source is), CPython's (the standard
      library in python_stdlib.zip) and each package's, in pyodide/licenses/. Packages' licenses come from their
@@ -173,7 +173,7 @@ def main(argv=None) -> int:
     ap.add_argument("site", help="a built website folder (bundle/web, or an unpacked web zip)")
     ap.add_argument("--from", dest="source", metavar="DIR_OR_URL",
                     help="where to get Pyodide's files (default: the pinned CDN address in engine-config.js)")
-    ap.add_argument("--packages", nargs="+", default=["jsonschema"], help="Pyodide packages the pages need (default: jsonschema)")
+    ap.add_argument("--packages", nargs="*", default=[], help="Pyodide packages to include too (the pages need none)")
     ap.add_argument("--licenses-from", metavar="DIR", help="pyodide-LICENSE and cpython-LICENSE, for building offline "
                     "(default: download them from GitHub for the exact versions)")
     args = ap.parse_args(argv)

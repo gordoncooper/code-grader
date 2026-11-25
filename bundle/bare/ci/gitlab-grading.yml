@@ -36,7 +36,6 @@ variables:
     - echo "$GRADEKIT_SHA256  /tmp/kit.zip" | sha256sum --check --quiet - || { echo "the kit at $GRADEKIT_URL isn't the pinned one ($GRADEKIT_VERSION); not using it"; exit 1; }
     - python3 -c 'import sys, zipfile, pathlib; z = zipfile.ZipFile(sys.argv[1]); bad = [n for n in z.namelist() if n.startswith("/") or ".." in pathlib.PurePosixPath(n).parts]; sys.exit(f"unsafe path in the kit: {bad[0]}") if bad else z.extractall(sys.argv[2])' /tmp/kit.zip /tmp/kit
     - KIT=$(dirname "$(dirname "$(find /tmp/kit -path '*/tools/gradekit.py' | head -1)")")
-    - python3 -m pip install --quiet "jsonschema>=4.18,<5"   # the reports' structural check
 
 grading-check:
   extends: .grading-kit
