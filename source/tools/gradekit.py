@@ -527,6 +527,7 @@ def resolve_layers(layers: list[tuple[str, dict]], component: str | None = None,
         "sources": sources,
         "project": project,
         "component": ({k: comp.get(k) for k in ("name", "path", "weight")} if comp else None),
+        "components": [c.get("name") for c in merged.get("components", []) or []],   # a monorepo's parts; not hashed
         "preset": preset,
         "answers": answers,
         "weights": weights,
@@ -965,9 +966,9 @@ def validate_report(report: dict, cfg: dict, catalog: dict) -> tuple[list[str], 
             errors.append(f"{bid}: weight {b.get('weight')} should be {want} ({app} applicability, config weight {cw})")
         if app in ("limited", "not_applicable") and not (b.get("applicability_reason") or "").strip():
             errors.append(f"{bid}: applicability '{app}' requires applicability_reason")
-        if bid in gates and app == "not_applicable":
-            (errors if limits_enforced(report) else warnings).append(gate_not_applicable(bid, cfg))
-        elif bid in gates and app != "full":
+        if bid in gates and app == "not_applicable" and gate_not_applicable(bid, cfg, report):
+            (errors if limits_enforced(report) else warnings).append(gate_not_applicable(bid, cfg, report))
+        elif bid in gates and app != "full" and not left_to_the_other_report(report, bid, cfg):
             warnings.append(f"{bid} is a gate but marked '{app}'; gates should almost always fully apply. Double-check.")
         score = b.get("score")
         if app == "not_applicable":
@@ -1380,10 +1381,20 @@ def migrated_4x(report: dict) -> bool:
     return bool(report.get("migrated")) and major(scoring_version_of(report)) == "4"
 
 
-def gate_not_applicable(bid: str, cfg: dict) -> str | None:
+def left_to_the_other_report(report: dict, bid: str, cfg: dict) -> bool:
+    """In a monorepo split into components (grader Part 9), the repo report grades what the whole repository shares
+    (REPO_LEVEL) and each component's report grades the rest; each leaves the other's benchmarks not_applicable. Only a
+    project that defines [[components]] is split, so a report can't claim the split to leave a gate out."""
+    comp = (report.get("component") or {}).get("name")
+    parts = cfg.get("components") or []
+    return bool(comp) and bool(parts) and (comp == "repo" or comp in parts) and (bid in REPO_LEVEL) != (comp == "repo")
+
+
+def gate_not_applicable(bid: str, cfg: dict, report: dict | None = None) -> str | None:
     """Why a gate can't be not_applicable: it would drop out of the gate check, and with it the overall cap and every
-    level's gate_min. Dropping a gate is a person's decision, made in the config, never a grader's."""
-    if bid not in cfg["gates"]["benchmarks"]:
+    level's gate_min. Dropping a gate is a person's decision, made in the config, never a grader's. (A monorepo's
+    split leaves a gate to the report that grades it: that's not dropping it.)"""
+    if bid not in cfg["gates"]["benchmarks"] or (report is not None and left_to_the_other_report(report, bid, cfg)):
         return None
     why = ", ".join(cfg["gates"]["why"].get(bid, [])) or "the config"
     return (f"{bid} is a gate ({why}), so it can't be not_applicable: that would take it out of the gate check. If it truly "
@@ -3243,8 +3254,8 @@ def cmd_report_score(args) -> int:
         b["applicability_reason"] = args.reason or None
     if b["applicability"] in ("limited", "not_applicable") and not (b.get("applicability_reason") or "").strip():
         die(f"{b['id']} is {b['applicability']}: give --reason (based on the project's purpose, not its quality)")
-    if b["applicability"] == "not_applicable" and limits_enforced(report) and gate_not_applicable(b["id"], cfg):
-        die(gate_not_applicable(b["id"], cfg))
+    if b["applicability"] == "not_applicable" and limits_enforced(report) and gate_not_applicable(b["id"], cfg, report):
+        die(gate_not_applicable(b["id"], cfg, report))
     if b["applicability"] == "not_applicable":
         if args.score is not None:
             die("a not_applicable benchmark has no score")

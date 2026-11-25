@@ -171,6 +171,20 @@ def test_a_person_drops_a_gate_in_the_config(gk):
     assert not [e for e in errors if e.startswith("A2")], errors
 
 
+def test_only_a_real_monorepo_split_leaves_a_gate_to_another_report(gk):
+    """A monorepo's repo report leaves A1 to the component reports (graded per component); a project with no
+    [[components]] can't claim that split. (The split itself: test_components_disputes_calibration.py.)"""
+    cfg, r = config(gk), graded_here(gk)
+    assert cfg["components"] == []
+    r["component"] = {"name": "repo", "path": "."}
+    not_applicable(r, "A1")
+    errors, _ = gk.validate_report(r, cfg, gk.load_catalog())
+    assert any(e.startswith("A1 is a gate (always), so it can't be not_applicable") for e in errors)
+    cfg = dict(cfg, components=["api", "web"])
+    errors, _ = gk.validate_report(r, cfg, gk.load_catalog())
+    assert not [e for e in errors if "can't be not_applicable" in e], "graded per component"
+
+
 def test_report_score_refuses_a_gate_as_not_applicable(ready):
     repo, rel = ready
     r = subprocess.run(KIT + ["report", "score", rel, "A2", "--applicability", "not_applicable", "--reason", "the platform team's"],
