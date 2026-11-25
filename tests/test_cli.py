@@ -99,6 +99,21 @@ def test_json_envelope_on_success_and_failure(tmp_path):
     bad = run("validate", str(tmp_path / "missing.json"), "--json")
     env = json.loads(bad.stdout)
     assert bad.returncode == 1 and env["ok"] is False and "error" in env and env["result"] is None
+    (tmp_path / "list.json").write_text("[]")
+    bad = run("validate", str(tmp_path / "list.json"), "--json")
+    env = json.loads(bad.stdout)   # one JSON object, not a traceback (5.0.1 printed one)
+    assert bad.returncode == 1 and env["ok"] is False and "holds a list, but should hold an object" in env["error"]
+
+
+def test_json_is_one_object_even_when_gradekit_breaks(gk, monkeypatch, capsys):
+    def boom(args):
+        raise RuntimeError("boom")
+    monkeypatch.setattr(gk, "cmd_presets", boom)
+    assert gk.main(["presets", "--json"]) == 1
+    out = capsys.readouterr()
+    env = json.loads(out.out)
+    assert env["ok"] is False and env["exit_code"] == 1 and env["error"].startswith("internal error (RuntimeError: boom)")
+    assert "Traceback" in out.err, "the traceback goes to stderr, for the bug report"
 
 
 @pytest.mark.parametrize("argv, key", [

@@ -116,14 +116,28 @@ def die(msg: str, code: int = 1):
     raise GradekitError(msg)
 
 
-def load_json(path) -> dict:
+JSON_KINDS = {dict: "an object", list: "a list", str: "a string", int: "a number", float: "a number", bool: "true or false",
+              type(None): "null"}
+
+
+def load_json(path, want: type | tuple = dict):
+    """A JSON file's content. Every file the kit reads holds an object ({…}) unless `want` says otherwise, and anything
+    else is refused here, so no command trips over a report that's a list or a string."""
     try:
         with open(path, encoding="utf-8") as fh:
-            return json.load(fh)
+            data = json.load(fh)
     except FileNotFoundError:
         die(f"file not found: {path}")
+    except IsADirectoryError:
+        die(f"{path} is a folder, not a JSON file")
+    except UnicodeDecodeError as exc:
+        die(f"{path} isn't UTF-8 text: {exc}")
     except json.JSONDecodeError as exc:
         die(f"{path} is not valid JSON: {exc}")
+    if want and not isinstance(data, want):
+        should = " or ".join(dict.fromkeys(JSON_KINDS[t] for t in (want if isinstance(want, tuple) else (want,))))
+        die(f"{path} holds {JSON_KINDS.get(type(data), type(data).__name__)}, but should hold {should}")
+    return data
 
 
 def write_json(path, data: dict) -> None:
@@ -541,7 +555,7 @@ def read_list_file(path: Path, key: str) -> list:
     """decisions.json / dispositions.json: {"decisions": [...]} or a bare list. Missing file = empty."""
     if not path.exists():
         return []
-    data = load_json(path)
+    data = load_json(path, want=(dict, list))
     items = data.get(key, []) if isinstance(data, dict) else data
     if not isinstance(items, list):
         die(f"{path}: expected a list under '{key}'")
@@ -7344,8 +7358,12 @@ def cmd_mcp(args) -> int:
         except json.JSONDecodeError as e:
             resp = {"jsonrpc": "2.0", "id": None, "error": {"code": -32700, "message": f"parse error: {e}"}}
         else:
-            resp = mcp_handle(msg, state) if isinstance(msg, dict) else {"jsonrpc": "2.0", "id": None,
-                                                                         "error": {"code": -32600, "message": "invalid request"}}
+            try:
+                resp = mcp_handle(msg, state) if isinstance(msg, dict) else {"jsonrpc": "2.0", "id": None,
+                                                                             "error": {"code": -32600, "message": "invalid request"}}
+            except Exception as e:   # noqa: BLE001 - one bad message never takes the server down
+                resp = {"jsonrpc": "2.0", "id": msg.get("id") if isinstance(msg, dict) else None,
+                        "error": {"code": -32603, "message": f"internal error ({type(e).__name__}: {e})"}}
         if resp is not None:
             out.write(json.dumps(resp, ensure_ascii=False) + "\n")
             out.flush()
@@ -8241,6 +8259,10 @@ def main(argv=None) -> int:
             rc = run_command(ap, args, raise_errors=True)
         except GradekitError as e:
             rc, error = 1, str(e)
+        except Exception as e:   # noqa: BLE001 - --json promises exactly one JSON object, whatever goes wrong
+            import traceback
+            traceback.print_exc(file=sys.stderr)
+            rc, error = 1, f"internal error ({type(e).__name__}: {e}): a gradekit bug; the traceback is on stderr"
     out = {"ok": rc == 0, "exit_code": rc, "command": command_name(args), "result": getattr(args, "_result", None),
            "text": buf.getvalue()}
     if error:

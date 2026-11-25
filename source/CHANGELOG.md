@@ -23,6 +23,11 @@ Closes ways around the scores and hardens the paths agents use. No scoring rules
 - **gradekit checks reports against the schema itself.** The structural check used to need the `jsonschema` package, so with Python alone, the documented install, `validate` and `report check` passed a score of 11, an unknown `mode` or an unknown confidence with 0 errors, while the grading CI, which installs the package, failed them. The kit now has its own checker for the schema keywords it uses, held to `jsonschema`'s answers by a test over thousands of variants of the kit's documents. One difference, on purpose: a score like `8.0` isn't an integer (it would otherwise drop out of every average).
 - **Nothing to install, anywhere.** The grading CI templates no longer install `jsonschema`, the website no longer loads it into Pyodide, `vendor_pyodide.py` copies Pyodide's core files only (`--packages` still adds packages), and `doctor` no longer checks for it.
 
+**For agents**
+- **`--json` always prints one JSON object.** An error gradekit didn't expect used to print a Python traceback instead, which broke the `--json` contract. Now it's an envelope with `"error": "internal error (…)"`, and the traceback goes to stderr for the bug report.
+- **The MCP server survives a bad call.** One malformed input, such as a report file holding `[]`, ended the `gradekit mcp` process, so the agent lost every tool. Now the call returns an error and the server keeps answering.
+- **JSON files must hold what the kit expects.** A report, config or other JSON file that holds a list, a string or a number is refused with a message saying so, instead of failing deep inside a command.
+
 ## 5.0.1
 Fixes from the 5.0 calibration runs and from the suite's first grade of itself. Calibration now passes under scoring 5.0. No scoring rule changes, so the calibration fingerprint is the same and runs 13–15 count. One thing to know before upgrading:
 

@@ -99,6 +99,34 @@ def test_bad_calls_are_errors_not_crashes(tmp_path):
     assert out[6]["error"]["code"] == -32601
 
 
+def test_a_malformed_report_is_an_error_and_the_server_keeps_going(tmp_path):
+    """The 5.0.1 review's probe: a report file holding `[]` raised inside the tool, and the server process died, so
+    the next message got no answer."""
+    (tmp_path / "bad.json").write_text("[]")
+    out = session([INIT, call(2, "validate", {"report": "bad.json", "cwd": str(tmp_path)}),
+                   {"jsonrpc": "2.0", "id": 3, "method": "ping"}], cwd=tmp_path)
+    assert out[2]["result"]["isError"] and "holds a list, but should hold an object" in out[2]["result"]["structuredContent"]["error"]
+    assert out[3]["result"] == {}, "still answering"
+
+
+def test_one_message_that_breaks_never_stops_the_server(gk, monkeypatch, capsys):
+    import argparse
+    import io
+    real = gk.mcp_handle
+
+    def flaky(msg, state):
+        if msg.get("id") == 2:
+            raise RuntimeError("boom")
+        return real(msg, state)
+    monkeypatch.setattr(gk, "mcp_handle", flaky)
+    lines = "".join(json.dumps({"jsonrpc": "2.0", "id": i, "method": "ping"}) + "\n" for i in (1, 2, 3))
+    monkeypatch.setattr(sys, "stdin", io.StringIO(lines))
+    assert gk.cmd_mcp(argparse.Namespace(list=False)) == 0
+    out = [json.loads(ln) for ln in capsys.readouterr().out.splitlines()]
+    assert [o["id"] for o in out] == [1, 2, 3]
+    assert out[1]["error"]["code"] == -32603 and "boom" in out[1]["error"]["message"] and out[2]["result"] == {}
+
+
 def test_list():
     r = cli("mcp", "--list", cwd=EXAMPLE)
     assert "report_finding_add:" in r.stdout and "\nmcp:" not in r.stdout
