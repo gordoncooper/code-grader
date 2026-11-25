@@ -175,12 +175,12 @@ def test_only_a_real_monorepo_split_leaves_a_gate_to_another_report(gk):
     """A monorepo's repo report leaves A1 to the component reports (graded per component); a project with no
     [[components]] can't claim that split. (The split itself: test_components_disputes_calibration.py.)"""
     cfg, r = config(gk), graded_here(gk)
-    assert cfg["components"] == []
+    assert cfg["components"] == {}
     r["component"] = {"name": "repo", "path": "."}
     not_applicable(r, "A1")
     errors, _ = gk.validate_report(r, cfg, gk.load_catalog())
     assert any(e.startswith("A1 is a gate (always), so it can't be not_applicable") for e in errors)
-    cfg = dict(cfg, components=["api", "web"])
+    cfg = dict(cfg, components={"api": 2, "web": 1})
     errors, _ = gk.validate_report(r, cfg, gk.load_catalog())
     assert not [e for e in errors if "can't be not_applicable" in e], "graded per component"
 
@@ -312,6 +312,25 @@ def test_a_migrated_marker_relaxes_nothing_on_a_report_graded_under_5x(gk):
     assert any(e.startswith("migrated: only a 4.x report that `gradekit migrate` converted carries this marker") for e in errors)
     assert any("so it can't be not_applicable" in e for e in errors), "the gate rule still holds"
     assert not gk.limits_enforced(migrated_from_4x(gk)), "a real migration keeps its 4.x rules"
+
+
+def test_a_format_5_report_cant_choose_the_4x_rules(gk):
+    """5.1.0, from a red-team review: config.scoring_version 4.2.0 on a new report picked the 4.x rules, whose zone
+    severity shift turns a critical finding in cold code into a major one, so the open-critical limit never applied."""
+    cfg, r = config(gk), graded_here(gk)
+    r["config"]["scoring_version"] = "4.2.0"
+    errors, _ = gk.validate_report(r, cfg, gk.load_catalog())
+    assert any(e.startswith("config.scoring_version is 4.2.0, but a format-5 report is graded under the 5.x scoring rules")
+               for e in errors)
+    assert not [e for e in gk.validate_report(migrated_from_4x(gk), cfg, gk.load_catalog())[0] if "scoring_version" in e]
+
+
+def test_repo_rollup_needs_a_monorepo(gk):
+    """A single-repo report carrying a repo-wide result would put that result in index.json."""
+    cfg, r = config(gk), graded_here(gk)
+    r["repo_rollup"] = {"overall_score": 9.6, "maturity": "L4", "components": []}
+    errors, _ = gk.validate_report(r, cfg, gk.load_catalog())
+    assert "repo_rollup is only for a monorepo's repo report, and project.toml defines no [[components]]" in errors
 
 
 # --------------------------------------------------------------------------- rounding (A1-act-3)

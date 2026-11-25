@@ -527,7 +527,8 @@ def resolve_layers(layers: list[tuple[str, dict]], component: str | None = None,
         "sources": sources,
         "project": project,
         "component": ({k: comp.get(k) for k in ("name", "path", "weight")} if comp else None),
-        "components": [c.get("name") for c in merged.get("components", []) or []],   # a monorepo's parts; not hashed
+        # a monorepo's parts and their weights, as people set them (not hashed: each component's config is)
+        "components": {c.get("name"): c.get("weight") or 1 for c in merged.get("components", []) or []},
         "preset": preset,
         "answers": answers,
         "weights": weights,
@@ -931,6 +932,11 @@ def validate_report(report: dict, cfg: dict, catalog: dict) -> tuple[list[str], 
     if report.get("migrated") and not migrated_4x(report):
         errors.append(f"migrated: only a 4.x report that `gradekit migrate` converted carries this marker, and this report was "
                       f"graded under scoring {scoring_version_of(report)}; remove the marker")
+    if report_format(report) >= 5 and not report.get("migrated") and major(scoring_version_of(report)) == "4":
+        errors.append(f"config.scoring_version is {scoring_version_of(report)}, but a format-5 report is graded under the 5.x "
+                      "scoring rules (only a 4.x report `gradekit migrate` converted keeps its 4.x rules)")
+    if report.get("repo_rollup") and not cfg.get("components"):
+        errors.append("repo_rollup is only for a monorepo's repo report, and project.toml defines no [[components]]")
     fz = analyze_findings(report, cfg)
     limits = score_limits(report, cfg, fz, catalog)
     caps_ = catalog_caps(catalog)
@@ -2156,8 +2162,9 @@ def rows_half_up(paths) -> bool:
     return all(int(major(scoring_version_of(load_json(p))) or 0) >= 5 for p in paths)
 
 
-def repo_rollup(paths: list) -> dict:
-    """The repo-wide result of a monorepo's reports: overall weighted by component weight, maturity the lowest."""
+def repo_rollup(paths: list, weights: dict | None = None) -> dict:
+    """The repo-wide result of a monorepo's reports: overall weighted by component weight, maturity the lowest. With
+    `weights` (the config's), each component's weight comes from there, never from its report."""
     rows = []
     for path in paths:
         r = load_json(path)
@@ -2167,7 +2174,11 @@ def repo_rollup(paths: list) -> dict:
         comp = r.get("component") or {}
         if comp.get("name") == "repo":
             continue
-        rows.append({"component": comp.get("name") or Path(path).stem, "weight": comp.get("weight", 1) or 1,
+        name = comp.get("name") or Path(path).stem
+        if weights is not None and name not in weights:
+            die(f"{path} is component '{name}', which project.toml doesn't define ([[components]]: {', '.join(weights) or 'none'})")
+        weight = weights[name] if weights is not None else comp.get("weight", 1) or 1
+        rows.append({"component": name, "weight": weight,
                      "preset": (r.get("config") or {}).get("preset"), "overall": roll["overall_score"],
                      "level": roll["maturity"]["current_level"], "failed_gates": [g["benchmark_id"] for g in roll["gates"] if g["status"] == "failed"]})
     if not rows:
@@ -2195,7 +2206,10 @@ def cmd_rollup_repo(args) -> int:
         folder = Path(args.reports[0])
         if not (folder / "components").is_dir():
             die(f"{folder} has no components/ folder")
-        summary = repo_rollup(folder_reports(folder)[1:])
+        pdir = project_dir_for_report(folder / "report.json")
+        weights = (load_config(argparse.Namespace(project_dir=str(pdir), config=None, component=None), load_json(folder / "report.json"),
+                               quiet=True)["components"] if pdir else None)
+        summary = repo_rollup(folder_reports(folder)[1:], weights or None)
         if args.write:
             main_path = folder / "report.json"
             r = load_json(main_path)
@@ -5725,12 +5739,26 @@ def ci_check(root: Path, base: str, head: str, changes: list[tuple[str, str]], s
                     except GradekitError:
                         pass
                 comps = component_reports(root / rel)
+                parts = cfg.get("components") or {}
+                if parts and {cp.stem for cp in comps} != set(parts):
+                    missing, extra = sorted(set(parts) - {cp.stem for cp in comps}), sorted({cp.stem for cp in comps} - set(parts))
+                    problems.append("a monorepo report has one report per component in project.toml ([[components]])"
+                                    + (f"; missing: {', '.join(f'components/{m}.json' for m in missing)}" if missing else "")
+                                    + (f"; not in project.toml: {', '.join(extra)}" if extra else ""))
+                elif comps and not parts:
+                    problems.append("this report has components/, but project.toml defines no [[components]]")
+                if report.get("repo_rollup") and not parts:
+                    problems.append("repo_rollup is only for a monorepo's repo report, and project.toml defines no [[components]]")
                 for cp in comps:
                     try:
                         cr = load_json(cp)
                         ccfg = load_config(argparse.Namespace(project_dir=str(pdir), config=None, component=None), cr, quiet=True)
                         cerr, _ = validate_report(cr, ccfg, load_catalog())
                         problems += [f"components/{cp.name}: {e}" for e in cerr]
+                        if cr.get("migrated"):
+                            problems.append(f"components/{cp.name} is new, but says it was migrated: a new report is graded with this kit")
+                        if (cr.get("component") or {}).get("name") != cp.stem:
+                            problems.append(f"components/{cp.name} grades component '{(cr.get('component') or {}).get('name')}', not '{cp.stem}'")
                         if (ccfg.get("publishing") or PUBLISHING_DEFAULTS).get("public"):
                             problems += [f"components/{cp.name}: publish: {e}" for e in publish_problems(cr)]
                         croll, cst = compute_rollup(cr, ccfg), cr.get("rollup") or {}
@@ -5739,9 +5767,9 @@ def ci_check(root: Path, base: str, head: str, changes: list[tuple[str, str]], s
                             problems.append(f"components/{cp.name}: the stored rollup doesn't match its scores; run `gradekit rollup --write`")
                     except GradekitError as exc:
                         problems.append(f"components/{cp.name}: {exc}")
-                if comps:
+                if comps and parts:
                     try:
-                        want = repo_rollup(comps)
+                        want = repo_rollup(comps, parts)
                         have = report.get("repo_rollup")
                         if not have:
                             problems.append("a monorepo report needs its repo-wide result: `gradekit rollup-repo FOLDER --write`")
