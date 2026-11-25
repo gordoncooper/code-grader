@@ -2,7 +2,8 @@
 
 5.0.1 (the suite's self-grade): a finding dropped from its benchmark's finding_ids escaped the open-critical limit, and
 `deliver` shipped a stored rollup older than the scores.
-5.1.0 (the 5.0.1 review): a gate marked not_applicable dropped out of the gate check, lifting the overall cap."""
+5.1.0 (the 5.0.1 review): a gate marked not_applicable dropped out of the gate check, lifting the overall cap; and a
+grader could mark findings accepted itself (only a warning), while no command recorded people's acceptances."""
 import copy
 import json
 import shutil
@@ -179,6 +180,101 @@ def test_a_gate_leaving_the_score_is_a_regression(gk):
     assert d["verdict"] == "FAIL"
     assert "gate A2 is no longer scored (it was 9): a gate can't be not_applicable" in d["regressions"]
     assert not [n for n in d["notes"] if n.startswith("A2 went from")], "said once, as the regression"
+
+
+# --------------------------------------------------------------------------- only people accept findings (5.1.0)
+# The review's probe: C4 at 8 was refused while its critical finding was open; marking the finding accepted by hand,
+# with made-up text and no entry in dispositions.json, let 8 through, and validate and diff passed.
+
+PEOPLE = {"finding_id": "C4-901", "decision": "won't fix", "reason": "the suite is replaced next quarter",
+          "decided_by": "jane@example.com", "date": "2026-11-20"}
+
+
+def accepted_by_hand(r, fid="C4-901"):
+    f, b = critical_on(r)
+    f.update(id=fid, status="accepted", disposition="won't fix")
+    b["finding_ids"] = [fid]
+    return f
+
+
+def acceptance_errors(gk, r, cfg):
+    return [e for e in gk.validate_report(r, cfg, gk.load_catalog())[0] if "dispositions.json" in e]
+
+
+def test_a_grader_cant_accept_a_finding(gk):
+    cfg, r = config(gk), graded_here(gk)
+    accepted_by_hand(r)
+    assert acceptance_errors(gk, r, cfg) == ["finding C4-901 is accepted, but no entry in dispositions.json accepts it: only people "
+                                             "accept findings, by adding an entry for it there (`report finding accept REPORT C4-901` "
+                                             "then records it)"]
+    cfg["dispositions"] = [PEOPLE]
+    assert acceptance_errors(gk, r, cfg) == [], "people's entry accepts it"
+
+
+def test_a_match_entry_accepts_only_the_findings_that_name_it(gk):
+    cfg, r = config(gk), graded_here(gk)
+    f = accepted_by_hand(r)
+    cfg["dispositions"] = [{"match": "anything about the old test suite", "decision": "won't fix", "reason": "replaced soon"}]
+    assert acceptance_errors(gk, r, cfg), "one match entry no longer covers every accepted finding"
+    f["disposition_ref"] = 1
+    assert acceptance_errors(gk, r, cfg) == []
+    f["disposition_ref"] = 2
+    assert acceptance_errors(gk, r, cfg), "an entry that isn't there"
+
+
+def test_reports_graded_under_4x_keep_their_warning(gk):
+    cfg, r = config(gk), five(gk)
+    accepted_by_hand(r)
+    errors, warnings = gk.validate_report(r, cfg, gk.load_catalog())
+    assert not [e for e in errors if "dispositions.json" in e]
+    assert "finding C4-901 is 'accepted' but no entry in dispositions.json covers it" in warnings
+
+
+def test_diff_says_who_accepted_a_finding(gk):
+    cfg, old = config(gk), graded_here(gk)
+    f, _ = critical_on(old)
+    f["id"] = "C4-901"
+    new = copy.deepcopy(old)
+    accepted_by_hand(new)
+    d = gk.compute_diff(old, new, cfg, cfg)
+    assert d["findings"]["accepted"][0]["id"] == "C4-901" and d["findings"]["accepted"][0]["decided_by"] is None
+    assert any(x.startswith("finding C4-901 was accepted without an entry in dispositions.json") for x in d["regressions"])
+    cfg["dispositions"] = [PEOPLE]
+    d = gk.compute_diff(old, new, cfg, cfg)
+    assert not [x for x in d["regressions"] if "C4-901" in x]
+    assert d["findings"]["accepted"][0]["decided_by"] == "jane@example.com"
+    assert any(n.startswith("accepted by people: C4-901 (jane@example.com)") for n in d["notes"])
+    assert "Accepted: C4-901" in gk.render_check_comment(d, new, cfg)
+
+
+def test_report_finding_accept_records_the_peoples_entry(ready):
+    """The example project's dispositions.json accepts B5-001, so the grader records it, with the entry's text."""
+    repo, rel = ready
+    from test_authoring import CODE, gk as run
+    run("report", "finding", "add", rel, "--id", "B5-001", "--status", "open", "--benchmark", "B5", "--title", "One payment provider",
+        "--severity", "major", "--cite", "src/payments/api.py:1", "--repo", CODE, cwd=repo)
+    out = run("report", "finding", "accept", rel, "B5-001", cwd=repo).stdout
+    assert "B5-001: accepted (won't fix: One payment provider is a deliberate business constraint through 2027" in out
+    f = next(f for f in json.loads((repo / rel).read_text())["findings"] if f["id"] == "B5-001")
+    assert f["status"] == "accepted" and "disposition_ref" not in f, "the entry names it"
+    check = json.loads(run("report", "check", rel, "--json", cwd=repo, ok=False).stdout)["result"]
+    assert not [e for e in check["errors"] if "B5-001" in e], check["errors"]
+
+
+def test_a_finding_no_entry_accepts_cant_be_accepted(ready):
+    repo, rel = ready
+    from test_authoring import CODE, gk as run
+    run("report", "finding", "add", rel, "--benchmark", "C4", "--title", "Flaky tests", "--severity", "major",
+        "--cite", "src/payments/api.py:1", "--repo", CODE, cwd=repo)
+    fid = next(f["id"] for f in json.loads((repo / rel).read_text())["findings"] if f["benchmark_id"] == "C4")
+    r = run("report", "finding", "accept", rel, fid, cwd=repo, ok=False)
+    assert r.returncode == 1 and f"no entry in dispositions.json accepts {fid}: only people accept findings" in r.stderr
+    r = run("report", "finding", "update", rel, fid, "--status", "accepted", cwd=repo, ok=False)
+    assert r.returncode == 1 and "report finding accept REPORT ID" in r.stderr
+    r = run("report", "finding", "add", rel, "--benchmark", "C4", "--title", "x", "--severity", "minor", "--status", "accepted",
+            "--absence", "x", "--method", "y", cwd=repo, ok=False)
+    assert r.returncode == 1 and "report finding accept REPORT ID" in r.stderr
+    assert next(f for f in json.loads((repo / rel).read_text())["findings"] if f["id"] == fid)["status"] == "new"
 
 
 # --------------------------------------------------------------------------- rounding (A1-act-3)

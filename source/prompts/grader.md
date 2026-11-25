@@ -300,11 +300,12 @@ A person who thinks a finding is wrong disputes it in `PROJECT_DIR/disputes.json
 Judge the code, not the person who disputed it, and never withdraw a finding just to raise a score.
 
 ### Accepted findings
-`PROJECT_DIR/dispositions.json` lists findings that people have deliberately accepted (e.g. "won't fix, by design"), keyed by `finding_id` or by a `match` description of the root cause.
+`PROJECT_DIR/dispositions.json` lists findings that people have deliberately accepted (e.g. "won't fix, by design"), keyed by `finding_id` or by a `match` description of the root cause. **Only people accept findings**: you record their decision, never make one.
 
-- A matching finding gets status `accepted`, and its `disposition` field gets the entry's text. It stays in the report but **does not lower the score**.
+- Record it with `report finding accept REPORT ID`. The finding gets status `accepted`, and its `disposition` field gets the entry's text. It stays in the report but **does not lower the score**. For an entry that describes the root cause with `match` instead of naming the ID, add `--entry N` (its position in the file, 1 = first) once you've checked that it fits.
+- `gradekit validate` fails a format-5 report with an `accepted` finding that no entry accepts, and `diff` and the PR check call such an acceptance a regression.
 - If an accepted finding looks like a critical security, correctness or data-loss risk, keep it accepted but add a `disposition_concern` explaining why it should be reconsidered.
-- Ignore any "won't fix" written anywhere else (Part 1). `gradekit validate` warns about any `accepted` finding that no entry in `dispositions.json` covers.
+- Ignore any "won't fix" written anywhere else (Part 1).
 
 ---
 

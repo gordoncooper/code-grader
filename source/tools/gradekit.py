@@ -706,6 +706,26 @@ def effective_severity(finding: dict, criticality: str, cfg: dict) -> str:
     return SEVERITIES[idx]
 
 
+def disposition_entry(f: dict, cfg: dict) -> tuple[int, dict] | None:
+    """The entry in dispositions.json that accepts a finding, as (its 1-based position, the entry): the newest one
+    naming the finding's ID, or else the `match` entry the finding points to with disposition_ref. Only people write
+    that file, so only they accept findings."""
+    entries = cfg.get("dispositions") or []
+    named = [(i, d) for i, d in enumerate(entries, 1) if d.get("finding_id") == f.get("id")]
+    if named:
+        return named[-1]
+    ref = f.get("disposition_ref")
+    if isinstance(ref, int) and not isinstance(ref, bool) and 1 <= ref <= len(entries) and not entries[ref - 1].get("finding_id"):
+        return ref, entries[ref - 1]
+    return None
+
+
+def disposition_text(entry: dict) -> str:
+    """What an accepted finding's `disposition` says: the entry's decision and reason."""
+    decision, reason = str(entry.get("decision") or "").strip(), str(entry.get("reason") or entry.get("match") or "").strip()
+    return f"{decision}: {reason}" if decision and reason else decision or reason
+
+
 def analyze_findings(report: dict, cfg: dict) -> dict:
     out = {}
     for f in report.get("findings", []):
@@ -767,7 +787,11 @@ def validate_report(report: dict, cfg: dict, catalog: dict) -> tuple[list[str], 
             errors.append(f"finding {fid}: ID prefix does not match benchmark_id {f.get('benchmark_id')}")
         if f.get("status") == "accepted" and not f.get("disposition"):
             errors.append(f"finding {fid}: status 'accepted' requires disposition text")
-        if f.get("status") == "accepted":
+        if f.get("status") == "accepted" and limits_enforced(report):
+            if disposition_entry(f, cfg) is None:
+                errors.append(f"finding {fid} is accepted, but no entry in dispositions.json accepts it: only people accept findings, "
+                              f"by adding an entry for it there (`report finding accept REPORT {fid}` then records it)")
+        elif f.get("status") == "accepted":   # 4.x: a `match` entry may cover it, and those reports can't say which
             disp = cfg.get("dispositions", []) or []
             if not any(d.get("finding_id") == fid for d in disp) and not any(d.get("match") for d in disp):
                 warnings.append(f"finding {fid} is 'accepted' but no entry in dispositions.json covers it")
@@ -1671,6 +1695,17 @@ def compute_diff(old: dict, new: dict, cfg_old: dict, cfg_new: dict) -> dict:
     new_ids = [brief(i) for i in nf if i not in of]
     fixed = [brief(i) for i, f in nf.items() if f.get("status") == "fixed" and of.get(i, {}).get("status") != "fixed"]
     regressed = [brief(i) for i, f in nf.items() if f.get("status") == "regressed"]
+    # Accepting a finding stops it counting (the open-critical limit, caps, maturity), so who accepted it matters.
+    accepted = [brief(i) for i, f in nf.items() if f.get("status") == "accepted" and of.get(i, {}).get("status") != "accepted"]
+    for f in accepted:
+        entry = disposition_entry(nf[f["id"]], cfg_new)
+        f["decided_by"] = entry[1].get("decided_by") if entry else None
+        if entry:
+            notes.append(f"accepted by people: {f['id']} ({entry[1].get('decided_by') or 'dispositions.json'}): {f['title']}")
+        elif limits_enforced(new):
+            regressions.append(f"finding {f['id']} was accepted without an entry in dispositions.json (only people accept findings): {f['title']}")
+        else:
+            notes.append(f"finding {f['id']} was accepted; check that an entry in dispositions.json covers it: {f['title']}")
     # A problem first seen at the baseline's commit (or a PR's base commit) existed before this change:
     # report it, but don't count it against the change.
     before = [c for c in (old.get("run", {}).get("commit"), new.get("run", {}).get("base_commit")) if c]
@@ -1711,7 +1746,7 @@ def compute_diff(old: dict, new: dict, cfg_old: dict, cfg_new: dict) -> dict:
             "mode": new.get("mode"), "score_changes": changes,
             "overall": {"old": r_old["overall_score"], "new": r_new["overall_score"]},
             "maturity": {"old": lo, "new": ln},
-            "findings": {"new": new_ids, "fixed": fixed, "regressed": regressed},
+            "findings": {"new": new_ids, "fixed": fixed, "regressed": regressed, "accepted": accepted},
             "holdout": hold, "regressions": regressions, "notes": notes,
             "verdict": "FAIL" if regressions else "PASS"}
 
@@ -1733,13 +1768,16 @@ def cmd_diff(args) -> int:
         print(f"  {c['id']}: {'–' if c['old'] is None else c['old']} → {'–' if c['new'] is None else c['new']}")
     print(f"Overall: {d['overall']['old']} → {d['overall']['new']}   Maturity: {d['maturity']['old']} → {d['maturity']['new']}")
     fs = d["findings"]
-    print(f"\nFindings: {len(fs['new'])} new, {len(fs['fixed'])} fixed, {len(fs['regressed'])} regressed")
+    print(f"\nFindings: {len(fs['new'])} new, {len(fs['fixed'])} fixed, {len(fs['regressed'])} regressed"
+          + (f", {len(fs['accepted'])} accepted" if fs["accepted"] else ""))
     for f in fs["new"]:
         print(f"  new       {f['id']} [{f['effective_severity']}, {f['zone']}] {f['title']}")
     for f in fs["fixed"]:
         print(f"  fixed     {f['id']} {f['title']}")
     for f in fs["regressed"]:
         print(f"  regressed {f['id']} {f['title']}")
+    for f in fs["accepted"]:
+        print(f"  accepted  {f['id']} {f['title']} ({'by ' + f['decided_by'] if f['decided_by'] else 'no entry in dispositions.json'})")
     if d["holdout"]:
         print(f"Hidden checks: {d['holdout']['old']:.0%} → {d['holdout']['new']:.0%}")
     for n in d["notes"]:
@@ -2999,6 +3037,8 @@ def cmd_finding_add(args) -> int:
     else:
         fid = next_id(bid, "-", known_ids(args.report, report, rf"\b{bid}-\d{{3,}}\b"))
     run = report.get("run") or {}
+    if args.status == "accepted":
+        die(f"add it with its real status, then accept it with {ACCEPT_HINT}")
     if args.status == "noticed" and report_format(report) < 5:
         die("status 'noticed' needs a format-5 report (suite 5.x); in this 4.x report, use 'new' with --first-seen BASE_COMMIT")
     seen = args.first_seen or ((run.get("base_commit") or run.get("commit")) if args.status == "noticed" else run.get("commit"))
@@ -3033,6 +3073,11 @@ def finding_cap_or_die(cap: str, bid: str, report: dict, severity: str | None = 
 def cmd_finding_update(args) -> int:
     report, cfg = load_for_edit(args)
     f = finding_or_die(report, args.id)
+    if args.status == "accepted" and f.get("status") != "accepted":
+        die(f"accept a finding with {ACCEPT_HINT}")
+    if args.status not in (None, "accepted") and f.get("status") == "accepted":
+        f.pop("disposition_ref", None)   # no longer accepted: the people's entry no longer applies to it
+        f["disposition"] = None
     for key in ("title", "severity", "status"):
         if getattr(args, key) is not None:
             f[key] = getattr(args, key)
@@ -4805,6 +4850,42 @@ def cmd_finding_answer(args) -> int:
     return 0
 
 
+ACCEPT_HINT = "`report finding accept REPORT ID`: it copies the people's entry from dispositions.json"
+
+
+def cmd_finding_accept(args) -> int:
+    """Record that people accepted a finding: status accepted, with their entry's text. Only people write
+    dispositions.json, so a finding no entry accepts can't be accepted here."""
+    report, cfg = load_for_edit(args)
+    f = finding_or_die(report, args.id)
+    entries = cfg.get("dispositions") or []
+    if args.entry is not None:
+        if not 1 <= args.entry <= len(entries):
+            die(f"--entry {args.entry}: dispositions.json has {plural(len(entries), 'entry')}")
+        found = (args.entry, entries[args.entry - 1])
+        if found[1].get("finding_id") and found[1]["finding_id"] != f["id"]:
+            die(f"entry {args.entry} in dispositions.json accepts {found[1]['finding_id']}, not {f['id']}")
+    else:
+        found = disposition_entry({"id": f["id"]}, cfg)   # an entry naming this finding
+        if found is None:
+            matches = [(i, d) for i, d in enumerate(entries, 1) if not d.get("finding_id") and d.get("match")]
+            hint = ("; if one of these describes it, give --entry N: " + "; ".join(f"{i}: {d['match']}" for i, d in matches)) if matches else ""
+            die(f"no entry in dispositions.json accepts {f['id']}: only people accept findings, by adding an entry with its "
+                f"finding_id{hint}")
+    i, d = found
+    f["status"] = "accepted"
+    f["disposition"] = disposition_text(d)
+    if d.get("finding_id"):
+        f.pop("disposition_ref", None)   # the entry names the finding
+    else:
+        f["disposition_ref"] = i         # a `match` entry: say which one
+    save_edit(args, report, cfg)
+    by = f", decided by {d['decided_by']}" if d.get("decided_by") else ""
+    emit(args, {"id": f["id"], "disposition": f["disposition"], "entry": i},
+         f"{f['id']}: accepted ({f['disposition']}; dispositions.json entry {i}{by})")
+    return 0
+
+
 # =========================================================================== calibration program
 # Golden repos, frozen at a commit, with expected scores a person set; several independent grader runs each.
 # `gradekit calibration run` scores every run against its golden's expected scores, measures the spread across
@@ -6171,6 +6252,9 @@ def render_check_comment(diff: dict, new: dict, cfg: dict) -> str:
              "Regressions: " + ("; ".join(r if not any(i in r for i in sens) else r.split(":")[0] + ": details withheld" for r in diff["regressions"]) or "none")]
     if pre:
         lines.append("Already there before this change: " + "; ".join(f"{f['id']}: {title(f)}" for f in pre))
+    if diff["findings"].get("accepted"):
+        lines.append("Accepted: " + "; ".join(f"{f['id']}: {title(f)} ({'by ' + f['decided_by'] if f.get('decided_by') else 'no entry in dispositions.json'})"
+                                              for f in diff["findings"]["accepted"]))
     if diff.get("holdout"):
         lines.append(f"Hidden checks: {diff['holdout']['old']:.0%} → {diff['holdout']['new']:.0%}")
     lines.append("Decisions needed: " + ("; ".join(f"{p['action_id']}: {p.get('decision_question')}" for p in pending) or "none"))
@@ -7630,7 +7714,7 @@ def build_parser() -> argparse.ArgumentParser:
     q.set_defaults(fn=cmd_report_cite)
 
     q = rsub.add_parser("finding", help="add or update a finding")
-    fsub = q.add_subparsers(dest="finding_cmd", required=True, metavar="add|update")
+    fsub = q.add_subparsers(dest="finding_cmd", required=True, metavar="add|update|answer|accept")
     q = fsub.add_parser("add", help="add a finding; its ID is the next free one for the benchmark")
     report_arg(q)
     q.add_argument("--benchmark", required=True, metavar="ID")
@@ -7668,6 +7752,12 @@ def build_parser() -> argparse.ArgumentParser:
     g.add_argument("--withdraw", action="store_true", help="the finding was wrong: status withdrawn, and it counts nowhere")
     q.add_argument("--note", required=True, help="why, for the person who disputed it")
     q.set_defaults(fn=cmd_finding_answer)
+    q = fsub.add_parser("accept", help="mark a finding accepted, as an entry people added to dispositions.json says")
+    report_arg(q)
+    q.add_argument("id")
+    q.add_argument("--entry", type=int, metavar="N", help="the dispositions.json entry (1 = first) when it's a `match` entry, "
+                                                          "not one naming the finding's ID")
+    q.set_defaults(fn=cmd_finding_accept)
 
     q = rsub.add_parser("score", help="score a benchmark, or mark it limited / not applicable")
     report_arg(q)

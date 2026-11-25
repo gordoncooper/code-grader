@@ -88,6 +88,7 @@ $K presets                                                       # compare prese
 $K doctor --project orders-api --repo CODE --delivery pr         # preflight: is everything a run needs in place?
 $K report new --project orders-api --commit SHA                   # graders: start a report (weights and targets filled in)
 $K report finding add REPORT --benchmark A3 --cite src/x.py:40 --repo CODE …   # quotes copied from the code; see `report --help`
+$K report finding accept REPORT A3-002                           # record an acceptance people made in dispositions.json
 $K report check REPORT --repo CODE [--write]                     # what's missing or wrong; --write stores the rollup
 $K carry LAST_REPORT --repo CODE --commit SHA [--mode full|pr …]  # next report from the last: IDs kept, citations moved
 $K report match REPORT --baseline LAST_REPORT [--apply]           # which earlier finding each new one is

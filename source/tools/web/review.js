@@ -762,7 +762,8 @@
         return h("tr", null, h("td", null, h("code", null, c.id)), h("td", null, bname(c.id)), h("td", null, (c.old === null ? "–" : c.old) + " → " + (c.new === null ? "–" : c.new)), h("td", null, h("span", { class: "badge " + (up ? "ok" : "bad") }, up ? "up" : "down")));
       }))) : h("p", { class: "kbd-note" }, "No score changes.")),
       h("div", { class: "card" }, h("h2", null, "Findings"),
-        list("New", d.findings.new), list("Fixed", d.findings.fixed), list("Regressed", d.findings.regressed))));
+        list("New", d.findings.new), list("Fixed", d.findings.fixed), list("Regressed", d.findings.regressed),
+        list("Accepted", d.findings.accepted || []))));
     function list(title, items) {
       return h("div", { class: "mb-3" }, h("b", null, title + " (" + items.length + ")"), items.length ? h("ul", { class: "list-tight" }, items.map(function (f) {
         return h("li", null, h("code", null, f.id), " ", sevBadge(f.effective_severity), " ", f.title, f.pre_existing ? h("span", { class: "kbd-note" }, " (already there before this change)") : null);

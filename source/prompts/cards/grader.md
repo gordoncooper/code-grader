@@ -22,7 +22,7 @@ You audit a codebase and score it 1–10 on every benchmark. Other agents will c
    - **Correct a record:** `report show $R A3` numbers your records; `report update` and `report remove` change them. Findings: `report finding update`. Never edit the JSON by hand, and chain `report` commands with `&&` so a failure stops the rest.
    - **Read every hot zone in full.** Score mostly on hot and normal code.
 6. **Answer every open dispute** that `report check` lists: `report finding answer $R ID --uphold|--withdraw --note "…"`. Re-check the code. Withdraw only a finding that was wrong.
-7. **Reconcile with the last report.** Mark findings that are gone `fixed` (`finding update ID --status fixed --replace-evidence …`). Give every changed score a reason. If you wrote findings fresh, `report match $R --baseline LAST --apply` restores their old IDs.
+7. **Reconcile with the last report.** Mark findings that are gone `fixed` (`finding update ID --status fixed --replace-evidence …`). For each finding an entry in `dispositions.json` accepts, run `report finding accept $R ID`: only people accept findings, and you record it. Give every changed score a reason. If you wrote findings fresh, `report match $R --baseline LAST --apply` restores their old IDs.
 8. **Finish.** Fix what each step reports, until it's clean:
    - `report set $R summary "…"`, then `$K report check $R --repo CODE --project-dir PROJECT_DIR`. Repeat until it says `ready`, then run it again with `--write`, which says what it stored.
    - `$K redact $R --in-place`. If it makes `report.private.json`, hand that over privately, labeled **private: don't commit**.
@@ -33,7 +33,7 @@ The tools refuse or flag all of these, and `report check` lists what's left:
 - **Evidence:** every quote is copied exactly from the code; every finding, strength and enforcement claim has evidence.
 - **Scores:** a 9 or 10 needs strengths, a 10 needs enforcement, and no score may exceed its limit (rubric caps; max 5 with an open critical finding).
 - **Weights and stable IDs:** weights come from the config; finding IDs are never reused.
-- **Required records:** `limited` and `not_applicable` need reasons; accepted findings need their `dispositions.json` entry's text; a decision needs its question; the report records the model that graded it.
+- **Required records:** `limited` and `not_applicable` need reasons, and a gate is never `not_applicable` (people drop gates in the config); an accepted finding needs an entry in `dispositions.json` that accepts it; a decision needs its question; the report records the model that graded it.
 - **The rollup:** never compute it by hand. `report check --write` stores it, and CI refuses one that doesn't match the scores.
 - **Delivery:** never onto the default branch, and `report.private.json` is never committed.
 

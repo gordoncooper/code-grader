@@ -19,6 +19,8 @@
     {"id": "stable-ids", "role": "grader", "rule": "Finding IDs are never reused for another problem", "check": "so new IDs never reuse old ones"},
     {"id": "id-prefix", "role": "grader", "rule": "A finding's ID starts with its benchmark", "check": "ID prefix does not match benchmark_id"},
     {"id": "accepted-disposition", "role": "grader", "rule": "Accepted findings carry their disposition", "check": "status 'accepted' requires disposition text"},
+    {"id": "people-accept", "role": "grader", "rule": "Only people accept findings, in dispositions.json", "check": "no entry in dispositions.json accepts"},
+    {"id": "gate-applies", "role": "grader", "rule": "A gate is never not_applicable; people drop gates in the config", "check": "so it can't be not_applicable"},
     {"id": "decision-question", "role": "grader", "rule": "An action that needs a person has a decision question", "check": "requires_human_decision needs a decision_question"},
     {"id": "rollup-by-tool", "role": "grader", "rule": "Never compute the rollup by hand", "check": "never edit scores by hand"},
     {"id": "model-recorded", "role": "grader", "rule": "A finished report records the model that graded it", "check": "run.model is empty"},
