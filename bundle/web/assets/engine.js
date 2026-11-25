@@ -6,8 +6,8 @@
   var SUITE_FILES = ["tools/gradekit.py", "config/defaults.toml", "config/scoring/4.2.0.toml", "rubric/catalog.json",
                      "schema/report.schema.json", "schema/report-4.schema.json"];   // config/scoring: earlier rules, for older reports
   // Optional Pyodide packages, loaded the first time a call needs them (from the same place as Pyodide itself).
-  // If one can't be loaded, gradekit falls back and says what it skipped.
-  var CALL_PACKAGES = { check: ["jsonschema"] };
+  // None since 5.1.0: gradekit checks the report schema itself, so the pages need only the Python standard library.
+  var CALL_PACKAGES = {};
   var listeners = [];
   var state = { status: "idle", message: "" };
   var readyPromise = null;

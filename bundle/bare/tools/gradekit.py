@@ -43,7 +43,7 @@ effective-config JSON produced by `resolve --out`.
 
 The website runs this same file in the browser (Pyodide) through web_api().
 
-Python 3.11+ (uses tomllib); standard library only. Uses `jsonschema` when installed.
+Python 3.11+ (uses tomllib); standard library only, including the report schema check.
 Every command takes --json: one JSON object on stdout, {ok, exit_code, command, result, text}
 (with "error" when it failed), so agents never parse text.
 
@@ -116,23 +116,54 @@ def die(msg: str, code: int = 1):
     raise GradekitError(msg)
 
 
-def load_json(path) -> dict:
+JSON_KINDS = {dict: "an object", list: "a list", str: "a string", int: "a number", float: "a number", bool: "true or false",
+              type(None): "null"}
+
+
+def _finite_number(text: str) -> float:
+    value = float(text)
+    if value != value or value in (float("inf"), float("-inf")):
+        raise ValueError(f"the number {text} is too large for JSON")
+    return value
+
+
+def _not_json(name: str):
+    raise ValueError(f"{name} isn't valid JSON")
+
+
+def load_json(path, want: type | tuple = dict):
+    """A JSON file's content. Every file the kit reads holds an object ({…}) unless `want` says otherwise, and anything
+    else is refused here, so no command trips over a report that's a list or a string. NaN, Infinity and numbers too
+    large to store are refused too: the kit's own JSON output must stay JSON."""
     try:
         with open(path, encoding="utf-8") as fh:
-            return json.load(fh)
+            data = json.load(fh, parse_float=_finite_number, parse_constant=_not_json)
     except FileNotFoundError:
         die(f"file not found: {path}")
-    except json.JSONDecodeError as exc:
+    except IsADirectoryError:
+        die(f"{path} is a folder, not a JSON file")
+    except UnicodeDecodeError as exc:
+        die(f"{path} isn't UTF-8 text: {exc}")
+    except ValueError as exc:   # json.JSONDecodeError is one
         die(f"{path} is not valid JSON: {exc}")
+    except RecursionError:
+        die(f"{path} is nested too deeply to read")
+    if want and not isinstance(data, want):
+        should = " or ".join(dict.fromkeys(JSON_KINDS[t] for t in (want if isinstance(want, tuple) else (want,))))
+        die(f"{path} holds {JSON_KINDS.get(type(data), type(data).__name__)}, but should hold {should}")
+    return data
 
 
 def write_json(path, data: dict) -> None:
     parent = Path(path).parent
     if str(parent) not in ("", "."):
         parent.mkdir(parents=True, exist_ok=True)
+    try:
+        text = json.dumps(data, indent=2, ensure_ascii=False, allow_nan=False)
+    except ValueError as exc:
+        die(f"not writing {path}: it would hold a number JSON can't store (NaN or Infinity): {exc}")
     with open(path, "w", encoding="utf-8") as fh:
-        json.dump(data, fh, indent=2, ensure_ascii=False)
-        fh.write("\n")
+        fh.write(text + "\n")
 
 
 def load_toml(path) -> dict:
@@ -513,6 +544,8 @@ def resolve_layers(layers: list[tuple[str, dict]], component: str | None = None,
         "sources": sources,
         "project": project,
         "component": ({k: comp.get(k) for k in ("name", "path", "weight")} if comp else None),
+        # a monorepo's parts and their weights, as people set them (not hashed: each component's config is)
+        "components": {c.get("name"): c.get("weight") or 1 for c in merged.get("components", []) or []},
         "preset": preset,
         "answers": answers,
         "weights": weights,
@@ -541,7 +574,7 @@ def read_list_file(path: Path, key: str) -> list:
     """decisions.json / dispositions.json: {"decisions": [...]} or a bare list. Missing file = empty."""
     if not path.exists():
         return []
-    data = load_json(path)
+    data = load_json(path, want=(dict, list))
     items = data.get(key, []) if isinstance(data, dict) else data
     if not isinstance(items, list):
         die(f"{path}: expected a list under '{key}'")
@@ -706,6 +739,84 @@ def effective_severity(finding: dict, criticality: str, cfg: dict) -> str:
     return SEVERITIES[idx]
 
 
+def disposition_entry(f: dict, cfg: dict) -> tuple[int, dict] | None:
+    """The entry in dispositions.json that accepts a finding, as (its 1-based position, the entry): the newest one
+    naming the finding's ID, or else the `match` entry the finding points to with disposition_ref. Only people write
+    that file, so only they accept findings."""
+    entries = cfg.get("dispositions") or []
+    named = [(i, d) for i, d in enumerate(entries, 1) if d.get("finding_id") == f.get("id")]
+    if named:
+        return named[-1]
+    ref = f.get("disposition_ref")
+    if isinstance(ref, int) and not isinstance(ref, bool) and 1 <= ref <= len(entries) and not entries[ref - 1].get("finding_id"):
+        return ref, entries[ref - 1]
+    return None
+
+
+def report_folder_name(path) -> str:
+    """The report folder a report file belongs to: …/<folder>/report.json or …/<folder>/components/NAME.json."""
+    parent = Path(path).resolve().parent
+    return parent.parent.name if parent.name == "components" else parent.name
+
+
+def finding_in(pdir: Path | None, folder: str | None, fid: str) -> tuple[str, dict] | None:
+    """The finding `fid` in a report folder (its report.json or a component report), as (folder, finding)."""
+    d = pdir / "reports" / str(folder) if pdir and folder else None
+    if d is None or not d.is_dir():
+        return None
+    for path in folder_reports(d):
+        try:
+            hit = next((f for f in load_json(path).get("findings", []) if f.get("id") == fid), None) if path.exists() else None
+        except GradekitError:
+            hit = None
+        if hit:
+            return d.name, hit
+    return None
+
+
+def earlier_finding(pdir: Path | None, folder: str, fid: str, before: str | None = None) -> tuple[str, dict] | None:
+    """The newest report before `folder` (and, with `before`, dated no later than that day) with a finding `fid`, as
+    (its folder, the finding): for an acceptance, the finding people saw when they decided."""
+    if pdir is None:
+        return None
+    found = None
+    for d in report_folders(pdir):
+        if d.name == folder or (before and d.name[:10] > str(before)[:10]):
+            continue
+        for path in folder_reports(d):
+            try:
+                hit = next((f for f in load_json(path).get("findings", []) if f.get("id") == fid), None) if path.exists() else None
+            except GradekitError:
+                hit = None
+            if hit:
+                found = (d.name, hit)
+                break
+    return found
+
+
+def not_the_same_finding(f: dict, earlier: tuple[str, dict] | None) -> str | None:
+    """Why a finding isn't the one an earlier report had under its ID (another benchmark, worse, or other evidence).
+    People accept the finding they saw; reusing its ID for another problem mustn't inherit the acceptance."""
+    if earlier is None:
+        return None
+    where, e = earlier
+    if e.get("benchmark_id") != f.get("benchmark_id"):
+        return f"in {where} {f.get('id')} was a {e.get('benchmark_id')} finding, not {f.get('benchmark_id')}"
+    if e.get("severity") in SEVERITIES and f.get("severity") in SEVERITIES and SEVERITIES.index(f["severity"]) > SEVERITIES.index(e["severity"]):
+        return f"it's {f['severity']} now, and in {where} it was {e['severity']}"
+    if withheld(e):   # a public copy: its evidence is withheld, so only its benchmark and severity can be compared
+        return None
+    if (f.get("evidence") or e.get("evidence")) and finding_similarity(f, e) < 0.5:   # same file alone is 0.35
+        return f"its title and evidence don't match {f.get('id')} in {where} ({e.get('title')!r})"
+    return None
+
+
+def disposition_text(entry: dict) -> str:
+    """What an accepted finding's `disposition` says: the entry's decision and reason."""
+    decision, reason = str(entry.get("decision") or "").strip(), str(entry.get("reason") or entry.get("match") or "").strip()
+    return f"{decision}: {reason}" if decision and reason else decision or reason
+
+
 def analyze_findings(report: dict, cfg: dict) -> dict:
     out = {}
     for f in report.get("findings", []):
@@ -716,23 +827,128 @@ def analyze_findings(report: dict, cfg: dict) -> dict:
     return out
 
 
+# =========================================================================== schema
+# The kit's own JSON Schema checker, so every install checks a report's structure the same way, with nothing to
+# install: the command line, the grading CI and the website. It covers the keywords the kit's schemas use (draft
+# 2020-12): type, enum, const, pattern, required, properties, additionalProperties, items, $ref (within the schema),
+# oneOf, minimum, maximum, exclusiveMinimum, minLength and minItems. tests/test_schema_check.py holds it to the
+# jsonschema package's answers. One difference, on purpose: "integer" means a JSON integer, so 8.0 isn't one (a
+# float score would otherwise pass here and then drop out of every average).
+
+SCHEMA_KEYWORDS = {"type", "enum", "const", "pattern", "required", "properties", "additionalProperties", "items", "$ref", "oneOf",
+                   "minimum", "maximum", "exclusiveMinimum", "minLength", "minItems",
+                   "$schema", "$id", "$defs", "title", "description"}   # the last five only describe
+
+
+def _json_type_ok(value, name: str) -> bool:
+    if name == "null":
+        return value is None
+    if name == "boolean":
+        return isinstance(value, bool)
+    if name == "integer":
+        return isinstance(value, int) and not isinstance(value, bool)
+    if name == "number":
+        return isinstance(value, (int, float)) and not isinstance(value, bool)
+    return isinstance(value, {"string": str, "object": dict, "array": list}[name])
+
+
+def _json_equal(a, b) -> bool:
+    """JSON equality: true is not 1, and 1 is 1.0."""
+    if isinstance(a, bool) or isinstance(b, bool):
+        return isinstance(a, bool) and isinstance(b, bool) and a == b
+    if isinstance(a, (int, float)) and isinstance(b, (int, float)):
+        return a == b
+    if isinstance(a, list) and isinstance(b, list):
+        return len(a) == len(b) and all(_json_equal(x, y) for x, y in zip(a, b))
+    if isinstance(a, dict) and isinstance(b, dict):
+        return a.keys() == b.keys() and all(_json_equal(a[k], b[k]) for k in a)
+    return type(a) is type(b) and a == b
+
+
+def _schema_ref(root: dict, ref: str) -> dict:
+    if not ref.startswith("#"):
+        die(f"schema: only references within the schema are supported, not {ref!r}")
+    node = root
+    for part in [p.replace("~1", "/").replace("~0", "~") for p in ref[1:].split("/") if p]:
+        node = node[part]
+    return node
+
+
+def schema_errors(value, schema: dict, root: dict | None = None, path: tuple = ()):
+    """Yield (path, message) for every way `value` breaks `schema`."""
+    root = root if root is not None else schema
+    if schema is True or schema == {}:
+        return
+    if schema is False:
+        yield path, f"{value!r} isn't allowed here"
+        return
+    unknown = set(schema) - SCHEMA_KEYWORDS
+    if unknown:
+        die(f"schema: keyword(s) {', '.join(sorted(unknown))} aren't supported by gradekit's schema check")
+    if "$ref" in schema:
+        yield from schema_errors(value, _schema_ref(root, schema["$ref"]), root, path)
+    if "type" in schema:
+        names = schema["type"] if isinstance(schema["type"], list) else [schema["type"]]
+        if not any(_json_type_ok(value, n) for n in names):
+            yield path, f"{value!r} is not of type {', '.join(repr(n) for n in names)}"
+            return   # the other keywords' messages would only repeat it
+    if "enum" in schema and not any(_json_equal(value, e) for e in schema["enum"]):
+        yield path, f"{value!r} is not one of {schema['enum']!r}"
+    if "const" in schema and not _json_equal(value, schema["const"]):
+        yield path, f"{schema['const']!r} was expected"
+    if "oneOf" in schema:
+        valid = [i for i, sub in enumerate(schema["oneOf"]) if next(schema_errors(value, sub, root, path), None) is None]
+        if not valid:
+            yield path, f"{value!r} is not valid under any of the given schemas"
+        elif len(valid) > 1:
+            yield path, f"{value!r} is valid under each of {', '.join(str(i) for i in valid)}"
+    if isinstance(value, str):
+        if "minLength" in schema and len(value) < schema["minLength"]:
+            yield path, f"{value!r} should be non-empty" if schema["minLength"] == 1 else f"{value!r} is too short"
+        if "pattern" in schema and not re.search(schema["pattern"], value):
+            yield path, f"{value!r} does not match {schema['pattern']!r}"
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        if "minimum" in schema and value < schema["minimum"]:
+            yield path, f"{value!r} is less than the minimum of {schema['minimum']!r}"
+        if "exclusiveMinimum" in schema and value <= schema["exclusiveMinimum"]:
+            yield path, f"{value!r} is less than or equal to the minimum of {schema['exclusiveMinimum']!r}"
+        if "maximum" in schema and value > schema["maximum"]:
+            yield path, f"{value!r} is greater than the maximum of {schema['maximum']!r}"
+    if isinstance(value, list):
+        if "minItems" in schema and len(value) < schema["minItems"]:
+            yield path, f"{value!r} should be non-empty" if schema["minItems"] == 1 else f"{value!r} is too short"
+        if "items" in schema:
+            for i, item in enumerate(value):
+                yield from schema_errors(item, schema["items"], root, path + (i,))
+    if isinstance(value, dict):
+        for key in schema.get("required", []):
+            if key not in value:
+                yield path, f"{key!r} is a required property"
+        props = schema.get("properties", {})
+        for key, sub in props.items():
+            if key in value:
+                yield from schema_errors(value[key], sub, root, path + (key,))
+        extra = [k for k in value if k not in props]
+        if extra and schema.get("additionalProperties") is False:
+            yield path, (f"Additional properties are not allowed ({', '.join(repr(k) for k in extra)} "
+                         f"{'was' if len(extra) == 1 else 'were'} unexpected)")
+        elif extra and isinstance(schema.get("additionalProperties"), dict):
+            for key in extra:
+                yield from schema_errors(value[key], schema["additionalProperties"], root, path + (key,))
+
+
+def schema_messages(value, schema: dict) -> list[str]:
+    """`schema: PATH: MESSAGE` lines, in path order."""
+    found = sorted(schema_errors(value, schema), key=lambda e: [(0, p, "") if isinstance(p, int) else (1, 0, p) for p in e[0]])
+    return [f"schema: {'/'.join(str(p) for p in loc) or '(root)'}: {msg}" for loc, msg in found]
+
+
 # =========================================================================== validate
 
 def validate_report(report: dict, cfg: dict, catalog: dict) -> tuple[list[str], list[str]]:
     errors: list[str] = []
     warnings: list[str] = []
-    try:
-        import jsonschema  # type: ignore
-
-        validator = jsonschema.Draft202012Validator(load_json(SCHEMA_PATH if report_format(report) >= 5 else SCHEMA4_PATH))
-        for err in sorted(validator.iter_errors(report), key=lambda e: list(e.path)):
-            loc = "/".join(str(p) for p in err.path) or "(root)"
-            errors.append(f"schema: {loc}: {err.message}")
-    except ImportError:
-        warnings.append("jsonschema not installed; structural schema check skipped (semantic checks still run)")
-        for key in ("suite_version", "mode", "run", "config", "benchmarks", "findings"):
-            if key not in report:
-                errors.append(f"missing required field '{key}'")
+    errors += schema_messages(report, load_json(SCHEMA_PATH if report_format(report) >= 5 else SCHEMA4_PATH))
     if not isinstance(report.get("benchmarks"), list):
         return errors, warnings
 
@@ -767,7 +983,14 @@ def validate_report(report: dict, cfg: dict, catalog: dict) -> tuple[list[str], 
             errors.append(f"finding {fid}: ID prefix does not match benchmark_id {f.get('benchmark_id')}")
         if f.get("status") == "accepted" and not f.get("disposition"):
             errors.append(f"finding {fid}: status 'accepted' requires disposition text")
-        if f.get("status") == "accepted":
+        if f.get("status") == "withdrawn" and limits_enforced(report) and (f.get("dispute") or {}).get("answer") != "withdrawn":
+            errors.append(f"finding {fid} is withdrawn, but no answered dispute withdraws it: only a person's dispute (disputes.json) "
+                          f"does, answered with `report finding answer REPORT {fid} --withdraw`")
+        if f.get("status") == "accepted" and limits_enforced(report):
+            if disposition_entry(f, cfg) is None:
+                errors.append(f"finding {fid} is accepted, but no entry in dispositions.json accepts it: only people accept findings, "
+                              f"by adding an entry for it there (`report finding accept REPORT {fid}` then records it)")
+        elif f.get("status") == "accepted":   # 4.x: a `match` entry may cover it, and those reports can't say which
             disp = cfg.get("dispositions", []) or []
             if not any(d.get("finding_id") == fid for d in disp) and not any(d.get("match") for d in disp):
                 warnings.append(f"finding {fid} is 'accepted' but no entry in dispositions.json covers it")
@@ -781,9 +1004,19 @@ def validate_report(report: dict, cfg: dict, catalog: dict) -> tuple[list[str], 
                               "`report check --write` or `rollup --write`)")
             elif not f.get("fingerprint"):
                 warnings.append(f"finding {fid}: no fingerprint yet (`report check --write` or `rollup --write` adds it)")
-    if (report_format(report) >= 5 and report.get("rollup") and not report.get("migrated")
+    if (report_format(report) >= 5 and report.get("rollup") and not migrated_4x(report)
             and not str((report.get("run") or {}).get("model") or "").strip()):
         errors.append("run.model is empty: a finished report records the model that graded it (`report set REPORT run.model NAME`)")
+    if report.get("migrated") and not migrated_4x(report):
+        errors.append(f"migrated: only a 4.x report that `gradekit migrate` converted carries this marker, and this report was "
+                      f"graded under scoring {scoring_version_of(report)}; remove the marker")
+    if (report_format(report) >= 5 and not report.get("migrated") and major(scoring_version_of(report)) == "4"
+            and report.get("mode") != "pr"):   # a pull-request report keeps its 4.x base's rules, so the two compare
+        errors.append(f"config.scoring_version is {scoring_version_of(report)}, but a full format-5 report is graded under the 5.x "
+                      "scoring rules (only a 4.x report `gradekit migrate` converted keeps its 4.x rules, and a pull-request "
+                      "report its base's)")
+    if report.get("repo_rollup") and not cfg.get("components"):
+        errors.append("repo_rollup is only for a monorepo's repo report, and project.toml defines no [[components]]")
     fz = analyze_findings(report, cfg)
     limits = score_limits(report, cfg, fz, catalog)
     caps_ = catalog_caps(catalog)
@@ -819,7 +1052,9 @@ def validate_report(report: dict, cfg: dict, catalog: dict) -> tuple[list[str], 
             errors.append(f"{bid}: weight {b.get('weight')} should be {want} ({app} applicability, config weight {cw})")
         if app in ("limited", "not_applicable") and not (b.get("applicability_reason") or "").strip():
             errors.append(f"{bid}: applicability '{app}' requires applicability_reason")
-        if bid in gates and app != "full":
+        if bid in gates and app == "not_applicable" and gate_not_applicable(bid, cfg, report):
+            (errors if limits_enforced(report) else warnings).append(gate_not_applicable(bid, cfg, report))
+        elif bid in gates and app != "full" and not left_to_the_other_report(report, bid, cfg):
             warnings.append(f"{bid} is a gate but marked '{app}'; gates should almost always fully apply. Double-check.")
         score = b.get("score")
         if app == "not_applicable":
@@ -1223,8 +1458,34 @@ def score_limits(report: dict, cfg: dict, fz: dict | None = None, catalog: dict 
 
 
 def limits_enforced(report: dict) -> bool:
-    """Format-5 reports are held to their limits; 4.x reports (and migrated ones, graded under 4.x) get warnings."""
-    return report_format(report) >= 5 and not report.get("migrated")
+    """Format-5 reports are held to their limits; 4.x reports, and 4.x reports `gradekit migrate` converted (still graded
+    under the 4.x rules), get warnings. A `migrated` marker on a report graded under later rules changes nothing."""
+    return report_format(report) >= 5 and not migrated_4x(report)
+
+
+def migrated_4x(report: dict) -> bool:
+    return bool(report.get("migrated")) and major(scoring_version_of(report)) == "4"
+
+
+def left_to_the_other_report(report: dict, bid: str, cfg: dict) -> bool:
+    """In a monorepo split into components (grader Part 9), the repo report grades what the whole repository shares
+    (REPO_LEVEL) and each component's report grades the rest; each leaves the other's benchmarks not_applicable. Only a
+    project that defines [[components]] is split, so a report can't claim the split to leave a gate out."""
+    comp = (report.get("component") or {}).get("name")
+    parts = cfg.get("components") or []
+    return bool(comp) and bool(parts) and (comp == "repo" or comp in parts) and (bid in REPO_LEVEL) != (comp == "repo")
+
+
+def gate_not_applicable(bid: str, cfg: dict, report: dict | None = None) -> str | None:
+    """Why a gate can't be not_applicable: it would drop out of the gate check, and with it the overall cap and every
+    level's gate_min. Dropping a gate is a person's decision, made in the config, never a grader's. (A monorepo's
+    split leaves a gate to the report that grades it: that's not dropping it.)"""
+    if bid not in cfg["gates"]["benchmarks"] or (report is not None and left_to_the_other_report(report, bid, cfg)):
+        return None
+    why = ", ".join(cfg["gates"]["why"].get(bid, [])) or "the config"
+    return (f"{bid} is a gate ({why}), so it can't be not_applicable: that would take it out of the gate check. If it truly "
+            f"doesn't apply to this project, a person removes the gate in project.toml ([gates] exclude = [\"{bid}\"]); "
+            "otherwise grade it, as limited if it applies only slightly")
 
 
 def over_limit(b: dict, limit: dict | None) -> list[dict]:
@@ -1620,6 +1881,9 @@ def compute_diff(old: dict, new: dict, cfg_old: dict, cfg_new: dict) -> dict:
         notes.append(f"scoring versions differ ({scoring_version_of(old)} → {scoring_version_of(new)}); score deltas are not "
                      "comparable and are not used for regressions")
     ob, nb = benchmarks_by_id(old), benchmarks_by_id(new)
+    # A gate that stops being scored leaves the gate check, which lifts the overall cap: that's never an improvement.
+    gates_unscored = {g["benchmark_id"] for g in r_new["gates"] if g["status"] == "not scored"} & \
+                     {g["benchmark_id"] for g in r_old["gates"] if g["status"] in ("passed", "failed")}
     changes = []
     for bid in [b["id"] for b in load_catalog()["benchmarks"]]:
         so, sn = ob.get(bid, {}).get("score"), nb.get(bid, {}).get("score")
@@ -1628,7 +1892,10 @@ def compute_diff(old: dict, new: dict, cfg_old: dict, cfg_new: dict) -> dict:
             if same_major and isinstance(so, int) and isinstance(sn, int) and sn < so:
                 regressions.append(f"{bid} dropped {so} → {sn}")
             if same_major and isinstance(so, int) and sn is None:
-                notes.append(f"{bid} went from {so} to N/A; check the applicability reason")
+                if bid in gates_unscored:
+                    regressions.append(f"gate {bid} is no longer scored (it was {so}): a gate can't be not_applicable")
+                else:
+                    notes.append(f"{bid} went from {so} to N/A; check the applicability reason")
         go = set(ob.get(bid, {}).get("gaming_flags", []) or [])
         for gflag in sorted(set(nb.get(bid, {}).get("gaming_flags", []) or []) - go):
             regressions.append(f"{bid} new gaming flag: {gflag}")
@@ -1652,6 +1919,17 @@ def compute_diff(old: dict, new: dict, cfg_old: dict, cfg_new: dict) -> dict:
     new_ids = [brief(i) for i in nf if i not in of]
     fixed = [brief(i) for i, f in nf.items() if f.get("status") == "fixed" and of.get(i, {}).get("status") != "fixed"]
     regressed = [brief(i) for i, f in nf.items() if f.get("status") == "regressed"]
+    # Accepting a finding stops it counting (the open-critical limit, caps, maturity), so who accepted it matters.
+    accepted = [brief(i) for i, f in nf.items() if f.get("status") == "accepted" and of.get(i, {}).get("status") != "accepted"]
+    for f in accepted:
+        entry = disposition_entry(nf[f["id"]], cfg_new)
+        f["decided_by"] = entry[1].get("decided_by") if entry else None
+        if entry:
+            notes.append(f"accepted by people: {f['id']} ({entry[1].get('decided_by') or 'dispositions.json'}): {f['title']}")
+        elif limits_enforced(new):
+            regressions.append(f"finding {f['id']} was accepted without an entry in dispositions.json (only people accept findings): {f['title']}")
+        else:
+            notes.append(f"finding {f['id']} was accepted; check that an entry in dispositions.json covers it: {f['title']}")
     # A problem first seen at the baseline's commit (or a PR's base commit) existed before this change:
     # report it, but don't count it against the change.
     before = [c for c in (old.get("run", {}).get("commit"), new.get("run", {}).get("base_commit")) if c]
@@ -1692,7 +1970,7 @@ def compute_diff(old: dict, new: dict, cfg_old: dict, cfg_new: dict) -> dict:
             "mode": new.get("mode"), "score_changes": changes,
             "overall": {"old": r_old["overall_score"], "new": r_new["overall_score"]},
             "maturity": {"old": lo, "new": ln},
-            "findings": {"new": new_ids, "fixed": fixed, "regressed": regressed},
+            "findings": {"new": new_ids, "fixed": fixed, "regressed": regressed, "accepted": accepted},
             "holdout": hold, "regressions": regressions, "notes": notes,
             "verdict": "FAIL" if regressions else "PASS"}
 
@@ -1714,13 +1992,16 @@ def cmd_diff(args) -> int:
         print(f"  {c['id']}: {'–' if c['old'] is None else c['old']} → {'–' if c['new'] is None else c['new']}")
     print(f"Overall: {d['overall']['old']} → {d['overall']['new']}   Maturity: {d['maturity']['old']} → {d['maturity']['new']}")
     fs = d["findings"]
-    print(f"\nFindings: {len(fs['new'])} new, {len(fs['fixed'])} fixed, {len(fs['regressed'])} regressed")
+    print(f"\nFindings: {len(fs['new'])} new, {len(fs['fixed'])} fixed, {len(fs['regressed'])} regressed"
+          + (f", {len(fs['accepted'])} accepted" if fs["accepted"] else ""))
     for f in fs["new"]:
         print(f"  new       {f['id']} [{f['effective_severity']}, {f['zone']}] {f['title']}")
     for f in fs["fixed"]:
         print(f"  fixed     {f['id']} {f['title']}")
     for f in fs["regressed"]:
         print(f"  regressed {f['id']} {f['title']}")
+    for f in fs["accepted"]:
+        print(f"  accepted  {f['id']} {f['title']} ({'by ' + f['decided_by'] if f['decided_by'] else 'no entry in dispositions.json'})")
     if d["holdout"]:
         print(f"Hidden checks: {d['holdout']['old']:.0%} → {d['holdout']['new']:.0%}")
     for n in d["notes"]:
@@ -1961,8 +2242,9 @@ def rows_half_up(paths) -> bool:
     return all(int(major(scoring_version_of(load_json(p))) or 0) >= 5 for p in paths)
 
 
-def repo_rollup(paths: list) -> dict:
-    """The repo-wide result of a monorepo's reports: overall weighted by component weight, maturity the lowest."""
+def repo_rollup(paths: list, weights: dict | None = None) -> dict:
+    """The repo-wide result of a monorepo's reports: overall weighted by component weight, maturity the lowest. With
+    `weights` (the config's), each component's weight comes from there, never from its report."""
     rows = []
     for path in paths:
         r = load_json(path)
@@ -1972,7 +2254,11 @@ def repo_rollup(paths: list) -> dict:
         comp = r.get("component") or {}
         if comp.get("name") == "repo":
             continue
-        rows.append({"component": comp.get("name") or Path(path).stem, "weight": comp.get("weight", 1) or 1,
+        name = comp.get("name") or Path(path).stem
+        if weights is not None and name not in weights:
+            die(f"{path} is component '{name}', which project.toml doesn't define ([[components]]: {', '.join(weights) or 'none'})")
+        weight = weights[name] if weights is not None else comp.get("weight", 1) or 1
+        rows.append({"component": name, "weight": weight,
                      "preset": (r.get("config") or {}).get("preset"), "overall": roll["overall_score"],
                      "level": roll["maturity"]["current_level"], "failed_gates": [g["benchmark_id"] for g in roll["gates"] if g["status"] == "failed"]})
     if not rows:
@@ -2000,7 +2286,10 @@ def cmd_rollup_repo(args) -> int:
         folder = Path(args.reports[0])
         if not (folder / "components").is_dir():
             die(f"{folder} has no components/ folder")
-        summary = repo_rollup(folder_reports(folder)[1:])
+        pdir = project_dir_for_report(folder / "report.json")
+        weights = (load_config(argparse.Namespace(project_dir=str(pdir), config=None, component=None), load_json(folder / "report.json"),
+                               quiet=True)["components"] if pdir else None)
+        summary = repo_rollup(folder_reports(folder)[1:], weights or None)
         if args.write:
             main_path = folder / "report.json"
             r = load_json(main_path)
@@ -2980,6 +3269,10 @@ def cmd_finding_add(args) -> int:
     else:
         fid = next_id(bid, "-", known_ids(args.report, report, rf"\b{bid}-\d{{3,}}\b"))
     run = report.get("run") or {}
+    if args.status == "accepted":
+        die(f"add it with its real status, then accept it with {ACCEPT_HINT}")
+    if args.status == "withdrawn":
+        die(f"a finding is withdrawn by answering a person's dispute: {WITHDRAW_HINT}")
     if args.status == "noticed" and report_format(report) < 5:
         die("status 'noticed' needs a format-5 report (suite 5.x); in this 4.x report, use 'new' with --first-seen BASE_COMMIT")
     seen = args.first_seen or ((run.get("base_commit") or run.get("commit")) if args.status == "noticed" else run.get("commit"))
@@ -3014,6 +3307,13 @@ def finding_cap_or_die(cap: str, bid: str, report: dict, severity: str | None = 
 def cmd_finding_update(args) -> int:
     report, cfg = load_for_edit(args)
     f = finding_or_die(report, args.id)
+    if args.status == "accepted" and f.get("status") != "accepted":
+        die(f"accept a finding with {ACCEPT_HINT}")
+    if args.status == "withdrawn" and f.get("status") != "withdrawn":
+        die(f"a finding is withdrawn by answering a person's dispute: {WITHDRAW_HINT}")
+    if args.status not in (None, "accepted") and f.get("status") == "accepted":
+        f.pop("disposition_ref", None)   # no longer accepted: the people's entry no longer applies to it
+        f["disposition"] = None
     for key in ("title", "severity", "status"):
         if getattr(args, key) is not None:
             f[key] = getattr(args, key)
@@ -3052,6 +3352,8 @@ def cmd_report_score(args) -> int:
         b["applicability_reason"] = args.reason or None
     if b["applicability"] in ("limited", "not_applicable") and not (b.get("applicability_reason") or "").strip():
         die(f"{b['id']} is {b['applicability']}: give --reason (based on the project's purpose, not its quality)")
+    if b["applicability"] == "not_applicable" and limits_enforced(report) and gate_not_applicable(b["id"], cfg, report):
+        die(gate_not_applicable(b["id"], cfg, report))
     if b["applicability"] == "not_applicable":
         if args.score is not None:
             die("a not_applicable benchmark has no score")
@@ -3473,8 +3775,10 @@ def cmd_report_set(args) -> int:
         die(f"give a value for {args.key}")
     raw = read_text_arg(args.value)
     try:
-        value = json.loads(raw)
-    except json.JSONDecodeError:
+        value = json.loads(raw, parse_float=_finite_number, parse_constant=_not_json)
+    except ValueError as exc:
+        if "JSON" in str(exc) and not isinstance(exc, json.JSONDecodeError):
+            die(f"{args.key}: {exc}")
         value = raw
     node = report
     for p in parts[:-1]:
@@ -3725,7 +4029,7 @@ def carry_report(baseline: dict, read_lines, cfg: dict, commit: str, mode: str, 
                  touched: list[str] | None) -> tuple[dict, dict]:
     """The next report, started from `baseline`. touched=None means a full re-grade (every benchmark)."""
     r = copy.deepcopy(baseline)
-    for key in ("rollup", "publishing"):
+    for key in ("rollup", "publishing", "migrated"):   # a carried report is a new one, graded with this kit
         r.pop(key, None)
     r["suite_version"] = load_catalog()["suite_version"]
     r["mode"] = mode
@@ -3789,7 +4093,10 @@ def cmd_carry(args) -> int:
     if args.mode == "pr" and not args.base_commit:
         die("--mode pr needs --base-commit (the pull request's base)")
     args.report = args.baseline
-    cfg = authoring_config(args, baseline)
+    # A pull-request report keeps its base's scoring rules, so the two compare; a full re-grade uses this kit's.
+    rules_from = baseline if args.mode == "pr" else {**baseline, "suite_version": load_catalog()["suite_version"],
+                                                      "config": {**(baseline.get("config") or {}), "scoring_version": None}}
+    cfg = authoring_config(args, rules_from)
     if pin_problem(cfg):
         die(pin_problem(cfg))
     read = repo_reader(args.repo)
@@ -4000,12 +4307,6 @@ def doctor_checks(args) -> list[dict]:
     except Exception as exc:   # noqa: BLE001 - any failure here means a broken kit
         out.append(_check("kit", "fail", f"can't load the kit at {SUITE_DIR}: {exc}", "download the kit again"))
         return out
-    try:
-        import jsonschema  # type: ignore  # noqa: F401
-        out.append(_check("jsonschema", "ok", "installed: full schema checks"))
-    except ImportError:
-        out.append(_check("jsonschema", "warn", "not installed: validate skips the structural schema check",
-                          "pip install jsonschema (optional)"))
     tmp = Path(tempfile.gettempdir())
     try:
         with tempfile.NamedTemporaryFile(dir=tmp, prefix="gradekit-doctor-") as fh:
@@ -4040,7 +4341,7 @@ def doctor_checks(args) -> list[dict]:
                 f = pdir / fname
                 if f.exists():
                     try:
-                        load_json(f)
+                        load_json(f, want=(dict, list))
                     except GradekitError as exc:
                         out.append(_check(fname, "fail", str(exc), f"fix the JSON in {f}"))
             reports = pdir / "reports"
@@ -4775,12 +5076,56 @@ def cmd_finding_answer(args) -> int:
     if not mine:
         die(f"no open dispute on {args.id} in {DISPUTES_FILE}")
     d = mine[-1]
+    why = not_the_same_finding(f, finding_in(pdir, d.get("report"), f["id"])) if args.withdraw else None
+    if why:
+        die(f"{f['id']} isn't the finding {d.get('by') or 'they'} disputed: {why}. Answer the dispute on that finding")
     f["dispute"] = {"answer": "withdrawn" if args.withdraw else "upheld", "note": args.note, "disputed_on": d["date"], "by": d.get("by")}
     if args.withdraw:
         f["status"] = "withdrawn"
     save_edit(args, report, cfg)
     emit(args, {"id": f["id"], "dispute": f["dispute"]},
          f"{f['id']}: dispute {'withdrawn: the finding no longer counts' if args.withdraw else 'upheld'}")
+    return 0
+
+
+ACCEPT_HINT = "`report finding accept REPORT ID`: it copies the people's entry from dispositions.json"
+WITHDRAW_HINT = "`report finding answer REPORT ID --withdraw --note …` (disputes come from people, in disputes.json)"
+
+
+def cmd_finding_accept(args) -> int:
+    """Record that people accepted a finding: status accepted, with their entry's text. Only people write
+    dispositions.json, so a finding no entry accepts can't be accepted here."""
+    report, cfg = load_for_edit(args)
+    f = finding_or_die(report, args.id)
+    entries = cfg.get("dispositions") or []
+    if args.entry is not None:
+        if not 1 <= args.entry <= len(entries):
+            die(f"--entry {args.entry}: dispositions.json has {plural(len(entries), 'entry')}")
+        found = (args.entry, entries[args.entry - 1])
+        if found[1].get("finding_id") and found[1]["finding_id"] != f["id"]:
+            die(f"entry {args.entry} in dispositions.json accepts {found[1]['finding_id']}, not {f['id']}")
+    else:
+        found = disposition_entry({"id": f["id"]}, cfg)   # an entry naming this finding
+        if found is None:
+            matches = [(i, d) for i, d in enumerate(entries, 1) if not d.get("finding_id") and d.get("match")]
+            hint = ("; if one of these describes it, give --entry N: " + "; ".join(f"{i}: {d['match']}" for i, d in matches)) if matches else ""
+            die(f"no entry in dispositions.json accepts {f['id']}: only people accept findings, by adding an entry with its "
+                f"finding_id{hint}")
+    i, d = found
+    pdir = project_dir_for_report(args.report)
+    why = not_the_same_finding(f, earlier_finding(pdir, report_folder_name(args.report), f["id"], d.get("date")))
+    if why:
+        die(f"{f['id']} isn't the finding people accepted: {why}. A new problem gets a new ID (`report finding add` without --id)")
+    f["status"] = "accepted"
+    f["disposition"] = disposition_text(d)
+    if d.get("finding_id"):
+        f.pop("disposition_ref", None)   # the entry names the finding
+    else:
+        f["disposition_ref"] = i         # a `match` entry: say which one
+    save_edit(args, report, cfg)
+    by = f", decided by {d['decided_by']}" if d.get("decided_by") else ""
+    emit(args, {"id": f["id"], "disposition": f["disposition"], "entry": i},
+         f"{f['id']}: accepted ({f['disposition']}; dispositions.json entry {i}{by})")
     return 0
 
 
@@ -5420,6 +5765,32 @@ def append_only(old_text: str | None, new_text: str, key: str, name: str) -> lis
     return []
 
 
+def people_records_problems(report: dict, pdir: Path, folder: str, cfg: dict) -> tuple[list[str], list[str]]:
+    """A new report's acceptances and withdrawals, held to what people wrote and to the reports before it."""
+    problems, warnings = [], []
+    disputes = load_disputes(pdir)
+    for f in report.get("findings", []):
+        fid = f.get("id")
+        entry = disposition_entry(f, cfg) if f.get("status") == "accepted" else None
+        if entry:   # (no entry at all: validate already says so)
+            why = not_the_same_finding(f, earlier_finding(pdir, folder, fid, entry[1].get("date")))
+            if why:
+                problems.append(f"finding {fid} is accepted, but it isn't the finding people accepted: {why}")
+            if not entry[1].get("finding_id"):
+                warnings.append(f"finding {fid} is accepted by a `match` entry ({DISPOSITIONS_FILE} entry {entry[0]}: "
+                                f"{entry[1].get('match')!r}); check that it describes this finding")
+        ans = f.get("dispute") or {}
+        if f.get("status") == "withdrawn" and ans.get("answer") == "withdrawn":
+            d = next((d for d in disputes if d.get("finding_id") == fid and d.get("date") == ans.get("disputed_on")), None)
+            if d is None:
+                problems.append(f"finding {fid} is withdrawn, but {DISPUTES_FILE} has no dispute on it dated {ans.get('disputed_on')}")
+            else:
+                why = not_the_same_finding(f, finding_in(pdir, d.get("report"), fid))
+                if why:
+                    problems.append(f"finding {fid} is withdrawn, but it isn't the finding that was disputed: {why}")
+    return problems, warnings
+
+
 def ci_check(root: Path, base: str, head: str, changes: list[tuple[str, str]], site: str | None = None,
              repo_url: str | None = None, branch: str | None = None) -> dict:
     mb = git_out(root, "merge-base", base, head, check=False) or base
@@ -5459,6 +5830,22 @@ def ci_check(root: Path, base: str, head: str, changes: list[tuple[str, str]], s
                     problems.append(f"the project is pinned to suite {pin}, but this report was made with suite {report.get('suite_version')}: "
                                     f"grade it with a {pin}.x kit, or change the pin in project.toml first (a settings change of its own)")
                 problems += [f"report: {e}" for e in errors]
+                for where, rep in [("report", report)] + [(f"components/{cp.name}", load_json(cp)) for cp in component_reports(root / rel)]:
+                    p_, w_ = people_records_problems(rep, pdir, folder, cfg)
+                    problems += [f"{where}: {x}" for x in p_]
+                    warnings += [f"{where}: {x}" for x in w_]
+                earlier = [d for d in report_folders(pdir) if d.name != folder]
+                if earlier and report_format(report) < max(report_format(load_json(d / "report.json")) for d in earlier):
+                    problems.append(f"this report is format {report_format(report)}, older than the project's earlier reports: "
+                                    "a project's reports never go back to an older format (grade it with this kit)")
+                run_day = str((report.get("run") or {}).get("date") or "")[:10]
+                if run_day and not folder.startswith(run_day):
+                    problems.append(f"the folder is {folder}, but the report was graded on {run_day} (expected {run_day}-<commit>)")
+                if earlier and folder < max(d.name for d in earlier):
+                    problems.append(f"{folder} sorts before {max(d.name for d in earlier)}: a new report comes after the project's others")
+                if report.get("migrated"):   # migrations rewrite existing reports, in a migration pull request
+                    problems.append(f"{rel} is new, but its report says it was migrated: `gradekit migrate` converts reports already "
+                                    "in the repo, in a pull request of its own; a new report is graded with this kit")
                 warnings += [f"report: {w}" for w in cfg.get("warnings", []) + warns if "run `gradekit redact" not in w]
                 if (cfg.get("publishing") or PUBLISHING_DEFAULTS).get("public"):
                     problems += [f"publish: {e}" for e in publish_problems(report)]
@@ -5488,12 +5875,30 @@ def ci_check(root: Path, base: str, head: str, changes: list[tuple[str, str]], s
                     except GradekitError:
                         pass
                 comps = component_reports(root / rel)
+                parts = cfg.get("components") or {}
+                if parts and {cp.stem for cp in comps} != set(parts):
+                    missing, extra = sorted(set(parts) - {cp.stem for cp in comps}), sorted({cp.stem for cp in comps} - set(parts))
+                    problems.append("a monorepo report has one report per component in project.toml ([[components]])"
+                                    + (f"; missing: {', '.join(f'components/{m}.json' for m in missing)}" if missing else "")
+                                    + (f"; not in project.toml: {', '.join(extra)}" if extra else ""))
+                elif comps and not parts:
+                    problems.append("this report has components/, but project.toml defines no [[components]]")
+                if report.get("repo_rollup") and not parts:
+                    problems.append("repo_rollup is only for a monorepo's repo report, and project.toml defines no [[components]]")
                 for cp in comps:
                     try:
                         cr = load_json(cp)
                         ccfg = load_config(argparse.Namespace(project_dir=str(pdir), config=None, component=None), cr, quiet=True)
                         cerr, _ = validate_report(cr, ccfg, load_catalog())
                         problems += [f"components/{cp.name}: {e}" for e in cerr]
+                        if cr.get("migrated"):
+                            problems.append(f"components/{cp.name} is new, but says it was migrated: a new report is graded with this kit")
+                        if report_format(cr) != report_format(report) or (pin and major(cr.get("suite_version", "0")) != pin):
+                            problems.append(f"components/{cp.name} was made with suite {cr.get('suite_version')} (format {report_format(cr)}); "
+                                            f"every report in the folder is made with the same kit"
+                                            + (f", and the project is pinned to {pin}" if pin else ""))
+                        if (cr.get("component") or {}).get("name") != cp.stem:
+                            problems.append(f"components/{cp.name} grades component '{(cr.get('component') or {}).get('name')}', not '{cp.stem}'")
                         if (ccfg.get("publishing") or PUBLISHING_DEFAULTS).get("public"):
                             problems += [f"components/{cp.name}: publish: {e}" for e in publish_problems(cr)]
                         croll, cst = compute_rollup(cr, ccfg), cr.get("rollup") or {}
@@ -5502,9 +5907,9 @@ def ci_check(root: Path, base: str, head: str, changes: list[tuple[str, str]], s
                             problems.append(f"components/{cp.name}: the stored rollup doesn't match its scores; run `gradekit rollup --write`")
                     except GradekitError as exc:
                         problems.append(f"components/{cp.name}: {exc}")
-                if comps:
+                if comps and parts:
                     try:
-                        want = repo_rollup(comps)
+                        want = repo_rollup(comps, parts)
                         have = report.get("repo_rollup")
                         if not have:
                             problems.append("a monorepo report needs its repo-wide result: `gradekit rollup-repo FOLDER --write`")
@@ -6150,6 +6555,9 @@ def render_check_comment(diff: dict, new: dict, cfg: dict) -> str:
              "Regressions: " + ("; ".join(r if not any(i in r for i in sens) else r.split(":")[0] + ": details withheld" for r in diff["regressions"]) or "none")]
     if pre:
         lines.append("Already there before this change: " + "; ".join(f"{f['id']}: {title(f)}" for f in pre))
+    if diff["findings"].get("accepted"):
+        lines.append("Accepted: " + "; ".join(f"{f['id']}: {title(f)} ({'by ' + f['decided_by'] if f.get('decided_by') else 'no entry in dispositions.json'})"
+                                              for f in diff["findings"]["accepted"]))
     if diff.get("holdout"):
         lines.append(f"Hidden checks: {diff['holdout']['old']:.0%} → {diff['holdout']['new']:.0%}")
     lines.append("Decisions needed: " + ("; ".join(f"{p['action_id']}: {p.get('decision_question')}" for p in pending) or "none"))
@@ -6267,16 +6675,100 @@ GUARD_TAIL_LINES = 40
 # (git log, cloc, ls…) isn't a check and is left out.
 GUARD_KIND_PATTERNS = [
     ("types", r"\b(mypy|pyright|pytype|tsc|flow check|(npm|yarn|pnpm)( run)? (typecheck|type-check|types))\b"),
-    ("lint", r"\b(ruff|flake8|pylint|eslint|biome|golangci-lint|go vet|clippy|rubocop|shellcheck|stylelint|standardrb"
+    ("lint", r"\b(ruff|flake8|pylint|eslint|biome|golangci-lint|go vet|cargo clippy|clippy|rubocop|shellcheck|stylelint|standardrb"
              r"|prettier (--check|-c)|black --check|isort (--check|-c)|gofmt|cargo fmt|(npm|yarn|pnpm)( run)? lint)\b"),
     ("audit", r"\b(pip-audit|(npm|yarn|pnpm) audit|cargo audit|govulncheck|safety check|bundle audit|osv-scanner)\b"),
     ("coverage", r"\b(coverage (report|xml|json)|go tool cover)\b"),
     ("tests", r"\b(pytest|unittest|nose2?|tox|nox|jest|vitest|mocha|ava|go test|cargo test|rspec|phpunit|dotnet test|ctest"
               r"|bun test|deno test|coverage run|(npm|yarn|pnpm)( run)? test|make (test|check)"
-              r"|mvn\b.*\b(test|verify)|gradlew?\b.*\b(test|check))\b"),
-    ("build", r"\b((npm|yarn|pnpm) run build|cargo build|go build|mvn\b.*\b(package|compile|install)|gradlew?\b.*\bbuild"
+              r"|mvnw?\b.*\b(test|verify)|gradlew?\b.*\b(test|check))\b"),
+    ("build", r"\b((npm|yarn|pnpm) run build|cargo build|go build|mvnw?\b.*\b(package|compile|install)|gradlew?\b.*\bbuild"
               r"|python3? -m build|dotnet build|cmake --build)\b"),
 ]
+
+# From a report, guard runs a command only if it's one plain check command that stays inside the checkout. A report is
+# a grader's output, and graders read code they don't trust (prompt injection), while improvers hold push access: a
+# report mustn't choose what runs here. So: no shell syntax, quotes, globs or URLs; no absolute paths or `..`; and the
+# program is the check tool itself, run directly or through a runner (python -m, npx, uv run…). Anything else is
+# listed and left out, and `--check NAME=COMMAND` runs it on purpose.
+GUARD_NOT_PLAIN = re.compile(r"[;&|`$<>#\\(){}\[\]*?!~'\"\n\r]|://")
+GUARD_RUNNERS = (("python3", "-m"), ("python", "-m"), ("py", "-m"), ("npx",), ("bunx",), ("pnpm", "exec"), ("yarn", "exec"),
+                 ("uv", "run"), ("poetry", "run"), ("pipenv", "run"), ("hatch", "run"), ("pdm", "run"), ("rye", "run"),
+                 ("bundle", "exec"), ("env",))
+GUARD_ENV_WORD = re.compile(r"[A-Za-z_][A-Za-z0-9_]*=\S*")
+
+
+def guard_plain_kind(command: str) -> str | None:
+    """The kind of check a command from a report is, if guard may run it as it stands; None if it isn't one plain check."""
+    if not command or GUARD_NOT_PLAIN.search(command):
+        return None
+    words = command.split()
+    for w in words:   # paths stay inside the checkout and out of .git, and so do flags' values
+        value = w.split("=", 1)[1] if "=" in w else w
+        if value.startswith("/") or ".." in value.split("/") or ".git" in value.split("/"):
+            return None
+        if w.split("=", 1)[0] in GUARD_WRITE_FLAGS:
+            return None
+    forms = []
+    while words:
+        while words and GUARD_ENV_WORD.fullmatch(words[0]):
+            words = words[1:]
+        if not words:
+            break
+        forms.append([words[0][2:] if words[0].startswith("./") else words[0]] + words[1:])
+        runner = next((r for r in GUARD_RUNNERS if tuple(words[:len(r)]) == r), None)
+        if runner is None:
+            break
+        words = words[len(runner):]
+    for form in forms:
+        text = " ".join(form)
+        for kind, pat in GUARD_KIND_PATTERNS:
+            m = re.match(pat, text)
+            if m and m.group(0).split()[0] == form[0]:   # the program is the tool, not a name that starts like one
+                return kind if guard_build_goals_ok(form) else None
+    return None
+
+
+# Build tools run whatever goals, targets or sessions they're given (exec:java, deploy, `make release`, a tox env
+# that publishes…), so a report's command may name only these, plus flags and the values of the flags listed. Flags
+# that write or delete files (pytest deletes its --basetemp) aren't taken from a report at all.
+GUARD_WRITE_FLAGS = {"--basetemp", "--junitxml", "--junit-xml", "--report-log", "--resultlog", "--output", "--output-file",
+                     "--outfile", "--out", "--log-file"}
+GUARD_TEST_ENVS = r"(py[0-9.]*|pypy[0-9.]*|tests?|unit|lint|ruff|flake8|mypy|types?|typing|coverage|cov)"
+GUARD_BUILD_GOALS = {"mvn": {"clean", "validate", "compile", "test-compile", "test", "package", "verify", "integration-test"},
+                     "gradle": {"clean", "test", "check", "build", "assemble", "compileJava", "compileTestJava"},
+                     "make": {"test", "check", "tests"}, "cmake": set(), "tox": set(), "nox": set(), "coverage": None}
+GUARD_BUILD_VALUE_FLAGS = {"mvn": {"-pl", "--projects", "-P", "--activate-profiles", "-T", "--threads", "-rf", "--resume-from"},
+                           "gradle": {"-p", "--project-dir", "-x", "--exclude-task"}, "make": {"-j", "--jobs"},
+                           "cmake": {"--build", "-j", "--parallel", "--config"}, "tox": {"-e", "--parallel", "-p"},
+                           "nox": {"-s", "--session", "--sessions", "-p", "--python"}, "coverage": set()}
+
+
+def guard_build_goals_ok(form: list[str]) -> bool:
+    tool = {"mvn": "mvn", "mvnw": "mvn", "gradle": "gradle", "gradlew": "gradle", "make": "make", "cmake": "cmake",
+            "tox": "tox", "nox": "nox", "coverage": "coverage"}.get(form[0])
+    if tool is None:
+        return True
+    words, i = form[1:], 0
+    while i < len(words):
+        w = words[i]
+        if tool == "coverage" and (w == "-o" or w.startswith("-o")):   # writes its report wherever -o says
+            return False
+        if tool in ("tox", "nox") and w in ("-e", "-s", "--session", "--sessions") and i + 1 < len(words):
+            if not all(re.fullmatch(GUARD_TEST_ENVS, e) for e in words[i + 1].split(",")):
+                return False   # a tox env or nox session that isn't a test, lint or type run could publish or deploy
+        if tool == "cmake" and w in ("--target", "-t"):
+            return False
+        if w.startswith("-"):
+            i += 2 if w in GUARD_BUILD_VALUE_FLAGS[tool] else 1
+            continue
+        if tool == "coverage":
+            i += 1
+            continue
+        if "=" in w or w not in GUARD_BUILD_GOALS[tool]:   # make VAR=value changes what a target runs
+            return False
+        i += 1
+    return True
 
 # Markers a change can add to make a check quieter without making the code better. Counted per line.
 GUARD_MARKERS = {
@@ -6579,7 +7071,7 @@ def guard_plan(args, code: Path) -> tuple[list[dict], list[str]]:
         checks.append({"name": name.strip(), "command": cmd.strip(), "from": "--check"})
     if args.from_report:
         rep = load_json(args.from_report)
-        skipped, installs, trimmed = [], [], []
+        skipped, installs, trimmed, not_plain = [], [], [], []
         for entry in rep.get("commands_run") or []:
             raw = str(entry.get("command") or "").strip()
             cmd = guard_trim_note(raw)
@@ -6588,8 +7080,10 @@ def guard_plan(args, code: Path) -> tuple[list[dict], list[str]]:
             kind = guard_kind(cmd) if cmd else None
             if kind and GUARD_INSTALL_RE.search(cmd):
                 installs.append(cmd)
+            elif kind and guard_plain_kind(cmd):
+                checks.append({"name": guard_plain_kind(cmd), "command": cmd, "from": "report"})
             elif kind:
-                checks.append({"name": kind, "command": cmd, "from": "report"})
+                not_plain.append(cmd)
             elif cmd:
                 skipped.append(cmd)
         if trimmed:
@@ -6597,6 +7091,10 @@ def guard_plan(args, code: Path) -> tuple[list[dict], list[str]]:
         if installs:
             notes.append(f"left out {len(installs)} command(s) that install packages (the guard never installs anything): "
                          f"{'; '.join(installs[:3])}")
+        if not_plain:
+            notes.append(f"left out {len(not_plain)} command(s) that aren't one plain check command (shell syntax, quotes, a URL, a path "
+                         f"outside the checkout, or a program other than the check tool), because a report mustn't choose what runs "
+                         f"here: {'; '.join(not_plain[:3])}{' …' if len(not_plain) > 3 else ''}. To run one, give it with --check NAME=COMMAND")
         if skipped:
             notes.append(f"left out {len(skipped)} command(s) from the report that aren't tests, lint, types, coverage, build "
                          f"or audit: {'; '.join(skipped[:5])}{' …' if len(skipped) > 5 else ''}")
@@ -7137,11 +7635,15 @@ def cmd_mcp(args) -> int:
             continue
         try:
             msg = json.loads(line)
-        except json.JSONDecodeError as e:
-            resp = {"jsonrpc": "2.0", "id": None, "error": {"code": -32700, "message": f"parse error: {e}"}}
+        except (ValueError, RecursionError) as e:   # json.JSONDecodeError is a ValueError; deep nesting recurses
+            resp = {"jsonrpc": "2.0", "id": None, "error": {"code": -32700, "message": f"parse error: {e or 'nested too deeply'}"}}
         else:
-            resp = mcp_handle(msg, state) if isinstance(msg, dict) else {"jsonrpc": "2.0", "id": None,
-                                                                         "error": {"code": -32600, "message": "invalid request"}}
+            try:
+                resp = mcp_handle(msg, state) if isinstance(msg, dict) else {"jsonrpc": "2.0", "id": None,
+                                                                             "error": {"code": -32600, "message": "invalid request"}}
+            except Exception as e:   # noqa: BLE001 - one bad message never takes the server down
+                resp = {"jsonrpc": "2.0", "id": msg.get("id") if isinstance(msg, dict) else None,
+                        "error": {"code": -32603, "message": f"internal error ({type(e).__name__}: {e})"}}
         if resp is not None:
             out.write(json.dumps(resp, ensure_ascii=False) + "\n")
             out.flush()
@@ -7220,8 +7722,7 @@ def _api_check(p):
     report = p["report"]
     cfg, source = _web_cfg(p, report)
     errors, warnings = validate_report(report, cfg, load_catalog())
-    notes = [w for w in warnings if w.startswith("jsonschema not installed")]  # about this browser, not the report
-    warnings = [w for w in warnings if w not in notes]
+    notes: list[str] = []   # about this browser, not the report (none since the schema check is built in)
     roll = compute_rollup(report, cfg)
     rc = report.get("config") or {}
     return {"validation": {"errors": errors, "warnings": cfg.get("warnings", []) + warnings, "notes": notes},
@@ -7609,7 +8110,7 @@ def build_parser() -> argparse.ArgumentParser:
     q.set_defaults(fn=cmd_report_cite)
 
     q = rsub.add_parser("finding", help="add or update a finding")
-    fsub = q.add_subparsers(dest="finding_cmd", required=True, metavar="add|update")
+    fsub = q.add_subparsers(dest="finding_cmd", required=True, metavar="add|update|answer|accept")
     q = fsub.add_parser("add", help="add a finding; its ID is the next free one for the benchmark")
     report_arg(q)
     q.add_argument("--benchmark", required=True, metavar="ID")
@@ -7647,6 +8148,12 @@ def build_parser() -> argparse.ArgumentParser:
     g.add_argument("--withdraw", action="store_true", help="the finding was wrong: status withdrawn, and it counts nowhere")
     q.add_argument("--note", required=True, help="why, for the person who disputed it")
     q.set_defaults(fn=cmd_finding_answer)
+    q = fsub.add_parser("accept", help="mark a finding accepted, as an entry people added to dispositions.json says")
+    report_arg(q)
+    q.add_argument("id")
+    q.add_argument("--entry", type=int, metavar="N", help="the dispositions.json entry (1 = first) when it's a `match` entry, "
+                                                          "not one naming the finding's ID")
+    q.set_defaults(fn=cmd_finding_accept)
 
     q = rsub.add_parser("score", help="score a benchmark, or mark it limited / not applicable")
     report_arg(q)
@@ -8032,11 +8539,20 @@ def main(argv=None) -> int:
             rc = run_command(ap, args, raise_errors=True)
         except GradekitError as e:
             rc, error = 1, str(e)
+        except Exception as e:   # noqa: BLE001 - --json promises exactly one JSON object, whatever goes wrong
+            import traceback
+            traceback.print_exc(file=sys.stderr)
+            rc, error = 1, f"internal error ({type(e).__name__}: {e}): a gradekit bug; the traceback is on stderr"
     out = {"ok": rc == 0, "exit_code": rc, "command": command_name(args), "result": getattr(args, "_result", None),
            "text": buf.getvalue()}
     if error:
         out["error"] = error
-    print(json.dumps(out, indent=2, ensure_ascii=False))
+    try:
+        print(json.dumps(out, indent=2, ensure_ascii=False, allow_nan=False))   # NaN and Infinity aren't JSON
+    except (TypeError, ValueError) as e:
+        print(json.dumps({"ok": False, "exit_code": 1, "command": out["command"], "result": None, "text": out["text"],
+                          "error": f"internal error (the result isn't JSON: {e}): a gradekit bug"}, indent=2, ensure_ascii=False))
+        return 1
     return rc
 
 

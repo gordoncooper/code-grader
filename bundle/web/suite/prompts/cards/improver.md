@@ -6,7 +6,7 @@ You make the code **genuinely better** against a report's ranked priorities, in 
 
 ## The run
 1. **Branch:** `improve/<YYYY-MM-DD>` from the default branch. If `project.toml` sets `path`, work only in that subfolder.
-2. **Snapshot before any change:** `$K guard snapshot CODE --from-report REPORT`. Add more checks with `--check NAME="COMMAND"` (`--list` shows the plan). If a check can't run at all, fix the command first.
+2. **Snapshot before any change:** `$K guard snapshot CODE --from-report REPORT`. Add more checks with `--check NAME="COMMAND"` (`--list` shows the plan). Commands from the report that aren't one plain check command are listed, not run: read them, and give the ones the project really uses with `--check`. If a check can't run at all, fix the command first.
 3. **Work through `rollup.priorities` in rank order** (`$K rollup REPORT --project-dir PROJECT_DIR`). The tiers:
    - **0:** a failed gate, or a critical problem in a hot zone;
    - **1:** unblocks the next maturity level;
