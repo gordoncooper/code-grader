@@ -8,8 +8,12 @@ Versioning rules for the suite itself:
 
 After any major or minor change, re-run calibration (`calibration/README.md`) before trusting new scores.
 
-## 5.1.0 (unreleased)
-Closes ways around the scores, found by a review of 5.0.1 and a red-team pass over the fixes, and hardens the paths agents use. No scoring rules change: config fingerprints and the calibration fingerprint stay the same, and every graded score recomputes the same.
+## 5.1.0
+Closes ways around the scores, found by a review of 5.0.1 and a red-team pass over the fixes, and hardens the paths agents use. No scoring rules change: config fingerprints and the calibration fingerprint stay the same, and every graded score recomputes the same. Before upgrading:
+
+- **Reports already committed aren't checked again.** The grading CI checks only the report a pull request adds.
+- **The next report must follow the new rules.** A finding carried as `accepted` needs an entry in `dispositions.json` that accepts it (`report finding accept` records it), and a `withdrawn` one needs an answered dispute. If an earlier report relied on the old way, add the entry or reopen the finding before delivering the next one. A gate marked `not_applicable` becomes `[gates] exclude` in `project.toml`, if people agree.
+- **For CI:** upgrade an installed check with `gradekit ci-pin --version 5.1.0`. The new templates no longer install `jsonschema`; `gradekit init --ci HOST --force` brings them, and the old ones keep working.
 
 **Ways around the scores, closed**
 - **A gate can't be marked not applicable.** A gate marked `not_applicable` dropped out of the gate check, which lifted the overall cap and every level's `gate_min`: with every benchmark at 7 and A2 at 2, the overall went from 4.0 (L0) to 7.0 (L2), and `validate` and `diff` passed. Now `report score` refuses it, `validate` fails a format-5 report that does it, and `diff` and the PR check call a gate leaving the score a regression. Dropping a gate stays a person's call: `[gates] exclude` in `project.toml`. Reports graded under 4.x keep the warning.
