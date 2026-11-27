@@ -342,3 +342,32 @@ def test_add_run_needs_the_golden_commit(tmp_path):
     cli("calibration", "add-run", golden, report, "--note", "test", cwd=tmp_path)
     run = json.loads((golden / "runs" / "run-1.json").read_text())
     assert run["commit"].startswith("a1b2c3d") and run["scores"]["A1"]["score"] is not None and run["note"] == "test"
+
+
+def test_calibration_analyze_says_what_the_runs_show_about_the_rubric(gk, tmp_path):
+    """6.0 phase 5: spread across runs, benchmarks that rarely apply, pairs that move together across repos once each
+    repo's level is taken out, and the same code filed under different benchmarks by different graders."""
+    fp = gk.scoring_fingerprint()
+
+    def golden(name, runs):
+        d = tmp_path / "golden" / name
+        (d / "runs").mkdir(parents=True)
+        (d / "expected.json").write_text(json.dumps({"reference": f"{name} @ 1", "commit": "abc", "expected": {}}))
+        for i, (scores, findings) in enumerate(runs, 1):
+            (d / "runs" / f"run-{i}.json").write_text(json.dumps({"rules_fingerprint": fp, "findings": findings, "scores": {
+                bid: {"score": s, "applicability": "full" if s is not None else "not_applicable"} for bid, s in scores.items()}}))
+    near = lambda f, lines: [{"benchmark": f, "places": [f"src/app.py:{lines}"]}]
+    # B1 and B2 rise and fall together (one shape at different levels); A5 never applies; graders split on C1 vs C2.
+    golden("one", [({"A1": 8, "B1": 4, "B2": 4, "A5": None, "C2": 6}, near("C1", "10-20")),
+                   ({"A1": 6, "B1": 5, "B2": 5, "A5": None, "C2": 6}, near("C2", "12-14"))])
+    golden("two", [({"A1": 5, "B1": 8, "B2": 8, "A5": None, "C2": 5}, [])] * 2)
+    golden("three", [({"A1": 7, "B1": 6, "B2": 6, "A5": None, "C2": 7}, [])] * 2)
+    res = gk.calibration_analysis(tmp_path / "golden")
+    assert res["goldens"] == {"one": 2, "three": 2, "two": 2}
+    assert res["spread"][0] == {"benchmark": "A1", "largest": 2, "mean": 0.67, "by_golden": {"one": 2, "three": 0, "two": 0}}
+    assert {"benchmark": "A5", "not_full_pct": 100, "runs": 6} in res["rarely_full"]
+    assert {"pair": ["B1", "B2"], "r": 1.0, "goldens": 3} in res["move_together"]
+    assert res["filed_differently"] == [{"pair": ["C1", "C2"], "times": 1, "goldens": ["one"]}]
+    text = gk.analysis_text(res)
+    assert "B1/B2: r 1.0 over 3 repos" in text and "C1/C2: 1 times (one)" in text and "A5: 100% of 6 runs" in text
+    assert gk.calibration_analysis(tmp_path / "nothing")["goldens"] == {}

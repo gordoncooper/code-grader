@@ -55,6 +55,18 @@ def run_scores(report: dict) -> dict:
     return {b["id"]: {"score": b.get("score"), "applicability": b.get("applicability")} for b in report.get("benchmarks", [])}
 
 
+def run_findings(report: dict) -> list[dict]:
+    """What `calibration analyze` compares across runs: each finding's benchmark, severity and the code it cites."""
+    out = []
+    for f in report.get("findings", []):
+        if f.get("status") == "withdrawn":
+            continue
+        places = [f"{e['file']}:{e['lines']}" if e.get("lines") else e["file"]
+                  for e in f.get("evidence", []) if e.get("type") == "code" and e.get("file")]
+        out.append({"benchmark": f.get("benchmark_id"), "severity": f.get("severity"), "title": f.get("title"), "places": places})
+    return out
+
+
 def scoring_fingerprint() -> str:
     """What calibration measures: the scoring version, every benchmark's rubric (measures, boundaries, anchors,
     caps) and the computed limits. A change to any of them needs calibration to be run again."""
@@ -142,10 +154,105 @@ def cmd_calibration_add_run(args) -> int:
     run = report.get("run") or {}
     data = {"graded": run.get("date"), "commit": commit, "suite_version": report.get("suite_version"),
             "scoring_version": scoring_version_of(report), "grader": run.get("grader"), "model": run.get("model"),
-            "session": run.get("session"), "note": args.note, "rules_fingerprint": scoring_fingerprint(), "scores": run_scores(report)}
+            "session": run.get("session"), "note": args.note, "rules_fingerprint": scoring_fingerprint(),
+            "minutes": (run.get("usage") or {}).get("minutes"), "scores": run_scores(report), "findings": run_findings(report)}
     out = runs / f"run-{n}.json"
     write_json(out, {k: v for k, v in data.items() if v is not None})
     emit(args, {"written": str(out)}, f"wrote {out}; then `gradekit calibration run` to update the results")
+    return 0
+
+
+def counted_runs(golden_dir: Path, all_rules: bool = False) -> dict:
+    """Each golden repo's runs graded under the current scoring rules (or every run, with all_rules)."""
+    rules, out = scoring_fingerprint(), {}
+    for d in sorted(p for p in golden_dir.iterdir() if (p / "expected.json").exists()) if golden_dir.is_dir() else []:
+        runs = [load_json(f) for f in sorted((d / "runs").glob("*.json"), key=lambda p: (len(p.name), p.name))] if (d / "runs").is_dir() else []
+        out[d.name] = [r for r in runs if all_rules or r.get("rules_fingerprint") == rules]
+    return out
+
+
+def _place(text: str) -> tuple[str, int, int] | None:
+    """file:12-20 → (file, 12, 20); a place without lines can't be compared precisely."""
+    m = re.fullmatch(r"(.+?):(\d+)(?:[-–](\d+))?", text)
+    return (m.group(1), int(m.group(2)), int(m.group(3) or m.group(2))) if m else None
+
+
+def _pearson(xs: list[float], ys: list[float]) -> float | None:
+    n = len(xs)
+    mx, my = sum(xs) / n, sum(ys) / n
+    sx, sy = sum((x - mx) ** 2 for x in xs) ** 0.5, sum((y - my) ** 2 for y in ys) ** 0.5
+    return None if not sx or not sy else sum((x - mx) * (y - my) for x, y in zip(xs, ys)) / (sx * sy)
+
+
+def calibration_analysis(golden_dir: Path, all_rules: bool = False) -> dict:
+    """What the runs say about the rubric's shape: where graders disagree (spread), which benchmarks rarely apply,
+    which ones move together across repos once each repo's overall level is taken out, and the same code filed
+    under different benchmarks by different graders."""
+    goldens = counted_runs(golden_dir, all_rules)
+    ids = list(dict.fromkeys(bid for runs in goldens.values() for r in runs for bid in (r.get("scores") or {})))
+    spread, not_full, means = {}, {}, {}
+    for name, runs in goldens.items():
+        for bid in ids:
+            vals = [((r.get("scores") or {}).get(bid) or {}).get("score") for r in runs]
+            vals = [v for v in vals if isinstance(v, int)]
+            if len(vals) >= 2:
+                spread.setdefault(bid, {})[name] = max(vals) - min(vals)
+            if vals:
+                means.setdefault(name, {})[bid] = sum(vals) / len(vals)
+            apps = [((r.get("scores") or {}).get(bid) or {}).get("applicability") for r in runs]
+            not_full.setdefault(bid, []).extend(a != "full" for a in apps if a)
+    spread_rows = sorted(({"benchmark": b, "largest": max(s.values()), "mean": round(sum(s.values()) / len(s), 2),
+                           "by_golden": s} for b, s in spread.items()), key=lambda r: (-r["largest"], -r["mean"], r["benchmark"]))
+    rarely = sorted(({"benchmark": b, "not_full_pct": round(100 * sum(v) / len(v)), "runs": len(v)}
+                     for b, v in not_full.items() if v and sum(v) / len(v) >= 0.8), key=lambda r: (-r["not_full_pct"], r["benchmark"]))
+    centred = {g: {b: v - sum(m.values()) / len(m) for b, v in m.items()} for g, m in means.items() if m}
+    together = []
+    for i, a in enumerate(ids):
+        for b in ids[i + 1:]:
+            both = [g for g in centred if a in centred[g] and b in centred[g]]
+            if len(both) >= 3:
+                r = _pearson([centred[g][a] for g in both], [centred[g][b] for g in both])
+                if r is not None and r >= 0.8:
+                    together.append({"pair": [a, b], "r": round(r, 2), "goldens": len(both)})
+    together.sort(key=lambda x: (-x["r"], x["pair"]))
+    confusion = {}
+    for name, runs in goldens.items():
+        cited = [[(f["benchmark"], p) for f in r.get("findings") or [] for p in map(_place, f.get("places") or []) if p] for r in runs]
+        for i in range(len(cited)):
+            for j in range(i + 1, len(cited)):
+                seen = set()
+                for ba, pa in cited[i]:
+                    for bb, pb in cited[j]:
+                        if ba != bb and pa[0] == pb[0] and pa[1] <= pb[2] and pb[1] <= pa[2] and (ba, bb, pa) not in seen:
+                            seen.add((ba, bb, pa))
+                            key = tuple(sorted((ba, bb)))
+                            confusion.setdefault(key, {"pair": list(key), "times": 0, "goldens": set()})
+                            confusion[key]["times"] += 1
+                            confusion[key]["goldens"].add(name)
+    filed = sorted(({**c, "goldens": sorted(c["goldens"])} for c in confusion.values()), key=lambda c: (-c["times"], c["pair"]))
+    return {"rules": "all" if all_rules else scoring_fingerprint(),
+            "goldens": {g: len(r) for g, r in goldens.items()}, "spread": spread_rows, "rarely_full": rarely,
+            "move_together": together, "filed_differently": filed}
+
+
+def analysis_text(res: dict) -> str:
+    if not any(res["goldens"].values()):
+        return "no runs to analyze" + ("" if res["rules"] == "all" else " under the current scoring rules (`--all-rules` includes earlier ones)")
+    out = ["Runs: " + ", ".join(f"{g} {n}" for g, n in res["goldens"].items()), "",
+           "Spread across runs of the same repo (largest first; above 1 means graders disagree):"]
+    out += [f"  {r['benchmark']}: largest {r['largest']}, mean {r['mean']}" for r in res["spread"][:12] if r["largest"] > 0] or ["  none"]
+    out += ["", "Almost always limited or not_applicable (could be conditional, or go):"]
+    out += [f"  {r['benchmark']}: {r['not_full_pct']}% of {r['runs']} runs" for r in res["rarely_full"]] or ["  none"]
+    out += ["", "Move together across repos, after each repo's overall level is taken out (merge candidates; needs 3+ repos):"]
+    out += [f"  {'/'.join(x['pair'])}: r {x['r']} over {x['goldens']} repos" for x in res["move_together"][:12]] or ["  none"]
+    out += ["", "The same code filed under different benchmarks by different graders (unclear boundaries):"]
+    out += [f"  {'/'.join(c['pair'])}: {c['times']} times ({', '.join(c['goldens'])})" for c in res["filed_differently"][:12]] or ["  none"]
+    return "\n".join(out)
+
+
+def cmd_calibration_analyze(args) -> int:
+    res = calibration_analysis(Path(args.golden_dir), args.all_rules)
+    emit(args, res, analysis_text(res))
     return 0
 
 
@@ -187,3 +294,7 @@ def add_calibration(sub):
     q.add_argument("--markdown", default=str(CALIBRATION_MD))
     q.add_argument("--check", action="store_true", help="only check the written results are up to date (exit 1 if not)")
     q.set_defaults(fn=cmd_calibration_run)
+    q = csub.add_parser("analyze", help="what the runs say about the rubric: spread, rarely applies, move together, filed differently")
+    q.add_argument("--golden-dir", default=str(GOLDEN_DIR))
+    q.add_argument("--all-rules", action="store_true", help="include runs graded under earlier scoring rules (benchmarks matched by ID)")
+    q.set_defaults(fn=cmd_calibration_analyze)

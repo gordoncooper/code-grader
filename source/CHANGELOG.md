@@ -24,6 +24,7 @@ A new major. **6.0 reads only format-5 reports and grades under one set of rules
   - `automatic: open critical gap` marks a cap that holds without a finding.
 
   The values don't change, and neither does the calibration fingerprint.
+- **`gradekit calibration analyze`** reports what the calibration runs say about the rubric itself: each benchmark's spread across runs, benchmarks that rarely apply, pairs that move together across repos once each repo's level is taken out, and the same code filed under different benchmarks by different graders. `calibration add-run` saves each run's findings for it.
 - `report.md` lists decisions already answered, not only the pending ones.
 - Every report in a monorepo folder must come from the same kit major.
 - **The engine is split into modules.** `tools/gradekit.py` is now the entry point. The engine is the `tools/gradekit_core/` package beside it: 26 modules, one per area (configuration, rollup, validate, authoring, render, ci and so on), each importing only from the modules before it, and each adding its own commands to the command line (`cli.py` lists them in order). Commands, output and `import gradekit` don't change. An agent that copies the kit file by file needs the package too; `AGENT.md` says so.
