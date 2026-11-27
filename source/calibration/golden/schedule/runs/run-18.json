@@ -1,0 +1,461 @@
+{
+  "graded": "2026-11-27T20:20:18Z",
+  "commit": "82a43db1b938d8fdf60103bd41f329e06c8d3651",
+  "suite_version": "6.0.0",
+  "scoring_version": "6.0.0",
+  "grader": "Claude Code",
+  "model": "claude-opus-5-5",
+  "session": "https://claude.ai/code/session_01CznWn73sGpNhVB7QP3y4KQ",
+  "note": "Claude Opus 5.5 subagent, effort max, fresh session; kit copy without calibration/ or CHANGELOG",
+  "rules_fingerprint": "8efdf855283b43e3",
+  "minutes": 52.6,
+  "scores": {
+    "A1": {
+      "score": 6,
+      "applicability": "full"
+    },
+    "A2": {
+      "score": 8,
+      "applicability": "full"
+    },
+    "A3": {
+      "score": 6,
+      "applicability": "full"
+    },
+    "A4": {
+      "score": 8,
+      "applicability": "limited"
+    },
+    "A5": {
+      "score": null,
+      "applicability": "not_applicable"
+    },
+    "B1": {
+      "score": 8,
+      "applicability": "full"
+    },
+    "B2": {
+      "score": 7,
+      "applicability": "full"
+    },
+    "B3": {
+      "score": 8,
+      "applicability": "full"
+    },
+    "B4": {
+      "score": 5,
+      "applicability": "full"
+    },
+    "B5": {
+      "score": 7,
+      "applicability": "full"
+    },
+    "B6": {
+      "score": 8,
+      "applicability": "full"
+    },
+    "C1": {
+      "score": 8,
+      "applicability": "full"
+    },
+    "C2": {
+      "score": 7,
+      "applicability": "full"
+    },
+    "C4": {
+      "score": 7,
+      "applicability": "full"
+    },
+    "D1": {
+      "score": 8,
+      "applicability": "full"
+    },
+    "D2": {
+      "score": 8,
+      "applicability": "full"
+    },
+    "D4": {
+      "score": 7,
+      "applicability": "full"
+    },
+    "E1": {
+      "score": 4,
+      "applicability": "full"
+    },
+    "E2": {
+      "score": 7,
+      "applicability": "full"
+    },
+    "E3": {
+      "score": 5,
+      "applicability": "full"
+    },
+    "F1": {
+      "score": 5,
+      "applicability": "full"
+    },
+    "F2": {
+      "score": 7,
+      "applicability": "full"
+    },
+    "F3": {
+      "score": 7,
+      "applicability": "limited"
+    },
+    "F4": {
+      "score": 8,
+      "applicability": "full"
+    },
+    "F5": {
+      "score": 7,
+      "applicability": "full"
+    },
+    "F6": {
+      "score": 6,
+      "applicability": "full"
+    },
+    "X1": {
+      "score": null,
+      "applicability": "not_applicable"
+    },
+    "X2": {
+      "score": 4,
+      "applicability": "full"
+    },
+    "X3": {
+      "score": 6,
+      "applicability": "limited"
+    },
+    "X4": {
+      "score": null,
+      "applicability": "not_applicable"
+    },
+    "X5": {
+      "score": 9,
+      "applicability": "limited"
+    }
+  },
+  "findings": [
+    {
+      "benchmark": "A1",
+      "severity": "major",
+      "title": "Around DST changes the .at(time, tz) next-run arithmetic is off by the offset change: a job set inside the spring-forward gap runs twice the next day, and one rescheduled in the hour before its time after a fall-back skips a day",
+      "places": [
+        "schedule/__init__.py:733-734",
+        "schedule/__init__.py:736-737",
+        "docs/timezones.rst:43-45"
+      ]
+    },
+    {
+      "benchmark": "A1",
+      "severity": "major",
+      "title": "every(0) or a negative interval never returns: .do() spins forever in _schedule_next_run",
+      "places": [
+        "schedule/__init__.py:227-228"
+      ]
+    },
+    {
+      "benchmark": "A2",
+      "severity": "minor",
+      "title": "Job argument values (credentials too, if passed) are written to the DEBUG log on every run",
+      "places": [
+        "schedule/__init__.py:690",
+        "schedule/__init__.py:274-275",
+        "docs/logging.rst:30"
+      ]
+    },
+    {
+      "benchmark": "A3",
+      "severity": "major",
+      "title": "A job that raises is never rescheduled: it re-runs on every later run_pending() call and starves the other due jobs",
+      "places": [
+        "schedule/__init__.py:691-693",
+        "schedule/__init__.py:99-101",
+        "docs/exception-handling.rst:4"
+      ]
+    },
+    {
+      "benchmark": "A4",
+      "severity": "minor",
+      "title": "Calling .do() twice on one Job registers it twice, so it runs twice per tick",
+      "places": [
+        "schedule/__init__.py:663"
+      ]
+    },
+    {
+      "benchmark": "A1",
+      "severity": "major",
+      "title": "On a fall-back night, a job in another time zone than the machine's, whose next run lands in the repeated local hour, runs on every run_pending() call for up to an hour",
+      "places": [
+        "schedule/__init__.py:744-746",
+        "schedule/__init__.py:672"
+      ]
+    },
+    {
+      "benchmark": "B2",
+      "severity": "minor",
+      "title": "No clock seam: the library calls datetime.datetime.now() directly in nine places, so tests must swap out the global datetime class",
+      "places": [
+        "schedule/__init__.py:717",
+        "test_schedule.py:77-78"
+      ]
+    },
+    {
+      "benchmark": "B2",
+      "severity": "minor",
+      "title": "Job writes into its Scheduler's list, and the module exposes the default scheduler's internal list as schedule.jobs",
+      "places": [
+        "schedule/__init__.py:663",
+        "schedule/__init__.py:840"
+      ]
+    },
+    {
+      "benchmark": "B4",
+      "severity": "major",
+      "title": "The package ships py.typed, but the fluent builder is untyped: after every(), the chain is Any to type-checking users",
+      "places": [
+        "setup.py:20",
+        "schedule/__init__.py:359"
+      ]
+    },
+    {
+      "benchmark": "B4",
+      "severity": "minor",
+      "title": "Contracts are loose: time units and weekdays are bare strings checked late, and at()'s tz annotation (Optional[str]) hides that it also takes pytz objects",
+      "places": [
+        "schedule/__init__.py:233",
+        "schedule/__init__.py:704",
+        "schedule/__init__.py:471"
+      ]
+    },
+    {
+      "benchmark": "B5",
+      "severity": "minor",
+      "title": "Time-zone support is hard-wired to pytz: stdlib zoneinfo zones are refused, and supporting them means changing at() and the offset-correction code",
+      "places": [
+        "schedule/__init__.py:503",
+        "schedule/__init__.py:789"
+      ]
+    },
+    {
+      "benchmark": "B6",
+      "severity": "minor",
+      "title": "Packaging metadata is declared twice, in setup.py and pyproject.toml, and the copies already disagree",
+      "places": [
+        "setup.py:22-24",
+        "pyproject.toml:8-10"
+      ]
+    },
+    {
+      "benchmark": "C1",
+      "severity": "minor",
+      "title": "Small inconsistencies: typos in user-facing messages and three string-formatting styles side by side",
+      "places": [
+        "schedule/__init__.py:660-661",
+        "schedule/__init__.py:270",
+        "schedule/__init__.py:285"
+      ]
+    },
+    {
+      "benchmark": "C2",
+      "severity": "minor",
+      "title": "Job.at is the complexity hotspot: cyclomatic complexity 25 over 89 lines mixing zone lookup, per-unit format checks and parsing",
+      "places": [
+        "schedule/__init__.py:550-552"
+      ]
+    },
+    {
+      "benchmark": "C2",
+      "severity": "minor",
+      "title": "Seven copy-pasted weekday properties (76 lines) differ only in the day name",
+      "places": [
+        "schedule/__init__.py:381-383",
+        "schedule/__init__.py:392-394"
+      ]
+    },
+    {
+      "benchmark": "C2",
+      "severity": "minor",
+      "title": "The time-zone next-run code is a churn-and-complexity hotspot: reworked by each of the last three logic changes, and still wrong around DST changes",
+      "places": [
+        "schedule/__init__.py:773-775"
+      ]
+    },
+    {
+      "benchmark": "C4",
+      "severity": "minor",
+      "title": "DST tests compute one reschedule from hand-picked times instead of replaying runs at the scheduled times, so the double run after a DST change passes",
+      "places": [
+        "test_schedule.py:659-661"
+      ]
+    },
+    {
+      "benchmark": "C4",
+      "severity": "minor",
+      "title": "Failure and misuse paths are untested: no job raises, no zero or negative interval, and last_run is never asserted",
+      "places": []
+    },
+    {
+      "benchmark": "C4",
+      "severity": "minor",
+      "title": "until() tests mock 1 January, which hides the month and day handling of time-only deadlines",
+      "places": [
+        "test_schedule.py:315"
+      ]
+    },
+    {
+      "benchmark": "D4",
+      "severity": "minor",
+      "title": "Some error messages mislead: a literal '{}' instead of the hour, an inverted 'latest is greater than interval', and an hourly format hint that contradicts the docstring",
+      "places": [
+        "schedule/__init__.py:548",
+        "schedule/__init__.py:711",
+        "schedule/__init__.py:520"
+      ]
+    },
+    {
+      "benchmark": "D4",
+      "severity": "minor",
+      "title": "Inputs of the wrong kind fail with Python-internal errors that don't say what to do: aware datetimes in until(), a string interval, a missing pytz",
+      "places": [
+        "schedule/__init__.py:498-499"
+      ]
+    },
+    {
+      "benchmark": "E1",
+      "severity": "major",
+      "title": "The README quickstart fails as written: 'pip install schedule' doesn't install pytz, and the example's time-zone line needs it",
+      "places": [
+        "README.rst:27",
+        "README.rst:44",
+        "README.rst:18"
+      ]
+    },
+    {
+      "benchmark": "E2",
+      "severity": "minor",
+      "title": "The usage guide misstates when every(5).hours.at('20:30') first runs: 06:20:30 in the docs, 07:20:30 in practice",
+      "places": [
+        "docs/examples.rst:33-34"
+      ]
+    },
+    {
+      "benchmark": "E2",
+      "severity": "minor",
+      "title": "The API reference leaves out repeat() and every exception class, and its 'Exceptions' section lists only CancelJob, which is not an exception",
+      "places": [
+        "docs/reference.rst:39"
+      ]
+    },
+    {
+      "benchmark": "E2",
+      "severity": "minor",
+      "title": "Small factual slips: the fall-back DST example describes the clock moving forward, an until() example uses a 2020 deadline that always raises, and the README says 'Tested on Python and 3.7'",
+      "places": [
+        "docs/timezones.rst:52-53",
+        "docs/examples.rst:242-243",
+        "README.rst:20"
+      ]
+    },
+    {
+      "benchmark": "E3",
+      "severity": "major",
+      "title": "The documented dev workflow fails: requirements-dev.txt doesn't install on Python 3.13, and where it does, the documented test command (and any pytest run) crashes at startup",
+      "places": [
+        "docs/development.rst:12",
+        "docs/development.rst:22",
+        "requirements-dev.txt:5"
+      ]
+    },
+    {
+      "benchmark": "E3",
+      "severity": "minor",
+      "title": "No contribution guide or agent instructions: nothing says how to lint, type-check or run one test, or what the conventions are",
+      "places": []
+    },
+    {
+      "benchmark": "F1",
+      "severity": "minor",
+      "title": "Releases are manual and the documented steps don't work as written: the version is bumped by hand in two files, 'python3 -m build' needs a package the docs never install, and only a wheel is built",
+      "places": [
+        "docs/development.rst:52-53",
+        "docs/development.rst:61-62"
+      ]
+    },
+    {
+      "benchmark": "F2",
+      "severity": "minor",
+      "title": "CI has no lint gate: nothing runs flake8, ruff or pylint, so unused imports and similar slips reach master",
+      "places": []
+    },
+    {
+      "benchmark": "F3",
+      "severity": "minor",
+      "title": "repr() of a job that has no unit yet raises TypeError, so inspecting a half-built job in a REPL or log crashes",
+      "places": [
+        "schedule/__init__.py:320"
+      ]
+    },
+    {
+      "benchmark": "F4",
+      "severity": "minor",
+      "title": "run_all(delay_seconds) also sleeps after the last job, so it always takes one delay longer than needed",
+      "places": [
+        "schedule/__init__.py:118-120"
+      ]
+    },
+    {
+      "benchmark": "F5",
+      "severity": "minor",
+      "title": "The package claims 'OS Independent', but CI runs only on Linux and the test suite cannot run on Windows (time.tzset at import)",
+      "places": [
+        "setup.py:43",
+        ".github/workflows/ci.yml:13",
+        "test_schedule.py:29-30"
+      ]
+    },
+    {
+      "benchmark": "F6",
+      "severity": "minor",
+      "title": "The build relies on a setuptools feature with an announced end date (license as a TOML table) while the build requirement is unbounded",
+      "places": [
+        "pyproject.toml:2",
+        "pyproject.toml:10"
+      ]
+    },
+    {
+      "benchmark": "F6",
+      "severity": "minor",
+      "title": "No automated dependency updates, and the dev toolchain's only pin is six years stale: black 20.8b1 (4 advisories) kept alive by a click pin, with CI actions on old majors",
+      "places": [
+        "requirements-dev.txt:7-8"
+      ]
+    },
+    {
+      "benchmark": "X2",
+      "severity": "major",
+      "title": "Patch release 1.2.2 removed Job.period, a public attribute listed in the 1.2.1 API reference, without a deprecation or a changelog note",
+      "places": [
+        "HISTORY.rst:9-11"
+      ]
+    },
+    {
+      "benchmark": "X2",
+      "severity": "minor",
+      "title": "No deprecation mechanism and an implicit public surface: no DeprecationWarning anywhere, no __all__, and every working attribute of Job is public",
+      "places": [
+        "docs/development.rst:68"
+      ]
+    },
+    {
+      "benchmark": "X3",
+      "severity": "minor",
+      "title": "No thread-safety contract: the docs run the scheduler in a background thread but never say which calls are safe from other threads, and nothing is locked",
+      "places": [
+        "docs/background-execution.rst:31-33",
+        "schedule/__init__.py:87",
+        "docs/index.rst:61"
+      ]
+    }
+  ]
+}

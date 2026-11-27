@@ -29,6 +29,16 @@
           "mae": 0.571,
           "bias": 0.0,
           "applicability_mismatches": []
+        },
+        {
+          "run": "run-18",
+          "model": "claude-opus-5-5",
+          "graded": "2026-11-27T20:20:18Z",
+          "pass": true,
+          "within_tolerance_pct": 92.9,
+          "mae": 0.607,
+          "bias": -0.107,
+          "applicability_mismatches": []
         }
       ],
       "earlier_runs": [
@@ -111,14 +121,17 @@
       "runs_needed": 3,
       "max_spread": 1,
       "spread": {
-        "largest": 2,
-        "mean": 0.5,
+        "largest": 3,
+        "mean": 0.82,
         "unstable": [
-          "B5"
+          "B5",
+          "E2",
+          "F6",
+          "X2"
         ]
       },
       "pass": false,
-      "status": "needs more runs"
+      "status": "fail"
     }
   ]
 }
