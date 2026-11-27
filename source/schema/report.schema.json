@@ -582,6 +582,11 @@
             },
             "note": {
               "type": "string"
+            },
+            "cut_from": {
+              "type": "string",
+              "pattern": "^[0-9]+-[0-9]+$",
+              "description": "The longer range the grader cited. A quote keeps at most 3 lines, so it kept the first 3, and `report check` asks the grader to check them."
             }
           }
         },

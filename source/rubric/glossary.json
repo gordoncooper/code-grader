@@ -6,7 +6,7 @@
       "terms": [
         {
           "term": "benchmark",
-          "definition": "One of the 35 things the suite grades, such as A2 Security & Privacy. Each has a rubric with what to assess and what each score means.",
+          "definition": "One of the things the suite grades, such as A2 Security & Privacy. Each has a rubric with what to assess and what each score means.",
           "avoid": [
             "criterion"
           ]

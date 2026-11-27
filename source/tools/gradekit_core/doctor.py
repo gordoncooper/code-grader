@@ -67,6 +67,19 @@ def hot_share(repo: Path, cfg: dict) -> dict | None:
     return {"share": hot / total, "files": files, "lines": total} if total else None
 
 
+CREDENTIAL_VARS = {"GITHUB_TOKEN", "GH_TOKEN", "GITLAB_TOKEN", "CI_JOB_TOKEN", "BITBUCKET_TOKEN", "AWS_ACCESS_KEY_ID",
+                   "AWS_SECRET_ACCESS_KEY", "AWS_SESSION_TOKEN", "GOOGLE_APPLICATION_CREDENTIALS", "CLOUDSDK_AUTH_ACCESS_TOKEN",
+                   "AZURE_CLIENT_SECRET", "NPM_TOKEN", "NODE_AUTH_TOKEN", "TWINE_PASSWORD", "CARGO_REGISTRY_TOKEN",
+                   "DOCKER_PASSWORD", "GIT_ASKPASS", "SSH_AUTH_SOCK"}
+CREDENTIAL_SUFFIXES = ("_TOKEN", "_SECRET", "_PASSWORD", "_API_KEY", "_SECRET_KEY", "_ACCESS_KEY")
+
+
+def credential_vars(env=None) -> list[str]:
+    """Environment variables that look like credentials. The repo's code (its tests, builds and examples) can read them."""
+    env = os.environ if env is None else env
+    return sorted(k for k, v in env.items() if v and (k in CREDENTIAL_VARS or k.upper().endswith(CREDENTIAL_SUFFIXES)))
+
+
 def doctor_checks(args) -> list[dict]:
     import shutil
     out = []
@@ -135,8 +148,10 @@ def doctor_checks(args) -> list[dict]:
         if repo.suffix == ".zip" and repo.is_file():
             out.append(_check("code repo", "ok", f"zip {repo}"))
         elif repo.is_dir():
-            n = sum(1 for _ in repo.rglob("*") if ".git" not in _.parts)
             rc, head = _run(["git", "-C", str(repo), "rev-parse", "HEAD"]) if shutil.which("git") else (None, "")
+            listed = _run(["git", "-C", str(repo), "ls-files"]) if rc == 0 else (1, "")
+            n = (len(listed[1].splitlines()) if listed[0] == 0
+                 else sum(1 for p in repo.rglob("*") if p.is_file() and ".git" not in p.parts))   # files, as git lists them
             out.append(_check("code repo", "ok", f"{repo} · {n} files" + (f" · commit {head[:12]}" if rc == 0 else " · not a git checkout")))
             hot = hot_share(repo, cfg) if (pdir or getattr(args, "config", None)) and cfg else None
             if hot and hot["share"] > HOT_SHARE_WARN:
@@ -149,6 +164,10 @@ def doctor_checks(args) -> list[dict]:
         else:
             out.append(_check("code repo", "fail", f"not found: {repo}", "pass the code checkout (or a zip of it) with --repo"))
 
+    creds = credential_vars()
+    out.append(_check("credentials", "warn", "in the environment: " + ", ".join(creds[:6]) + (" …" if len(creds) > 6 else ""),
+                      "unset them for every command that runs the repo's code: env -u NAME … CMD") if creds
+               else _check("credentials", "ok", "no tokens or keys in the environment"))
     if args.delivery == "pr":
         out += doctor_git(args, pdir)
     return out
@@ -199,7 +218,7 @@ def doctor_git(args, pdir) -> list[dict]:
                       None if name and email else "git config user.name … && git config user.email …"))
     rc, url = _run(["git", "-C", top, "remote", "get-url", args.remote])
     if rc != 0:
-        out.append(_check("remote", "fail", f"no remote '{args.remote}'", f"git remote add {args.remote} URL, or pass --remote"))
+        out.append(_check("remote", "fail", f"no remote '{args.remote}'", f"git remote add {args.remote} URL, or pass --remote; for a local grading repo with no remote, deliver with --delivery save"))
         return out
     rc, msg = _run(["git", "-C", top, "ls-remote", "--symref", args.remote, "HEAD"], timeout=60)
     if rc != 0:

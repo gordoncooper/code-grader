@@ -119,8 +119,6 @@ A preset is a set of typical answers. A project picks one, then overrides any an
 
 **Bold** = gate for that preset.
 
-**Bold** = gate for that preset.
-
 ## 2. Gates: what an average can't make up for
 
 A weighted average lets strengths make up for weaknesses: great docs could "pay for" a security hole. Gates stop that.
@@ -181,4 +179,4 @@ Any **integrity flag** (an attempt to influence the grader) caps maturity at L1 
 | 2 | Everything else below target |
 | 3 | Optional (benchmark already at target) |
 
-Within a tier, actions are ordered by **weight × points gained (up to target) × zone multiplier ÷ effort cost**, where effort costs S = 1, M = 2, L = 4. Improving agents work through this list in order.
+Within a tier, actions are ordered by **weight × points gained (up to target) × zone multiplier ÷ effort cost**, where effort costs S = 1, M = 2, L = 4. An action never ranks above an earlier action on the same benchmark, because its new score assumes that one is done: the earlier one moves up to just before it. Improving agents work through this list in order.

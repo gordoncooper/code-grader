@@ -319,7 +319,19 @@ def compute_rollup(report: dict, cfg: dict) -> dict:
                           "requires_human_decision": bool(act.get("requires_human_decision")),
                           "decision_question": act.get("decision_question"), "action": act.get("action"),
                           "decision": decision_for(act, cfg)})
-    prios.sort(key=lambda p: (p["tier"], -p["priority"], p["action_id"] or ""))
+    # Each action's new score counts its benchmark's earlier actions as done, so none ranks above an earlier one on the
+    # same benchmark: an earlier action takes the best place of any action after it.
+    steps: dict[str, list[dict]] = {}
+    for p in prios:
+        steps.setdefault(p["benchmark_id"], []).append(p)
+    rank_key = {}
+    for seq in steps.values():
+        best = None
+        for i in range(len(seq) - 1, -1, -1):
+            key = (seq[i]["tier"], -seq[i]["priority"])
+            best = key if best is None or key < best else best
+            rank_key[id(seq[i])] = (*best, seq[i]["benchmark_id"], i)
+    prios.sort(key=lambda p: rank_key[id(p)])
     for i, p in enumerate(prios, 1):
         p["rank"] = i
 
@@ -382,11 +394,14 @@ def derived_top_priorities(report: dict, roll: dict) -> list[dict]:
     """The first ten of rollup.priorities, as top_priorities. `why_first` is the action's own (`report action
     --why-first`), else what the report already said for that action, else a line from its tier."""
     actions = {a.get("id"): a for b in report.get("benchmarks", []) for a in b.get("path_to_target", [])}
+    before = {a.get("id"): b["path_to_target"][i - 1].get("id") for b in report.get("benchmarks", [])
+              for i, a in enumerate(b.get("path_to_target", [])) if i}
     said = {p.get("action_id"): p for p in report.get("top_priorities") or [] if p.get("action_id")}
     out = []
     for p in roll.get("priorities", [])[:TOP_PRIORITIES]:
         act, old = actions.get(p["action_id"]) or {}, said.get(p["action_id"]) or {}
-        why = act.get("why_first") or old.get("why_first") or TIER_WHY.get(p["tier"], "")
+        why = act.get("why_first") or old.get("why_first") or (TIER_WHY.get(p["tier"], "")
+                                                                + (f", after {before[p['action_id']]}" if before.get(p["action_id"]) else ""))
         gain = f"+{p['gain']} on {p['benchmark_id']}" if p.get("gain") else f"no gain on {p['benchmark_id']} by itself"
         out.append({"rank": p["rank"], "benchmark_id": p["benchmark_id"], "action_id": p["action_id"], "why_first": why,
                     "expected_gain": gain})
