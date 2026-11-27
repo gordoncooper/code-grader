@@ -16,7 +16,7 @@
   - Migrations integrated into the deploy.
   - Zero-downtime deploys and rollback where relevant.
   - A documented runbook.
-  - For libraries and CLIs, "deploy" means release and publish, in the ecosystem's native format (wheel, crate, npm package, OCI image), and installing the published artifact.
+  - For libraries and CLIs, "deploy" means release and publish, in the ecosystem's native format (wheel, crate, npm package, OCI image), and installing the published artifact. Release automation (versioning, building and publishing from a tag) is graded here.
 - **Not this:** CI checks and gates (F2). Whether operations are safe to repeat (A4). Diagnosing a running system (F3).
 - **Assess:** Follow the deploy or release process on paper, or for real if possible. Count manual steps. Find hard-coded environment values. Check for a rollback path.
 - **Anchors:**
@@ -27,14 +27,14 @@
 - **Caps:** Manual, undocumented deploy steps → max 4 (`F1-cap-1`). No rollback path for a production service → max 6 (`F1-cap-2`).
 
 ## F2. Build, CI/CD & Automation
-- **Measures:** Reproducible builds; automated format, lint, type and test checks; CI that blocks merges on failure; caching and speed; automated releases and versioning; pre-commit hooks.
-- **Not this:** Which tools are used (E3). Deploy mechanics (F1). Whether the tests themselves are deterministic (C4).
+- **Measures:** Reproducible builds; automated format, lint, type and test checks; CI that blocks merges on failure; caching and speed; pre-commit hooks.
+- **Not this:** Which tools are used (E3). Deploying, releasing and publishing, automated or not (F1). Whether the tests themselves are deterministic (C4).
 - **Assess:** Inspect the CI config. Which checks run, and do they block merges? Measure CI duration if visible.
 - **Anchors:**
   - **1–3:** No CI.
   - **4–6:** CI runs but doesn't block merges.
   - **7–8:** Full gating.
-  - **9–10:** Fast, cached, comprehensive pipeline; releases fully automated.
+  - **9–10:** Fast, cached, comprehensive pipeline; every check blocks merges, and local hooks match CI.
 - **Scope:** repo
 
 ## F3. Observability & Debuggability
@@ -68,8 +68,8 @@
 
 ## F6. Dependency Health & Longevity
 - **Measures:** Dependencies are pinned and locked, maintained and minimal, and the project resists bit rot: runtime and framework versions are within their support windows, no deprecated APIs, the toolchain is pinned, and updates are automated.
-- **Not this:** *Reachable* vulnerabilities (A2). *Unused* dependencies (B6). License compatibility (X5).
-- **Assess:** Inspect manifests and lockfiles. Run outdated and audit checks. Check end-of-life dates for the runtime and major frameworks. Grep for deprecation warnings in build and test output.
+- **Not this:** *Reachable* vulnerabilities (A2). *Unused* dependencies (B6). License compatibility (X5). A contributor setup that fails today (E3): F6 judges the upkeep behind it (pins, update automation, support windows), so don't count the failure here too.
+- **Assess:** Inspect manifests and lockfiles. Run outdated and audit checks. Check end-of-life dates for the runtime and major frameworks. Grep for deprecation warnings in build and test output. A deprecation with an announced removal date, in a dependency, the runtime or the build tooling, is `major` when the date is within six months and nothing pins a version that still supports it; otherwise `minor`.
 - **Anchors:**
   - **1–3:** Unpinned, abandoned or end-of-life.
   - **4–6:** Locked but stale.

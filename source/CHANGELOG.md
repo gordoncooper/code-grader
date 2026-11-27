@@ -35,6 +35,13 @@ A new major, with a reshaped rubric and new scoring rules (scoring 6.0.0). **Sco
 
   The values don't change, and neither does the calibration fingerprint.
 - **`gradekit calibration analyze`** reports what the calibration runs say about the rubric itself: each benchmark's spread across runs, benchmarks that rarely apply, pairs that move together across repos once each repo's level is taken out, and the same code filed under different benchmarks by different graders. `calibration add-run` saves each run's findings for it.
+- **Rubric wording, where the first calibration runs' graders disagreed** (each benchmark below spread by 2 or 3 points on the golden repo):
+  - **E2:** a docs error that states a wrong result, time, value or default in a behavior users rely on is `major`, like one that gives a failing program.
+  - **X2** gets assessment steps (find the public API by the docs and the language's conventions, then compare it with the previous release's) and anchors.
+  - **F6:** a deprecation with a removal date within six months is `major` unless something pins a version that still supports it, and a setup that fails today is E3's alone.
+  - **B5** takes its likely changes from the project's own issues, roadmap or docs, names them, and says where B5 ends and B2 begins.
+  - Smaller boundaries: release automation is F1's alone (not F2's), a D1 feature with an edge-case defect stays `complete`, and X5 grades only licensing for distributed software without regulated data. Pillar X has a shared scale for benchmarks without anchors of their own, and X5 has anchors.
+  - The golden repo's expected E2 is 5 and X2 is 4: see its `set_by`.
 - **Fixes from the first 6.0 calibration runs,** where all three graders hit the same problems:
   - **Cut quotes are flagged.** A `--cite` range longer than 3 lines still keeps its first 3, so a chain of commands doesn't stop halfway, but the quote records the range asked for (`cut_from`), and `report check` lists it until it's cited again.
   - **A command run twice keeps both outputs.** An excerpt given with `--command @N` is checked against command N, and `report check` accepts an excerpt from any recorded command with the same text. `report update command/N --command-text` moves only the evidence that came from that command.
