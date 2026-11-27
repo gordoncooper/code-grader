@@ -146,3 +146,22 @@ def cmd_rubric(args) -> int:
         return 0
     emit(args, {"pillars": data["pillars"], "benchmarks": picked}, "\n\n".join(rubric_text(b, data["pillars"][b["pillar"]]) for b in picked))
     return 0
+
+
+# =========================================================================== commands
+# How the command line reads this module's commands. cli.build_parser adds them in order.
+
+
+def add_rubric(sub):
+    p = sub.add_parser("rubric", help="the rubric for one benchmark or pillar (e.g. A3, or B), as text or --json")
+    p.add_argument("ids", nargs="*", metavar="ID", help="benchmarks (A3) or pillars (B); none: all")
+    p.add_argument("--out", metavar="FILE", help="write the whole rubric as JSON (rubric/rubric.json)")
+    p.set_defaults(fn=cmd_rubric)
+
+
+def add_glossary(sub):
+    p = sub.add_parser("glossary", help="the suite's terms and what they mean (one, or all)")
+    p.add_argument("term", nargs="*", help="a term to look up, e.g. gate or effective severity")
+    p.add_argument("--markdown", action="store_true", help="the whole glossary as GLOSSARY.md")
+    p.add_argument("--out", metavar="FILE", help="with --markdown: write it here")
+    p.set_defaults(fn=cmd_glossary)

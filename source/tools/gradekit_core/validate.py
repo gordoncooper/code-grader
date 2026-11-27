@@ -8,7 +8,7 @@ from .common import (
     load_report, major, MAX_QUOTE_LINES, old_format_problem, OPEN_STATUSES, READABLE_REPORT_MAJORS, SCHEMA_PATH,
     scoring_version_of, SEVERITIES, withheld,
 )
-from .config import load_config, PUBLISHING_DEFAULTS
+from .config import load_config, PUBLISHING_DEFAULTS, with_config
 from .zones import analyze_findings
 from .records import disposition_entry
 from .schema import schema_messages
@@ -251,3 +251,15 @@ def cmd_validate(args) -> int:
     print(f"\n{len(errors)} error(s), {len(warnings)} warning(s)")
     args._result = {"valid": not errors, "errors": errors, "warnings": cfg.get("warnings", []) + warnings, "config_hash": cfg["hash"]}
     return 1 if errors else 0
+
+
+# =========================================================================== commands
+# How the command line reads this module's commands. cli.build_parser adds them in order.
+
+
+def add_validate(sub):
+    p = sub.add_parser("validate", help="schema + config + semantic checks")
+    p.add_argument("report", nargs="?", help="report JSON (default: the project's latest report)")
+    p.add_argument("--publish", action="store_true", help="also fail unless the report is safe to commit to a public grading repo")
+    with_config(p)
+    p.set_defaults(fn=cmd_validate)

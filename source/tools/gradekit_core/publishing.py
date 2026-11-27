@@ -273,3 +273,26 @@ def cmd_rollup_repo(args) -> int:
         print(f"wrote {args.out}")
     args._result = {**summary, "written": args.out}
     return 0
+
+
+# =========================================================================== commands
+# How the command line reads this module's commands. cli.build_parser adds them in order.
+
+
+def add_redact(sub):
+    p = sub.add_parser("redact", help="make a copy safe to publish: no hidden-check details, sensitive findings withheld")
+    p.add_argument("report", nargs="?", help="report JSON (default: the project's latest report)")
+    p.add_argument("--project", metavar="NAME"); p.add_argument("--grading-repo", metavar="DIR"); p.add_argument("--project-dir", metavar="DIR")
+    g = p.add_mutually_exclusive_group()
+    g.add_argument("--out", help="where to write the public copy (default: REPORT.shared.json)")
+    g.add_argument("--in-place", action="store_true",
+                   help="for grading repos: move the full report to REPORT.private.json and write the public one in its place")
+    p.set_defaults(fn=cmd_redact)
+
+
+def add_rollup_repo(sub):
+    p = sub.add_parser("rollup-repo", help="combine per-component reports (each must already have a rollup)")
+    p.add_argument("reports", nargs="+", help="the component reports, or one report folder (with components/)")
+    p.add_argument("--out")
+    p.add_argument("--write", action="store_true", help="with a folder: store the result in its report.json as repo_rollup")
+    p.set_defaults(fn=cmd_rollup_repo)

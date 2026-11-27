@@ -140,3 +140,16 @@ def cmd_verify_evidence(args) -> int:
           f"absence: {res['absence']} (not machine-checkable)" + (f"; withheld: {res['withheld']}" if res["withheld"] else ""))
     args._result = res
     return 1 if res["failures"] else 0
+
+
+# =========================================================================== commands
+# How the command line reads this module's commands. cli.build_parser adds them in order.
+
+
+def add_verify_evidence(sub):
+    p = sub.add_parser("verify-evidence", help="check code citations against the repo")
+    p.add_argument("report", nargs="?", help="report JSON (default: the project's latest report)")
+    p.add_argument("--project", metavar="NAME"); p.add_argument("--grading-repo", metavar="DIR"); p.add_argument("--project-dir", metavar="DIR")
+    p.add_argument("--repo", default=".", help="repo folder, or a .zip of it (default: current folder)")
+    p.add_argument("--tolerance", type=int, default=2, help="line drift allowed around the cited range (default 2)")
+    p.set_defaults(fn=cmd_verify_evidence)

@@ -13,7 +13,7 @@ from .common import (
     DECISIONS_FILE, DEFAULTS_PATH, DISPOSITIONS_FILE, emit, GradekitError, load_catalog, load_json, load_toml, major,
     pin_problem, SCHEMA_PATH, SUITE_DIR, suite_pin,
 )
-from .config import load_config, project_dir_from_args, report_folders
+from .config import load_config, project_dir_from_args, report_folders, with_config
 from .zones import zone_for_path
 
 
@@ -235,3 +235,18 @@ def cmd_doctor(args) -> int:
     lines.append(f"\n{'ready' if not fails else 'not ready'}: {len(fails)} problem(s), {len(warns)} warning(s)")
     emit(args, {"ready": not fails, "checks": checks}, "\n".join(lines))
     return 1 if fails else 0
+
+
+# =========================================================================== commands
+# How the command line reads this module's commands. cli.build_parser adds them in order.
+
+
+def add_doctor(sub):
+    p = sub.add_parser("doctor", help="preflight: check Python, the kit, the config, the code and delivery access before a run")
+    p.add_argument("--repo", metavar="DIR_OR_ZIP", help="the code to grade")
+    p.add_argument("--delivery", choices=["pr", "save", "return"], help="also check what this delivery needs (pr: git, identity, push)")
+    p.add_argument("--open", choices=["github", "gitlab"], help="pr: also check gh / glab sign-in")
+    p.add_argument("--remote", default="origin")
+    p.add_argument("--site", metavar="URL", help="the suite website: check it's reachable and serves this kit's version")
+    with_config(p)
+    p.set_defaults(fn=cmd_doctor)

@@ -4,12 +4,12 @@ from __future__ import annotations
 from pathlib import Path
 
 from .common import die, DISPUTES_FILE, emit, GradekitError, load_json, plural, PROJECT_FILE, utc_now, write_json
-from .config import project_dir_for_report, project_dir_from_args, report_folders
+from .config import project_dir_for_report, project_dir_from_args, report_folders, with_config
 from .records import (
     disposition_entry, disposition_text, earlier_finding, finding_in, load_disputes, not_the_same_finding,
     open_disputes, report_folder_name,
 )
-from .authoring import finding_or_die, load_for_edit, save_edit
+from .authoring import finding_or_die, load_for_edit, report_arg, save_edit
 
 
 # A person who thinks a finding is wrong disputes it in projects/NAME/disputes.json (append-only). The next
@@ -112,3 +112,43 @@ def cmd_finding_accept(args) -> int:
     emit(args, {"id": f["id"], "disposition": f["disposition"], "entry": i},
          f"{f['id']}: accepted ({f['disposition']}; dispositions.json entry {i}{by})")
     return 0
+
+
+# =========================================================================== commands
+# How the command line reads this module's commands. cli.build_parser adds them in order.
+
+
+def add_finding_answer(fsub):
+    q = fsub.add_parser("answer", help="answer a dispute on a finding: uphold it, or withdraw the finding")
+    report_arg(q)
+    q.add_argument("id")
+    g = q.add_mutually_exclusive_group(required=True)
+    g.add_argument("--uphold", action="store_true", help="the finding stands")
+    g.add_argument("--withdraw", action="store_true", help="the finding was wrong: status withdrawn, and it counts nowhere")
+    q.add_argument("--note", required=True, help="why, for the person who disputed it")
+    q.set_defaults(fn=cmd_finding_answer)
+
+
+def add_finding_accept(fsub):
+    q = fsub.add_parser("accept", help="mark a finding accepted, as an entry people added to dispositions.json says")
+    report_arg(q)
+    q.add_argument("id")
+    q.add_argument("--entry", type=int, metavar="N", help="the dispositions.json entry (1 = first) when it's a `match` entry, "
+                                                          "not one naming the finding's ID")
+    q.set_defaults(fn=cmd_finding_accept)
+
+
+def add_dispute(sub):
+    p = sub.add_parser("dispute", help="say a finding is wrong (people): the next grader must answer it")
+    dsub = p.add_subparsers(dest="dispute_cmd", required=True, metavar="STEP")
+    q = dsub.add_parser("add", help="append a dispute to projects/NAME/disputes.json")
+    with_config(q)
+    q.add_argument("finding", metavar="FINDING_ID")
+    q.add_argument("--reason", required=True, help="why the finding is wrong")
+    q.add_argument("--by", required=True, help="who disputes it")
+    q.add_argument("--report", metavar="FOLDER", help="the report folder it's in (default: the newest with that finding)")
+    q.set_defaults(fn=cmd_dispute_add)
+    q = dsub.add_parser("list", help="open disputes (with --all, every one), for a project or the whole grading repo")
+    with_config(q)
+    q.add_argument("--all", action="store_true")
+    q.set_defaults(fn=cmd_dispute_list)

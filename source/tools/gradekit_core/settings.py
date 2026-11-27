@@ -11,7 +11,7 @@ from .common import (
     DECISIONS_FILE, DEFAULTS_PATH, die, DISPOSITIONS_FILE, emit, GradekitError, load_catalog, load_toml, major,
     parse_toml, PILLARS, PROJECT_FILE, slug, SUITE_DIR, write_json,
 )
-from .config import deep_merge, load_config, resolve_config
+from .config import deep_merge, load_config, resolve_config, with_config
 
 
 def cmd_resolve(args) -> int:
@@ -504,3 +504,50 @@ def cmd_init(args) -> int:
     args._result = {"project": name, "project_toml": str(out), "project_dir": str(pdir) if pdir else None,
                     "ci": str(ci_file) if ci_file else None}
     return 0
+
+
+# =========================================================================== commands
+# How the command line reads this module's commands. cli.build_parser adds them in order.
+
+
+def add_init(sub):
+    p = sub.add_parser("init", help="create projects/NAME/ in a grading repo (or a single project.toml)")
+    p.add_argument("--project", metavar="NAME", help="create projects/NAME/ with project.toml, decisions.json, dispositions.json, reports/")
+    p.add_argument("--grading-repo", metavar="DIR", help="grading repo root (default: current folder)")
+    p.add_argument("--code-repo", metavar="URL", help="where the code lives")
+    p.add_argument("--path", metavar="SUBFOLDER", help="monorepos: the subfolder this project covers")
+    p.add_argument("--preset", default="default")
+    p.add_argument("--name", default="my-project", help="project name when writing a single file with --out")
+    p.add_argument("--answer", action="append", metavar="Q=A", help="e.g. --answer data_sensitivity=financial")
+    p.add_argument("--out", default="project.toml")
+    p.add_argument("--ci", choices=["github", "gitlab"], help="also add the grading check for pull requests (see the kit's ci/)")
+    p.add_argument("--site", metavar="URL", help="with --ci: your suite website's address (else set SUITE_SITE in the CI settings)")
+    p.add_argument("--kit-version", metavar="X.Y.Z", help="with --ci: the kit the CI runs (default: this one); it's pinned by hash")
+    p.add_argument("--kit-url", metavar="URL", help="with --ci: where the CI downloads that kit's zip (default: the suite's releases)")
+    p.add_argument("--kit-sha256", metavar="HEX", help="with --ci: the zip's SHA-256, for a copy that isn't a release (no download needed)")
+    p.add_argument("--force", action="store_true")
+    p.set_defaults(fn=cmd_init)
+
+
+def add_ci_pin(sub):
+    p = sub.add_parser("ci-pin", help="pin the grading CI to an exact kit version and hash (the deliberate way to upgrade it)")
+    p.add_argument("--grading-repo", metavar="DIR")
+    p.add_argument("--version", metavar="X.Y.Z", help="a released kit version (default: this kit's)")
+    p.add_argument("--kit-url", metavar="URL", help="another copy of the zip")
+    p.add_argument("--kit-sha256", metavar="HEX", help="its SHA-256 (then nothing is downloaded)")
+    p.set_defaults(fn=cmd_ci_pin)
+
+
+def add_resolve(sub):
+    p = sub.add_parser("resolve", help="show / write the effective config")
+    with_config(p)
+    p.add_argument("--explain", metavar="ID", help="explain one benchmark's weight and gate status")
+    p.add_argument("--out", help="write the effective config JSON here")
+    p.set_defaults(fn=cmd_resolve)
+
+
+def add_presets(sub):
+    p = sub.add_parser("presets", help="compare weights and gates across presets")
+    p.add_argument("--config", action="append", metavar="FILE", help="org-level config to layer in")
+    p.add_argument("--markdown", action="store_true")
+    p.set_defaults(fn=cmd_presets)
