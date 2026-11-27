@@ -1,11 +1,10 @@
 # CI for grading repos
 
 These run `gradekit ci` on every pull request (merge request) to a grading repo. The check:
-- makes sure each pull request is **one kind of change**: either a single new report folder, a project's settings (`project.toml`, `decisions.json`, `dispositions.json`, `org.toml`), or a **migration** (`gradekit migrate`) of one project to a newer suite version;
-- checks a migration by redoing it from the base branch's files: each changed report must be exactly what `gradekit migrate` makes, so a hand edit to an old report can't slip in with one;
+- makes sure each pull request is **one kind of change**: either a single new report folder or a project's settings (`project.toml`, `decisions.json`, `dispositions.json`, `org.toml`). Moving a project to a new suite major is a settings change: its pin in `project.toml`;
 - validates the report: format, rules, citations' shape, a rollup that matches its scores, the folder name, and no private reports or withheld details in a public repo;
 - keeps `decisions.json` and `dispositions.json` **append-only**;
-- comments a summary (score, maturity, gates, decisions waiting, a link to the Review page) and labels the pull request `grading: report`, `grading: settings`, `grading: migration` or `grading: needs changes`.
+- comments a summary (score, maturity, gates, decisions waiting, a link to the Review page) and labels the pull request `grading: report`, `grading: settings` or `grading: needs changes`.
 
 **Grading on a schedule.** Projects with `[schedule] grade_every_days` set are checked weekly by a scheduled job: `gradekit due --check-code --write-orders` writes a grade work order for each one that's due (enough days since its last full grade and, by default, new commits on the code's default branch), and the job sends each as its own pull request. Your graders pick open orders up with `gradekit order list`.
 

@@ -1,7 +1,7 @@
 # Changelog
 
 Versioning rules for the suite itself:
-- **Major:** a change that can break existing setups: the report format, the prompts' workflow, or the scoring rules. Each project pins the major it uses (`suite = "5"` in `project.toml`).
+- **Major:** a change that can break existing setups: the report format, the prompts' workflow, or the scoring rules. Each project pins the major it uses (`suite = "6"` in `project.toml`).
 - **Scoring version:** separate from the kit version, it changes only with rules that can move scores, i.e. new or removed benchmarks, changed anchors, caps, weights, targets or maturity rules. It's `suite_version` in `config/defaults.toml`, part of every config fingerprint. Scores from different scoring majors are **not comparable**, and `gradekit diff` won't treat their deltas as regressions.
 - **Minor:** clarified wording that shouldn't move scores, new optional fields, new tool commands. Re-run calibration to confirm.
 - **Patch:** typos, formatting, documentation.
@@ -9,9 +9,16 @@ Versioning rules for the suite itself:
 After any major or minor change, re-run calibration (`calibration/README.md`) before trusting new scores.
 
 ## 6.0.0 (unreleased)
-A new major. **6.0 reads only reports made by 5.x and later kits:** reports graded with 4.x stay readable with the 4.x and 5.x kits, which the site keeps serving at `/v4/` and `/v5/`.
+A new major. **6.0 reads only format-5 reports and grades under one set of rules:** reports graded with 4.x stay readable with the 4.x and 5.x kits, which the site keeps serving at `/v4/` and `/v5/`.
 
-**Removed**
+- **Removed, with the 4.x reports:**
+  - the 4.x scoring rules (`config/scoring/4.2.0.toml`) and the format-4 schema;
+  - the zone severity shift and round-half-even;
+  - `gradekit migrate`, the `migrated` marker and the grading CI's migration pull requests. To move a project to a new major, people change its pin in `project.toml`.
+- **Old reports are refused, with what to do.** Every command and the website refuse a format-4 report and name the kit that reads it. `validate` refuses a `migrated` marker and any scoring major other than the kit's, and `carry` won't carry from a report graded under other rules.
+- **The bundled example** is format 5, graded under the current rules, and every benchmark below its target has a path there. Its scores don't change.
+- `report.md` lists decisions already answered, not only the pending ones.
+- Every report in a monorepo folder must come from the same kit major.
 
 ## 5.1.0
 Closes ways around the scores, found by a review of 5.0.1 and a red-team pass over the fixes, and hardens the paths agents use. No scoring rules change: config fingerprints and the calibration fingerprint stay the same, and every graded score recomputes the same. Before upgrading:
