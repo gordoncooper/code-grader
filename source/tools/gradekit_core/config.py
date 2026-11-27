@@ -8,8 +8,8 @@ import re
 from pathlib import Path
 
 from .common import (
-    DECISIONS_FILE, DEFAULTS_PATH, die, DISPOSITIONS_FILE, HEAT, load_catalog, load_json, load_toml, major,
-    PROJECT_FILE, SEVERITIES, SUITE_DIR,
+    DECISIONS_FILE, DEFAULTS_PATH, die, DISPOSITIONS_FILE, HEAT, load_json, load_toml, major, PROJECT_FILE, RUBRIC,
+    SEVERITIES, SUITE_DIR,
 )
 
 
@@ -25,7 +25,7 @@ def deep_merge(base: dict, over: dict) -> dict:
 
 # Publishing settings never change scores, so they are not part of the config fingerprint.
 PUBLISHING_DEFAULTS = {"public": True,   # sensitive_benchmarks: the rubric's `Sensitive: yes` benchmarks
-                       "sensitive_benchmarks": [b["id"] for b in load_catalog()["benchmarks"] if b.get("sensitive")],
+                       "sensitive_benchmarks": RUBRIC.sensitive,
                        "warn_at": "major"}
 
 # [schedule] in project.toml: when the scheduled job (`gradekit due --write-orders`) asks for a grade. Never changes scores.
@@ -50,7 +50,7 @@ def resolve_config(paths: list[str], component: str | None = None, preset_fallba
 
 def resolve_layers(layers: list[tuple[str, dict]], component: str | None = None, preset_fallback: str | None = None,
                    component_required: bool = True, decisions: list | None = None, dispositions: list | None = None) -> dict:
-    catalog = load_catalog()
+    catalog = RUBRIC.catalog
     ids = [b["id"] for b in catalog["benchmarks"]]
     names = {b["id"]: b["name"] for b in catalog["benchmarks"]}
     rules = DEFAULTS_PATH

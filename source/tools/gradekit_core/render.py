@@ -7,8 +7,8 @@ import sys
 from pathlib import Path
 
 from .common import (
-    benchmarks_by_id, dash, DECISIONS_FILE, die, emit, enforcement_items, evidence_line, load_catalog, load_json,
-    load_report, PILLARS, PROJECT_FILE, utc_now,
+    benchmarks_by_id, dash, DECISIONS_FILE, die, emit, enforcement_items, evidence_line, load_json, load_report,
+    PILLARS, PROJECT_FILE, RUBRIC, utc_now,
 )
 from .config import load_config, project_dir_or_die, PUBLISHING_DEFAULTS, report_folders, with_config
 from .rollup import compute_rollup, decision_for
@@ -197,7 +197,7 @@ def blocker_text(x: dict) -> str:
 
 
 def render_report_md(report: dict, cfg: dict, catalog: dict | None = None) -> str:
-    catalog = catalog or load_catalog()
+    catalog = catalog or RUBRIC.catalog
     report = public_view(report, cfg)
     roll = rendering_rollup(report, cfg)
     project, commit, date = report_label(report)
@@ -400,7 +400,7 @@ def render_report_pr(report: dict, cfg: dict, site: str | None = None, grading_r
 def render_check_comment(diff: dict, new: dict, cfg: dict) -> str:
     """The PR-check comment (pr-review.md step 4). Sensitive findings are always withheld: PR comments are often public."""
     sens = sensitive_ids(new)
-    names = {b["id"]: b["name"] for b in load_catalog()["benchmarks"]}
+    names = RUBRIC.names
 
     def title(f):
         return f"{names.get(f['id'].split('-')[0], '')} issue (details withheld)" if f["id"] in sens else f["title"]

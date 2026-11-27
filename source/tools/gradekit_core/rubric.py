@@ -5,7 +5,7 @@ import json
 import re
 from pathlib import Path
 
-from .common import CATALOG_PATH, die, emit, GLOSSARY_PATH, load_catalog, load_json, SUITE_DIR
+from .common import CATALOG_PATH, die, emit, GLOSSARY_PATH, kit_version, load_json, SUITE_DIR
 
 
 # One vocabulary for prompts, the website and the docs (rubric/glossary.json).
@@ -163,7 +163,7 @@ def read_rubric(rubric_dir: Path | None = None) -> tuple[dict, list[str]]:
     caps = [c["id"] for b in benches for c in b.get("caps", [])]
     problems += [f"{c} is defined twice" for c in sorted({c for c in caps if caps.count(c) > 1})]
     data = {"_about": "Generated from the rubric files by `gradekit rubric --write`. Don't edit.",
-            "suite_version": load_catalog()["suite_version"], "pillars": pillars, "benchmarks": benches}
+            "suite_version": kit_version(), "pillars": pillars, "benchmarks": benches}
     return data, problems
 
 

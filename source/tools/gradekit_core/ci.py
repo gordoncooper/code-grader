@@ -8,8 +8,8 @@ import tempfile
 from pathlib import Path
 
 from .common import (
-    dash, DECISIONS_FILE, DISPOSITIONS_FILE, DISPUTES_FILE, emit, git_out, GradekitError, load_catalog, load_json,
-    load_report, major, old_format_problem, PROJECT_FILE, report_format, suite_pin,
+    dash, DECISIONS_FILE, DISPOSITIONS_FILE, DISPUTES_FILE, emit, git_out, GradekitError, kit_version, load_json,
+    load_report, major, old_format_problem, PROJECT_FILE, report_format, RUBRIC, suite_pin,
 )
 from .config import component_reports, load_config, parse_list_text, PUBLISHING_DEFAULTS, report_folders
 from .records import disposition_entry, earlier_finding, finding_in, load_disputes, not_the_same_finding
@@ -172,7 +172,7 @@ def ci_check(root: Path, base: str, head: str, changes: list[tuple[str, str]], s
             try:
                 report = load_report(rpath)
                 cfg = load_config(argparse.Namespace(project_dir=str(pdir), config=None, component=None), report, quiet=True)
-                errors, warns = validate_report(report, cfg, load_catalog())
+                errors, warns = validate_report(report, cfg, RUBRIC.catalog)
                 note = work_order_note(pdir, report)
                 if note:
                     warnings.append(note)
@@ -238,7 +238,7 @@ def ci_check(root: Path, base: str, head: str, changes: list[tuple[str, str]], s
                     try:
                         cr = load_report(cp)
                         ccfg = load_config(argparse.Namespace(project_dir=str(pdir), config=None, component=None), cr, quiet=True)
-                        cerr, _ = validate_report(cr, ccfg, load_catalog())
+                        cerr, _ = validate_report(cr, ccfg, RUBRIC.catalog)
                         problems += [f"components/{cp.name}: {e}" for e in cerr]
                         cmajor = major(cr.get("suite_version", "0"))
                         if (report_format(cr) != report_format(report) or cmajor != major(report.get("suite_version", "0"))
@@ -380,7 +380,7 @@ def ci_comment(res: dict, site: str | None, repo_url: str | None, branch: str | 
             lines += ["", f"<details><summary><b>{len(items)} warnings</b></summary>", ""] + items + ["", "</details>"]
         else:
             lines += ["", "**Warnings**", ""] + items
-    lines += ["", f"<sub>gradekit ci · suite {load_catalog()['suite_version']}</sub>", ""]
+    lines += ["", f"<sub>gradekit ci · suite {kit_version()}</sub>", ""]
     return "\n".join(lines)
 
 

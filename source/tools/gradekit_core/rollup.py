@@ -4,8 +4,8 @@ from __future__ import annotations
 import re
 
 from .common import (
-    die, expected_weight, HEAT, level_num, load_catalog, load_report, norm, OPEN_STATUSES, PILLARS,
-    refresh_fingerprint, REPO_LEVEL, SEVERITIES, write_json,
+    die, expected_weight, HEAT, level_num, load_report, norm, OPEN_STATUSES, PILLARS, refresh_fingerprint,
+    REPO_LEVEL, RUBRIC, SEVERITIES, write_json,
 )
 from .config import load_config, with_config
 from .zones import analyze_findings
@@ -64,12 +64,12 @@ def weighted(items) -> float | None:
 CRITICAL_MAX, NO_STRENGTH_MAX, NO_ENFORCEMENT_MAX = 5, 8, 9
 CAP_SEVERITIES = ("major", "critical")   # a rubric cap on a finding holds only while the finding is at least major
 # Caps whose condition is in the report's own data, so they hold without a finding: the rubric's `automatic:` caps.
-AUTO_CAPS = {c["id"]: c["automatic"] for b in load_catalog()["benchmarks"] for c in b.get("caps", []) if c.get("automatic")}
+AUTO_CAPS = RUBRIC.automatic_caps
 
 
 def catalog_caps(catalog: dict | None = None) -> dict:
     """{cap ID: {id, when, max, benchmark}} from the catalog (the rubric's "Caps:" lines)."""
-    catalog = catalog or load_catalog()
+    catalog = catalog or RUBRIC.catalog
     return {c["id"]: {**c, "benchmark": b["id"]} for b in catalog["benchmarks"] for c in b.get("caps", [])}
 
 

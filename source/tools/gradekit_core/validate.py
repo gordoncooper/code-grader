@@ -4,8 +4,8 @@ from __future__ import annotations
 import copy
 
 from .common import (
-    all_text, expected_weight, fingerprint_of, iter_evidence, kit_scoring_version, load_catalog, load_json,
-    load_report, major, MAX_QUOTE_LINES, old_format_problem, OPEN_STATUSES, READABLE_REPORT_MAJORS, SCHEMA_PATH,
+    all_text, expected_weight, fingerprint_of, iter_evidence, kit_scoring_version, load_json, load_report, major,
+    MAX_QUOTE_LINES, old_format_problem, OPEN_STATUSES, READABLE_REPORT_MAJORS, RUBRIC, SCHEMA_PATH,
     scoring_version_of, SEVERITIES, withheld,
 )
 from .config import load_config, PUBLISHING_DEFAULTS, with_config
@@ -238,7 +238,7 @@ def validate_report(report: dict, cfg: dict, catalog: dict) -> tuple[list[str], 
 
 
 def cmd_validate(args) -> int:
-    catalog = load_catalog()
+    catalog = RUBRIC.catalog
     report = load_report(args.report)
     cfg = load_config(args, report)
     errors, warnings = validate_report(report, cfg, catalog)

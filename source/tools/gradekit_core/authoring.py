@@ -10,9 +10,9 @@ from pathlib import Path
 
 from .common import (
     benchmarks_by_id, die, emit, enforcement_items, evidence_line, EXIT_INCOMPLETE, expected_weight,
-    FINDING_STATUSES, _finite_number, GAP_STATUSES, iter_evidence, load_catalog, load_json, load_report,
-    MAX_QUOTE_LINES, norm, _not_json, pin_problem, plural, refresh_fingerprint, REPO_LEVEL, repo_relative,
-    REPORT_FORMAT, say_later, SEVERITIES, slug, started_arg, utc_now, write_json,
+    FINDING_STATUSES, _finite_number, GAP_STATUSES, iter_evidence, load_json, load_report, MAX_QUOTE_LINES, norm,
+    _not_json, pin_problem, plural, refresh_fingerprint, REPO_LEVEL, repo_relative, REPORT_FORMAT, RUBRIC, say_later,
+    SEVERITIES, slug, started_arg, utc_now, write_json,
 )
 from .config import load_config, project_dir_for_report, project_dir_from_args, report_folders, with_config
 from .records import ACCEPT_HINT, open_disputes, WITHDRAW_HINT
@@ -53,7 +53,7 @@ def blank_benchmark(b: dict, cfg: dict) -> dict:
 def normalize_report(report: dict, cfg: dict, catalog: dict | None = None) -> dict:
     """Fill everything the tool knows: every benchmark (catalog order), names, pillars, weights, targets
     and finding_ids. Never touches a grader's judgments (scores, findings, evidence, prose)."""
-    catalog = catalog or load_catalog()
+    catalog = catalog or RUBRIC.catalog
     for key in REPORT_LISTS:
         report.setdefault(key, [])
     report.setdefault("metrics", {})
@@ -357,7 +357,7 @@ def cmd_report_new(args) -> int:
         die("give --project NAME (or --project-dir), or --out FILE")
     if out.exists() and not args.force:
         die(f"{out} exists (use --force to start it again)")
-    catalog = load_catalog()
+    catalog = RUBRIC.catalog
     previous = {}
     if pdir:
         rel_name = f"components/{slug(comp)}.json" if comp else "report.json"
@@ -1027,7 +1027,7 @@ def unrecorded_commands(report: dict) -> list[str]:
 def cmd_report_check(args) -> int:
     report, cfg = load_for_edit(args)
     normalize_report(report, cfg)
-    errors, warnings = validate_report(report, cfg, load_catalog())
+    errors, warnings = validate_report(report, cfg, RUBRIC.catalog)
     pdir_ = project_dir_for_report(args.report) or project_dir_from_args(args)
     note = work_order_note(pdir_, report)
     if note:

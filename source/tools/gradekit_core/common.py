@@ -23,7 +23,6 @@ SCHEMA_PATH = SUITE_DIR / "schema" / "report.schema.json"          # format 5: w
 REPORT_FORMAT = 5
 GLOSSARY_PATH = SUITE_DIR / "rubric" / "glossary.json"
 PROJECT_FILE, DECISIONS_FILE, DISPOSITIONS_FILE = "project.toml", "decisions.json", "dispositions.json"
-PILLARS = ["A", "B", "C", "D", "E", "F", "X"]
 OPEN_STATUSES = {"new", "noticed", "open", "regressed"}
 FINDING_STATUSES = ["new", "noticed", "open", "fixed", "regressed", "accepted", "withdrawn"]   # noticed, withdrawn: format 5
 DISPUTES_FILE = "disputes.json"
@@ -124,7 +123,29 @@ def parse_toml(text: str, name: str = "TOML") -> dict:
 
 
 def load_catalog() -> dict:
+    """rubric/catalog.json as it is on disk. The engine reads it once, as RUBRIC."""
     return load_json(CATALOG_PATH)
+
+
+class Rubric:
+    """The benchmarks, from rubric/catalog.json, which `gradekit rubric --write` makes from the rubric files."""
+
+    def __init__(self, catalog: dict):
+        self.catalog = catalog
+        self.pillars = list(catalog["pillars"])
+        self.benchmarks = catalog["benchmarks"]
+        self.by_id = {b["id"]: b for b in self.benchmarks}
+        self.ids = list(self.by_id)
+        self.names = {b["id"]: b["name"] for b in self.benchmarks}
+        # What the rubric files state about benchmarks (the Scope, Re-grade and Sensitive fields, `automatic:` caps).
+        self.repo_level = tuple(b["id"] for b in self.benchmarks if b.get("scope") == "repo")
+        self.always_regrade = tuple(b["id"] for b in self.benchmarks if b.get("regrade") == "any source change")
+        self.sensitive = [b["id"] for b in self.benchmarks if b.get("sensitive")]
+        self.automatic_caps = {c["id"]: c["automatic"] for b in self.benchmarks for c in b.get("caps", []) if c.get("automatic")}
+
+
+RUBRIC = Rubric(load_catalog())   # read once
+PILLARS = RUBRIC.pillars
 
 
 def major(version) -> str:
@@ -141,7 +162,7 @@ READABLE_REPORT_MAJORS = ("5", "6")
 
 
 def kit_version() -> str:
-    return load_catalog()["suite_version"]
+    return RUBRIC.catalog["suite_version"]
 
 
 def scoring_version_of(report: dict) -> str:
@@ -315,7 +336,7 @@ def emit(args, result: dict, text: str) -> None:
 # ---------------------------------------------------------------- commands
 
 # In a monorepo, what the whole repository shares (grader Part 9): the rubric's `Scope: repo` benchmarks.
-REPO_LEVEL = tuple(b["id"] for b in load_catalog()["benchmarks"] if b.get("scope") == "repo")
+REPO_LEVEL = RUBRIC.repo_level
 
 
 def evidence_files(items) -> set[str]:
