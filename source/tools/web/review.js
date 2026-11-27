@@ -475,9 +475,9 @@
         h("div", { class: "s" }, [run.date, (R.report.config || {}).preset ? "preset " + R.report.config.preset : null, R.report.mode === "pr" ? "PR mode" : null].filter(Boolean).join(" · ")))));
 
     var who = [run.grader, run.model ? "(" + run.model + ")" : null].filter(Boolean).join(" ");
-    var cc = run.citations_checked, five = typeof R.report.schema_version === "number" && R.report.schema_version >= 5;
+    var cc = run.citations_checked;
     var runBits = [who ? "Graded by " + who : null].concat(UI.usageParts(run.usage)).concat([run.work_order ? "work order " + run.work_order : null,
-      cc ? "its " + cc.code_citations + " code quotes checked against the code" : five ? "code quotes not checked against the code" : null]).filter(Boolean);
+      cc ? "its " + cc.code_citations + " code quotes checked against the code" : "code quotes not checked against the code"]).filter(Boolean);
     box.appendChild(h("p", { class: "kbd-note run-line" }, runBits.length ? runBits.join(" · ") : "The report doesn't say who graded it or how long it took.",
       (run.usage && (run.usage.minutes != null || run.usage.cost_usd != null)) ? null : h("span", null, runBits.length ? " · time and cost not recorded" : "")));
 
@@ -651,17 +651,14 @@
     if ((b.strengths || []).length) { body.appendChild(h("h3", null, "Strengths")); b.strengths.forEach(function (s) { body.appendChild(h("div", null, s.note, evidenceList(s.evidence))); }); }
     if ((b.enforcement || []).length) {
       body.appendChild(h("h3", null, "Enforced by"));
-      b.enforcement.forEach(function (e) {   // format 5: {note, evidence}; format 4: a bare evidence object
-        var item = e && e.type ? { note: e.note || "", evidence: [e] } : e;
-        body.appendChild(h("div", null, item.note, evidenceList(item.evidence)));
-      });
+      b.enforcement.forEach(function (e) { body.appendChild(h("div", null, e.note, evidenceList(e.evidence))); });
     }
     if ((b.finding_ids || []).length) {
       body.appendChild(h("h3", null, "Findings"));
       b.finding_ids.forEach(function (id) {
         var f = findings[id], z = fz[id] || {};
         if (!f) return;
-        body.appendChild(h("div", { class: "finding-line" }, h("b", null, id + " "), sevBadge(z.effective_severity || f.severity), " ", zoneBadge(z.criticality), " ", h("span", { class: "badge" }, f.status), " ", f.title, " ", withheldBadge(f), evidenceList(f.evidence)));
+        body.appendChild(h("div", { class: "finding-line" }, h("b", null, id + " "), sevBadge(f.severity), " ", zoneBadge(z.criticality), " ", h("span", { class: "badge" }, f.status), " ", f.title, " ", withheldBadge(f), evidenceList(f.evidence)));
       });
     }
     if ((b.path_to_target || []).length) {
@@ -698,7 +695,6 @@
     var fz = R.check.rollup.finding_zones, list = R.report.findings || [];
     if (!list.length) { box.appendChild(UI.state("empty", { title: "No findings", message: "The grader recorded no problems in this report." })); return; }
     var f = { zone: "all", sev: "all", status: "open" };
-    var shifted = list.some(function (x) { var z = fz[x.id] || {}; return z.effective_severity && z.effective_severity !== x.severity; });
     function selectFilter(label, key, opts) {
       var sel = h("select", { "aria-label": label, class: "w-auto" }, opts.map(function (o) { return h("option", { value: o[0] }, o[1]); }));
       sel.value = f[key]; sel.addEventListener("change", function () { f[key] = sel.value; draw(); });
@@ -707,15 +703,14 @@
     box.appendChild(h("div", { class: "filters" },
       selectFilter("Zone", "zone", [["all", "All"], ["hot", "Hot"], ["normal", "Normal"], ["cold", "Cold"]]),
       selectFilter("Severity", "sev", [["all", "All"], ["critical", "Critical"], ["major", "Major"], ["minor", "Minor"]]),
-      selectFilter("Status", "status", [["open", "Open: not fixed or accepted"], ["all", "All"], ["fixed", "Fixed"], ["accepted", "Accepted"]]),
-      shifted ? h("span", { class: "kbd-note" }, "Graded under the 4.x rules: severity shown is effective, one higher in hot zones and one lower in cold.") : null));
+      selectFilter("Status", "status", [["open", "Open: not fixed or accepted"], ["all", "All"], ["fixed", "Fixed"], ["accepted", "Accepted"]])));
     var tableWrap = h("div", { class: "card tight" });
     box.appendChild(tableWrap);
     function draw() {
       var rows = list.filter(function (x) {
         var z = fz[x.id] || {};
         var openish = ["new", "noticed", "open", "regressed"].indexOf(x.status) >= 0;
-        return (f.zone === "all" || z.criticality === f.zone) && (f.sev === "all" || z.effective_severity === f.sev) &&
+        return (f.zone === "all" || z.criticality === f.zone) && (f.sev === "all" || x.severity === f.sev) &&
                (f.status === "all" || (f.status === "open" ? openish : x.status === f.status));
       });
       UI.clear(tableWrap).appendChild(rows.length ? h("table", { class: "findings" }, h("thead", null, h("tr", null, ["ID", "Severity", "Zone", "Status", "Finding"].map(function (t) { return h("th", null, t); }))),
@@ -728,7 +723,7 @@
             if (open && !detail.firstChild.firstChild) findingDetail(detail.firstChild, x, z);
             remember(open ? { finding: x.id } : { tab: "findings" });
           });
-          return [h("tr", { dataset: { id: x.id } }, h("td", null, toggle), h("td", null, sevBadge(z.effective_severity || x.severity), z.effective_severity && z.effective_severity !== x.severity ? h("div", { class: "kbd-note" }, "was " + x.severity) : null),
+          return [h("tr", { dataset: { id: x.id } }, h("td", null, toggle), h("td", null, sevBadge(x.severity)),
             h("td", null, zoneBadge(z.criticality), z.zone ? h("div", { class: "kbd-note" }, z.zone) : null), h("td", null, x.status), h("td", null, x.title, " ", withheldBadge(x), x.disposition ? h("div", { class: "kbd-note" }, "Accepted: " + x.disposition) : null)), detail];
         }))) : UI.state("empty", { title: "No findings match these filters", message: "Change or clear the filters above." }));
     }

@@ -1,4 +1,4 @@
-# Code Grading Suite v5.1.0: Grader Prompt
+# Code Grading Suite v6.0.0: Grader Prompt
 
 You are a senior staff engineer doing a rigorous, evidence-based quality audit of a codebase. Grade it from **1 to 10** on every benchmark in this suite. Your scores will be used as **improvement targets**: other agents will change the code to raise them. Your grading must therefore be accurate, consistent from run to run, and hard to game.
 
@@ -239,7 +239,6 @@ If you wrote findings without starting from the previous report, `report match $
 
   `rollup.limits` lists every benchmark held below 10, and why.
 - **A 10 requires enforcement.** If quality depends on someone remembering (no CI gate, lint rule, test or automated check), the maximum is 9. A 10 must list `enforcement`: each item is shaped like a strength, `{"note": "CI runs mypy --strict on every PR", "evidence": [...]}` (`gradekit report enforcement ID --text WHAT --cite …`).
-- **4.x reports** (format 4, and reports migrated from 4.x) aren't held to the critical-finding limit; it's a warning there, as it was.
 - **One root cause, one primary home.** Each finding belongs to the benchmark it most directly affects. Reference it from another benchmark only if it independently damages that one too. The rubric's "Not this" lines define the boundaries.
 - **Stack neutrality.** Don't reward or punish a language, framework or style for its own sake.
 
@@ -366,7 +365,7 @@ These scores become goals, so grade **substance, not artifacts**. When you find 
 - For every score that changed, write a `change_explanation` naming the specific code change behind it, and give `previous_score`.
 - Raise a score only when the code improved, not because effort was spent. Lower any score that regressed, even on benchmarks nobody targeted.
 - A problem that was already in the previously graded code, which that report missed, is `noticed`, not `new`: the code didn't get worse, the last grade just didn't see it. Use `new` for problems the code changes since then introduced.
-- Scores are comparable between reports with the same **scoring version** major (`config.scoring_version`; for 4.x reports, their `suite_version`). Reports from suite 4.x have scoring version 4.2.0, and 5.x reports have 5.0.0, so a 5.x report isn't compared for regressions with a 4.x one. If the scoring major differs, still reconcile finding IDs, but don't explain score deltas; note the change under limitations.
+- Scores are comparable between reports with the same **scoring version** major (`config.scoring_version`). If the scoring major differs, still reconcile finding IDs, but don't explain score deltas; note the change under limitations.
 
 ---
 
@@ -421,12 +420,12 @@ Write `report.json` matching `schema/report.schema.json`. Abbreviated example:
 ```json
 {
   "schema_version": 5,
-  "suite_version": "5.1.0",
+  "suite_version": "6.0.0",
   "mode": "full",
   "run": {"project": "orders-api", "commit": "a1b2c3d", "base_commit": null, "started": "2026-11-07T20:12:00Z", "date": "2026-11-07T21:04:00Z",
           "grader": "Claude Code", "model": "claude-opus-5-5", "session": "https://example.com/sessions/123", "work_order": null,
           "usage": {"minutes": 52, "tokens_in": null, "tokens_out": null, "cost_usd": null},
-          "run_index": 1, "run_count": 3, "suite_source": "https://example.com/grading/AGENT.md (5.1.0)"},
+          "run_index": 1, "run_count": 3, "suite_source": "https://example.com/grading/AGENT.md (6.0.0)"},
   "component": null,
   "project_context_inferred": "Internal order-processing REST API (Python/FastAPI, Postgres)",
   "config": {"hash": "06cfd807d4b75ede", "preset": "service", "source": "project.toml", "component": null, "scoring_version": "5.0.0"},

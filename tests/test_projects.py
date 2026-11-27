@@ -20,9 +20,9 @@ def test_the_index_has_what_the_pages_draw():
         assert len(r["scores"]) == 35 and r["scores"]["X1"] == "n/a"
     d = p["pending_decisions"][0]
     assert d["benchmark_id"] == "D1" and d["action"].startswith("Either implement")
-    assert p["latest"]["below_target"] > 0 and p["latest"]["actions_ready"] == 3
+    assert p["latest"]["below_target"] > 0 and p["latest"]["actions_ready"] == 31
     assert p["cycle"] == {"stage": "decide", "waiting_on": [{"who": "people", "what": "1 decision to make"},
-                                                          {"who": "an improver", "what": "3 actions ready"}]}
+                                                          {"who": "an improver", "what": "31 actions ready"}]}
 
 
 def project(**kw):
@@ -55,7 +55,7 @@ def test_the_index_stays_current_after_a_decision(gk, tmp_path):
                               "approved": True, "decided_by": "t", "date": "2026-11-08"})
     d.write_text(json.dumps(data))
     p = gk.build_index(repo)["projects"][0]
-    assert p["pending_decisions"] == [] and p["cycle"]["stage"] == "improve" and p["latest"]["actions_ready"] == 4
+    assert p["pending_decisions"] == [] and p["cycle"]["stage"] == "improve" and p["latest"]["actions_ready"] == 32
 
 
 # --------------------------------------------------------------------------- the page

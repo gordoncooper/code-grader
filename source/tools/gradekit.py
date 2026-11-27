@@ -77,10 +77,7 @@ except ModuleNotFoundError:  # pragma: no cover
 SUITE_DIR = Path(__file__).resolve().parent.parent
 CATALOG_PATH = SUITE_DIR / "rubric" / "catalog.json"
 DEFAULTS_PATH = SUITE_DIR / "config" / "defaults.toml"
-# Earlier scoring rules, kept so reports graded under them validate and recompute as they were graded.
-SCORING_RULES = {"4": SUITE_DIR / "config" / "scoring" / "4.2.0.toml"}
-SCHEMA_PATH = SUITE_DIR / "schema" / "report.schema.json"          # format 5: what this kit writes
-SCHEMA4_PATH = SUITE_DIR / "schema" / "report-4.schema.json"       # format 4: suite 4.x reports, still read
+SCHEMA_PATH = SUITE_DIR / "schema" / "report.schema.json"          # format 5: what this kit writes and reads
 REPORT_FORMAT = 5
 GLOSSARY_PATH = SUITE_DIR / "rubric" / "glossary.json"
 PROJECT_FILE, DECISIONS_FILE, DISPOSITIONS_FILE = "project.toml", "decisions.json", "dispositions.json"
@@ -193,12 +190,12 @@ def major(version) -> str:
 
 
 # Three versions, each with its own job:
-# - the kit version (rubric/catalog.json): prompts, tools and report format, e.g. 5.0.0. Projects pin its major.
+# - the kit version (rubric/catalog.json): prompts, tools and report format, e.g. 6.0.0. Projects pin its major.
 # - the scoring version (suite_version in config/defaults.toml): the rules that move scores. It's in every config
-#   fingerprint, and only reports with the same scoring major are compared for regressions. 5.0.0 changed what
-#   severity means (see config/defaults.toml, ZONES); a 4.x report is resolved with the 4.x rules (SCORING_RULES).
-# - the report's own suite_version: the kit that wrote it. This kit reads reports from these majors:
-READABLE_REPORT_MAJORS = ("4", "5")
+#   fingerprint. The kit has one set of rules, so a report graded under another scoring major is refused, never
+#   recomputed under rules it wasn't graded with.
+# - the report's own suite_version: the kit that wrote it. This kit reads format-5 reports from these majors:
+READABLE_REPORT_MAJORS = ("5", "6")
 
 
 def kit_version() -> str:
@@ -211,9 +208,36 @@ def scoring_version_of(report: dict) -> str:
 
 
 def report_format(report: dict) -> int:
-    """5 for reports this kit writes; 4 for suite 4.x reports, which have no schema_version."""
+    """5 for reports this kit writes; 4 for suite 4.x reports, which have no schema_version. This kit reads format 5."""
     v = report.get("schema_version")
     return v if isinstance(v, int) else 4
+
+
+def old_format_problem(report: dict) -> str | None:
+    """Why this kit can't read a report, or None: suite 4.x reports (format 4) need the 4.x or 5.x kit."""
+    if report_format(report) >= REPORT_FORMAT:
+        return None
+    v = report.get("suite_version")
+    v = v if isinstance(v, str) and re.fullmatch(r"\d+\.\d+\.\d+", v) else None
+    older = v is not None and major(v) != "5"
+    kits = (f"the {major(v)}.x or 5.x kit (the suite website's /v{major(v)}/ or /v5/ path)" if older
+            else "the 5.x kit (the suite website's /v5/ path)")
+    return (f"this report is format {report_format(report)}{f' (suite {v})' if v else ''}, and this kit ({kit_version()}) reads "
+            f"format {REPORT_FORMAT} reports only. Open it with {kits}, or grade the project again with this kit")
+
+
+def kit_scoring_version() -> str:
+    """The scoring rules this kit grades under (config/defaults.toml)."""
+    return str(load_toml(DEFAULTS_PATH).get("suite_version", "0"))
+
+
+def load_report(path) -> dict:
+    """A report this kit can read. An older one is refused, saying which kit reads it."""
+    report = load_json(path)
+    problem = old_format_problem(report)
+    if problem:
+        die(f"{path}: {problem}")
+    return report
 
 
 def fingerprint_of(f: dict) -> str:
@@ -248,7 +272,8 @@ def pin_problem(cfg: dict) -> str | None:
     if pin and pin != major(kit_version()):
         return (f"this project is pinned to suite {pin} (`suite = \"{pin}\"` in project.toml), but this kit is {kit_version()}. "
                 f"Use a {pin}.x kit (the suite website's /v{pin}/ path, or a v{pin}.x release), or move the project to "
-                f"{major(kit_version())}.x with `gradekit migrate`" + (" (a pull request of its own)" if int(pin) < int(major(kit_version())) else ""))
+                f"{major(kit_version())}.x: people set `suite = \"{major(kit_version())}\"` in project.toml, in a pull request of its own, "
+                "and the next report is a full grade. Scores aren't comparable across majors")
     return None
 
 
@@ -342,25 +367,17 @@ def config_hash(cfg: dict) -> str:
 
 def resolve_config(paths: list[str], component: str | None = None, preset_fallback: str | None = None,
                    component_required: bool = True, decisions: list | None = None, dispositions: list | None = None,
-                   scoring: str | None = None) -> dict:
+) -> dict:
     return resolve_layers([(str(p), load_toml(p)) for p in paths], component, preset_fallback, component_required,
-                          decisions, dispositions, scoring)
-
-
-def defaults_for(scoring: str | None) -> Path:
-    """The defaults to resolve with: this kit's, or the earlier rules a report was graded under."""
-    if scoring and major(scoring) != major(load_toml(DEFAULTS_PATH).get("suite_version", "0")):
-        return SCORING_RULES.get(major(scoring), DEFAULTS_PATH)
-    return DEFAULTS_PATH
+                          decisions, dispositions)
 
 
 def resolve_layers(layers: list[tuple[str, dict]], component: str | None = None, preset_fallback: str | None = None,
-                   component_required: bool = True, decisions: list | None = None, dispositions: list | None = None,
-                   scoring: str | None = None) -> dict:
+                   component_required: bool = True, decisions: list | None = None, dispositions: list | None = None) -> dict:
     catalog = load_catalog()
     ids = [b["id"] for b in catalog["benchmarks"]]
     names = {b["id"]: b["name"] for b in catalog["benchmarks"]}
-    rules = defaults_for(scoring)   # this kit's defaults, or the earlier rules a report was graded under
+    rules = DEFAULTS_PATH
     merged = load_toml(rules)
     sources = [str(rules.relative_to(SUITE_DIR))]
     for name, data in layers:
@@ -480,12 +497,10 @@ def resolve_layers(layers: list[tuple[str, dict]], component: str | None = None,
             errors.append(f"gates: unknown benchmark '{bid}'")
 
     zs = merged.get("zone_settings", {})
-    legacy = rules != DEFAULTS_PATH
-    if not legacy:
-        moved = [k for k in ("severity_shift", "never_downgrade") if k in zs]
-        if moved:
-            warnings.append(f"zone_settings.{' and '.join(moved)} no longer apply: since scoring 5.0, graders judge severity where the "
-                            "code runs, and hot zones raise the bar for maturity instead (remove the setting)")
+    moved = [k for k in ("severity_shift", "never_downgrade") if k in zs]
+    if moved:
+        warnings.append(f"zone_settings.{' and '.join(moved)} no longer apply: since scoring 5.0, graders judge severity where the "
+                        "code runs, and hot zones raise the bar for maturity instead (remove the setting)")
     zones = list((comp or {}).get("zones", []) or []) + list(merged.get("zones", []) or [])
     for z in zones:
         if z.get("criticality") not in HEAT:
@@ -552,9 +567,6 @@ def resolve_layers(layers: list[tuple[str, dict]], component: str | None = None,
         "gates": {"benchmarks": sorted(gate_why), "why": gate_why,
                   "hard_floor": gcfg.get("hard_floor", 3), "overall_cap": gcfg.get("overall_cap", 4.0)},
         "zones": {"list": zones, "default": zs.get("default", "normal"),
-                  # 4.x rules only: graders judged severity "as if normal" and the zone shifted it. Since 5.0 it's judged in place.
-                  **({"severity_shift": zs.get("severity_shift", {"hot": 1, "normal": 0, "cold": -1}),
-                      "never_downgrade": zs.get("never_downgrade", ["A2"])} if legacy else {}),
                   "priority_multiplier": zs.get("priority_multiplier", {"hot": 2.0, "normal": 1.0, "cold": 0.5})},
         "targets": targets,
         "maturity": merged.get("maturity", {}),
@@ -671,7 +683,7 @@ def load_config(args, report: dict | None = None, quiet: bool = False) -> dict:
     elif not paths and not quiet:
         print(f"note: no project found (use --project NAME or --config FILE); using suite defaults with preset '{fallback or 'default'}'")
     return resolve_config(paths, component=comp, preset_fallback=fallback, component_required=required,
-                          decisions=decisions, dispositions=dispositions, scoring=scoring_version_of(report) if report else None)
+                          decisions=decisions, dispositions=dispositions)
 
 
 # =========================================================================== zones & severity
@@ -727,16 +739,8 @@ def finding_zone(finding: dict, cfg: dict) -> tuple[str | None, str]:
 
 
 def effective_severity(finding: dict, criticality: str, cfg: dict) -> str:
-    """The severity the rules use. Since scoring 5.0 that's the grader's severity, judged where the code runs; under
-    the 4.x rules a zone shifted it (hot one up, cold one down)."""
-    sev = finding.get("severity", "minor")
-    if sev not in SEVERITIES or "severity_shift" not in cfg["zones"]:
-        return sev
-    shift = int(cfg["zones"]["severity_shift"].get(criticality, 0))
-    if shift < 0 and finding.get("benchmark_id") in cfg["zones"].get("never_downgrade", []):
-        shift = 0
-    idx = max(0, min(len(SEVERITIES) - 1, SEVERITIES.index(sev) + shift))
-    return SEVERITIES[idx]
+    """The severity the rules use: the grader's, judged where the code runs. Zones don't shift it (since scoring 5.0)."""
+    return finding.get("severity", "minor")
 
 
 def disposition_entry(f: dict, cfg: dict) -> tuple[int, dict] | None:
@@ -948,7 +952,10 @@ def schema_messages(value, schema: dict) -> list[str]:
 def validate_report(report: dict, cfg: dict, catalog: dict) -> tuple[list[str], list[str]]:
     errors: list[str] = []
     warnings: list[str] = []
-    errors += schema_messages(report, load_json(SCHEMA_PATH if report_format(report) >= 5 else SCHEMA4_PATH))
+    problem = old_format_problem(report)
+    if problem:
+        return [problem], warnings
+    errors += schema_messages(report, load_json(SCHEMA_PATH))
     if not isinstance(report.get("benchmarks"), list):
         return errors, warnings
 
@@ -983,38 +990,29 @@ def validate_report(report: dict, cfg: dict, catalog: dict) -> tuple[list[str], 
             errors.append(f"finding {fid}: ID prefix does not match benchmark_id {f.get('benchmark_id')}")
         if f.get("status") == "accepted" and not f.get("disposition"):
             errors.append(f"finding {fid}: status 'accepted' requires disposition text")
-        if f.get("status") == "withdrawn" and limits_enforced(report) and (f.get("dispute") or {}).get("answer") != "withdrawn":
+        if f.get("status") == "withdrawn" and (f.get("dispute") or {}).get("answer") != "withdrawn":
             errors.append(f"finding {fid} is withdrawn, but no answered dispute withdraws it: only a person's dispute (disputes.json) "
                           f"does, answered with `report finding answer REPORT {fid} --withdraw`")
-        if f.get("status") == "accepted" and limits_enforced(report):
-            if disposition_entry(f, cfg) is None:
-                errors.append(f"finding {fid} is accepted, but no entry in dispositions.json accepts it: only people accept findings, "
-                              f"by adding an entry for it there (`report finding accept REPORT {fid}` then records it)")
-        elif f.get("status") == "accepted":   # 4.x: a `match` entry may cover it, and those reports can't say which
-            disp = cfg.get("dispositions", []) or []
-            if not any(d.get("finding_id") == fid for d in disp) and not any(d.get("match") for d in disp):
-                warnings.append(f"finding {fid} is 'accepted' but no entry in dispositions.json covers it")
+        if f.get("status") == "accepted" and disposition_entry(f, cfg) is None:
+            errors.append(f"finding {fid} is accepted, but no entry in dispositions.json accepts it: only people accept findings, "
+                          f"by adding an entry for it there (`report finding accept REPORT {fid}` then records it)")
         if f.get("disposition") and f.get("status") != "accepted":
             warnings.append(f"finding {fid}: has a disposition but status is '{f.get('status')}'")
-        if report_format(report) >= 5:
-            if withheld(f):
-                pass   # computed from the full report, before its evidence was withheld
-            elif f.get("fingerprint") and f["fingerprint"] != fingerprint_of(f):
-                errors.append(f"finding {fid}: fingerprint {f['fingerprint']} doesn't match its evidence (gradekit writes it: "
-                              "`report check --write` or `rollup --write`)")
-            elif not f.get("fingerprint"):
-                warnings.append(f"finding {fid}: no fingerprint yet (`report check --write` or `rollup --write` adds it)")
-    if (report_format(report) >= 5 and report.get("rollup") and not migrated_4x(report)
-            and not str((report.get("run") or {}).get("model") or "").strip()):
+        if withheld(f):
+            pass   # computed from the full report, before its evidence was withheld
+        elif f.get("fingerprint") and f["fingerprint"] != fingerprint_of(f):
+            errors.append(f"finding {fid}: fingerprint {f['fingerprint']} doesn't match its evidence (gradekit writes it: "
+                          "`report check --write` or `rollup --write`)")
+        elif not f.get("fingerprint"):
+            warnings.append(f"finding {fid}: no fingerprint yet (`report check --write` or `rollup --write` adds it)")
+    if report.get("rollup") and not str((report.get("run") or {}).get("model") or "").strip():
         errors.append("run.model is empty: a finished report records the model that graded it (`report set REPORT run.model NAME`)")
-    if report.get("migrated") and not migrated_4x(report):
-        errors.append(f"migrated: only a 4.x report that `gradekit migrate` converted carries this marker, and this report was "
-                      f"graded under scoring {scoring_version_of(report)}; remove the marker")
-    if (report_format(report) >= 5 and not report.get("migrated") and major(scoring_version_of(report)) == "4"
-            and report.get("mode") != "pr"):   # a pull-request report keeps its 4.x base's rules, so the two compare
-        errors.append(f"config.scoring_version is {scoring_version_of(report)}, but a full format-5 report is graded under the 5.x "
-                      "scoring rules (only a 4.x report `gradekit migrate` converted keeps its 4.x rules, and a pull-request "
-                      "report its base's)")
+    if "migrated" in report:
+        errors.append("migrated: `gradekit migrate` marked 4.x reports it converted, which kept their 4.x rules; this kit has only "
+                      "its own rules, so open the report with the 5.x kit, or grade the project again")
+    if major(scoring_version_of(report)) != major(kit_scoring_version()):
+        errors.append(f"config.scoring_version is {scoring_version_of(report)}, but this kit grades under scoring {kit_scoring_version()} "
+                      "only: scores from another scoring major aren't comparable, so grade the project again with this kit")
     if report.get("repo_rollup") and not cfg.get("components"):
         errors.append("repo_rollup is only for a monorepo's repo report, and project.toml defines no [[components]]")
     fz = analyze_findings(report, cfg)
@@ -1027,7 +1025,7 @@ def validate_report(report: dict, cfg: dict, catalog: dict) -> tuple[list[str], 
                 errors.append(f"finding {fid}: unknown cap {f['cap']} (the rubric lists each benchmark's caps)")
             elif c["benchmark"] != f.get("benchmark_id"):
                 errors.append(f"finding {fid}: cap {f['cap']} belongs to {c['benchmark']}, not {f.get('benchmark_id')}")
-            elif "severity_shift" not in cfg["zones"] and f.get("severity") not in CAP_SEVERITIES and f.get("status") in OPEN_STATUSES:
+            elif f.get("severity") not in CAP_SEVERITIES and f.get("status") in OPEN_STATUSES:
                 warnings.append(f"finding {fid}: cap {f['cap']} doesn't hold on a {f.get('severity')} finding (a cap needs one that's "
                                 "major or worse); raise its severity, or remove the cap")
 
@@ -1053,7 +1051,7 @@ def validate_report(report: dict, cfg: dict, catalog: dict) -> tuple[list[str], 
         if app in ("limited", "not_applicable") and not (b.get("applicability_reason") or "").strip():
             errors.append(f"{bid}: applicability '{app}' requires applicability_reason")
         if bid in gates and app == "not_applicable" and gate_not_applicable(bid, cfg, report):
-            (errors if limits_enforced(report) else warnings).append(gate_not_applicable(bid, cfg, report))
+            errors.append(gate_not_applicable(bid, cfg, report))
         elif bid in gates and app != "full" and not left_to_the_other_report(report, bid, cfg):
             warnings.append(f"{bid} is a gate but marked '{app}'; gates should almost always fully apply. Double-check.")
         score = b.get("score")
@@ -1074,8 +1072,7 @@ def validate_report(report: dict, cfg: dict, catalog: dict) -> tuple[list[str], 
             if score <= 6 and not b.get("finding_ids") and not gaps and not b.get("carried_forward"):
                 warnings.append(f"{bid}: score {score} but no findings or gaps explain what is wrong")
             for w in over_limit(b, limits.get(bid)):
-                msg = f"{bid}: score {score} is above its limit of {w['max']} ({w['why']})"
-                (errors if limits_enforced(report) else warnings).append(msg)
+                errors.append(f"{bid}: score {score} is above its limit of {w['max']} ({w['why']})")
             for entry in b.get("caps_applied", []) or []:
                 if resolve_cap(entry, bid, caps_) is None:
                     warnings.append(f"{bid}: caps_applied entry {entry!r} isn't a rubric cap (use its ID, e.g. {bid}-cap-1)")
@@ -1101,7 +1098,7 @@ def validate_report(report: dict, cfg: dict, catalog: dict) -> tuple[list[str], 
                 errors.append(f"{aid}: requires_human_decision needs a decision_question")
             if isinstance(score, int) and isinstance(act.get("expected_new_score"), int) and act["expected_new_score"] < score:
                 warnings.append(f"{aid}: expected_new_score {act['expected_new_score']} is below current score {score}")
-            elif (report_format(report) >= 5 and isinstance(act.get("expected_new_score"), int) and isinstance(prev_expected, int)
+            elif (isinstance(act.get("expected_new_score"), int) and isinstance(prev_expected, int)
                   and act["expected_new_score"] < prev_expected):
                 warnings.append(f"{aid}: expected_new_score {act['expected_new_score']} is below the earlier action's "
                                 f"{prev_expected}; it counts earlier actions as done, so it should be at least that")
@@ -1111,7 +1108,7 @@ def validate_report(report: dict, cfg: dict, catalog: dict) -> tuple[list[str], 
     listed_by = {fid: b.get("id") for b in report.get("benchmarks", []) for fid in b.get("finding_ids", []) or []}
     for fid, f in findings.items():
         own = f.get("benchmark_id")
-        if report_format(report) >= 5 and f.get("status") in OPEN_STATUSES and own and fid not in referenced:
+        if f.get("status") in OPEN_STATUSES and own and fid not in referenced:
             errors.append(f"finding {fid} ({f.get('status')}) is {own}'s, but {own}'s finding_ids doesn't list it: "
                           "edit reports with `gradekit report` commands, which keep the lists, never by hand")
         elif f.get("status") in OPEN_STATUSES and fid not in referenced:
@@ -1154,7 +1151,7 @@ def validate_report(report: dict, cfg: dict, catalog: dict) -> tuple[list[str], 
             errors.append(f"{loc}: withheld evidence is only for findings marked sensitive (redact adds it; graders cite real evidence)")
         if ev.get("type") == "code" and len(str(ev.get("quote") or "").strip("\n").splitlines()) > MAX_QUOTE_LINES:
             long_quotes.append(f"{loc} ({ev.get('file')}:{ev.get('lines')})")
-    if long_quotes and report_format(report) >= 5:
+    if long_quotes:
         warnings.append(f"{len(long_quotes)} quote(s) longer than {MAX_QUOTE_LINES} lines (cite the lines that show it; "
                         f"several --cite for several places): {', '.join(long_quotes[:5])}" + (" …" if len(long_quotes) > 5 else ""))
     pub = cfg.get("publishing") or PUBLISHING_DEFAULTS
@@ -1172,7 +1169,7 @@ def validate_report(report: dict, cfg: dict, catalog: dict) -> tuple[list[str], 
 
 def cmd_validate(args) -> int:
     catalog = load_catalog()
-    report = load_json(args.report)
+    report = load_report(args.report)
     cfg = load_config(args, report)
     errors, warnings = validate_report(report, cfg, catalog)
     if args.publish:
@@ -1285,7 +1282,7 @@ def code_citations(report: dict) -> int:
 def record_citations_checked(report: dict, result: dict) -> None:
     """run.citations_checked: that every code quote was just checked against the code, with --repo. `gradekit ci`
     can't see the code, so this record is how it knows; any later edit drops it."""
-    if report_format(report) < 5 or result.get("failures"):
+    if result.get("failures"):
         return
     report.setdefault("run", {})["citations_checked"] = {"code_citations": result["checked"], "date": utc_now(),
                                                          "kit": load_catalog()["suite_version"]}
@@ -1293,8 +1290,6 @@ def record_citations_checked(report: dict, result: dict) -> None:
 
 def citations_check_note(report: dict) -> str | None:
     """What `gradekit ci` says when a report's quotes weren't checked against the code, or changed since."""
-    if report_format(report) < 5:
-        return None
     n, rec = code_citations(report), (report.get("run") or {}).get("citations_checked")
     if not n:
         return None
@@ -1308,7 +1303,7 @@ def citations_check_note(report: dict) -> str | None:
 
 
 def cmd_verify_evidence(args) -> int:
-    report = load_json(args.report)
+    report = load_report(args.report)
     repo = Path(args.repo)
     if repo.suffix == ".zip" and repo.is_file():
         res = verify_evidence(report, zip_reader(str(repo)), args.tolerance)
@@ -1362,13 +1357,10 @@ def compute_targets(report: dict, cfg: dict) -> dict:
     return out
 
 
-def weighted(items, half_up: bool = True) -> float | None:
+def weighted(items) -> float | None:
     """The weighted mean to one decimal, rounded half-up on the exact values: Python's round() rounds halves to even
-    and works on floats, so 6.25 became 6.2 and a mean of 7.95 could show 7.9. Maturity levels use this value, the one
-    people see. 4.x reports (half_up=False) recompute with round(), as they were graded."""
-    if not half_up:
-        tw = sum(w for _, w in items)
-        return round(sum(sc * w for sc, w in items) / tw, 1) if tw else None
+    and works on floats, so 6.25 would become 6.2 and a mean of 7.95 could show 7.9. Maturity levels use this value,
+    the one people see."""
     from decimal import ROUND_HALF_UP, Decimal
     pairs = [(Decimal(str(sc)), Decimal(str(w))) for sc, w in items]
     tw = sum((w for _, w in pairs), Decimal(0))
@@ -1410,7 +1402,6 @@ def score_limits(report: dict, cfg: dict, fz: dict | None = None, catalog: dict 
     fz = fz if fz is not None else analyze_findings(report, cfg)
     open_ = [f for f in report.get("findings", []) if f.get("status") in OPEN_STATUSES]
     critical_gaps = [g for g in report.get("gap_register", []) if g.get("status") in OPEN_STATUSES and g.get("severity") == "critical"]
-    shifted = "severity_shift" in cfg["zones"]   # 4.x rules
     out = {}
     for b in report.get("benchmarks", []):
         bid = b.get("id")
@@ -1436,7 +1427,7 @@ def score_limits(report: dict, cfg: dict, fz: dict | None = None, catalog: dict 
         for f in open_:
             c = caps.get(f.get("cap") or "")
             sev = fz.get(f.get("id"), {}).get("effective_severity", f.get("severity"))
-            if not shifted and sev not in CAP_SEVERITIES:   # since scoring 5.0, a minor finding can't hold a hard cap
+            if sev not in CAP_SEVERITIES:   # since scoring 5.0, a minor finding can't hold a hard cap
                 continue
             if c and c["benchmark"] == bid:
                 why.append({"kind": "cap", "max": c["max"], "why": f"{c['id']}: {c['when']} ({f.get('id')})"})
@@ -1455,16 +1446,6 @@ def score_limits(report: dict, cfg: dict, fz: dict | None = None, catalog: dict 
                     uniq.append(w)
             out[bid] = {"max": min(w["max"] for w in uniq), "why": uniq}
     return out
-
-
-def limits_enforced(report: dict) -> bool:
-    """Format-5 reports are held to their limits; 4.x reports, and 4.x reports `gradekit migrate` converted (still graded
-    under the 4.x rules), get warnings. A `migrated` marker on a report graded under later rules changes nothing."""
-    return report_format(report) >= 5 and not migrated_4x(report)
-
-
-def migrated_4x(report: dict) -> bool:
-    return bool(report.get("migrated")) and major(scoring_version_of(report)) == "4"
 
 
 def left_to_the_other_report(report: dict, bid: str, cfg: dict) -> bool:
@@ -1509,9 +1490,8 @@ def compute_rollup(report: dict, cfg: dict) -> dict:
             scored.append(b)
     by_id = {b["id"]: b for b in scored}
 
-    half_up = "severity_shift" not in cfg["zones"]   # scoring 5 rounds half-up; 4.x rules keep round()
-    pillar_scores = {p: weighted([(b["score"], b["weight"]) for b in scored if b.get("pillar") == p], half_up) for p in PILLARS}
-    overall_raw = weighted([(b["score"], b["weight"]) for b in scored], half_up)
+    pillar_scores = {p: weighted([(b["score"], b["weight"]) for b in scored if b.get("pillar") == p]) for p in PILLARS}
+    overall_raw = weighted([(b["score"], b["weight"]) for b in scored])
 
     g = cfg["gates"]
     gates = [bid for bid in g["benchmarks"]]
@@ -1617,7 +1597,7 @@ def compute_rollup(report: dict, cfg: dict) -> dict:
     blocker_ids = {x.get("benchmark_id") for x in blockers if x.get("benchmark_id")}
     blocker_findings = {fid for x in blockers for fid in x.get("finding_ids", [])}
     prios = []
-    sequential = report_format(report) >= 5
+    sequential = True
     for b in report.get("benchmarks", []):
         if b.get("applicability") == "not_applicable" or not isinstance(b.get("score"), int):
             continue
@@ -1724,15 +1704,13 @@ def derived_top_priorities(report: dict, roll: dict) -> list[dict]:
 
 
 def apply_rollup(report: dict, cfg: dict) -> dict:
-    if report_format(report) >= 5:
-        for f in report.get("findings", []):
-            refresh_fingerprint(f)
+    for f in report.get("findings", []):
+        refresh_fingerprint(f)
     roll = compute_rollup(report, cfg)
     report["rollup"] = roll
     for b in report.get("benchmarks", []):
         b["target"] = roll["targets"].get(b.get("id"))
-    if report_format(report) >= 5:
-        report["top_priorities"] = derived_top_priorities(report, roll)
+    report["top_priorities"] = derived_top_priorities(report, roll)
     return roll
 
 
@@ -1767,7 +1745,7 @@ def print_rollup(roll: dict) -> None:
 
 
 def cmd_rollup(args) -> int:
-    report = load_json(args.report)
+    report = load_report(args.report)
     cfg = load_config(args, report)
     if (report.get("config") or {}).get("hash") not in (None, cfg["hash"]):
         print(f"warning: report config hash {report['config']['hash']} ≠ {cfg['hash']}; scoring with the latter")
@@ -1846,7 +1824,7 @@ def compute_consensus(runs: list[dict], cfg: dict) -> dict:
 
 
 def cmd_stability(args) -> int:
-    runs = [load_json(p) for p in args.reports]
+    runs = [load_report(p) for p in args.reports]
     cfg = load_config(args, runs[0])
     res = compute_consensus(runs, cfg)
     for n in res["notes"]:
@@ -1926,10 +1904,8 @@ def compute_diff(old: dict, new: dict, cfg_old: dict, cfg_new: dict) -> dict:
         f["decided_by"] = entry[1].get("decided_by") if entry else None
         if entry:
             notes.append(f"accepted by people: {f['id']} ({entry[1].get('decided_by') or 'dispositions.json'}): {f['title']}")
-        elif limits_enforced(new):
-            regressions.append(f"finding {f['id']} was accepted without an entry in dispositions.json (only people accept findings): {f['title']}")
         else:
-            notes.append(f"finding {f['id']} was accepted; check that an entry in dispositions.json covers it: {f['title']}")
+            regressions.append(f"finding {f['id']} was accepted without an entry in dispositions.json (only people accept findings): {f['title']}")
     # A problem first seen at the baseline's commit (or a PR's base commit) existed before this change:
     # report it, but don't count it against the change.
     before = [c for c in (old.get("run", {}).get("commit"), new.get("run", {}).get("base_commit")) if c]
@@ -1976,7 +1952,7 @@ def compute_diff(old: dict, new: dict, cfg_old: dict, cfg_new: dict) -> dict:
 
 
 def cmd_diff(args) -> int:
-    old, new = load_json(args.old), load_json(args.new)
+    old, new = load_report(args.old), load_report(args.new)
     cfg_new = load_config(args, new)
     if args.old_config:
         ns = argparse.Namespace(config=args.old_config, component=getattr(args, "component", None))
@@ -2018,7 +1994,7 @@ def cmd_diff(args) -> int:
 # =========================================================================== calibrate / redact / rollup-repo
 
 def cmd_calibrate(args) -> int:
-    report, exp = load_json(args.report), load_json(args.expected)
+    report, exp = load_report(args.report), load_json(args.expected)
     crit = {"within_tolerance_pct": 90, "mae_max": 0.75, **exp.get("criteria", {})}
     bb = benchmarks_by_id(report)
     total = within = 0
@@ -2202,7 +2178,7 @@ def same_but_marked(public: dict, report: dict) -> bool:
 
 
 def cmd_redact(args) -> int:
-    report = load_json(args.report)
+    report = load_report(args.report)
     if (report.get("publishing") or {}).get("redacted"):
         if not (report["publishing"].get("withheld") or []) and not Path(private_path(args.report)).exists():
             emit(args, {"leaks": [], "withheld": [], "written": {}}, f"{args.report} is already redacted, and withholds nothing: nothing to do")
@@ -2237,17 +2213,12 @@ def cmd_redact(args) -> int:
     return 0
 
 
-def rows_half_up(paths) -> bool:
-    """Combining component reports rounds half-up unless any of them is graded under 4.x rules."""
-    return all(int(major(scoring_version_of(load_json(p))) or 0) >= 5 for p in paths)
-
-
 def repo_rollup(paths: list, weights: dict | None = None) -> dict:
     """The repo-wide result of a monorepo's reports: overall weighted by component weight, maturity the lowest. With
     `weights` (the config's), each component's weight comes from there, never from its report."""
     rows = []
     for path in paths:
-        r = load_json(path)
+        r = load_report(path)
         roll = r.get("rollup")
         if not roll:
             die(f"{path} has no rollup; run `gradekit report check --write` (or `rollup --write`) on it first")
@@ -2265,7 +2236,7 @@ def repo_rollup(paths: list, weights: dict | None = None) -> dict:
         die("no component reports (components/NAME.json) to combine")
     scored = [(x["overall"], x["weight"]) for x in rows if x["overall"] is not None]
     tw = sum(w for _, w in scored)
-    overall = weighted(scored, rows_half_up(paths)) if tw else None
+    overall = weighted(scored) if tw else None
     lowest = min(rows, key=lambda x: level_num(x["level"]))
     return {"computed_by": "gradekit.py rollup-repo", "overall_score": overall, "maturity": lowest["level"],
             "limited_by": lowest["component"], "components": rows}
@@ -2292,7 +2263,7 @@ def cmd_rollup_repo(args) -> int:
         summary = repo_rollup(folder_reports(folder)[1:], weights or None)
         if args.write:
             main_path = folder / "report.json"
-            r = load_json(main_path)
+            r = load_report(main_path)
             r["repo_rollup"] = summary
             write_json(main_path, r)
             print(f"stored the repo-wide result in {main_path} (repo_rollup)")
@@ -2303,7 +2274,7 @@ def cmd_rollup_repo(args) -> int:
         return 0
     rows = []
     for path in args.reports:
-        r = load_json(path)
+        r = load_report(path)
         roll = r.get("rollup")
         if not roll:
             die(f"{path} has no rollup; run `gradekit rollup --write` on it first (with its component's config)")
@@ -2313,7 +2284,7 @@ def cmd_rollup_repo(args) -> int:
                      "level": roll["maturity"]["current_level"], "failed_gates": [g["benchmark_id"] for g in roll["gates"] if g["status"] == "failed"]})
     scored = [(x["overall"], x["weight"]) for x in rows if x["overall"] is not None]
     tw = sum(w for _, w in scored)
-    overall = weighted(scored, rows_half_up(args.reports)) if tw else None
+    overall = weighted(scored) if tw else None
     lowest = min(rows, key=lambda x: level_num(x["level"]))
     print(f"{'component':<20} {'preset':<14} {'weight':>6} {'overall':>7} level")
     for x in rows:
@@ -2886,8 +2857,7 @@ def normalize_report(report: dict, cfg: dict, catalog: dict | None = None) -> di
         b = by_id.get(f.get("benchmark_id"))
         if b is not None and f.get("id") not in b["finding_ids"]:
             b["finding_ids"].append(f.get("id"))
-        if report_format(report) >= 5:
-            refresh_fingerprint(f)
+        refresh_fingerprint(f)
     for bid, tv in compute_targets(report, cfg).items():
         if bid in by_id:
             by_id[bid]["target"] = tv
@@ -3236,7 +3206,7 @@ def cmd_report_new(args) -> int:
 
 
 def load_for_edit(args) -> tuple[dict, dict]:
-    report = load_json(args.report)
+    report = load_report(args.report)
     cfg = authoring_config(args, report)
     return report, cfg
 
@@ -3273,8 +3243,6 @@ def cmd_finding_add(args) -> int:
         die(f"add it with its real status, then accept it with {ACCEPT_HINT}")
     if args.status == "withdrawn":
         die(f"a finding is withdrawn by answering a person's dispute: {WITHDRAW_HINT}")
-    if args.status == "noticed" and report_format(report) < 5:
-        die("status 'noticed' needs a format-5 report (suite 5.x); in this 4.x report, use 'new' with --first-seen BASE_COMMIT")
     seen = args.first_seen or ((run.get("base_commit") or run.get("commit")) if args.status == "noticed" else run.get("commit"))
     f = {"id": fid, "benchmark_id": bid, "title": args.title, "severity": args.severity, "status": args.status,
          "first_seen_commit": seen,
@@ -3293,8 +3261,6 @@ def cmd_finding_add(args) -> int:
 
 def finding_cap_or_die(cap: str, bid: str, report: dict, severity: str | None = None) -> str:
     caps = catalog_caps()
-    if report_format(report) < 5:
-        die("--cap on a finding needs a format-5 report (suite 5.x); in this 4.x report, use `report score --cap`")
     if cap not in caps or caps[cap]["benchmark"] != bid:
         mine = "; ".join(f"{k}: {c['when']} → max {c['max']}" for k, c in caps.items() if c["benchmark"] == bid)
         die(f"{cap}: not one of {bid}'s caps ({mine or 'it has none'})")
@@ -3352,7 +3318,7 @@ def cmd_report_score(args) -> int:
         b["applicability_reason"] = args.reason or None
     if b["applicability"] in ("limited", "not_applicable") and not (b.get("applicability_reason") or "").strip():
         die(f"{b['id']} is {b['applicability']}: give --reason (based on the project's purpose, not its quality)")
-    if b["applicability"] == "not_applicable" and limits_enforced(report) and gate_not_applicable(b["id"], cfg, report):
+    if b["applicability"] == "not_applicable" and gate_not_applicable(b["id"], cfg, report):
         die(gate_not_applicable(b["id"], cfg, report))
     if b["applicability"] == "not_applicable":
         if args.score is not None:
@@ -3382,11 +3348,10 @@ def cmd_report_score(args) -> int:
         for v in vals or []:
             if v not in b[key]:
                 b[key].append(v)
-    if limits_enforced(report):
-        too_high = over_limit(b, score_limits(report, cfg).get(b["id"]))
-        if too_high:
-            die(f"{b['id']}: {b['score']} is above its limit of {min(w['max'] for w in too_high)}: "
-                + "; ".join(f"{w['why']} → max {w['max']}" for w in too_high))
+    too_high = over_limit(b, score_limits(report, cfg).get(b["id"]))
+    if too_high:
+        die(f"{b['id']}: {b['score']} is above its limit of {min(w['max'] for w in too_high)}: "
+            + "; ".join(f"{w['why']} → max {w['max']}" for w in too_high))
     save_edit(args, report, cfg)
     if b["applicability"] == "not_applicable":
         state = "not applicable"
@@ -3552,7 +3517,7 @@ def show_lines(report: dict, what: str | None) -> list[str]:
 
 
 def cmd_report_show(args) -> int:
-    report = load_json(args.report)
+    report = load_report(args.report)
     lines = show_lines(report, args.what)
     emit(args, {"lines": lines}, "\n".join(lines))
     return 0
@@ -3818,16 +3783,15 @@ def report_todo(report: dict, pdir: Path | None = None) -> list[str]:
         todo.append("list limitations (or 'None'): `report set REPORT limitations \"...\" --append`")
     if not str(report.get("summary") or "").strip():
         todo.append("write the summary: `report set REPORT summary \"...\"`")
-    if report_format(report) >= 5:
-        for b in report.get("benchmarks", []):
-            tv = b.get("target")
-            if (isinstance(b.get("score"), int) and isinstance(tv, int) and b["score"] < tv and not b.get("carried_forward")
-                    and not any(not a.get("optional") for a in b.get("path_to_target", []))):
-                todo.append(f"{b['id']}: {b['score']} is below its target {tv}; plan the path there "
-                            f"(`report action REPORT {b['id']} --action \"...\" --new-score N --effort S|M|L`)")
-    if report_format(report) >= 5 and not str((report.get("run") or {}).get("model") or "").strip():
+    for b in report.get("benchmarks", []):
+        tv = b.get("target")
+        if (isinstance(b.get("score"), int) and isinstance(tv, int) and b["score"] < tv and not b.get("carried_forward")
+                and not any(not a.get("optional") for a in b.get("path_to_target", []))):
+            todo.append(f"{b['id']}: {b['score']} is below its target {tv}; plan the path there "
+                        f"(`report action REPORT {b['id']} --action \"...\" --new-score N --effort S|M|L`)")
+    if not str((report.get("run") or {}).get("model") or "").strip():
         todo.append("record the model that graded: `report set REPORT run.model NAME` (or `report new --model`)")
-    if report_format(report) >= 5 and pdir is not None:
+    if pdir is not None:
         ids = {f.get("id") for f in report.get("findings", [])}
         for d in open_disputes(pdir, report):
             if d.get("finding_id") in ids:
@@ -3902,10 +3866,9 @@ def cmd_report_check(args) -> int:
             if evidence is not None:
                 record_citations_checked(report, evidence)
             report["run"]["date"] = utc_now()
-            if report_format(report) >= 5:
-                usage = report["run"].setdefault("usage", {})
-                if usage.get("minutes") is None and report["run"].get("started"):
-                    usage["minutes"] = minutes_between(report["run"]["started"], report["run"]["date"])
+            usage = report["run"].setdefault("usage", {})
+            if usage.get("minutes") is None and report["run"].get("started"):
+                usage["minutes"] = minutes_between(report["run"]["started"], report["run"]["date"])
             wrote = (f"wrote {args.report}: the rollup (overall {roll['overall_score']}, {roll['maturity']['current_level']}) and the finish "
                      f"time {report['run']['date']}" + (f", {report['run']['usage']['minutes']:g} min" if (report["run"].get("usage") or {}).get("minutes") is not None else ""))
         else:
@@ -4029,7 +3992,7 @@ def carry_report(baseline: dict, read_lines, cfg: dict, commit: str, mode: str, 
                  touched: list[str] | None) -> tuple[dict, dict]:
     """The next report, started from `baseline`. touched=None means a full re-grade (every benchmark)."""
     r = copy.deepcopy(baseline)
-    for key in ("rollup", "publishing", "migrated"):   # a carried report is a new one, graded with this kit
+    for key in ("rollup", "publishing"):   # a carried report is a new one, graded with this kit
         r.pop(key, None)
     r["suite_version"] = load_catalog()["suite_version"]
     r["mode"] = mode
@@ -4067,11 +4030,8 @@ def carry_report(baseline: dict, read_lines, cfg: dict, commit: str, mode: str, 
         b["change_explanation"] = None
         for i, s in enumerate(b.get("strengths", [])):
             s["evidence"] = move(f"{b['id']} strength #{i + 1}", s.get("evidence", []))
-        if report_format(r) >= 5:
-            for i, e in enumerate(b.get("enforcement", [])):
-                e["evidence"] = move(f"{b['id']} enforcement #{i + 1}", e.get("evidence", []))
-        else:
-            b["enforcement"] = move(f"{b['id']} enforcement", b.get("enforcement", []))
+        for i, e in enumerate(b.get("enforcement", [])):
+            e["evidence"] = move(f"{b['id']} enforcement #{i + 1}", e.get("evidence", []))
         if b["id"] in regrade:
             b["carried_forward"] = False
             if b.get("applicability") != "not_applicable":
@@ -4086,17 +4046,17 @@ def carry_report(baseline: dict, read_lines, cfg: dict, commit: str, mode: str, 
 
 
 def cmd_carry(args) -> int:
-    baseline = load_json(args.baseline)
+    baseline = load_report(args.baseline)
     if (baseline.get("publishing") or {}).get("withheld") and not args.allow_withheld:
         die(f"{args.baseline} is a public copy: {', '.join(baseline['publishing']['withheld'])} have their evidence withheld. "
             f"Carry from the full report ({private_path(args.baseline)}), or pass --allow-withheld to keep them as they are.")
     if args.mode == "pr" and not args.base_commit:
         die("--mode pr needs --base-commit (the pull request's base)")
     args.report = args.baseline
-    # A pull-request report keeps its base's scoring rules, so the two compare; a full re-grade uses this kit's.
-    rules_from = baseline if args.mode == "pr" else {**baseline, "suite_version": load_catalog()["suite_version"],
-                                                      "config": {**(baseline.get("config") or {}), "scoring_version": None}}
-    cfg = authoring_config(args, rules_from)
+    if major(scoring_version_of(baseline)) != major(kit_scoring_version()):
+        die(f"{args.baseline} was graded under scoring {scoring_version_of(baseline)}, and this kit grades under scoring "
+            f"{kit_scoring_version()} only. The two don't compare, so don't carry it: grade in full with `report new`")
+    cfg = authoring_config(args, baseline)
     if pin_problem(cfg):
         die(pin_problem(cfg))
     read = repo_reader(args.repo)
@@ -4220,7 +4180,7 @@ def rename_finding(report: dict, old_id: str, new_id: str, first_seen: str | Non
 
 def cmd_report_match(args) -> int:
     report, cfg = load_for_edit(args)
-    baseline = load_json(args.baseline)
+    baseline = load_report(args.baseline)
     pairs = match_findings(report, baseline, args.threshold)
     applied = []
     if args.apply:
@@ -4535,7 +4495,7 @@ def prepare_components(folder: Path, public: bool, args) -> list[str]:
     """A monorepo report's components/NAME.json: each finished, redacted when public, with its report.md."""
     done = []
     for cp in component_reports(folder):
-        r = load_json(cp)
+        r = load_report(cp)
         ns = argparse.Namespace(report=str(cp), config=None, project=None, project_dir=None, component=None, grading_repo=None)
         ccfg = authoring_config(ns, r)
         errors, _ = validate_report(r, ccfg, load_catalog())
@@ -4563,7 +4523,7 @@ class DeliveryBlocked(Exception):
 
 
 def cmd_deliver(args) -> int:
-    report = load_json(args.report)
+    report = load_report(args.report)
     cfg = authoring_config(args, report)
     if (args.push or args.open) and not args.run:
         die("--push and --open need --run")
@@ -4683,10 +4643,7 @@ def shell_join(parts) -> str:
     return " ".join(shlex.quote(str(p)) for p in parts)
 
 
-# =========================================================================== migrate (4.x → 5)
-# One pull request moves a project to this kit's major: the pin in project.toml and, with --reports, its
-# reports in format 5. The change is mechanical and deterministic, so `gradekit ci` checks a migration pull
-# request by redoing it from the base branch's files. Scores and rollups are never touched.
+# =========================================================================== run times
 
 def started_arg(args, now: str) -> str:
     """run.started: --started if given (a UTC time no later than now), else now."""
@@ -4715,275 +4672,6 @@ def utc_stamp(value) -> str | None:
     if d.tzinfo is None:
         d = d.replace(tzinfo=datetime.timezone.utc)
     return d.astimezone(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-
-
-def scoring_version_4x(kit: str) -> str:
-    """The scoring rules a 4.x kit used: 4.0.0 and 4.1.0, then 4.2.0 from 4.2.0 on."""
-    m = re.fullmatch(r"4\.(\d+)\.\d+", str(kit or ""))
-    return f"4.{min(int(m.group(1)), 2)}.0" if m else str(kit or "0")
-
-
-def migrate_report(report: dict, private: dict | None = None) -> tuple[dict, list[str]]:
-    """A 4.x report in format 5, with its judgments, scores and rollup unchanged. `private` is the full report
-    of a public copy, if there is one: its findings give the withheld ones their fingerprints."""
-    if report_format(report) >= 5:
-        return report, []
-    notes = []
-    r = {"schema_version": REPORT_FORMAT, **copy.deepcopy(report)}
-    r["suite_version"] = kit_version()
-    r["migrated"] = {"from": report.get("suite_version"), "by": kit_version()}
-    run = r["run"] = dict(r.get("run") or {})
-    date = utc_stamp(run.get("date"))
-    if date is None:
-        die(f"run.date {run.get('date')!r} isn't a date; fix it in the report first")
-    if date != run.get("date"):
-        notes.append(f"run.date {run.get('date')} → {date}")
-    run["date"] = date
-    run.setdefault("started", date)
-    for key in ("model", "session", "work_order"):
-        run.setdefault(key, None)
-    r["config"] = {**(r.get("config") or {})}
-    r["config"].setdefault("scoring_version", scoring_version_4x(report.get("suite_version")))
-    wrapped = 0
-    for b in r.get("benchmarks", []):
-        if b.get("enforcement"):
-            b["enforcement"] = enforcement_items(b)
-            wrapped += len(b["enforcement"])
-    if wrapped:
-        notes.append(f"{wrapped} enforcement item(s) → {{note, evidence}}, like strengths")
-    base = str(run.get("base_commit") or "")
-    full = {f.get("id"): f for f in (private or {}).get("findings", [])}
-    for f in r.get("findings", []):
-        seen = str(f.get("first_seen_commit") or "")
-        if r.get("mode") == "pr" and f.get("status") == "new" and base and seen and (seen.startswith(base) or base.startswith(seen)):
-            f["status"] = "noticed"
-            notes.append(f"{f['id']}: new → noticed (first seen at the base commit: it was already there)")
-        if withheld(f):
-            if f.get("id") in full:
-                f["fingerprint"] = fingerprint_of(full[f["id"]])
-        else:
-            f["fingerprint"] = fingerprint_of(f)
-    return r, notes
-
-
-def set_pin_text(text: str, pin: str) -> str:
-    """project.toml with `suite = "PIN"` under [project], changing only that line (comments survive)."""
-    lines = text.splitlines(keepends=True)
-    start = next((i for i, ln in enumerate(lines) if ln.strip() == "[project]"), None)
-    if start is None:
-        die("project.toml has no [project] table")
-    end = next((i for i in range(start + 1, len(lines)) if lines[i].lstrip().startswith("[")), len(lines))
-    line = f'{"suite":<15} = "{pin}"   # the suite\'s major version for this project; tools won\'t write its reports with another\n'
-    for i in range(start + 1, end):
-        if re.match(r"\s*suite\s*=", lines[i]):
-            lines[i] = line
-            return "".join(lines)
-    at = next((i + 1 for i in range(start + 1, end) if re.match(r"\s*preset\s*=", lines[i])), start + 1)
-    lines.insert(at, line)
-    return "".join(lines)
-
-
-MIGRATE_REPORT_FILES = re.compile(r"(report\.json|report\.private\.json|runs/[^/]+\.json)")
-
-
-def migration_plan(pdir: Path, cfg: dict, with_reports: bool) -> list[dict]:
-    """Every file `migrate` changes: {path, text, notes, private}. Paths are relative to the project folder."""
-    out = []
-    toml = (pdir / PROJECT_FILE).read_text(encoding="utf-8")
-    new_toml = set_pin_text(toml, major(kit_version()))
-    if new_toml != toml:
-        out.append({"path": PROJECT_FILE, "text": new_toml, "notes": [f"suite = \"{major(kit_version())}\""], "private": False})
-    if not with_reports:
-        return out
-    for folder in report_folders(pdir):
-        private_path_ = folder / "report.private.json"
-        private = load_json(private_path_) if private_path_.exists() else None
-        migrated_main = None
-        for f in [folder / "report.json", private_path_, *sorted((folder / "runs").glob("*.json"))]:
-            if not f.exists():
-                continue
-            src = load_json(f)
-            if report_format(src) >= 5:
-                continue
-            new, notes = migrate_report(src, private if f.name == "report.json" else None)
-            rel = f.relative_to(pdir).as_posix()
-            out.append({"path": rel, "text": json.dumps(new, indent=2, ensure_ascii=False) + "\n", "notes": notes,
-                        "private": f.name.endswith(".private.json"), "report": new, "before": src})
-            if f.name == "report.json":
-                migrated_main = new
-        if migrated_main is not None:
-            md = migrated_report_md(migrated_main, cfg)
-            if md is not None and (folder / "report.md").exists():
-                out.append({"path": (folder / "report.md").relative_to(pdir).as_posix(), "text": md, "notes": [], "private": False})
-    return out
-
-
-def migrated_report_md(report: dict, cfg: dict) -> str | None:
-    """report.md for a migrated report, or None to leave the old one (a report graded under an older config)."""
-    try:
-        return render_report_md(report, cfg)
-    except GradekitError:
-        return None
-
-
-def same_migration(expected: dict, actual: dict) -> bool:
-    """A migration made by another 5.x kit (5.0.1, say) differs only in which 5.x it names."""
-    e = copy.deepcopy(expected)
-    have = {f.get("id"): f for f in actual.get("findings", []) if isinstance(f, dict)}
-    for f in e.get("findings", []):   # a withheld finding's fingerprint comes from the private report, which CI never sees
-        if withheld(f) and "fingerprint" not in f and "fingerprint" in have.get(f.get("id"), {}):
-            f["fingerprint"] = have[f["id"]]["fingerprint"]
-    if major(actual.get("suite_version", "")) == major(e.get("suite_version", "")):
-        e["suite_version"] = actual.get("suite_version")
-        if isinstance(actual.get("migrated"), dict) and isinstance(e.get("migrated"), dict):
-            e["migrated"]["by"] = actual["migrated"].get("by")
-    return e == actual
-
-
-def cmd_migrate(args) -> int:
-    pdir = project_dir_from_args(args)
-    if pdir is None:
-        die("give --project NAME (in a grading repo) or --project-dir DIR")
-    cfg = load_config(args, quiet=True)
-    pin, kit = suite_pin(cfg), major(kit_version())
-    if pin and int(pin) > int(kit):
-        die(f"this project is pinned to suite {pin}, newer than this kit ({kit_version()}); use a {pin}.x kit")
-    if (args.push or args.open) and not args.run:
-        die("--push and --open need --run")
-    if args.open and not args.push:
-        die("--open needs --push (the branch must be on the host first)")
-    plan = migration_plan(pdir, cfg, args.reports)
-    lines, checks = [], []
-    for item in plan:
-        if "report" in item:
-            before, after = item["before"], item["report"]
-            b, a = (before.get("rollup") or {}), (after.get("rollup") or {})
-            same = (b.get("overall_score"), (b.get("maturity") or {}).get("current_level")) == \
-                   (a.get("overall_score"), (a.get("maturity") or {}).get("current_level"))
-            checks.append(same)
-        lines.append(f"  {item['path']}" + (" (private, never committed)" if item["private"] else "")
-                     + (f": {'; '.join(item['notes'])}" if item["notes"] else ""))
-    result = {"project": pdir.name, "pin": kit, "files": [{"path": i["path"], "notes": i["notes"], "private": i["private"]} for i in plan],
-              "scores_unchanged": all(checks), "written": False}
-    if not plan:
-        emit(args, result, f"{pdir.name} is already on suite {kit}" + ("" if args.reports else " (add --reports to also upgrade its reports)"))
-        return 0
-    head = [f"migrate {pdir.name} to suite {kit}: {len(plan)} file(s)" + ("" if args.reports else " (the pin only; --reports also upgrades its reports)")]
-    if checks:
-        head.append(f"scores and rollups: {'unchanged' if all(checks) else 'CHANGED, which a migration must never do'} in {len(checks)} report(s)")
-    if not (args.write or args.run):
-        emit(args, result, "\n".join(head + lines + ["", "dry run: nothing written. --write writes them here; --run makes a branch and commits"]))
-        return 0
-    if not all(checks):
-        die("a migrated report's stored rollup differs from the original; nothing written")
-    import subprocess
-    root = Path(git_out(pdir, "rev-parse", "--show-toplevel", check=False) or ".")
-    in_git = (root / ".git").exists()
-    branch = args.branch or f"migrate/{pdir.name}-v{kit}"
-    title = f"Migrate {pdir.name} to suite {kit}"
-    steps = []
-    if args.run:
-        if not in_git:
-            die("--run needs the grading repo to be a git checkout")
-        base = args.base or default_branch(root, args.remote)
-        if git_out(root, "status", "--porcelain", check=False):
-            die("the grading repo has uncommitted changes; commit or stash them first")
-        r = subprocess.run(["git", "-C", str(root), "switch", "-c", branch, base], capture_output=True, text=True)
-        if r.returncode != 0:
-            die(f"git switch -c {branch} {base} failed: {(r.stderr or r.stdout).strip()}")
-    elif in_git:
-        current = git_out(root, "rev-parse", "--abbrev-ref", "HEAD", check=False)
-        base_name = (args.base or default_branch(root, args.remote)).split("/")[-1]
-        if current == base_name:
-            die(f"refusing to write on {current}: a migration goes through a pull request. Switch to a branch, or use --run")
-    for item in plan:
-        (pdir / item["path"]).write_text(item["text"], encoding="utf-8")
-    result["written"] = True
-    if args.run:
-        rels = [(pdir / i["path"]).resolve().relative_to(root.resolve()).as_posix() for i in plan if not i["private"]]
-        body = "\n".join([f"Moves `{pdir.name}` to suite {kit} with `gradekit migrate`" + (" --reports" if args.reports else "") + ".", "",
-                          "- the pin: `suite = \"" + kit + "\"` in project.toml"]
-                         + (["- its reports in format 5: scores and rollups unchanged; `gradekit ci` checks this by redoing it"] if args.reports else [])
-                         + ["", "Revert this pull request to undo it."]) + "\n"
-        body_file = Path(tempfile.gettempdir()) / f"gradekit-{branch.replace('/', '_')}.md"
-        body_file.write_text(body, encoding="utf-8")
-        steps = [["git", "-C", str(root), "add", "--", *rels], ["git", "-C", str(root), "commit", "-m", title, "--", *rels]]
-        if args.push:
-            steps.append(["git", "-C", str(root), "push", "-u", args.remote, branch])
-        base_name = (args.base or default_branch(root, args.remote)).split("/")[-1]
-        if args.open == "github":
-            steps.append(["gh", "pr", "create", "--base", base_name, "--head", branch, "--title", title, "--body-file", str(body_file)])
-        elif args.open == "gitlab":
-            steps.append(["glab", "mr", "create", "--source-branch", branch, "--target-branch", base_name, "--title", title,
-                          "--description", body, "--yes"])
-        for s in steps:
-            r = subprocess.run(s, capture_output=True, text=True, timeout=300)
-            if r.returncode != 0:
-                die(f"`{shell_join(s)}` failed:\n{(r.stderr or r.stdout).strip()}")
-        result.update(branch=branch, commit=git_out(root, "rev-parse", "HEAD"), pushed=bool(args.push), title=title, body_file=str(body_file))
-        tail = [f"committed on {branch}" + (f" and pushed to {args.remote}" if args.push else "") + f"; open a pull request titled "
-                f"\"{title}\" with the body in {body_file}" if not args.open else f"opened a pull request: {title}"]
-    else:
-        tail = [f"wrote them; commit them on a branch and open a pull request titled \"{title}\""]
-    if any(i["private"] for i in plan):
-        tail.append("report.private.json files were upgraded in place; they stay out of git")
-    emit(args, result, "\n".join(head + lines + [""] + tail))
-    return 0
-
-
-def check_migration(root: Path, mb: str, changes: list[tuple[str, str]]) -> dict | None:
-    """If a pull request is a migration (only edits to one project's reports, plus its pin), check each file is
-    exactly what `gradekit migrate` makes from the base branch's version. None if it isn't one."""
-    paths = [(s, p) for s, p in changes if p != f"projects/{INDEX_FILE}"]
-    rx = re.compile(r"projects/([^/]+)/reports/([^/]+)/(report\.json|report\.md|runs/[^/]+\.json)")
-    reports = [(s, p) for s, p in paths if rx.fullmatch(p)]
-    projects_ = {p.split("/")[1] for _, p in paths if p.startswith("projects/")}
-    if not reports or len(projects_) != 1:
-        return None
-    proj = next(iter(projects_))
-    toml_path = f"projects/{proj}/{PROJECT_FILE}"
-    if any(p != toml_path and (s, p) not in reports for s, p in paths) or any(s != "M" for s, _ in reports):
-        return None
-    problems, notes = [], []
-    pdir = root / "projects" / proj
-    try:
-        cfg = load_config(argparse.Namespace(project_dir=str(pdir), config=None, component=None), quiet=True)
-    except GradekitError as exc:
-        return {"project": proj, "problems": [f"config: {exc}"], "notes": [], "reports": 0}
-    if suite_pin(cfg) != major(kit_version()):
-        problems.append(f"a migration pins the project to this suite: `suite = \"{major(kit_version())}\"` in {toml_path}")
-    if any(p == toml_path for _, p in paths):
-        before = file_at(root, mb, toml_path)
-        if before is None or set_pin_text(before, major(kit_version())) != (root / toml_path).read_text(encoding="utf-8"):
-            problems.append(f"{toml_path}: a migration changes only the `suite` line (send other settings changes on their own)")
-    expected_json = {}
-    for s, p in reports:
-        if p.endswith(".json"):
-            base_text = file_at(root, mb, p)
-            try:
-                want, _ = migrate_report(json.loads(base_text or "{}"))
-                have = load_json(root / p)
-            except (GradekitError, json.JSONDecodeError) as exc:
-                problems.append(f"{p}: {exc}")
-                continue
-            if not same_migration(want, have):
-                problems.append(f"{p} isn't what `gradekit migrate` makes from the base branch's version: reports are never "
-                                "edited by hand, so run `gradekit migrate --reports` on a fresh branch")
-            elif p.endswith("/report.json"):
-                expected_json[p.rsplit("/", 1)[0]] = have
-    for s, p in reports:
-        if p.endswith("/report.md"):
-            folder = p.rsplit("/", 1)[0]
-            rep = expected_json.get(folder) or (load_json(root / folder / "report.json") if (root / folder / "report.json").exists() else None)
-            md = migrated_report_md(rep, cfg) if rep else None
-            if md is None or md != (root / p).read_text(encoding="utf-8"):
-                problems.append(f"{p} isn't the report.md that `gradekit render report` makes from the migrated report")
-    if any(p.endswith(".private.json") for _, p in reports):
-        problems.append("a private report is in the pull request: it must never be committed")
-    return {"project": proj, "problems": problems, "notes": notes,
-            "reports": sum(1 for _, p in reports if p.endswith("/report.json"))}
-
-
 
 
 # =========================================================================== disputes
@@ -5069,8 +4757,6 @@ def cmd_dispute_list(args) -> int:
 def cmd_finding_answer(args) -> int:
     report, cfg = load_for_edit(args)
     f = finding_or_die(report, args.id)
-    if report_format(report) < 5:
-        die("answering a dispute needs a format-5 report (suite 5.x)")
     pdir = project_dir_for_report(args.report) or project_dir_from_args(args)
     mine = [d for d in open_disputes(pdir, report) if d.get("finding_id") == args.id]
     if not mine:
@@ -5247,7 +4933,7 @@ def calibration_markdown(res: dict) -> str:
 def cmd_calibration_add_run(args) -> int:
     golden = Path(args.golden)
     exp = load_json(golden / "expected.json")
-    report = load_json(args.report)
+    report = load_report(args.report)
     commit, want = str((report.get("run") or {}).get("commit") or ""), str(exp.get("commit") or "")
     if want and not (commit.startswith(want) or want.startswith(commit)):
         die(f"{args.report} grades {commit[:7]}, but this golden repo is frozen at {want[:7]}")
@@ -5551,7 +5237,9 @@ def build_index(root: Path) -> dict:
         latest = None
         pending = []
         full = [h for h in history if h["mode"] != "pr"]
-        if full and cfg is not None:
+        if full and cfg is not None and old_format_problem(full[-1]["_report"]):
+            entry["problems"].append(f"{full[-1]['folder']}: {old_format_problem(full[-1]['_report'])}")
+        elif full and cfg is not None:
             h = full[-1]
             r = h["_report"]
             try:
@@ -5672,7 +5360,7 @@ CI_MARKER = "<!-- gradekit-ci -->"
 REPORT_FOLDER_FILES = re.compile(r"(report\.json|report\.md|runs/[^/]+\.json|components/[^/]+\.(?:json|md))")
 SETTINGS_FILES = {PROJECT_FILE, DECISIONS_FILE, DISPOSITIONS_FILE, DISPUTES_FILE, "reports/.gitkeep"}
 ROOT_SETTINGS = {"org.toml", "README.md", ".gitignore"}
-CI_LABELS = {"report": "grading: report", "settings": "grading: settings", "migration": "grading: migration",
+CI_LABELS = {"report": "grading: report", "settings": "grading: settings",
              "problems": "grading: needs changes"}
 
 
@@ -5794,15 +5482,6 @@ def people_records_problems(report: dict, pdir: Path, folder: str, cfg: dict) ->
 def ci_check(root: Path, base: str, head: str, changes: list[tuple[str, str]], site: str | None = None,
              repo_url: str | None = None, branch: str | None = None) -> dict:
     mb = git_out(root, "merge-base", base, head, check=False) or base
-    mig = check_migration(root, mb, changes)
-    if mig is not None:
-        labels = [CI_LABELS["migration"]] + ([CI_LABELS["problems"]] if mig["problems"] else [])
-        result = {"kind": "migration", "project": mig["project"], "folder": None, "ok": not mig["problems"],
-                  "problems": mig["problems"], "warnings": [], "labels": labels,
-                  "summary": {"project": mig["project"], "reports": mig["reports"], "suite": major(kit_version())},
-                  "changed": [p for _, p in changes]}
-        result["comment"] = ci_comment(result, site, repo_url, branch)
-        return result
     shape = classify_change(changes)
     problems, warnings = list(shape["problems"]), []
     summary: dict = {}
@@ -5819,7 +5498,7 @@ def ci_check(root: Path, base: str, head: str, changes: list[tuple[str, str]], s
             problems.append(f"{rel} has no report.json")
         else:
             try:
-                report = load_json(rpath)
+                report = load_report(rpath)
                 cfg = load_config(argparse.Namespace(project_dir=str(pdir), config=None, component=None), report, quiet=True)
                 errors, warns = validate_report(report, cfg, load_catalog())
                 note = work_order_note(pdir, report)
@@ -5830,7 +5509,8 @@ def ci_check(root: Path, base: str, head: str, changes: list[tuple[str, str]], s
                     problems.append(f"the project is pinned to suite {pin}, but this report was made with suite {report.get('suite_version')}: "
                                     f"grade it with a {pin}.x kit, or change the pin in project.toml first (a settings change of its own)")
                 problems += [f"report: {e}" for e in errors]
-                for where, rep in [("report", report)] + [(f"components/{cp.name}", load_json(cp)) for cp in component_reports(root / rel)]:
+                for where, rep in [("report", report)] + [(f"components/{cp.name}", load_json(cp)) for cp in component_reports(root / rel)
+                                                     if not old_format_problem(load_json(cp))]:
                     p_, w_ = people_records_problems(rep, pdir, folder, cfg)
                     problems += [f"{where}: {x}" for x in p_]
                     warnings += [f"{where}: {x}" for x in w_]
@@ -5843,9 +5523,6 @@ def ci_check(root: Path, base: str, head: str, changes: list[tuple[str, str]], s
                     problems.append(f"the folder is {folder}, but the report was graded on {run_day} (expected {run_day}-<commit>)")
                 if earlier and folder < max(d.name for d in earlier):
                     problems.append(f"{folder} sorts before {max(d.name for d in earlier)}: a new report comes after the project's others")
-                if report.get("migrated"):   # migrations rewrite existing reports, in a migration pull request
-                    problems.append(f"{rel} is new, but its report says it was migrated: `gradekit migrate` converts reports already "
-                                    "in the repo, in a pull request of its own; a new report is graded with this kit")
                 warnings += [f"report: {w}" for w in cfg.get("warnings", []) + warns if "run `gradekit redact" not in w]
                 if (cfg.get("publishing") or PUBLISHING_DEFAULTS).get("public"):
                     problems += [f"publish: {e}" for e in publish_problems(report)]
@@ -5887,13 +5564,13 @@ def ci_check(root: Path, base: str, head: str, changes: list[tuple[str, str]], s
                     problems.append("repo_rollup is only for a monorepo's repo report, and project.toml defines no [[components]]")
                 for cp in comps:
                     try:
-                        cr = load_json(cp)
+                        cr = load_report(cp)
                         ccfg = load_config(argparse.Namespace(project_dir=str(pdir), config=None, component=None), cr, quiet=True)
                         cerr, _ = validate_report(cr, ccfg, load_catalog())
                         problems += [f"components/{cp.name}: {e}" for e in cerr]
-                        if cr.get("migrated"):
-                            problems.append(f"components/{cp.name} is new, but says it was migrated: a new report is graded with this kit")
-                        if report_format(cr) != report_format(report) or (pin and major(cr.get("suite_version", "0")) != pin):
+                        cmajor = major(cr.get("suite_version", "0"))
+                        if (report_format(cr) != report_format(report) or cmajor != major(report.get("suite_version", "0"))
+                                or (pin and cmajor != pin)):
                             problems.append(f"components/{cp.name} was made with suite {cr.get('suite_version')} (format {report_format(cr)}); "
                                             f"every report in the folder is made with the same kit"
                                             + (f", and the project is pinned to {pin}" if pin else ""))
@@ -6017,9 +5694,6 @@ def ci_comment(res: dict, site: str | None, repo_url: str | None, branch: str | 
         link = review_link(site, repo_url, s["project"], branch) if branch else None
         if link:
             lines += ["", f"[Review this report{' and answer the decisions' if s['pending_decisions'] else ''}]({link})"]
-    elif res["kind"] == "migration":
-        lines.append(f"**Migration** of `{s['project']}` to suite {s['suite']}: the pin, and {s['reports']} report(s) in format 5. "
-                     "Each file was checked by redoing the migration from the base branch; scores and rollups are unchanged.")
     elif res["kind"] == "settings":
         lines.append("**Settings** change" + (f" for `{res['project']}`" if res["project"] else "") + ".")
         for proj, h_, preset in s.get("configs", []):
@@ -6304,11 +5978,9 @@ def cmd_decide(args) -> int:
 
 
 def provenance_line(run: dict) -> str:
-    """Who graded, with what, and how long it took (format 5)."""
+    """Who graded, with what, and how long it took."""
     who = " ".join(x for x in (str(run.get("grader") or "").strip(), f"({run['model']})" if run.get("model") else "") if x)
     parts = [f"Graded by {md_cell(who or 'unknown')}"]
-    if isinstance(run.get("_migrated_from"), str):
-        parts.append(f"with suite {run['_migrated_from']} (migrated)")
     mins = (run.get("usage") or {}).get("minutes")
     if mins is not None:
         parts.append(f"{mins:g} min")
@@ -6338,8 +6010,7 @@ def render_report_md(report: dict, cfg: dict, catalog: dict | None = None) -> st
     if report.get("mode") == "pr":
         out += [f"*PR check against base `{str((report.get('run') or {}).get('base_commit') or '?')[:7]}`. "
                 f"Untouched benchmarks are carried forward from the last full report.*", ""]
-    if report_format(report) >= 5:
-        out += [provenance_line({**(report.get("run") or {}), "_migrated_from": (report.get("migrated") or {}).get("from")}), ""]
+    out += [provenance_line(report.get("run") or {}), ""]
 
     out += ["## Summary", "", f"Overall **{dash(roll['overall_score'])}**"
             + (" (capped by a failed gate)" if roll["overall_cap_applied"] else "")
@@ -6392,6 +6063,12 @@ def render_report_md(report: dict, cfg: dict, catalog: dict | None = None) -> st
     out += (["No actions."] if not top else []) + [""]
 
     out += ["## Decisions needed", ""] + decisions_block(roll)
+    decided = [p for p in roll["priorities"] if p.get("requires_human_decision")
+               and (p.get("decision") or {}).get("status") in ("approved", "declined")]
+    if decided:   # answered ones too, wherever their actions rank
+        out += ["", "Decided:"] + [f"- **{p['action_id']}:** decision {p['decision']['status']}"
+                                   + "".join(f", {x}" for x in (p["decision"].get("decided_by"), p["decision"].get("date")) if x)
+                                   + f": {p.get('decision_question')}" for p in decided]
     out += ["", "Answers go in `decisions.json`: tick the boxes in this report's pull request (the grading CI records them), "
             "run `gradekit decide --approve ID --by NAME`, or use the suite website's *Review a report* page.", ""]
 
@@ -6403,13 +6080,10 @@ def render_report_md(report: dict, cfg: dict, catalog: dict | None = None) -> st
 
     out += ["## Findings", ""]
     if findings:
-        shifted = "severity_shift" in cfg["zones"]   # 4.x rules: the zone shifted severity, so show both
-        out += ["| ID | Severity → effective | Zone | Status | Title |" if shifted else "| ID | Severity | Zone | Status | Title |",
-                "|---|---|---|---|---|"]
+        out += ["| ID | Severity | Zone | Status | Title |", "|---|---|---|---|---|"]
         for f in findings:
             z = fz.get(f.get("id"), {})
-            sev = f"{f.get('severity')} → {z.get('effective_severity', f.get('severity'))}" if shifted else str(f.get("severity"))
-            out.append(f"| {f.get('id')} | {sev} | {z.get('criticality', '')} | {f.get('status')} | {md_cell(f.get('title'))} |")
+            out.append(f"| {f.get('id')} | {f.get('severity')} | {z.get('criticality', '')} | {f.get('status')} | {md_cell(f.get('title'))} |")
         for status, label in (("fixed", "Fixed since the last report"), ("regressed", "Regressed (fixed before, back again)")):
             ids = [f["id"] for f in findings if f.get("status") == status]
             if ids:
@@ -6449,14 +6123,10 @@ def render_report_md(report: dict, cfg: dict, catalog: dict | None = None) -> st
         for e in enforcement_items(b):
             evs = '; '.join(evidence_line(x) for x in e["evidence"])
             out.append(f"- Enforced by: {e['note']} ({evs})" if e["note"] else f"- Enforced by: {evs}")
-        if report_format(report) >= 5:
-            lim = (roll.get("limits") or {}).get(b.get("id"))
-            held = [w for w in (lim or {}).get("why", []) if w["kind"] in ("cap", "critical")]
-            if held:
-                out.append(f"- Limit: at most {min(w['max'] for w in held)} while {'; '.join(w['why'] for w in held)}")
-        else:
-            for c in b.get("caps_applied", []):
-                out.append(f"- Cap applied: {c}")
+        lim = (roll.get("limits") or {}).get(b.get("id"))
+        held = [w for w in (lim or {}).get("why", []) if w["kind"] in ("cap", "critical")]
+        if held:
+            out.append(f"- Limit: at most {min(w['max'] for w in held)} while {'; '.join(w['why'] for w in held)}")
         for a in b.get("path_to_target", []):
             out.append(f"- Next: **{a['id']}** → {a.get('expected_new_score')} (effort {a.get('effort')}): {a.get('action')}"
                        + (" *(needs a decision)*" if a.get("requires_human_decision") else ""))
@@ -6620,7 +6290,7 @@ def render_out(args, text: str, default_path: Path | None) -> None:
 
 
 def cmd_render_report(args) -> int:
-    report = load_json(args.report)
+    report = load_report(args.report)
     cfg = authoring_config(args, report)
     text = render_report_md(report, cfg)
     render_out(args, text, Path(re.sub(r"\.json$", "", args.report) + ".md"))
@@ -6628,7 +6298,7 @@ def cmd_render_report(args) -> int:
 
 
 def cmd_render_pr(args) -> int:
-    report = load_json(args.report)
+    report = load_report(args.report)
     cfg = authoring_config(args, report)
     folder = Path(args.report).resolve().parent.name if Path(args.report).name == "report.json" else None
     pr = render_report_pr(report, cfg, args.site, args.grading_repo_url, args.branch, folder)
@@ -6638,7 +6308,7 @@ def cmd_render_pr(args) -> int:
 
 
 def cmd_render_check(args) -> int:
-    old, new = load_json(args.old), load_json(args.new)
+    old, new = load_report(args.old), load_report(args.new)
     args.report = args.new
     cfg = authoring_config(args, new)
     text = render_check_comment(compute_diff(old, new, cfg, cfg), new, cfg)
@@ -6650,7 +6320,7 @@ def cmd_render_log(args) -> int:
     log = load_json(args.log)
     report, cfg = None, None
     if args.report:
-        report = load_json(args.report)
+        report = load_report(args.report)
         cfg = authoring_config(args, report)
     guard = None
     if args.guard:
@@ -7070,7 +6740,7 @@ def guard_plan(args, code: Path) -> tuple[list[dict], list[str]]:
             die(f"--check takes NAME=COMMAND, e.g. tests=\"pytest -q\"; got '{spec}'")
         checks.append({"name": name.strip(), "command": cmd.strip(), "from": "--check"})
     if args.from_report:
-        rep = load_json(args.from_report)
+        rep = load_report(args.from_report)
         skipped, installs, trimmed, not_plain = [], [], [], []
         for entry in rep.get("commands_run") or []:
             raw = str(entry.get("command") or "").strip()
@@ -7671,7 +7341,7 @@ def _web_cfg(p: dict, report: dict | None = None) -> tuple[dict, str]:
     decisions = p.get("decisions") if isinstance(p.get("decisions"), list) else parse_list_text(p.get("decisions_json"), "decisions", "decisions.json")
     dispositions = p.get("dispositions") if isinstance(p.get("dispositions"), list) else parse_list_text(p.get("dispositions_json"), "dispositions", "dispositions.json")
     cfg = resolve_layers(layers, component=comp, preset_fallback=fallback, component_required=False,
-                         decisions=decisions, dispositions=dispositions, scoring=scoring_version_of(report) if report else None)
+                         decisions=decisions, dispositions=dispositions)
     source = " + ".join(n for n, _ in layers) if layers else f"suite defaults (preset '{cfg['preset']}' from the report)"
     return cfg, source
 
@@ -8322,20 +7992,6 @@ def build_parser() -> argparse.ArgumentParser:
     p.set_defaults(fn=cmd_doctor)
 
     # ------------------------------------------------------------ deliver
-    p = sub.add_parser("migrate", help="move a project to this suite version in one pull request: the pin, and its reports with --reports",
-                       description="A dry run unless --write (here, never on the default branch) or --run (a new branch, committed). "
-                                   "Scores and rollups never change; `gradekit ci` checks a migration by redoing it. Revert the pull request to undo.")
-    with_config(p)
-    p.add_argument("--reports", action="store_true", help="also upgrade the project's 4.x reports to format 5 (and re-render report.md)")
-    p.add_argument("--write", action="store_true", help="write the files into this checkout (not on the default branch)")
-    p.add_argument("--run", action="store_true", help="create a branch from the default branch, write the files and commit")
-    p.add_argument("--push", action="store_true", help="with --run: push the branch")
-    p.add_argument("--open", choices=["github", "gitlab"], help="with --push: open the pull request with gh or glab")
-    p.add_argument("--branch", help="default: migrate/<project>-v<major>")
-    p.add_argument("--base", metavar="BRANCH", help="branch to start from (default: the remote's default branch)")
-    p.add_argument("--remote", default="origin")
-    p.set_defaults(fn=cmd_migrate)
-
     p = sub.add_parser("deliver", help="hand back a finished report: pr, save or return (prints the git steps, or runs them)",
                        description="Checks the report is finished, withholds sensitive findings if the grading repo is public, "
                                    "renders report.md, then delivers. For pr it prints the branch, commit, title and body "

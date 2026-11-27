@@ -45,5 +45,3 @@ def test_ci_says_when_quotes_werent_checked_or_changed(gk, ready):
     assert gk.citations_check_note(r) is None
     r["run"]["citations_checked"]["code_citations"] = 3
     assert "changed after they were checked against the code (3 then, 1 now)" in gk.citations_check_note(r)
-    r.pop("schema_version")
-    assert gk.citations_check_note(r) is None, "4.x reports never had the record"

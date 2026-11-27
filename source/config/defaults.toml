@@ -1,5 +1,5 @@
 # =============================================================================
-# Code Grading Suite: default configuration (suite v5.1.0)
+# Code Grading Suite: default configuration (suite v6.0.0)
 # =============================================================================
 #
 # Every adjustable part of scoring lives in this file: weights, the questions
@@ -26,7 +26,7 @@
 # The version of the scoring rules, which is not always the kit's version. It changes only
 # when the scoring rules change, so releases that only add tools, fields or wording (such as
 # 4.2.2 and 4.3.0) keep config fingerprints, and older reports, valid. 5.0.0 changed what
-# severity means (see ZONES); reports graded under 4.x keep their rules (config/scoring/4.2.0.toml).
+# severity means (see ZONES). The kit grades under these rules only.
 suite_version = "5.0.0"
 
 

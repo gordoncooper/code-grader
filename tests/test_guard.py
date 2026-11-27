@@ -185,7 +185,7 @@ def test_compare_always_runs_every_check_the_snapshot_ran(repo, tmp_path):
 
 def test_list_shows_the_checks_and_runs_nothing(repo, tmp_path):
     report = tmp_path / "report.json"
-    report.write_text(json.dumps({"commands_run": [{"command": "pytest -q", "result_summary": ""},
+    report.write_text(json.dumps({"schema_version": 5, "commands_run": [{"command": "pytest -q", "result_summary": ""},
                                                    {"command": "git log -5", "result_summary": ""},
                                                    {"command": "ruff check .", "result_summary": ""}]}))
     r = gk("guard", "snapshot", "--from-report", report, "--check", f"marker={PY} -c \"open('ran','w')\"", "--list", "--json", cwd=repo)
@@ -256,7 +256,7 @@ def test_graders_notes_after_a_command_are_dropped(gk, command, runnable):
 
 def test_report_commands_that_install_packages_are_left_out(repo, tmp_path):
     report = tmp_path / "report.json"
-    report.write_text(json.dumps({"commands_run": [
+    report.write_text(json.dumps({"schema_version": 5, "commands_run": [
         {"command": "pip install -r requirements-dev.txt && python -m pytest -q (Python 3.11)", "result_summary": ""},
         {"command": "npm ci && npm test", "result_summary": ""},
         {"command": "ruff check .  (default rules)", "result_summary": ""}]}))
@@ -304,7 +304,7 @@ def test_anything_else_from_a_report_is_left_out(gk, command):
 def test_a_report_cant_chain_a_command_onto_a_check(repo, tmp_path):
     marker = tmp_path / "injected"
     report = tmp_path / "report.json"
-    report.write_text(json.dumps({"commands_run": [
+    report.write_text(json.dumps({"schema_version": 5, "commands_run": [
         {"command": f"python3 -m pytest -q; echo injected > {marker}", "result_summary": ""}]}))
     r = gk("guard", "snapshot", "--from-report", report, "--check", f"tests={PY} checks.py tests", "--out", tmp_path / "s.json",
            "--json", cwd=repo)

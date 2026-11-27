@@ -1,5 +1,5 @@
 """Report format 5 (A9, with A13 provenance, C4 work orders and N3 usage): schema_version, `noticed`, the quote as
-the anchor, UTC timestamps, fingerprints, who graded. 4.x reports are still read with the format-4 schema."""
+the anchor, UTC timestamps, fingerprints, who graded. 6.0 reads format 5 only."""
 import json
 import os
 import re
@@ -43,8 +43,8 @@ def load(repo, rel):
 
 
 def config(gk_mod, report=None):
-    """The example project's config, under the scoring rules the report was graded with (the current ones if none)."""
-    return gk_mod.resolve_config([str(EXAMPLE / PROJ / "project.toml")], scoring=gk_mod.scoring_version_of(report) if report else None)
+    """The example project's config."""
+    return gk_mod.resolve_config([str(EXAMPLE / PROJ / "project.toml")])
 
 
 def finish(repo, rel):
@@ -104,13 +104,21 @@ def test_format_5_needs_utc_timestamps(gk, repo):
     assert any("schema: run/date" in e for e in errors)
 
 
-def test_4x_reports_are_read_with_the_format_4_schema(gk):
+def test_4x_reports_are_refused(gk, tmp_path):
+    """A 4.x report (no schema_version) is format 4: the 4.x and 5.x kits read it, this one says so and stops."""
     r = json.loads(NEW.read_text())
-    assert "schema_version" not in r
-    errors, _ = gk.validate_report(r, config(gk, r), gk.load_catalog())
-    assert errors == []
+    assert r["schema_version"] == 5, "the example is format 5"
+    del r["schema_version"]
+    r["suite_version"] = "4.3.0"
+    errors, _ = gk.validate_report(r, config(gk), gk.load_catalog())
+    assert len(errors) == 1 and errors[0].startswith("this report is format 4 (suite 4.3.0)") and "/v4/ or /v5/" in errors[0]
+    path = tmp_path / "report.json"
+    path.write_text(json.dumps(r))
+    with pytest.raises(gk.GradekitError, match="reads format 5 reports only"):
+        gk.load_report(path)
     r["schema_version"] = 5     # claiming format 5 without its fields fails
-    errors, _ = gk.validate_report(r, config(gk, r), gk.load_catalog())
+    r.pop("run")
+    errors, _ = gk.validate_report(r, config(gk), gk.load_catalog())
     assert any("schema:" in e for e in errors)
 
 
@@ -164,16 +172,23 @@ def test_noticed_findings_are_open_but_never_fail_a_pr_check(gk, repo):
     assert f["id"] in gk.analyze_findings(pr, c) and "noticed" in gk.OPEN_STATUSES
 
 
-def test_noticed_needs_format_5(repo):
-    rel = str((repo / PROJ / "reports" / "2026-11-07-a1b2c3d" / "report.json").relative_to(repo))
-    r = gk("report", "finding", "add", rel, "--benchmark", "A2", "--title", "x", "--severity", "minor", "--status", "noticed",
-           "--absence", "a", "--method", "b", cwd=repo, code=1)
-    assert "needs a format-5 report" in r.stderr
+def test_commands_refuse_a_4x_report(repo):
+    path = repo / PROJ / "reports" / "2026-11-07-a1b2c3d" / "report.json"
+    r = json.loads(path.read_text())
+    del r["schema_version"]
+    path.write_text(json.dumps(r))
+    rel = str(path.relative_to(repo))
+    out = gk("report", "finding", "add", rel, "--benchmark", "A2", "--title", "x", "--severity", "minor", "--status", "noticed",
+             "--absence", "a", "--method", "b", cwd=repo, code=1)
+    assert "reads format 5 reports only" in out.stderr
+    for args in (["validate", rel], ["render", "report", rel, "--stdout"], ["carry", rel, "--commit", "b2c3d4e5f6", "--repo", CODE]):
+        out = gk(*args, cwd=repo, code=None)
+        assert out.returncode != 0 and "format 4" in out.stdout + out.stderr, args
 
 
 # --------------------------------------------------------------------------- carry and rendering
 
-def test_carry_upgrades_a_4x_baseline_to_format_5(gk, repo):
+def test_carry_writes_format_5(gk, repo):
     out = repo.parent / "pr.json"
     gk_args = ["carry", str(NEW), "--repo", CODE, "--commit", "b2c3d4e5f6", "--base-commit", "a1b2c3d", "--out", out,
                "--allow-withheld", "--model", "claude-opus-5-5", "--session", "S-1"]

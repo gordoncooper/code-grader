@@ -1,23 +1,29 @@
 {
-  "suite_version": "4.2.0",
+  "schema_version": 5,
+  "suite_version": "6.0.0",
   "mode": "full",
   "run": {
     "commit": "9f8e7d6",
     "base_commit": null,
-    "date": "2026-10-24",
+    "date": "2026-10-24T00:00:00Z",
     "grader": "example",
     "run_index": 1,
     "run_count": 1,
     "suite_source": "local",
-    "project": "orders-api"
+    "project": "orders-api",
+    "started": "2026-10-24T00:00:00Z",
+    "model": "example",
+    "session": null,
+    "work_order": null
   },
   "component": null,
   "project_context_inferred": "Small internal orders API (Python), example only",
   "config": {
-    "hash": "c068a92b5feead6f",
+    "hash": "99965e49bb3352f4",
     "preset": "service",
     "source": ".grading/project.toml",
-    "component": null
+    "component": null,
+    "scoring_version": "5.0.0"
   },
   "commands_run": [
     {
@@ -116,7 +122,7 @@
       "id": "A1-001",
       "benchmark_id": "A1",
       "title": "Discount ignored for single-item orders",
-      "severity": "major",
+      "severity": "critical",
       "status": "new",
       "first_seen_commit": "9f8e7d6",
       "evidence": [
@@ -129,13 +135,14 @@
         }
       ],
       "disposition": null,
-      "disposition_concern": null
+      "disposition_concern": null,
+      "fingerprint": "dc2377f78ac1"
     },
     {
       "id": "A2-001",
       "benchmark_id": "A2",
       "title": "Security & Privacy issue (details withheld)",
-      "severity": "major",
+      "severity": "critical",
       "status": "new",
       "first_seen_commit": "9f8e7d6",
       "evidence": [
@@ -148,7 +155,8 @@
       "sensitive": true,
       "paths": [
         "src/payments/api.py"
-      ]
+      ],
+      "fingerprint": "f4f69ac5a0b5"
     },
     {
       "id": "A3-001",
@@ -167,13 +175,14 @@
         }
       ],
       "disposition": null,
-      "disposition_concern": null
+      "disposition_concern": null,
+      "fingerprint": "af7d2bcb5a0e"
     },
     {
       "id": "A4-001",
       "benchmark_id": "A4",
       "title": "Seed script not re-runnable",
-      "severity": "major",
+      "severity": "minor",
       "status": "new",
       "first_seen_commit": "9f8e7d6",
       "evidence": [
@@ -186,13 +195,14 @@
         }
       ],
       "disposition": null,
-      "disposition_concern": null
+      "disposition_concern": null,
+      "fingerprint": "d28086fb46f2"
     },
     {
       "id": "A4-002",
       "benchmark_id": "A4",
       "title": "Wall-clock time read inside domain logic",
-      "severity": "minor",
+      "severity": "major",
       "status": "new",
       "first_seen_commit": "9f8e7d6",
       "evidence": [
@@ -205,13 +215,14 @@
         }
       ],
       "disposition": null,
-      "disposition_concern": null
+      "disposition_concern": null,
+      "fingerprint": "a08d647144d3"
     },
     {
       "id": "A5-001",
       "benchmark_id": "A5",
       "title": "Order insert and stock reservation not in one transaction",
-      "severity": "major",
+      "severity": "critical",
       "status": "new",
       "first_seen_commit": "9f8e7d6",
       "evidence": [
@@ -224,13 +235,14 @@
         }
       ],
       "disposition": null,
-      "disposition_concern": null
+      "disposition_concern": null,
+      "fingerprint": "cd01b864ebc3"
     },
     {
       "id": "B1-001",
       "benchmark_id": "B1",
       "title": "Domain logic depends directly on the DB handle",
-      "severity": "minor",
+      "severity": "major",
       "status": "new",
       "first_seen_commit": "9f8e7d6",
       "evidence": [
@@ -243,13 +255,14 @@
         }
       ],
       "disposition": null,
-      "disposition_concern": null
+      "disposition_concern": null,
+      "fingerprint": "9e9794c355e4"
     },
     {
       "id": "B2-001",
       "benchmark_id": "B2",
       "title": "Orders and payments share no interface; payments reads the raw request",
-      "severity": "minor",
+      "severity": "major",
       "status": "new",
       "first_seen_commit": "9f8e7d6",
       "evidence": [
@@ -262,13 +275,14 @@
         }
       ],
       "disposition": null,
-      "disposition_concern": null
+      "disposition_concern": null,
+      "fingerprint": "b8a277d4a1ff"
     },
     {
       "id": "B4-001",
       "benchmark_id": "B4",
       "title": "Items are untyped dicts",
-      "severity": "major",
+      "severity": "critical",
       "status": "new",
       "first_seen_commit": "9f8e7d6",
       "evidence": [
@@ -281,13 +295,14 @@
         }
       ],
       "disposition": null,
-      "disposition_concern": null
+      "disposition_concern": null,
+      "fingerprint": "bc379b582cfd"
     },
     {
       "id": "B5-001",
       "benchmark_id": "B5",
       "title": "Single payment gateway assumed",
-      "severity": "minor",
+      "severity": "major",
       "status": "new",
       "first_seen_commit": "9f8e7d6",
       "evidence": [
@@ -300,13 +315,14 @@
         }
       ],
       "disposition": null,
-      "disposition_concern": null
+      "disposition_concern": null,
+      "fingerprint": "cca33eab86d8"
     },
     {
       "id": "C2-001",
       "benchmark_id": "C2",
       "title": "Rounding and discount logic mixed in one function",
-      "severity": "minor",
+      "severity": "major",
       "status": "new",
       "first_seen_commit": "9f8e7d6",
       "evidence": [
@@ -319,13 +335,14 @@
         }
       ],
       "disposition": null,
-      "disposition_concern": null
+      "disposition_concern": null,
+      "fingerprint": "2d365b818d7e"
     },
     {
       "id": "C4-001",
       "benchmark_id": "C4",
       "title": "One test covers one happy path",
-      "severity": "critical",
+      "severity": "major",
       "status": "new",
       "first_seen_commit": "9f8e7d6",
       "evidence": [
@@ -340,7 +357,8 @@
       "disposition_concern": null,
       "paths": [
         "tests/**"
-      ]
+      ],
+      "fingerprint": "547438264882"
     },
     {
       "id": "D1-001",
@@ -365,13 +383,14 @@
         }
       ],
       "disposition": null,
-      "disposition_concern": null
+      "disposition_concern": null,
+      "fingerprint": "eba8ed28eab9"
     },
     {
       "id": "D3-001",
       "benchmark_id": "D3",
       "title": "Money handled as floats",
-      "severity": "minor",
+      "severity": "major",
       "status": "new",
       "first_seen_commit": "9f8e7d6",
       "evidence": [
@@ -384,13 +403,14 @@
         }
       ],
       "disposition": null,
-      "disposition_concern": null
+      "disposition_concern": null,
+      "fingerprint": "1ab4612fc173"
     },
     {
       "id": "D4-001",
       "benchmark_id": "D4",
       "title": "discount parameter silently ignored in a common case",
-      "severity": "minor",
+      "severity": "major",
       "status": "new",
       "first_seen_commit": "9f8e7d6",
       "evidence": [
@@ -403,7 +423,8 @@
         }
       ],
       "disposition": null,
-      "disposition_concern": null
+      "disposition_concern": null,
+      "fingerprint": "ccaf3db0d45e"
     },
     {
       "id": "E1-001",
@@ -428,7 +449,8 @@
         }
       ],
       "disposition": null,
-      "disposition_concern": null
+      "disposition_concern": null,
+      "fingerprint": "14582cb7ef84"
     },
     {
       "id": "E2-001",
@@ -447,7 +469,8 @@
         }
       ],
       "disposition": null,
-      "disposition_concern": null
+      "disposition_concern": null,
+      "fingerprint": "d4330316f3d1"
     },
     {
       "id": "E3-001",
@@ -465,7 +488,8 @@
         }
       ],
       "disposition": null,
-      "disposition_concern": null
+      "disposition_concern": null,
+      "fingerprint": "cd9560d2506e"
     },
     {
       "id": "E4-001",
@@ -483,7 +507,8 @@
         }
       ],
       "disposition": null,
-      "disposition_concern": null
+      "disposition_concern": null,
+      "fingerprint": "afefad477420"
     },
     {
       "id": "F1-001",
@@ -501,7 +526,8 @@
         }
       ],
       "disposition": null,
-      "disposition_concern": null
+      "disposition_concern": null,
+      "fingerprint": "7bddd2e3048a"
     },
     {
       "id": "F2-001",
@@ -522,7 +548,8 @@
       "disposition_concern": null,
       "paths": [
         ".github/**"
-      ]
+      ],
+      "fingerprint": "030df40bd019"
     },
     {
       "id": "F3-001",
@@ -540,13 +567,14 @@
         }
       ],
       "disposition": null,
-      "disposition_concern": null
+      "disposition_concern": null,
+      "fingerprint": "a188df1675c1"
     },
     {
       "id": "F4-001",
       "benchmark_id": "F4",
       "title": "Total recomputed per insert with no batching",
-      "severity": "minor",
+      "severity": "major",
       "status": "new",
       "first_seen_commit": "9f8e7d6",
       "evidence": [
@@ -559,7 +587,8 @@
         }
       ],
       "disposition": null,
-      "disposition_concern": null
+      "disposition_concern": null,
+      "fingerprint": "5b3ff0ceae5e"
     },
     {
       "id": "F6-001",
@@ -577,7 +606,8 @@
         }
       ],
       "disposition": null,
-      "disposition_concern": null
+      "disposition_concern": null,
+      "fingerprint": "b678d9cae518"
     },
     {
       "id": "X2-001",
@@ -595,13 +625,14 @@
         }
       ],
       "disposition": null,
-      "disposition_concern": null
+      "disposition_concern": null,
+      "fingerprint": "4b28d42b5f8a"
     },
     {
       "id": "X3-001",
       "benchmark_id": "X3",
       "title": "Check-then-act race on idempotency key",
-      "severity": "major",
+      "severity": "critical",
       "status": "new",
       "first_seen_commit": "9f8e7d6",
       "evidence": [
@@ -614,7 +645,8 @@
         }
       ],
       "disposition": null,
-      "disposition_concern": null
+      "disposition_concern": null,
+      "fingerprint": "318cf484f6b1"
     },
     {
       "id": "X6-001",
@@ -632,7 +664,8 @@
         }
       ],
       "disposition": null,
-      "disposition_concern": null
+      "disposition_concern": null,
+      "fingerprint": "3d2d5a88f5ce"
     },
     {
       "id": "A2-002",
@@ -650,7 +683,8 @@
         }
       ],
       "disposition": null,
-      "disposition_concern": null
+      "disposition_concern": null,
+      "fingerprint": "b23cd7211358"
     }
   ],
   "benchmarks": [
@@ -674,7 +708,20 @@
       "enforcement": [],
       "gaming_flags": [],
       "target": 10,
-      "path_to_target": [],
+      "path_to_target": [
+        {
+          "id": "A1-act-1",
+          "action": "In order_total, apply the discount to single-item orders too (drop the len(items) > 1 condition) and test a one-item discounted order",
+          "resolves": [
+            "A1-001"
+          ],
+          "expected_new_score": 8,
+          "effort": "S",
+          "requires_human_decision": false,
+          "decision_question": null,
+          "optional": false
+        }
+      ],
       "previous_score": null,
       "change_explanation": null
     },
@@ -699,7 +746,21 @@
       "enforcement": [],
       "gaming_flags": [],
       "target": 10,
-      "path_to_target": [],
+      "path_to_target": [
+        {
+          "id": "A2-act-1",
+          "action": "Fix A2-001 as the private report describes, and add a test that fails without the fix",
+          "resolves": [
+            "A2-001",
+            "A2-002"
+          ],
+          "expected_new_score": 8,
+          "effort": "S",
+          "requires_human_decision": false,
+          "decision_question": null,
+          "optional": false
+        }
+      ],
       "previous_score": null,
       "change_explanation": null
     },
@@ -817,7 +878,20 @@
       "enforcement": [],
       "gaming_flags": [],
       "target": 10,
-      "path_to_target": [],
+      "path_to_target": [
+        {
+          "id": "A5-act-1",
+          "action": "In create_order, insert the order and reserve stock in one database transaction, so a failed reservation leaves no order behind",
+          "resolves": [
+            "A5-001"
+          ],
+          "expected_new_score": 8,
+          "effort": "M",
+          "requires_human_decision": false,
+          "decision_question": null,
+          "optional": false
+        }
+      ],
       "previous_score": null,
       "change_explanation": null
     },
@@ -841,7 +915,20 @@
       "enforcement": [],
       "gaming_flags": [],
       "target": 9,
-      "path_to_target": [],
+      "path_to_target": [
+        {
+          "id": "B1-act-1",
+          "action": "Give the order service a small repository interface (insert_order, reserve_stock) instead of the raw db handle",
+          "resolves": [
+            "B1-001"
+          ],
+          "expected_new_score": 8,
+          "effort": "M",
+          "requires_human_decision": false,
+          "decision_question": null,
+          "optional": false
+        }
+      ],
       "previous_score": null,
       "change_explanation": null
     },
@@ -865,7 +952,20 @@
       "enforcement": [],
       "gaming_flags": [],
       "target": 9,
-      "path_to_target": [],
+      "path_to_target": [
+        {
+          "id": "B2-act-1",
+          "action": "Have charge() take an amount and an idempotency key from its caller instead of reading the raw HTTP request",
+          "resolves": [
+            "B2-001"
+          ],
+          "expected_new_score": 8,
+          "effort": "M",
+          "requires_human_decision": false,
+          "decision_question": null,
+          "optional": false
+        }
+      ],
       "previous_score": null,
       "change_explanation": null
     },
@@ -899,7 +999,18 @@
       "enforcement": [],
       "gaming_flags": [],
       "target": 8,
-      "path_to_target": [],
+      "path_to_target": [
+        {
+          "id": "B3-act-1",
+          "action": "Add a package layout (src/orders/__init__.py, src/payments/__init__.py) and move the API handlers apart from the domain logic",
+          "resolves": [],
+          "expected_new_score": 8,
+          "effort": "S",
+          "requires_human_decision": false,
+          "decision_question": null,
+          "optional": false
+        }
+      ],
       "previous_score": null,
       "change_explanation": null
     },
@@ -923,7 +1034,20 @@
       "enforcement": [],
       "gaming_flags": [],
       "target": 9,
-      "path_to_target": [],
+      "path_to_target": [
+        {
+          "id": "B4-act-1",
+          "action": "Replace the item dicts with a dataclass (sku, price, qty), checked where requests come in",
+          "resolves": [
+            "B4-001"
+          ],
+          "expected_new_score": 8,
+          "effort": "M",
+          "requires_human_decision": false,
+          "decision_question": null,
+          "optional": false
+        }
+      ],
       "previous_score": null,
       "change_explanation": null
     },
@@ -947,7 +1071,20 @@
       "enforcement": [],
       "gaming_flags": [],
       "target": 8,
-      "path_to_target": [],
+      "path_to_target": [
+        {
+          "id": "B5-act-1",
+          "action": "Note the single-gateway decision (B5-001, accepted through 2027) beside charge(), so the next provider has an obvious seam",
+          "resolves": [
+            "B5-001"
+          ],
+          "expected_new_score": 7,
+          "effort": "S",
+          "requires_human_decision": false,
+          "decision_question": null,
+          "optional": false
+        }
+      ],
       "previous_score": null,
       "change_explanation": null
     },
@@ -981,7 +1118,18 @@
       "enforcement": [],
       "gaming_flags": [],
       "target": 9,
-      "path_to_target": [],
+      "path_to_target": [
+        {
+          "id": "B6-act-1",
+          "action": "Let the database stamp each order's creation time, and drop the time import from create_order",
+          "resolves": [],
+          "expected_new_score": 8,
+          "effort": "S",
+          "requires_human_decision": false,
+          "decision_question": null,
+          "optional": false
+        }
+      ],
       "previous_score": null,
       "change_explanation": null
     },
@@ -1016,7 +1164,18 @@
       "enforcement": [],
       "gaming_flags": [],
       "target": 9,
-      "path_to_target": [],
+      "path_to_target": [
+        {
+          "id": "C1-act-1",
+          "action": "Name the money values (subtotal, discount_rate) and add docstrings to order_total and charge",
+          "resolves": [],
+          "expected_new_score": 8,
+          "effort": "S",
+          "requires_human_decision": false,
+          "decision_question": null,
+          "optional": false
+        }
+      ],
       "previous_score": null,
       "change_explanation": null
     },
@@ -1040,7 +1199,20 @@
       "enforcement": [],
       "gaming_flags": [],
       "target": 9,
-      "path_to_target": [],
+      "path_to_target": [
+        {
+          "id": "C2-act-1",
+          "action": "Split order_total into subtotal, discount and rounding steps, each with its own test",
+          "resolves": [
+            "C2-001"
+          ],
+          "expected_new_score": 8,
+          "effort": "S",
+          "requires_human_decision": false,
+          "decision_question": null,
+          "optional": false
+        }
+      ],
       "previous_score": null,
       "change_explanation": null
     },
@@ -1074,7 +1246,18 @@
       "enforcement": [],
       "gaming_flags": [],
       "target": 8,
-      "path_to_target": [],
+      "path_to_target": [
+        {
+          "id": "C3-act-1",
+          "action": "Add a formatter and linter config (ruff) and apply it once",
+          "resolves": [],
+          "expected_new_score": 8,
+          "effort": "S",
+          "requires_human_decision": false,
+          "decision_question": null,
+          "optional": false
+        }
+      ],
       "previous_score": null,
       "change_explanation": null
     },
@@ -1100,7 +1283,20 @@
       "enforcement": [],
       "gaming_flags": [],
       "target": 9,
-      "path_to_target": [],
+      "path_to_target": [
+        {
+          "id": "C4-act-1",
+          "action": "Add tests for single-item orders, the discount, a failed stock reservation and a repeated idempotency key",
+          "resolves": [
+            "C4-001"
+          ],
+          "expected_new_score": 7,
+          "effort": "M",
+          "requires_human_decision": false,
+          "decision_question": null,
+          "optional": false
+        }
+      ],
       "previous_score": null,
       "change_explanation": null
     },
@@ -1156,14 +1352,23 @@
       "confidence": "medium",
       "carried_forward": false,
       "caps_applied": [],
-      "finding_ids": [
-        "D2-001"
-      ],
+      "finding_ids": [],
       "strengths": [],
       "enforcement": [],
       "gaming_flags": [],
       "target": 9,
-      "path_to_target": [],
+      "path_to_target": [
+        {
+          "id": "D2-act-1",
+          "action": "Add order cancellation with a refund through the gateway (D2-001)",
+          "resolves": [],
+          "expected_new_score": 7,
+          "effort": "L",
+          "requires_human_decision": false,
+          "decision_question": null,
+          "optional": false
+        }
+      ],
       "previous_score": null,
       "change_explanation": null
     },
@@ -1187,7 +1392,20 @@
       "enforcement": [],
       "gaming_flags": [],
       "target": 9,
-      "path_to_target": [],
+      "path_to_target": [
+        {
+          "id": "D3-act-1",
+          "action": "Hold money as integer cents (or Decimal) from the request to the gateway call",
+          "resolves": [
+            "D3-001"
+          ],
+          "expected_new_score": 8,
+          "effort": "M",
+          "requires_human_decision": false,
+          "decision_question": null,
+          "optional": false
+        }
+      ],
       "previous_score": null,
       "change_explanation": null
     },
@@ -1211,7 +1429,20 @@
       "enforcement": [],
       "gaming_flags": [],
       "target": 9,
-      "path_to_target": [],
+      "path_to_target": [
+        {
+          "id": "D4-act-1",
+          "action": "Make the discount parameter apply in every case, or reject it where it can't, instead of ignoring it",
+          "resolves": [
+            "D4-001"
+          ],
+          "expected_new_score": 8,
+          "effort": "S",
+          "requires_human_decision": false,
+          "decision_question": null,
+          "optional": false
+        }
+      ],
       "previous_score": null,
       "change_explanation": null
     },
@@ -1237,7 +1468,20 @@
       "enforcement": [],
       "gaming_flags": [],
       "target": 9,
-      "path_to_target": [],
+      "path_to_target": [
+        {
+          "id": "E1-act-1",
+          "action": "Replace `make dev` in the README with the command that starts the service, and check it from a fresh clone",
+          "resolves": [
+            "E1-001"
+          ],
+          "expected_new_score": 7,
+          "effort": "S",
+          "requires_human_decision": false,
+          "decision_question": null,
+          "optional": false
+        }
+      ],
       "previous_score": null,
       "change_explanation": null
     },
@@ -1263,7 +1507,20 @@
       "enforcement": [],
       "gaming_flags": [],
       "target": 9,
-      "path_to_target": [],
+      "path_to_target": [
+        {
+          "id": "E2-act-1",
+          "action": "Rewrite the README: what the service does, how to run it and its tests, and the endpoints it serves",
+          "resolves": [
+            "E2-001"
+          ],
+          "expected_new_score": 7,
+          "effort": "S",
+          "requires_human_decision": false,
+          "decision_question": null,
+          "optional": false
+        }
+      ],
       "previous_score": null,
       "change_explanation": null
     },
@@ -1287,7 +1544,20 @@
       "enforcement": [],
       "gaming_flags": [],
       "target": 8,
-      "path_to_target": [],
+      "path_to_target": [
+        {
+          "id": "E3-act-1",
+          "action": "Add a pyproject.toml with the dependencies and a one-command test run",
+          "resolves": [
+            "E3-001"
+          ],
+          "expected_new_score": 7,
+          "effort": "S",
+          "requires_human_decision": false,
+          "decision_question": null,
+          "optional": false
+        }
+      ],
       "previous_score": null,
       "change_explanation": null
     },
@@ -1311,7 +1581,20 @@
       "enforcement": [],
       "gaming_flags": [],
       "target": 8,
-      "path_to_target": [],
+      "path_to_target": [
+        {
+          "id": "E4-act-1",
+          "action": "Declare the project in pyproject.toml (name, version, Python requirement)",
+          "resolves": [
+            "E4-001"
+          ],
+          "expected_new_score": 8,
+          "effort": "S",
+          "requires_human_decision": false,
+          "decision_question": null,
+          "optional": false
+        }
+      ],
       "previous_score": null,
       "change_explanation": null
     },
@@ -1337,7 +1620,20 @@
       "enforcement": [],
       "gaming_flags": [],
       "target": 10,
-      "path_to_target": [],
+      "path_to_target": [
+        {
+          "id": "F1-act-1",
+          "action": "Add a Dockerfile and a deploy section to the README",
+          "resolves": [
+            "F1-001"
+          ],
+          "expected_new_score": 7,
+          "effort": "M",
+          "requires_human_decision": false,
+          "decision_question": null,
+          "optional": false
+        }
+      ],
       "previous_score": null,
       "change_explanation": null
     },
@@ -1398,7 +1694,20 @@
       "enforcement": [],
       "gaming_flags": [],
       "target": 10,
-      "path_to_target": [],
+      "path_to_target": [
+        {
+          "id": "F3-act-1",
+          "action": "Log each order and charge with its ID and outcome, using the logging module",
+          "resolves": [
+            "F3-001"
+          ],
+          "expected_new_score": 7,
+          "effort": "S",
+          "requires_human_decision": false,
+          "decision_question": null,
+          "optional": false
+        }
+      ],
       "previous_score": null,
       "change_explanation": null
     },
@@ -1422,7 +1731,20 @@
       "enforcement": [],
       "gaming_flags": [],
       "target": 8,
-      "path_to_target": [],
+      "path_to_target": [
+        {
+          "id": "F4-act-1",
+          "action": "Reserve stock for all items in one call per order, and measure create_order with a 100-item order",
+          "resolves": [
+            "F4-001"
+          ],
+          "expected_new_score": 8,
+          "effort": "M",
+          "requires_human_decision": false,
+          "decision_question": null,
+          "optional": false
+        }
+      ],
       "previous_score": null,
       "change_explanation": null
     },
@@ -1456,7 +1778,18 @@
       "enforcement": [],
       "gaming_flags": [],
       "target": 8,
-      "path_to_target": [],
+      "path_to_target": [
+        {
+          "id": "F5-act-1",
+          "action": "Read settings from the environment instead of assuming a local setup",
+          "resolves": [],
+          "expected_new_score": 8,
+          "effort": "S",
+          "requires_human_decision": false,
+          "decision_question": null,
+          "optional": false
+        }
+      ],
       "previous_score": null,
       "change_explanation": null
     },
@@ -1480,7 +1813,20 @@
       "enforcement": [],
       "gaming_flags": [],
       "target": 8,
-      "path_to_target": [],
+      "path_to_target": [
+        {
+          "id": "F6-act-1",
+          "action": "Pin the dependencies in a lock file and let Dependabot propose updates",
+          "resolves": [
+            "F6-001"
+          ],
+          "expected_new_score": 8,
+          "effort": "S",
+          "requires_human_decision": false,
+          "decision_question": null,
+          "optional": false
+        }
+      ],
       "previous_score": null,
       "change_explanation": null
     },
@@ -1526,7 +1872,20 @@
       "enforcement": [],
       "gaming_flags": [],
       "target": 8,
-      "path_to_target": [],
+      "path_to_target": [
+        {
+          "id": "X2-act-1",
+          "action": "Version the HTTP API (/v1/...) and keep a changelog of breaking changes",
+          "resolves": [
+            "X2-001"
+          ],
+          "expected_new_score": 8,
+          "effort": "S",
+          "requires_human_decision": false,
+          "decision_question": null,
+          "optional": false
+        }
+      ],
       "previous_score": null,
       "change_explanation": null
     },
@@ -1550,7 +1909,20 @@
       "enforcement": [],
       "gaming_flags": [],
       "target": 9,
-      "path_to_target": [],
+      "path_to_target": [
+        {
+          "id": "X3-act-1",
+          "action": "Claim the idempotency key atomically (insert-if-absent) before charging, so two concurrent requests can't both charge",
+          "resolves": [
+            "X3-001"
+          ],
+          "expected_new_score": 8,
+          "effort": "M",
+          "requires_human_decision": false,
+          "decision_question": null,
+          "optional": false
+        }
+      ],
       "previous_score": null,
       "change_explanation": null
     },
@@ -1618,7 +1990,20 @@
       "enforcement": [],
       "gaming_flags": [],
       "target": 8,
-      "path_to_target": [],
+      "path_to_target": [
+        {
+          "id": "X6-act-1",
+          "action": "Add AGENTS.md with the exact commands to install, test and lint",
+          "resolves": [
+            "X6-001"
+          ],
+          "expected_new_score": 7,
+          "effort": "S",
+          "requires_human_decision": false,
+          "decision_question": null,
+          "optional": false
+        }
+      ],
       "previous_score": null,
       "change_explanation": null
     }
@@ -1632,7 +2017,7 @@
   },
   "rollup": {
     "computed_by": "gradekit.py",
-    "config_hash": "c068a92b5feead6f",
+    "config_hash": "99965e49bb3352f4",
     "pillar_scores": {
       "A": 4.2,
       "B": 5.9,
@@ -1640,7 +2025,7 @@
       "D": 5.5,
       "E": 3.7,
       "F": 3.8,
-      "X": 4.2
+      "X": 4.3
     },
     "overall_score_uncapped": 4.7,
     "overall_score": 4.0,
@@ -1734,7 +2119,7 @@
       "A1-001": {
         "zone": "orders",
         "criticality": "hot",
-        "severity": "major",
+        "severity": "critical",
         "effective_severity": "critical",
         "status": "new",
         "benchmark_id": "A1"
@@ -1742,7 +2127,7 @@
       "A2-001": {
         "zone": "payments",
         "criticality": "hot",
-        "severity": "major",
+        "severity": "critical",
         "effective_severity": "critical",
         "status": "new",
         "benchmark_id": "A2"
@@ -1758,7 +2143,7 @@
       "A4-001": {
         "zone": "scripts",
         "criticality": "cold",
-        "severity": "major",
+        "severity": "minor",
         "effective_severity": "minor",
         "status": "new",
         "benchmark_id": "A4"
@@ -1766,7 +2151,7 @@
       "A4-002": {
         "zone": "orders",
         "criticality": "hot",
-        "severity": "minor",
+        "severity": "major",
         "effective_severity": "major",
         "status": "new",
         "benchmark_id": "A4"
@@ -1774,7 +2159,7 @@
       "A5-001": {
         "zone": "orders",
         "criticality": "hot",
-        "severity": "major",
+        "severity": "critical",
         "effective_severity": "critical",
         "status": "new",
         "benchmark_id": "A5"
@@ -1782,7 +2167,7 @@
       "B1-001": {
         "zone": "orders",
         "criticality": "hot",
-        "severity": "minor",
+        "severity": "major",
         "effective_severity": "major",
         "status": "new",
         "benchmark_id": "B1"
@@ -1790,7 +2175,7 @@
       "B2-001": {
         "zone": "payments",
         "criticality": "hot",
-        "severity": "minor",
+        "severity": "major",
         "effective_severity": "major",
         "status": "new",
         "benchmark_id": "B2"
@@ -1798,7 +2183,7 @@
       "B4-001": {
         "zone": "orders",
         "criticality": "hot",
-        "severity": "major",
+        "severity": "critical",
         "effective_severity": "critical",
         "status": "new",
         "benchmark_id": "B4"
@@ -1806,7 +2191,7 @@
       "B5-001": {
         "zone": "payments",
         "criticality": "hot",
-        "severity": "minor",
+        "severity": "major",
         "effective_severity": "major",
         "status": "new",
         "benchmark_id": "B5"
@@ -1814,7 +2199,7 @@
       "C2-001": {
         "zone": "orders",
         "criticality": "hot",
-        "severity": "minor",
+        "severity": "major",
         "effective_severity": "major",
         "status": "new",
         "benchmark_id": "C2"
@@ -1822,7 +2207,7 @@
       "C4-001": {
         "zone": "scripts",
         "criticality": "cold",
-        "severity": "critical",
+        "severity": "major",
         "effective_severity": "major",
         "status": "new",
         "benchmark_id": "C4"
@@ -1838,7 +2223,7 @@
       "D3-001": {
         "zone": "orders",
         "criticality": "hot",
-        "severity": "minor",
+        "severity": "major",
         "effective_severity": "major",
         "status": "new",
         "benchmark_id": "D3"
@@ -1846,7 +2231,7 @@
       "D4-001": {
         "zone": "orders",
         "criticality": "hot",
-        "severity": "minor",
+        "severity": "major",
         "effective_severity": "major",
         "status": "new",
         "benchmark_id": "D4"
@@ -1910,7 +2295,7 @@
       "F4-001": {
         "zone": "orders",
         "criticality": "hot",
-        "severity": "minor",
+        "severity": "major",
         "effective_severity": "major",
         "status": "new",
         "benchmark_id": "F4"
@@ -1934,7 +2319,7 @@
       "X3-001": {
         "zone": "payments",
         "criticality": "hot",
-        "severity": "major",
+        "severity": "critical",
         "effective_severity": "critical",
         "status": "new",
         "benchmark_id": "X3"
@@ -2253,6 +2638,34 @@
     ],
     "priorities": [
       {
+        "action_id": "A2-act-1",
+        "benchmark_id": "A2",
+        "tier": 0,
+        "priority": 30.0,
+        "zone": "hot",
+        "gain": 5,
+        "effort": "S",
+        "requires_human_decision": false,
+        "decision_question": null,
+        "action": "Fix A2-001 as the private report describes, and add a test that fails without the fix",
+        "decision": null,
+        "rank": 1
+      },
+      {
+        "action_id": "A1-act-1",
+        "benchmark_id": "A1",
+        "tier": 0,
+        "priority": 18.0,
+        "zone": "hot",
+        "gain": 3,
+        "effort": "S",
+        "requires_human_decision": false,
+        "decision_question": null,
+        "action": "In order_total, apply the discount to single-item orders too (drop the len(items) > 1 condition) and test a one-item discounted order",
+        "decision": null,
+        "rank": 2
+      },
+      {
         "action_id": "A3-act-1",
         "benchmark_id": "A3",
         "tier": 0,
@@ -2264,7 +2677,133 @@
         "decision_question": null,
         "action": "In src/orders/service.py create_order, remove the bare except; let reserve_stock failures propagate as an OutOfStock error and return 409 from the API layer",
         "decision": null,
-        "rank": 1
+        "rank": 3
+      },
+      {
+        "action_id": "A5-act-1",
+        "benchmark_id": "A5",
+        "tier": 0,
+        "priority": 12.0,
+        "zone": "hot",
+        "gain": 4,
+        "effort": "M",
+        "requires_human_decision": false,
+        "decision_question": null,
+        "action": "In create_order, insert the order and reserve stock in one database transaction, so a failed reservation leaves no order behind",
+        "decision": null,
+        "rank": 4
+      },
+      {
+        "action_id": "B4-act-1",
+        "benchmark_id": "B4",
+        "tier": 0,
+        "priority": 6.0,
+        "zone": "hot",
+        "gain": 3,
+        "effort": "M",
+        "requires_human_decision": false,
+        "decision_question": null,
+        "action": "Replace the item dicts with a dataclass (sku, price, qty), checked where requests come in",
+        "decision": null,
+        "rank": 5
+      },
+      {
+        "action_id": "X3-act-1",
+        "benchmark_id": "X3",
+        "tier": 0,
+        "priority": 6.0,
+        "zone": "hot",
+        "gain": 3,
+        "effort": "M",
+        "requires_human_decision": false,
+        "decision_question": null,
+        "action": "Claim the idempotency key atomically (insert-if-absent) before charging, so two concurrent requests can't both charge",
+        "decision": null,
+        "rank": 6
+      },
+      {
+        "action_id": "F3-act-1",
+        "benchmark_id": "F3",
+        "tier": 2,
+        "priority": 12.0,
+        "zone": "normal",
+        "gain": 4,
+        "effort": "S",
+        "requires_human_decision": false,
+        "decision_question": null,
+        "action": "Log each order and charge with its ID and outcome, using the logging module",
+        "decision": null,
+        "rank": 7
+      },
+      {
+        "action_id": "C2-act-1",
+        "benchmark_id": "C2",
+        "tier": 2,
+        "priority": 8.0,
+        "zone": "hot",
+        "gain": 2,
+        "effort": "S",
+        "requires_human_decision": false,
+        "decision_question": null,
+        "action": "Split order_total into subtotal, discount and rounding steps, each with its own test",
+        "decision": null,
+        "rank": 8
+      },
+      {
+        "action_id": "D4-act-1",
+        "benchmark_id": "D4",
+        "tier": 2,
+        "priority": 8.0,
+        "zone": "hot",
+        "gain": 2,
+        "effort": "S",
+        "requires_human_decision": false,
+        "decision_question": null,
+        "action": "Make the discount parameter apply in every case, or reject it where it can't, instead of ignoring it",
+        "decision": null,
+        "rank": 9
+      },
+      {
+        "action_id": "E1-act-1",
+        "benchmark_id": "E1",
+        "tier": 2,
+        "priority": 8.0,
+        "zone": "normal",
+        "gain": 4,
+        "effort": "S",
+        "requires_human_decision": false,
+        "decision_question": null,
+        "action": "Replace `make dev` in the README with the command that starts the service, and check it from a fresh clone",
+        "decision": null,
+        "rank": 10
+      },
+      {
+        "action_id": "E2-act-1",
+        "benchmark_id": "E2",
+        "tier": 2,
+        "priority": 8.0,
+        "zone": "normal",
+        "gain": 4,
+        "effort": "S",
+        "requires_human_decision": false,
+        "decision_question": null,
+        "action": "Rewrite the README: what the service does, how to run it and its tests, and the endpoints it serves",
+        "decision": null,
+        "rank": 11
+      },
+      {
+        "action_id": "F1-act-1",
+        "benchmark_id": "F1",
+        "tier": 2,
+        "priority": 6.0,
+        "zone": "normal",
+        "gain": 4,
+        "effort": "M",
+        "requires_human_decision": false,
+        "decision_question": null,
+        "action": "Add a Dockerfile and a deploy section to the README",
+        "decision": null,
+        "rank": 12
       },
       {
         "action_id": "F2-act-1",
@@ -2278,7 +2817,77 @@
         "decision_question": null,
         "action": "Add .github/workflows/ci.yml running ruff, mypy --strict and pytest --cov with a branch-coverage floor, required on main",
         "decision": null,
-        "rank": 2
+        "rank": 13
+      },
+      {
+        "action_id": "X6-act-1",
+        "benchmark_id": "X6",
+        "tier": 2,
+        "priority": 5.0,
+        "zone": "normal",
+        "gain": 5,
+        "effort": "S",
+        "requires_human_decision": false,
+        "decision_question": null,
+        "action": "Add AGENTS.md with the exact commands to install, test and lint",
+        "decision": null,
+        "rank": 14
+      },
+      {
+        "action_id": "B1-act-1",
+        "benchmark_id": "B1",
+        "tier": 2,
+        "priority": 4.0,
+        "zone": "hot",
+        "gain": 2,
+        "effort": "M",
+        "requires_human_decision": false,
+        "decision_question": null,
+        "action": "Give the order service a small repository interface (insert_order, reserve_stock) instead of the raw db handle",
+        "decision": null,
+        "rank": 15
+      },
+      {
+        "action_id": "B2-act-1",
+        "benchmark_id": "B2",
+        "tier": 2,
+        "priority": 4.0,
+        "zone": "hot",
+        "gain": 2,
+        "effort": "M",
+        "requires_human_decision": false,
+        "decision_question": null,
+        "action": "Have charge() take an amount and an idempotency key from its caller instead of reading the raw HTTP request",
+        "decision": null,
+        "rank": 16
+      },
+      {
+        "action_id": "B6-act-1",
+        "benchmark_id": "B6",
+        "tier": 2,
+        "priority": 4.0,
+        "zone": "normal",
+        "gain": 2,
+        "effort": "S",
+        "requires_human_decision": false,
+        "decision_question": null,
+        "action": "Let the database stamp each order's creation time, and drop the time import from create_order",
+        "decision": null,
+        "rank": 17
+      },
+      {
+        "action_id": "D3-act-1",
+        "benchmark_id": "D3",
+        "tier": 2,
+        "priority": 4.0,
+        "zone": "hot",
+        "gain": 2,
+        "effort": "M",
+        "requires_human_decision": false,
+        "decision_question": null,
+        "action": "Hold money as integer cents (or Decimal) from the request to the gateway call",
+        "decision": null,
+        "rank": 18
       },
       {
         "action_id": "A4-act-1",
@@ -2292,7 +2901,7 @@
         "decision_question": null,
         "action": "Rewrite scripts/seed.sql inserts as INSERT ... ON CONFLICT (id) DO NOTHING and add a CI step that runs the seed twice",
         "decision": null,
-        "rank": 3
+        "rank": 19
       },
       {
         "action_id": "D1-act-1",
@@ -2308,10 +2917,715 @@
         "decision": {
           "status": "pending"
         },
-        "rank": 4
+        "rank": 20
+      },
+      {
+        "action_id": "E3-act-1",
+        "benchmark_id": "E3",
+        "tier": 2,
+        "priority": 3.0,
+        "zone": "normal",
+        "gain": 3,
+        "effort": "S",
+        "requires_human_decision": false,
+        "decision_question": null,
+        "action": "Add a pyproject.toml with the dependencies and a one-command test run",
+        "decision": null,
+        "rank": 21
+      },
+      {
+        "action_id": "F6-act-1",
+        "benchmark_id": "F6",
+        "tier": 2,
+        "priority": 3.0,
+        "zone": "normal",
+        "gain": 3,
+        "effort": "S",
+        "requires_human_decision": false,
+        "decision_question": null,
+        "action": "Pin the dependencies in a lock file and let Dependabot propose updates",
+        "decision": null,
+        "rank": 22
+      },
+      {
+        "action_id": "X2-act-1",
+        "benchmark_id": "X2",
+        "tier": 2,
+        "priority": 3.0,
+        "zone": "normal",
+        "gain": 3,
+        "effort": "S",
+        "requires_human_decision": false,
+        "decision_question": null,
+        "action": "Version the HTTP API (/v1/...) and keep a changelog of breaking changes",
+        "decision": null,
+        "rank": 23
+      },
+      {
+        "action_id": "C4-act-1",
+        "benchmark_id": "C4",
+        "tier": 2,
+        "priority": 2.5,
+        "zone": "cold",
+        "gain": 5,
+        "effort": "M",
+        "requires_human_decision": false,
+        "decision_question": null,
+        "action": "Add tests for single-item orders, the discount, a failed stock reservation and a repeated idempotency key",
+        "decision": null,
+        "rank": 24
+      },
+      {
+        "action_id": "B5-act-1",
+        "benchmark_id": "B5",
+        "tier": 2,
+        "priority": 2.0,
+        "zone": "hot",
+        "gain": 1,
+        "effort": "S",
+        "requires_human_decision": false,
+        "decision_question": null,
+        "action": "Note the single-gateway decision (B5-001, accepted through 2027) beside charge(), so the next provider has an obvious seam",
+        "decision": null,
+        "rank": 25
+      },
+      {
+        "action_id": "C1-act-1",
+        "benchmark_id": "C1",
+        "tier": 2,
+        "priority": 2.0,
+        "zone": "normal",
+        "gain": 1,
+        "effort": "S",
+        "requires_human_decision": false,
+        "decision_question": null,
+        "action": "Name the money values (subtotal, discount_rate) and add docstrings to order_total and charge",
+        "decision": null,
+        "rank": 26
+      },
+      {
+        "action_id": "E4-act-1",
+        "benchmark_id": "E4",
+        "tier": 2,
+        "priority": 2.0,
+        "zone": "normal",
+        "gain": 2,
+        "effort": "S",
+        "requires_human_decision": false,
+        "decision_question": null,
+        "action": "Declare the project in pyproject.toml (name, version, Python requirement)",
+        "decision": null,
+        "rank": 27
+      },
+      {
+        "action_id": "F4-act-1",
+        "benchmark_id": "F4",
+        "tier": 2,
+        "priority": 2.0,
+        "zone": "hot",
+        "gain": 2,
+        "effort": "M",
+        "requires_human_decision": false,
+        "decision_question": null,
+        "action": "Reserve stock for all items in one call per order, and measure create_order with a 100-item order",
+        "decision": null,
+        "rank": 28
+      },
+      {
+        "action_id": "B3-act-1",
+        "benchmark_id": "B3",
+        "tier": 2,
+        "priority": 1.0,
+        "zone": "normal",
+        "gain": 1,
+        "effort": "S",
+        "requires_human_decision": false,
+        "decision_question": null,
+        "action": "Add a package layout (src/orders/__init__.py, src/payments/__init__.py) and move the API handlers apart from the domain logic",
+        "decision": null,
+        "rank": 29
+      },
+      {
+        "action_id": "C3-act-1",
+        "benchmark_id": "C3",
+        "tier": 2,
+        "priority": 1.0,
+        "zone": "normal",
+        "gain": 1,
+        "effort": "S",
+        "requires_human_decision": false,
+        "decision_question": null,
+        "action": "Add a formatter and linter config (ruff) and apply it once",
+        "decision": null,
+        "rank": 30
+      },
+      {
+        "action_id": "D2-act-1",
+        "benchmark_id": "D2",
+        "tier": 2,
+        "priority": 1.0,
+        "zone": "normal",
+        "gain": 2,
+        "effort": "L",
+        "requires_human_decision": false,
+        "decision_question": null,
+        "action": "Add order cancellation with a refund through the gateway (D2-001)",
+        "decision": null,
+        "rank": 31
+      },
+      {
+        "action_id": "F5-act-1",
+        "benchmark_id": "F5",
+        "tier": 2,
+        "priority": 1.0,
+        "zone": "normal",
+        "gain": 1,
+        "effort": "S",
+        "requires_human_decision": false,
+        "decision_question": null,
+        "action": "Read settings from the environment instead of assuming a local setup",
+        "decision": null,
+        "rank": 32
       }
     ],
     "weight_issues": [],
+    "limits": {
+      "A1": {
+        "max": 5,
+        "why": [
+          {
+            "kind": "strengths",
+            "max": 8,
+            "why": "no strengths (positive evidence)"
+          },
+          {
+            "kind": "enforcement",
+            "max": 9,
+            "why": "no enforcement evidence"
+          },
+          {
+            "kind": "critical",
+            "max": 5,
+            "why": "open critical finding A1-001"
+          }
+        ]
+      },
+      "A2": {
+        "max": 5,
+        "why": [
+          {
+            "kind": "strengths",
+            "max": 8,
+            "why": "no strengths (positive evidence)"
+          },
+          {
+            "kind": "enforcement",
+            "max": 9,
+            "why": "no enforcement evidence"
+          },
+          {
+            "kind": "critical",
+            "max": 5,
+            "why": "open critical finding A2-001, A2-002"
+          }
+        ]
+      },
+      "A3": {
+        "max": 4,
+        "why": [
+          {
+            "kind": "strengths",
+            "max": 8,
+            "why": "no strengths (positive evidence)"
+          },
+          {
+            "kind": "enforcement",
+            "max": 9,
+            "why": "no enforcement evidence"
+          },
+          {
+            "kind": "critical",
+            "max": 5,
+            "why": "open critical finding A3-001"
+          },
+          {
+            "kind": "cap",
+            "max": 4,
+            "why": "A3-cap-1: Catch-all blocks that swallow errors in core paths"
+          }
+        ]
+      },
+      "A4": {
+        "max": 5,
+        "why": [
+          {
+            "kind": "enforcement",
+            "max": 9,
+            "why": "no enforcement evidence"
+          },
+          {
+            "kind": "cap",
+            "max": 5,
+            "why": "A4-cap-2: Setup or migration fails or corrupts on a second run"
+          }
+        ]
+      },
+      "A5": {
+        "max": 4,
+        "why": [
+          {
+            "kind": "strengths",
+            "max": 8,
+            "why": "no strengths (positive evidence)"
+          },
+          {
+            "kind": "enforcement",
+            "max": 9,
+            "why": "no enforcement evidence"
+          },
+          {
+            "kind": "critical",
+            "max": 5,
+            "why": "open critical finding A5-001"
+          },
+          {
+            "kind": "cap",
+            "max": 4,
+            "why": "A5-cap-1: Important state written non-atomically or held only in memory"
+          }
+        ]
+      },
+      "B1": {
+        "max": 8,
+        "why": [
+          {
+            "kind": "strengths",
+            "max": 8,
+            "why": "no strengths (positive evidence)"
+          },
+          {
+            "kind": "enforcement",
+            "max": 9,
+            "why": "no enforcement evidence"
+          }
+        ]
+      },
+      "B2": {
+        "max": 8,
+        "why": [
+          {
+            "kind": "strengths",
+            "max": 8,
+            "why": "no strengths (positive evidence)"
+          },
+          {
+            "kind": "enforcement",
+            "max": 9,
+            "why": "no enforcement evidence"
+          }
+        ]
+      },
+      "B3": {
+        "max": 9,
+        "why": [
+          {
+            "kind": "enforcement",
+            "max": 9,
+            "why": "no enforcement evidence"
+          }
+        ]
+      },
+      "B4": {
+        "max": 5,
+        "why": [
+          {
+            "kind": "strengths",
+            "max": 8,
+            "why": "no strengths (positive evidence)"
+          },
+          {
+            "kind": "enforcement",
+            "max": 9,
+            "why": "no enforcement evidence"
+          },
+          {
+            "kind": "critical",
+            "max": 5,
+            "why": "open critical finding B4-001"
+          }
+        ]
+      },
+      "B5": {
+        "max": 8,
+        "why": [
+          {
+            "kind": "strengths",
+            "max": 8,
+            "why": "no strengths (positive evidence)"
+          },
+          {
+            "kind": "enforcement",
+            "max": 9,
+            "why": "no enforcement evidence"
+          }
+        ]
+      },
+      "B6": {
+        "max": 9,
+        "why": [
+          {
+            "kind": "enforcement",
+            "max": 9,
+            "why": "no enforcement evidence"
+          }
+        ]
+      },
+      "C1": {
+        "max": 9,
+        "why": [
+          {
+            "kind": "enforcement",
+            "max": 9,
+            "why": "no enforcement evidence"
+          }
+        ]
+      },
+      "C2": {
+        "max": 8,
+        "why": [
+          {
+            "kind": "strengths",
+            "max": 8,
+            "why": "no strengths (positive evidence)"
+          },
+          {
+            "kind": "enforcement",
+            "max": 9,
+            "why": "no enforcement evidence"
+          }
+        ]
+      },
+      "C3": {
+        "max": 9,
+        "why": [
+          {
+            "kind": "enforcement",
+            "max": 9,
+            "why": "no enforcement evidence"
+          }
+        ]
+      },
+      "C4": {
+        "max": 7,
+        "why": [
+          {
+            "kind": "strengths",
+            "max": 8,
+            "why": "no strengths (positive evidence)"
+          },
+          {
+            "kind": "enforcement",
+            "max": 9,
+            "why": "no enforcement evidence"
+          },
+          {
+            "kind": "cap",
+            "max": 7,
+            "why": "C4-cap-1: Tests not run in CI"
+          }
+        ]
+      },
+      "D1": {
+        "max": 5,
+        "why": [
+          {
+            "kind": "strengths",
+            "max": 8,
+            "why": "no strengths (positive evidence)"
+          },
+          {
+            "kind": "enforcement",
+            "max": 9,
+            "why": "no enforcement evidence"
+          },
+          {
+            "kind": "cap",
+            "max": 5,
+            "why": "D1-cap-1: Any advertised core feature that is missing or broken"
+          }
+        ]
+      },
+      "D2": {
+        "max": 8,
+        "why": [
+          {
+            "kind": "strengths",
+            "max": 8,
+            "why": "no strengths (positive evidence)"
+          },
+          {
+            "kind": "enforcement",
+            "max": 9,
+            "why": "no enforcement evidence"
+          }
+        ]
+      },
+      "D3": {
+        "max": 8,
+        "why": [
+          {
+            "kind": "strengths",
+            "max": 8,
+            "why": "no strengths (positive evidence)"
+          },
+          {
+            "kind": "enforcement",
+            "max": 9,
+            "why": "no enforcement evidence"
+          }
+        ]
+      },
+      "D4": {
+        "max": 8,
+        "why": [
+          {
+            "kind": "strengths",
+            "max": 8,
+            "why": "no strengths (positive evidence)"
+          },
+          {
+            "kind": "enforcement",
+            "max": 9,
+            "why": "no enforcement evidence"
+          }
+        ]
+      },
+      "E1": {
+        "max": 4,
+        "why": [
+          {
+            "kind": "strengths",
+            "max": 8,
+            "why": "no strengths (positive evidence)"
+          },
+          {
+            "kind": "enforcement",
+            "max": 9,
+            "why": "no enforcement evidence"
+          },
+          {
+            "kind": "critical",
+            "max": 5,
+            "why": "open critical finding E1-001"
+          },
+          {
+            "kind": "cap",
+            "max": 4,
+            "why": "E1-cap-1: Quickstart fails"
+          }
+        ]
+      },
+      "E2": {
+        "max": 5,
+        "why": [
+          {
+            "kind": "strengths",
+            "max": 8,
+            "why": "no strengths (positive evidence)"
+          },
+          {
+            "kind": "enforcement",
+            "max": 9,
+            "why": "no enforcement evidence"
+          },
+          {
+            "kind": "cap",
+            "max": 5,
+            "why": "E2-cap-1: Wrong setup instructions"
+          }
+        ]
+      },
+      "E3": {
+        "max": 8,
+        "why": [
+          {
+            "kind": "strengths",
+            "max": 8,
+            "why": "no strengths (positive evidence)"
+          },
+          {
+            "kind": "enforcement",
+            "max": 9,
+            "why": "no enforcement evidence"
+          }
+        ]
+      },
+      "E4": {
+        "max": 8,
+        "why": [
+          {
+            "kind": "strengths",
+            "max": 8,
+            "why": "no strengths (positive evidence)"
+          },
+          {
+            "kind": "enforcement",
+            "max": 9,
+            "why": "no enforcement evidence"
+          }
+        ]
+      },
+      "F1": {
+        "max": 4,
+        "why": [
+          {
+            "kind": "strengths",
+            "max": 8,
+            "why": "no strengths (positive evidence)"
+          },
+          {
+            "kind": "enforcement",
+            "max": 9,
+            "why": "no enforcement evidence"
+          },
+          {
+            "kind": "critical",
+            "max": 5,
+            "why": "open critical finding F1-001"
+          },
+          {
+            "kind": "cap",
+            "max": 4,
+            "why": "F1-cap-1: Manual, undocumented deploy steps"
+          }
+        ]
+      },
+      "F2": {
+        "max": 5,
+        "why": [
+          {
+            "kind": "strengths",
+            "max": 8,
+            "why": "no strengths (positive evidence)"
+          },
+          {
+            "kind": "enforcement",
+            "max": 9,
+            "why": "no enforcement evidence"
+          },
+          {
+            "kind": "critical",
+            "max": 5,
+            "why": "open critical finding F2-001"
+          }
+        ]
+      },
+      "F3": {
+        "max": 8,
+        "why": [
+          {
+            "kind": "strengths",
+            "max": 8,
+            "why": "no strengths (positive evidence)"
+          },
+          {
+            "kind": "enforcement",
+            "max": 9,
+            "why": "no enforcement evidence"
+          }
+        ]
+      },
+      "F4": {
+        "max": 8,
+        "why": [
+          {
+            "kind": "strengths",
+            "max": 8,
+            "why": "no strengths (positive evidence)"
+          },
+          {
+            "kind": "enforcement",
+            "max": 9,
+            "why": "no enforcement evidence"
+          }
+        ]
+      },
+      "F5": {
+        "max": 9,
+        "why": [
+          {
+            "kind": "enforcement",
+            "max": 9,
+            "why": "no enforcement evidence"
+          }
+        ]
+      },
+      "F6": {
+        "max": 8,
+        "why": [
+          {
+            "kind": "strengths",
+            "max": 8,
+            "why": "no strengths (positive evidence)"
+          },
+          {
+            "kind": "enforcement",
+            "max": 9,
+            "why": "no enforcement evidence"
+          }
+        ]
+      },
+      "X2": {
+        "max": 8,
+        "why": [
+          {
+            "kind": "strengths",
+            "max": 8,
+            "why": "no strengths (positive evidence)"
+          },
+          {
+            "kind": "enforcement",
+            "max": 9,
+            "why": "no enforcement evidence"
+          }
+        ]
+      },
+      "X3": {
+        "max": 5,
+        "why": [
+          {
+            "kind": "strengths",
+            "max": 8,
+            "why": "no strengths (positive evidence)"
+          },
+          {
+            "kind": "enforcement",
+            "max": 9,
+            "why": "no enforcement evidence"
+          },
+          {
+            "kind": "critical",
+            "max": 5,
+            "why": "open critical finding X3-001"
+          }
+        ]
+      },
+      "X6": {
+        "max": 8,
+        "why": [
+          {
+            "kind": "strengths",
+            "max": 8,
+            "why": "no strengths (positive evidence)"
+          },
+          {
+            "kind": "enforcement",
+            "max": 9,
+            "why": "no enforcement evidence"
+          }
+        ]
+      }
+    },
     "applicability": {
       "limited": [
         "F5",
@@ -2330,24 +3644,73 @@
   "top_priorities": [
     {
       "rank": 1,
+      "benchmark_id": "A2",
+      "action_id": "A2-act-1",
+      "why_first": "Fixes a critical problem in a hot zone, or a failed hard gate",
+      "expected_gain": "+5 on A2"
+    },
+    {
+      "rank": 2,
+      "benchmark_id": "A1",
+      "action_id": "A1-act-1",
+      "why_first": "Fixes a critical problem in a hot zone, or a failed hard gate",
+      "expected_gain": "+3 on A1"
+    },
+    {
+      "rank": 3,
       "benchmark_id": "A3",
       "action_id": "A3-act-1",
       "why_first": "Critical silent failure; clears the A3 cap",
       "expected_gain": "+3 on A3"
     },
     {
-      "rank": 2,
-      "benchmark_id": "F2",
-      "action_id": "F2-act-1",
-      "why_first": "CI is the enforcement every other benchmark needs",
-      "expected_gain": "+5 on F2; lifts C4 cap"
+      "rank": 4,
+      "benchmark_id": "A5",
+      "action_id": "A5-act-1",
+      "why_first": "Fixes a critical problem in a hot zone, or a failed hard gate",
+      "expected_gain": "+4 on A5"
     },
     {
-      "rank": 3,
-      "benchmark_id": "A4",
-      "action_id": "A4-act-1",
-      "why_first": "Clears the A4 cap with a small change",
-      "expected_gain": "+2 on A4"
+      "rank": 5,
+      "benchmark_id": "B4",
+      "action_id": "B4-act-1",
+      "why_first": "Fixes a critical problem in a hot zone, or a failed hard gate",
+      "expected_gain": "+3 on B4"
+    },
+    {
+      "rank": 6,
+      "benchmark_id": "X3",
+      "action_id": "X3-act-1",
+      "why_first": "Fixes a critical problem in a hot zone, or a failed hard gate",
+      "expected_gain": "+3 on X3"
+    },
+    {
+      "rank": 7,
+      "benchmark_id": "F3",
+      "action_id": "F3-act-1",
+      "why_first": "Raises a benchmark that's below its target",
+      "expected_gain": "+4 on F3"
+    },
+    {
+      "rank": 8,
+      "benchmark_id": "C2",
+      "action_id": "C2-act-1",
+      "why_first": "Raises a benchmark that's below its target",
+      "expected_gain": "+2 on C2"
+    },
+    {
+      "rank": 9,
+      "benchmark_id": "D4",
+      "action_id": "D4-act-1",
+      "why_first": "Raises a benchmark that's below its target",
+      "expected_gain": "+2 on D4"
+    },
+    {
+      "rank": 10,
+      "benchmark_id": "E1",
+      "action_id": "E1-act-1",
+      "why_first": "Raises a benchmark that's below its target",
+      "expected_gain": "+4 on E1"
     }
   ],
   "limitations": [

@@ -131,15 +131,12 @@ def test_validate_fails_a_format_5_score_above_its_limit(gk, repo, rel):
     assert "E1: score 8 is above its limit of 4 (E1-cap-1: Quickstart fails)" in errors
 
 
-def test_4x_and_migrated_reports_keep_warnings(gk):
+def test_the_example_is_held_to_its_limits(gk):
     r = json.loads(NEW.read_text())
     b = next(b for b in r["benchmarks"] if isinstance(b.get("score"), int) and b["score"] > 4)
     b["caps_applied"] = [f"{b['id']} house cap → max 2"]
-    c = config(gk)
-    errors, warnings = gk.validate_report(r, c, gk.load_catalog())
-    assert not [e for e in errors if "above its limit" in e] and [w for w in warnings if "above its limit of 2" in w]
-    migrated, _ = gk.migrate_report(r)
-    assert not gk.limits_enforced(migrated)
+    errors, _ = gk.validate_report(r, config(gk), gk.load_catalog())
+    assert f"{b['id']}: score {b['score']} is above its limit of 2 ({b['id']} house cap → max 2)" in errors
 
 
 def test_the_rollup_lists_limits_and_report_md_shows_them(gk, repo, rel):

@@ -127,7 +127,7 @@ def test_ci_checks_every_component_report(grading):
 
 def test_ci_holds_a_monorepo_report_to_its_config(grading):
     """5.1.0, from a red-team review: a component report could say it was migrated (keeping the 4.x rules, where limits
-    are warnings), a failing component could be left out of the folder, and weights came from the reports."""
+    were warnings), a failing component could be left out of the folder, and weights came from the reports."""
     grading, folder = monorepo_pr(grading)
     web = folder / "components" / "web.json"
 
@@ -144,7 +144,9 @@ def test_ci_holds_a_monorepo_report_to_its_config(grading):
         cr["migrated"] = {"from": "4.2.0", "by": "5.0.1"}
         cr["config"]["scoring_version"] = "4.2.0"
         web.write_text(json.dumps(cr, indent=2))
-    assert any(p.startswith("components/web.json is new, but says it was migrated") for p in ci_after(migrated))
+    problems = ci_after(migrated)
+    assert any(p.startswith("components/web.json: migrated: `gradekit migrate` marked") for p in problems), problems
+    assert any(p.startswith("components/web.json: config.scoring_version is 4.2.0") for p in problems), problems
 
     def left_out():
         web.unlink()
@@ -165,17 +167,29 @@ def test_ci_holds_a_monorepo_report_to_its_config(grading):
 
 def test_every_report_in_a_monorepo_folder_is_made_with_the_same_kit(grading):
     """From a review of these fixes: the pin covered report.json only, so a 4.x component report (gates and limits
-    only warnings) passed in a project pinned to 5."""
+    only warnings) passed in a project pinned to 5. 6.0 doesn't read format 4 at all."""
     grading, folder = monorepo_pr(grading)
     web = folder / "components" / "web.json"
-    cr = json.loads(web.read_text())
-    cr.pop("schema_version")
-    cr["suite_version"] = "4.2.0"
-    web.write_text(json.dumps(cr, indent=2))
-    git(grading, "add", "-A")
-    git(grading, "commit", "-qm", "tamper")
-    problems = j(cli("ci", "--base", "main", "--json", cwd=grading, code=None))["problems"]
-    assert any(p.startswith("components/web.json was made with suite 4.2.0 (format 4)") for p in problems), problems
+    good = web.read_text()
+
+    def problems_with(**changes):
+        cr = json.loads(good)
+        for k, v in changes.items():
+            if v is None:
+                cr.pop(k)
+            else:
+                cr[k] = v
+        web.write_text(json.dumps(cr, indent=2))
+        git(grading, "add", "-A")
+        git(grading, "commit", "-qm", "tamper")
+        out = j(cli("ci", "--base", "main", "--json", cwd=grading, code=None))["problems"]
+        git(grading, "reset", "-q", "--hard", "HEAD~1")
+        return out
+    problems = problems_with(schema_version=None, suite_version="4.2.0")
+    assert any(p.startswith("components/web.json: ") and "format 4 (suite 4.2.0)" in p for p in problems), problems
+    problems = problems_with(suite_version="5.1.0")
+    assert any(p.startswith("components/web.json was made with suite 5.1.0 (format 5); every report in the folder is made "
+                            "with the same kit") for p in problems), problems
 
 
 # --------------------------------------------------------------------------- disputes (N9)
@@ -204,19 +218,17 @@ def test_a_dispute_must_be_answered_and_withdrawn_findings_count_nowhere(gk, gra
 
 
 def test_a_withdrawal_answers_the_finding_that_was_disputed(grading):
-    """From a review of these fixes: a dispute on A2-001 withdrew a different, critical problem filed as A2-001."""
-    cli("dispute", "add", "A2-001", "--project", "orders-api", "--reason", "amounts are validated by the gateway", "--by", "gordon",
-        cwd=grading)
+    """From a review of these fixes: a dispute on a finding withdrew a different, worse problem filed under its ID."""
+    base = json.loads((grading / PROJ / "reports" / "2026-11-07-a1b2c3d" / "report.json").read_text())
+    was = next(f for f in base["findings"] if f["status"] == "open" and f["severity"] != "critical"
+               and not any(e.get("type") == "withheld" for e in f["evidence"]))
+    cli("dispute", "add", was["id"], "--project", "orders-api", "--reason", "it's handled upstream", "--by", "gordon", cwd=grading)
     out = cli("carry", PROJ + "/reports/2026-11-07-a1b2c3d/report.json", "--mode", "full", "--repo", CODE, "--commit", "b2c3d4e5f6",
               "--allow-withheld", "--project", "orders-api", "--model", "m", "--json", cwd=grading)
     rel = str((grading / j(out)["report"]).relative_to(grading)) if j(out).get("report") else j(out)["written"]
-    was = next(f for f in json.loads((grading / PROJ / "reports" / "2026-11-07-a1b2c3d" / "report.json").read_text())["findings"]
-               if f["id"] == "A2-001")
-    worse = {"critical": "critical", "major": "critical", "minor": "major"}[was["severity"]]
-    cli("report", "finding", "update", rel, "A2-001", "--severity", worse, cwd=grading)
-    r = cli("report", "finding", "answer", rel, "A2-001", "--withdraw", "--note", "x", cwd=grading, code=None)
-    assert worse != was["severity"], "the example's A2-001 is major"
-    assert r.returncode == 1 and "A2-001 isn't the finding gordon disputed" in r.stderr, r.stdout + r.stderr
+    cli("report", "finding", "update", rel, was["id"], "--severity", "critical", cwd=grading)
+    r = cli("report", "finding", "answer", rel, was["id"], "--withdraw", "--note", "x", cwd=grading, code=None)
+    assert r.returncode == 1 and f"{was['id']} isn't the finding gordon disputed" in r.stderr, r.stdout + r.stderr
 
 
 def test_upholding_keeps_the_finding(grading):
