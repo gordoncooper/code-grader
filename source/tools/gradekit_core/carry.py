@@ -18,7 +18,8 @@ from .authoring import authoring_config, load_for_edit, normalize_report, proven
 # The next report starts from the last one: findings keep their IDs, and every code citation is
 # moved to where the same code is now. Benchmarks the change touches are cleared for re-grading.
 
-ALWAYS_REGRADE = ("A1", "A3", "C1", "C2", "C3", "C4")   # pr-review.md: any source change
+# Graded again on any source change (pr-review.md): the rubric's `Re-grade: any source change` benchmarks.
+ALWAYS_REGRADE = tuple(b["id"] for b in load_catalog()["benchmarks"] if b.get("regrade") == "any source change")
 
 
 def _stripped(lines: list[str]) -> list[str]:

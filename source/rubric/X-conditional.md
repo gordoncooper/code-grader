@@ -1,6 +1,8 @@
 <!-- Part of the Code Grading Suite v6.0.0. Read together with prompts/grader.md, which holds the scoring rules, anti-gaming rules and output format. -->
 
-# Conditional benchmarks rubric
+# Pillar X rubric: Conditional
+
+*Graded only where they apply: each one names the kind of code it covers.*
 
 ## X1. Accessibility, UX & Internationalization (*UI code*)
 - **Measures:** Semantic markup; keyboard navigation; focus management; correct ARIA; color contrast; screen-reader labels; responsive layout; loading, empty and error states; text externalized for translation; locale-aware formatting; right-to-left readiness where relevant.
@@ -31,3 +33,4 @@
   - Generated and protected files clearly marked.
   - Clear signals of success and failure (exit codes, machine-readable output).
 - **Assess:** Could an agent with no prior context make a correct, verified change from the repo alone?
+- **Scope:** repo

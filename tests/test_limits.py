@@ -47,25 +47,6 @@ def config(gk_mod):
 
 # --------------------------------------------------------------------------- the caps are data
 
-def test_the_catalogs_caps_are_the_rubrics():
-    """catalog.json carries each benchmark's caps; they must say exactly what the rubric files say."""
-    catalog = json.loads((SRC / "rubric" / "catalog.json").read_text())
-    in_catalog = {b["id"]: b.get("caps", []) for b in catalog["benchmarks"]}
-    in_rubric = {}
-    for p in sorted((SRC / "rubric").glob("[A-FX]-*.md")):
-        bid = None
-        for line in p.read_text().splitlines():
-            m = re.match(r"## ([A-FX]\d)\. ", line)
-            if m:
-                bid = m.group(1)
-            m = re.match(r"- \*\*Caps:\*\*\s*(.+)$", line)
-            if m and bid:
-                in_rubric[bid] = [{"id": i, "when": w.strip(), "max": int(n)}
-                                  for w, n, i in re.findall(r"(.+?)\s*→\s*max\s+(\d+)\s*\(`([A-FX]\d-cap-\d+)`\)\.?(?:\s+|$)", m.group(1))]
-    assert {k: v for k, v in in_catalog.items() if v} == in_rubric
-    assert sum(len(v) for v in in_rubric.values()) >= 20
-
-
 # --------------------------------------------------------------------------- limits
 
 def add_quickstart_finding(repo, rel):

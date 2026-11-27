@@ -1,6 +1,6 @@
 {
   "suite_version": "6.0.0",
-  "_comment": "Benchmark catalog: IDs, names, pillars and score caps. The caps are the rubric files' \"Caps:\" lines (a test keeps them the same). Weights, gates, targets and maturity rules live in config/defaults.toml.",
+  "_comment": "Generated from the rubric files by `gradekit rubric --write`. Don't edit it, apart from suite_version (the kit version, set at each release). Weights, gates, targets and maturity rules live in config/defaults.toml.",
   "pillars": {
     "A": {
       "name": "Correctness & Trust",
@@ -37,6 +37,7 @@
       "name": "Correctness & Functional Behavior",
       "pillar": "A",
       "conditional": false,
+      "regrade": "any source change",
       "caps": [
         {
           "id": "A1-cap-1",
@@ -55,6 +56,7 @@
       "name": "Security & Privacy",
       "pillar": "A",
       "conditional": false,
+      "sensitive": true,
       "caps": [
         {
           "id": "A2-cap-1",
@@ -73,6 +75,7 @@
       "name": "Robustness & Error Handling",
       "pillar": "A",
       "conditional": false,
+      "regrade": "any source change",
       "caps": [
         {
           "id": "A3-cap-1",
@@ -140,7 +143,8 @@
       "id": "B3",
       "name": "Structure & Organization",
       "pillar": "B",
-      "conditional": false
+      "conditional": false,
+      "scope": "repo"
     },
     {
       "id": "B4",
@@ -164,25 +168,29 @@
       "id": "C1",
       "name": "Readability & Clarity",
       "pillar": "C",
-      "conditional": false
+      "conditional": false,
+      "regrade": "any source change"
     },
     {
       "id": "C2",
       "name": "Maintainability & Complexity",
       "pillar": "C",
-      "conditional": false
+      "conditional": false,
+      "regrade": "any source change"
     },
     {
       "id": "C3",
       "name": "Consistency & Idiomatic Code",
       "pillar": "C",
-      "conditional": false
+      "conditional": false,
+      "regrade": "any source change"
     },
     {
       "id": "C4",
       "name": "Test Suite Quality",
       "pillar": "C",
       "conditional": false,
+      "regrade": "any source change",
       "caps": [
         {
           "id": "C4-cap-1",
@@ -218,7 +226,8 @@
         {
           "id": "D2-cap-1",
           "when": "Any critical gap",
-          "max": 4
+          "max": 4,
+          "automatic": "open critical gap"
         }
       ]
     },
@@ -269,13 +278,15 @@
       "id": "E3",
       "name": "Developer Experience & Inner Loop",
       "pillar": "E",
-      "conditional": false
+      "conditional": false,
+      "scope": "repo"
     },
     {
       "id": "E4",
       "name": "Native Tooling & Ecosystem Fit",
       "pillar": "E",
       "conditional": false,
+      "scope": "repo",
       "caps": [
         {
           "id": "E4-cap-1",
@@ -306,7 +317,8 @@
       "id": "F2",
       "name": "Build, CI/CD & Automation",
       "pillar": "F",
-      "conditional": false
+      "conditional": false,
+      "scope": "repo"
     },
     {
       "id": "F3",
@@ -337,7 +349,8 @@
       "id": "F6",
       "name": "Dependency Health & Longevity",
       "pillar": "F",
-      "conditional": false
+      "conditional": false,
+      "scope": "repo"
     },
     {
       "id": "X1",
@@ -394,7 +407,8 @@
       "id": "X6",
       "name": "Agent-Readiness",
       "pillar": "X",
-      "conditional": true
+      "conditional": true,
+      "scope": "repo"
     }
   ]
 }

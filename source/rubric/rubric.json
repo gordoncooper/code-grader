@@ -1,5 +1,5 @@
 {
-  "_about": "Generated from the rubric files by `gradekit rubric --json --out rubric/rubric.json`. Don't edit.",
+  "_about": "Generated from the rubric files by `gradekit rubric --write`. Don't edit.",
   "suite_version": "6.0.0",
   "pillars": {
     "A": {
@@ -34,7 +34,7 @@
     },
     "X": {
       "name": "Conditional",
-      "question": null,
+      "question": "Graded only where they apply: each one names the kind of code it covers.",
       "file": "rubric/X-conditional.md"
     }
   },
@@ -64,7 +64,8 @@
           "when": "A bug that corrupts or loses data",
           "max": 3
         }
-      ]
+      ],
+      "regrade": "any source change"
     },
     {
       "id": "A2",
@@ -91,7 +92,8 @@
           "when": "Reachable high or critical CVE",
           "max": 4
         }
-      ]
+      ],
+      "sensitive": true
     },
     {
       "id": "A3",
@@ -113,7 +115,8 @@
           "when": "Catch-all blocks that swallow errors in core paths",
           "max": 4
         }
-      ]
+      ],
+      "regrade": "any source change"
     },
     {
       "id": "A4",
@@ -219,7 +222,8 @@
         "4–6": "Partly organized; several misplaced or junk-drawer areas.",
         "7–8": "Predictable and tidy.",
         "9–10": "A newcomer can guess where anything lives; the layout is documented and stays consistent."
-      }
+      },
+      "scope": "repo"
     },
     {
       "id": "B4",
@@ -279,7 +283,8 @@
         "4–6": "Readable with effort.",
         "7–8": "Generally clear.",
         "9–10": "Reads like well-written prose."
-      }
+      },
+      "regrade": "any source change"
     },
     {
       "id": "C2",
@@ -294,7 +299,8 @@
         "4–6": "Several complexity hotspots; noticeable duplication.",
         "7–8": "Complexity confined to a few justified places.",
         "9–10": "Small, focused units; complexity thresholds enforced in tooling."
-      }
+      },
+      "regrade": "any source change"
     },
     {
       "id": "C3",
@@ -309,7 +315,8 @@
         "4–6": "Pockets of divergence.",
         "7–8": "Consistent and idiomatic.",
         "9–10": "Looks written by one expert; conventions enforced by tooling."
-      }
+      },
+      "regrade": "any source change"
     },
     {
       "id": "C4",
@@ -336,7 +343,8 @@
           "when": "Coverage inflated by assertion-free tests",
           "max": 4
         }
-      ]
+      ],
+      "regrade": "any source change"
     },
     {
       "id": "D1",
@@ -378,7 +386,8 @@
         {
           "id": "D2-cap-1",
           "when": "Any critical gap",
-          "max": 4
+          "max": 4,
+          "automatic": "open critical gap"
         }
       ]
     },
@@ -474,7 +483,8 @@
         "4–6": "Workable with tribal knowledge.",
         "7–8": "Quick setup; fast loops.",
         "9–10": "Productive within an hour of cloning; inner loop measured in seconds."
-      }
+      },
+      "scope": "repo"
     },
     {
       "id": "E4",
@@ -496,7 +506,8 @@
           "when": "A custom build or test harness where a standard exists, with no documented reason",
           "max": 6
         }
-      ]
+      ],
+      "scope": "repo"
     },
     {
       "id": "F1",
@@ -538,7 +549,8 @@
         "4–6": "CI runs but doesn't block merges.",
         "7–8": "Full gating.",
         "9–10": "Fast, cached, comprehensive pipeline; releases fully automated."
-      }
+      },
+      "scope": "repo"
     },
     {
       "id": "F3",
@@ -602,7 +614,8 @@
         "4–6": "Locked but stale.",
         "7–8": "Current and pinned.",
         "9–10": "Automated updates (Renovate, Dependabot) with audit gates; no deprecations; would still build cleanly a year from now."
-      }
+      },
+      "scope": "repo"
     },
     {
       "id": "X1",
@@ -668,7 +681,8 @@
       "pillar": "X",
       "applies_when": "graded by default in this workflow, because agents will maintain the code",
       "measures": "An AI coding agent can work on this codebase safely and productively: An `AGENTS.md`, `CLAUDE.md` or equivalent with exact build, test, lint and run commands. Fast, scoped, deterministic verification commands. Conventions and module boundaries written down. No tribal knowledge needed to make a correct change. Generated and protected files clearly marked. Clear signals of success and failure (exit codes, machine-readable output).",
-      "assess": "Could an agent with no prior context make a correct, verified change from the repo alone?"
+      "assess": "Could an agent with no prior context make a correct, verified change from the repo alone?",
+      "scope": "repo"
     }
   ]
 }

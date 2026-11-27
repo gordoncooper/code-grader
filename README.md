@@ -92,6 +92,8 @@ The kit lives in [`source/`](source/). `bundle/` is generated from it by the *Ki
 1. **Start the next version.** Add a heading to `source/CHANGELOG.md` such as `## 5.1.0 (unreleased)`, and set `suite_version` in `source/rubric/catalog.json` to match. Kit PRs can then merge freely, and `bundle/` and the live site stay at the last release.
 2. **Release it.** In one PR, drop `(unreleased)` from the heading and update the version labels and `bundle/README.md`. CI rebuilds `bundle/` and commits it to the PR. Merging publishes the site and the release.
 
+**The rubric** is the files in `source/rubric/` (`A-…md` to `X-conditional.md`): they're the one source for the benchmarks, their caps and facts such as `Scope: repo`. After editing them, run `python3 source/tools/gradekit.py rubric --write` to remake `rubric/catalog.json` and `rubric/rubric.json`. `rubric --check` lints the files and fails if either JSON file is stale, and the tests run it.
+
 `python3 .github/scripts/bundles.py status` shows the current state, and `smoke` runs the quick checks CI runs. If `source/` changes without a new version heading, CI stops and asks for one, so a released bundle always matches its source.
 
 ## License
