@@ -1,9 +1,17 @@
-// Code Grading Suite: runs tools/gradekit.py in the browser and exposes GK.call().
+// Code Grading Suite: runs tools/gradekit.py (and its gradekit_core package) in the browser and exposes GK.call().
 (function () {
   "use strict";
   var script = document.currentScript && document.currentScript.src;
   var SITE = script ? new URL("../", script).href : new URL("./", location.href).href;
-  var SUITE_FILES = ["tools/gradekit.py", "config/defaults.toml", "rubric/catalog.json", "schema/report.schema.json"];
+  var SUITE_FILES = ["tools/gradekit.py", "tools/gradekit_core/__init__.py", "config/defaults.toml", "rubric/catalog.json",
+                     "schema/report.schema.json"];
+  // The engine's modules are listed once, as MODULES in gradekit_core/__init__.py, and fetched after it.
+  function engineModules(initText) {
+    var m = /^MODULES = \(([^)]*)\)/m.exec(initText);
+    if (!m) throw new Error("suite/tools/gradekit_core/__init__.py lists no MODULES (redeploy the whole site)");
+    return m[1].split(",").map(function (s) { return s.trim().replace(/^"|"$/g, ""); }).filter(Boolean)
+      .map(function (name) { return "tools/gradekit_core/" + name + ".py"; });
+  }
   // Optional Pyodide packages, loaded the first time a call needs them (from the same place as Pyodide itself).
   // None since 5.1.0: gradekit checks the report schema itself, so the pages need only the Python standard library.
   var CALL_PACKAGES = {};
@@ -102,7 +110,9 @@
     var py = await window.loadPyodide(options);
     setStatus("loading", "Loading gradekit…");
     var texts = await Promise.all(SUITE_FILES.map(fetchText));
-    SUITE_FILES.forEach(function (path, i) {
+    var modules = engineModules(texts[SUITE_FILES.indexOf("tools/gradekit_core/__init__.py")]);
+    texts = texts.concat(await Promise.all(modules.map(fetchText)));
+    SUITE_FILES.concat(modules).forEach(function (path, i) {
       var full = "/suite/" + path;
       py.FS.mkdirTree(full.substring(0, full.lastIndexOf("/")));
       py.FS.writeFile(full, texts[i]);

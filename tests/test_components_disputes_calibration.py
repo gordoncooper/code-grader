@@ -285,7 +285,7 @@ def test_a_rubric_change_changes_the_fingerprint(gk, monkeypatch):
         data = real(catalog)
         data["benchmarks"][0]["anchors"]["9–10"] += " Also, more."
         return data
-    monkeypatch.setattr(gk, "parse_rubric", edited)
+    monkeypatch.setattr(gk.core.calibration, "parse_rubric", edited)
     assert gk.scoring_fingerprint() != before
 
 

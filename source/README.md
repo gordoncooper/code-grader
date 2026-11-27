@@ -156,7 +156,8 @@ code-grading-suite/
 ├── config/                 defaults.toml, project.example.toml
 ├── schema/                 report.schema.json
 ├── tools/
-│   ├── gradekit.py         the engine (CLI + the browser API)
+│   ├── gradekit.py         the entry point: the command line, and the names the browser and tests use
+│   ├── gradekit_core/      the engine, one module per area (__init__.py lists them in dependency order)
 │   ├── build_web.py        builds the website
 │   ├── vendor_pyodide.py   puts the Python runtime inside a built website (no CDN)
 │   └── web/                website sources (pages, styles, scripts)

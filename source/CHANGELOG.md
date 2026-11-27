@@ -19,6 +19,7 @@ A new major. **6.0 reads only format-5 reports and grades under one set of rules
 - **The bundled example** is format 5, graded under the current rules, and every benchmark below its target has a path there. Its scores don't change.
 - `report.md` lists decisions already answered, not only the pending ones.
 - Every report in a monorepo folder must come from the same kit major.
+- **The engine is split into modules.** `tools/gradekit.py` is now the entry point. The engine is the `tools/gradekit_core/` package beside it: 26 modules, one per area (configuration, rollup, validate, authoring, render, ci and so on), each importing only from the modules before it. Commands, output and `import gradekit` don't change. An agent that copies the kit file by file needs the package too; `AGENT.md` says so.
 
 ## 5.1.0
 Closes ways around the scores, found by a review of 5.0.1 and a red-team pass over the fixes, and hardens the paths agents use. No scoring rules change: config fingerprints and the calibration fingerprint stay the same, and every graded score recomputes the same. Before upgrading:
