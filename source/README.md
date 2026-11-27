@@ -152,7 +152,7 @@ code-grading-suite/
 ├── DEPLOY.md               hosting the website
 ├── CHANGELOG.md
 ├── prompts/                cards/ (one page per role), grader, reviewer, improver, pr-review, rules.json
-├── rubric/                 one file per pillar, catalog.json, rubric.json, weights.md
+├── rubric/                 one file per pillar (the source), catalog.json and rubric.json (made from them), weights.md
 ├── config/                 defaults.toml, project.example.toml
 ├── schema/                 report.schema.json
 ├── tools/

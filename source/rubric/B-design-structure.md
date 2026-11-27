@@ -34,6 +34,7 @@
   - **4–6:** Partly organized; several misplaced or junk-drawer areas.
   - **7–8:** Predictable and tidy.
   - **9–10:** A newcomer can guess where anything lives; the layout is documented and stays consistent.
+- **Scope:** repo
 
 ## B4. Interface Design & Contracts
 - **Measures:** Public and internal APIs (functions, classes, HTTP/gRPC/GraphQL endpoints, CLI arguments, events, schemas) have clear contracts, are hard to misuse, follow consistent conventions, are strongly typed or validated at runtime, and make invalid states unrepresentable.

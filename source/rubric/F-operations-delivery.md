@@ -35,6 +35,7 @@
   - **4–6:** CI runs but doesn't block merges.
   - **7–8:** Full gating.
   - **9–10:** Fast, cached, comprehensive pipeline; releases fully automated.
+- **Scope:** repo
 
 ## F3. Observability & Debuggability
 - **Measures:** You can tell what the system is doing and diagnose problems without attaching a debugger. Structured, leveled logs; correlation or request IDs; metrics; tracing where relevant; health endpoints; actionable error output; and no secrets or PII in telemetry. For a CLI: clear errors, verbose and debug modes, meaningful exit codes.
@@ -73,3 +74,4 @@
   - **4–6:** Locked but stale.
   - **7–8:** Current and pinned.
   - **9–10:** Automated updates (Renovate, Dependabot) with audit gates; no deprecations; would still build cleanly a year from now.
+- **Scope:** repo

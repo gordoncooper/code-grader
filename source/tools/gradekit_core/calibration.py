@@ -60,7 +60,9 @@ def scoring_fingerprint() -> str:
     caps) and the computed limits. A change to any of them needs calibration to be run again."""
     rub = parse_rubric()
     body = {"scoring_version": load_toml(DEFAULTS_PATH).get("suite_version"),
-            "benchmarks": [{k: b.get(k) for k in ("id", "measures", "not_this", "assess", "anchors", "caps")} for b in rub["benchmarks"]],
+            "benchmarks": [{**{k: b.get(k) for k in ("id", "measures", "not_this", "assess", "anchors")},
+                            "caps": None if b.get("caps") is None else [{k: c[k] for k in ("id", "when", "max")} for c in b["caps"]]}
+                           for b in rub["benchmarks"]],
             "limits": [CRITICAL_MAX, NO_STRENGTH_MAX, NO_ENFORCEMENT_MAX, sorted(AUTO_CAPS), list(CAP_SEVERITIES)]}
     return hashlib.sha256(json.dumps(body, sort_keys=True, ensure_ascii=False).encode()).hexdigest()[:16]
 

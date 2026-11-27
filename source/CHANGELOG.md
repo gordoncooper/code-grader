@@ -17,6 +17,13 @@ A new major. **6.0 reads only format-5 reports and grades under one set of rules
   - `gradekit migrate`, the `migrated` marker and the grading CI's migration pull requests. To move a project to a new major, people change its pin in `project.toml`.
 - **Old reports are refused, with what to do.** Every command and the website refuse a format-4 report and name the kit that reads it. `validate` refuses a `migrated` marker and any scoring major other than the kit's, and `carry` won't carry from a report graded under other rules.
 - **The bundled example** is format 5, graded under the current rules, and every benchmark below its target has a path there. Its scores don't change.
+- **The rubric files are the one source.** `rubric/catalog.json` and `rubric/rubric.json` are made from them by `gradekit rubric --write`, and `gradekit rubric --check` lints the files and fails if either JSON file is stale (replacing `rubric --out`). What the engine used to hard-code is now written in the rubric:
+  - `Scope: repo` marks the benchmarks a monorepo's repo report grades;
+  - `Re-grade: any source change` marks the ones a pull-request check always grades again;
+  - `Sensitive: yes` makes a benchmark sensitive by default when publishing;
+  - `automatic: open critical gap` marks a cap that holds without a finding.
+
+  The values don't change, and neither does the calibration fingerprint.
 - `report.md` lists decisions already answered, not only the pending ones.
 - Every report in a monorepo folder must come from the same kit major.
 - **The engine is split into modules.** `tools/gradekit.py` is now the entry point. The engine is the `tools/gradekit_core/` package beside it: 26 modules, one per area (configuration, rollup, validate, authoring, render, ci and so on), each importing only from the modules before it, and each adding its own commands to the command line (`cli.py` lists them in order). Commands, output and `import gradekit` don't change. An agent that copies the kit file by file needs the package too; `AGENT.md` says so.

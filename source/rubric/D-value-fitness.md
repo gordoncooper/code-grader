@@ -24,7 +24,7 @@
   - **4–6:** Several major gaps.
   - **7–8:** Only minor or nice-to-have gaps.
   - **9–10:** Nothing a reasonable user would miss; scope boundaries are documented.
-- **Caps:** Any critical gap → max 4 (`D2-cap-1`).
+- **Caps:** Any critical gap → max 4 (`D2-cap-1`; automatic: open critical gap).
 
 ## D3. Practicality
 - **Measures:** Pragmatic fitness for purpose:

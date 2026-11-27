@@ -24,7 +24,9 @@ def deep_merge(base: dict, over: dict) -> dict:
 
 
 # Publishing settings never change scores, so they are not part of the config fingerprint.
-PUBLISHING_DEFAULTS = {"public": True, "sensitive_benchmarks": ["A2"], "warn_at": "major"}
+PUBLISHING_DEFAULTS = {"public": True,   # sensitive_benchmarks: the rubric's `Sensitive: yes` benchmarks
+                       "sensitive_benchmarks": [b["id"] for b in load_catalog()["benchmarks"] if b.get("sensitive")],
+                       "warn_at": "major"}
 
 # [schedule] in project.toml: when the scheduled job (`gradekit due --write-orders`) asks for a grade. Never changes scores.
 SCHEDULE_DEFAULTS = {"grade_every_days": 0, "only_if_code_changed": True}

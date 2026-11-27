@@ -56,9 +56,42 @@ def test_a_roles_must_read_context_fits_in_3000_words(gk):
 
 # --------------------------------------------------------------------------- the rubric as data
 
-def test_rubric_json_is_generated_from_the_rubric_files(gk):
-    have = json.loads((SRC / "rubric" / "rubric.json").read_text())
-    assert have == gk.parse_rubric(), "run `gradekit rubric --out rubric/rubric.json`"
+def test_catalog_and_rubric_json_are_generated_from_the_rubric_files():
+    r = subprocess.run(KIT + ["rubric", "--check", "--json"], capture_output=True, text=True)
+    assert r.returncode == 0, "run `gradekit rubric --write`: " + r.stdout
+    assert json.loads(r.stdout)["result"] == {"problems": [], "stale": [], "written": []}
+
+
+def test_the_rubric_files_are_linted(gk, tmp_path):
+    """The rubric files are the one source, so mistakes in them are caught rather than silently dropped."""
+    for p in (SRC / "rubric").glob("[A-FX]-*.md"):
+        (tmp_path / p.name).write_text(p.read_text())
+    assert gk.read_rubric(tmp_path)[1] == []
+
+    def problems_after(name, old, new):
+        path = tmp_path / name
+        good = path.read_text()
+        assert good.count(old) == 1, old
+        path.write_text(good.replace(old, new))
+        try:
+            return gk.read_rubric(tmp_path)[1]
+        finally:
+            path.write_text(good)
+    assert any("unknown field 'Asses'" in p for p in problems_after("A-correctness-trust.md", "- **Assess:** Run the tests.", "- **Asses:** Run the tests."))
+    assert any("can't apply a cap automatically on 'a red build'" in p for p in problems_after(
+        "D-value-fitness.md", "automatic: open critical gap", "automatic: a red build"))
+    assert any("caps are written" in p for p in problems_after("A-correctness-trust.md", "→ max 4 (`A1-cap-1`)", "max 4 (A1-cap-1)"))
+    assert any("Scope is 'repo'" in p for p in problems_after("B-design-structure.md", "- **Scope:** repo", "- **Scope:** everything"))
+    assert any("A1-cap-1 is a cap on another benchmark" in p for p in problems_after("A-correctness-trust.md", "(`A2-cap-1`)", "(`A1-cap-1`)"))
+    assert any("anchors are the bands" in p for p in problems_after("A-correctness-trust.md", "  - **4–6:** Happy paths", "  - **4–5:** Happy paths"))
+
+
+def test_the_engine_reads_benchmark_facts_from_the_rubric(gk):
+    """What used to be constants in the engine are fields in the rubric files (Scope, Re-grade, Sensitive, automatic)."""
+    assert gk.REPO_LEVEL == ("B3", "E3", "E4", "F2", "F6", "X6")
+    assert gk.ALWAYS_REGRADE == ("A1", "A3", "C1", "C2", "C3", "C4")
+    assert gk.PUBLISHING_DEFAULTS["sensitive_benchmarks"] == ["A2"]
+    assert gk.AUTO_CAPS == {"D2-cap-1": "open critical gap"}
 
 
 def test_every_benchmark_is_in_the_rubric(gk):

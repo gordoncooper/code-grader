@@ -63,7 +63,8 @@ def weighted(items) -> float | None:
 
 CRITICAL_MAX, NO_STRENGTH_MAX, NO_ENFORCEMENT_MAX = 5, 8, 9
 CAP_SEVERITIES = ("major", "critical")   # a rubric cap on a finding holds only while the finding is at least major
-AUTO_CAPS = {"D2-cap-1": "open critical gap"}   # caps whose condition is in the report's own data
+# Caps whose condition is in the report's own data, so they hold without a finding: the rubric's `automatic:` caps.
+AUTO_CAPS = {c["id"]: c["automatic"] for b in load_catalog()["benchmarks"] for c in b.get("caps", []) if c.get("automatic")}
 
 
 def catalog_caps(catalog: dict | None = None) -> dict:

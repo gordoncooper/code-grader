@@ -314,7 +314,8 @@ def emit(args, result: dict, text: str) -> None:
 
 # ---------------------------------------------------------------- commands
 
-REPO_LEVEL = ("B3", "E3", "E4", "F2", "F6", "X6")   # in a monorepo, what the whole repository shares (grader Part 9)
+# In a monorepo, what the whole repository shares (grader Part 9): the rubric's `Scope: repo` benchmarks.
+REPO_LEVEL = tuple(b["id"] for b in load_catalog()["benchmarks"] if b.get("scope") == "repo")
 
 
 def evidence_files(items) -> set[str]:

@@ -58,6 +58,7 @@
   - **4–6:** Workable with tribal knowledge.
   - **7–8:** Quick setup; fast loops.
   - **9–10:** Productive within an hour of cloning; inner loop measured in seconds.
+- **Scope:** repo
 
 ## E4. Native Tooling & Ecosystem Fit
 - **Measures:** The project uses its ecosystem's standard tools and conventions rather than bespoke ones:
@@ -76,3 +77,4 @@
   - **7–8:** Standard tools used throughout.
   - **9–10:** Feels native; any ecosystem developer is productive immediately with tools they already know.
 - **Caps:** A custom build or test harness where a standard exists, with no documented reason → max 6 (`E4-cap-1`).
+- **Scope:** repo
