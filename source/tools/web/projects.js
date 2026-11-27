@@ -31,7 +31,8 @@
     var hv = new URLSearchParams(); Object.keys(view || {}).forEach(function (k) { if (view[k]) hv.set(k, view[k]); });
     return "review.html?" + q + (hv.toString() ? "#" + hv : "");
   }
-  var PILLARS = ["A", "B", "C", "D", "E", "F", "X"];
+  // Pillars, from the data: in ID order, which puts the conditional X after A to F.
+  function pillarsOf(ids) { return ids.map(function (id) { return id.charAt(0); }).filter(function (p, i, a) { return a.indexOf(p) === i; }).sort(); }
 
   // ------------------------------------------------------------------ loading
   function status(kind, o) { return kind ? UI.show($("#pj-status"), kind, o) : UI.clear($("#pj-status")); }
@@ -281,6 +282,7 @@
         lineChart(values, { grid: true, interactive: true, label: title + ": " + values.map(function (v) { return v.label + " " + (v.value == null ? "–" : v.value); }).join(", ") })));
     }
     multiple("Overall", f.map(function (r) { return { value: r.overall, label: r.date }; }));
+    var PILLARS = pillarsOf([].concat.apply([], f.map(function (r) { return Object.keys(r.pillars || {}); })));
     PILLARS.forEach(function (pl) {
       if (!f.some(function (r) { return r.pillars && r.pillars[pl] != null; })) return;
       multiple("Pillar " + pl, f.map(function (r) { return { value: (r.pillars || {})[pl], label: r.date }; }));
@@ -302,7 +304,7 @@
     var ids = Object.keys(f[f.length - 1].scores || {});
     if (!ids.length) { box.appendChild(UI.card({ title: "Every benchmark", small: true, cls: "mt-4" }, UI.state("empty", { title: "This index has no benchmark scores", message: "Rebuild it with a 5.0 kit (`gradekit index`) to see them." }))); return; }
     var rows = [];
-    PILLARS.forEach(function (pl) {
+    pillarsOf(ids).forEach(function (pl) {
       var mine = ids.filter(function (id) { return id.charAt(0) === pl; });
       if (!mine.length) return;
       rows.push(h("tr", null, h("th", { scope: "rowgroup", colspan: String(f.length + 1), class: "bench" }, "Pillar " + pl)));

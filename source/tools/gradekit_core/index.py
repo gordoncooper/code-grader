@@ -6,8 +6,8 @@ import json
 from pathlib import Path
 
 from .common import (
-    dash, die, DISPUTES_FILE, emit, GradekitError, load_catalog, load_json, old_format_problem, OPEN_STATUSES,
-    plural, PROJECT_FILE, SEVERITIES,
+    dash, die, DISPUTES_FILE, emit, GradekitError, kit_version, load_json, old_format_problem, OPEN_STATUSES, plural,
+    PROJECT_FILE, SEVERITIES,
 )
 from .config import load_config, report_folders
 from .records import open_disputes
@@ -105,7 +105,7 @@ def build_index(root: Path) -> dict:
                       "history": [{k: v for k, v in h.items() if k != "_report"} for h in history]})
         entry["cycle"] = project_cycle(entry)
         projects.append(entry)
-    return {"_about": INDEX_ABOUT, "suite_version": load_catalog()["suite_version"], "projects": projects}
+    return {"_about": INDEX_ABOUT, "suite_version": kit_version(), "projects": projects}
 
 
 CYCLE = ("set up", "grade", "decide", "improve", "check", "done")

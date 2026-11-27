@@ -6,7 +6,7 @@ import re
 import tempfile
 from pathlib import Path
 
-from .common import die, emit, EXIT_INCOMPLETE, git_out, load_catalog, load_report, write_json
+from .common import die, emit, EXIT_INCOMPLETE, git_out, load_report, RUBRIC, write_json
 from .config import component_reports, project_dir_for_report, PUBLISHING_DEFAULTS, with_config
 from .rollup import apply_rollup
 from .publishing import private_path, publish_problems, redact_report
@@ -34,7 +34,7 @@ def default_branch(root, remote: str) -> str:
 def prepare_delivery(args, report: dict, cfg: dict) -> dict:
     """Everything every delivery needs. Returns the file paths, or dies with what's left to do."""
     normalize_report(report, cfg)
-    errors, _ = validate_report(report, cfg, load_catalog())
+    errors, _ = validate_report(report, cfg, RUBRIC.catalog)
     todo = report_todo(report, project_dir_for_report(args.report))
     checked = verify_evidence(report, repo_reader(args.repo), 2) if args.repo else None
     if checked:
@@ -79,7 +79,7 @@ def prepare_components(folder: Path, public: bool, args) -> list[str]:
         r = load_report(cp)
         ns = argparse.Namespace(report=str(cp), config=None, project=None, project_dir=None, component=None, grading_repo=None)
         ccfg = authoring_config(ns, r)
-        errors, _ = validate_report(r, ccfg, load_catalog())
+        errors, _ = validate_report(r, ccfg, RUBRIC.catalog)
         todo = report_todo(r, project_dir_for_report(cp))
         if errors or todo:
             args._exit = 1 if errors else EXIT_INCOMPLETE

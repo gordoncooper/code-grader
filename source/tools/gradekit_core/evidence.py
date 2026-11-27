@@ -4,7 +4,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from .common import die, iter_evidence, load_catalog, load_report, norm, repo_relative, utc_now
+from .common import die, iter_evidence, kit_version, load_report, norm, repo_relative, utc_now
 
 
 def check_code_evidence(ev: dict, read_lines, tolerance: int) -> str | None:
@@ -107,7 +107,7 @@ def record_citations_checked(report: dict, result: dict) -> None:
     if result.get("failures"):
         return
     report.setdefault("run", {})["citations_checked"] = {"code_citations": result["checked"], "date": utc_now(),
-                                                         "kit": load_catalog()["suite_version"]}
+                                                         "kit": kit_version()}
 
 
 def citations_check_note(report: dict) -> str | None:

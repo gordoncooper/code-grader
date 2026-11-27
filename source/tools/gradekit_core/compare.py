@@ -6,7 +6,7 @@ import copy
 import statistics
 
 from .common import (
-    benchmarks_by_id, die, expected_weight, level_num, load_catalog, load_json, load_report, major, OPEN_STATUSES,
+    benchmarks_by_id, die, expected_weight, level_num, load_json, load_report, major, OPEN_STATUSES, RUBRIC,
     scoring_version_of, write_json,
 )
 from .config import load_config, with_config
@@ -24,7 +24,7 @@ def compute_consensus(runs: list[dict], cfg: dict) -> dict:
     hashes = {(r.get("config") or {}).get("hash") for r in runs}
     if len(hashes) > 1:
         notes.append(f"runs used different configs: {sorted(map(str, hashes))}")
-    ids = [b["id"] for b in load_catalog()["benchmarks"]]
+    ids = RUBRIC.ids
     medians, unstable, rows = {}, [], []
     for bid in ids:
         entries = [benchmarks_by_id(r).get(bid, {}) for r in runs]
@@ -115,7 +115,7 @@ def compute_diff(old: dict, new: dict, cfg_old: dict, cfg_new: dict) -> dict:
     gates_unscored = {g["benchmark_id"] for g in r_new["gates"] if g["status"] == "not scored"} & \
                      {g["benchmark_id"] for g in r_old["gates"] if g["status"] in ("passed", "failed")}
     changes = []
-    for bid in [b["id"] for b in load_catalog()["benchmarks"]]:
+    for bid in RUBRIC.ids:
         so, sn = ob.get(bid, {}).get("score"), nb.get(bid, {}).get("score")
         if so != sn:
             changes.append({"id": bid, "old": so, "new": sn})

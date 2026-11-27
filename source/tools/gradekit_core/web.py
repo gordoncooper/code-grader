@@ -4,8 +4,8 @@ from __future__ import annotations
 import re
 
 from .common import (
-    DECISIONS_FILE, DEFAULTS_PATH, die, DISPOSITIONS_FILE, GradekitError, load_catalog, load_toml, parse_toml,
-    PROJECT_FILE, slug,
+    DECISIONS_FILE, DEFAULTS_PATH, die, DISPOSITIONS_FILE, GradekitError, kit_version, load_toml, parse_toml,
+    PROJECT_FILE, RUBRIC, slug,
 )
 from .config import deep_merge, order_report_folders, parse_list_text, resolve_layers, run_date_of
 from .zones import zone_for_path
@@ -50,7 +50,7 @@ def _api_info(p):
     merged = load_toml(DEFAULTS_PATH)
     for _, layer in _web_layers({"org_toml": p.get("org_toml")}):
         merged = deep_merge(merged, layer)
-    return {"suite_version": load_catalog()["suite_version"], "scoring_version": merged.get("suite_version"), "catalog": load_catalog(),
+    return {"suite_version": kit_version(), "scoring_version": merged.get("suite_version"), "catalog": RUBRIC.catalog,
             "questions": merged.get("questions", {}), "presets": merged.get("presets", {}),
             "base_weights": merged.get("weights", {}).get("base", {}), "gates": merged.get("gates", {}),
             "zone_settings": merged.get("zone_settings", {}), "targets": merged.get("targets", {}),
@@ -87,7 +87,7 @@ def _api_zone_test(p):
 def _api_check(p):
     report = p["report"]
     cfg, source = _web_cfg(p, report)
-    errors, warnings = validate_report(report, cfg, load_catalog())
+    errors, warnings = validate_report(report, cfg, RUBRIC.catalog)
     notes: list[str] = []   # about this browser, not the report (none since the schema check is built in)
     roll = compute_rollup(report, cfg)
     rc = report.get("config") or {}

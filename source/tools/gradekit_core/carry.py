@@ -6,8 +6,8 @@ import re
 from pathlib import Path
 
 from .common import (
-    die, emit, finding_similarity, iter_evidence, kit_scoring_version, load_catalog, load_report, major, norm,
-    pin_problem, repo_relative, REPORT_FORMAT, scoring_version_of, started_arg, utc_now, write_json,
+    die, emit, finding_similarity, iter_evidence, kit_scoring_version, kit_version, load_report, major, norm,
+    pin_problem, repo_relative, REPORT_FORMAT, RUBRIC, scoring_version_of, started_arg, utc_now, write_json,
 )
 from .config import project_dir_for_report, project_dir_from_args, with_config
 from .zones import glob_to_regex, zone_for_path
@@ -19,7 +19,7 @@ from .authoring import authoring_config, load_for_edit, normalize_report, proven
 # moved to where the same code is now. Benchmarks the change touches are cleared for re-grading.
 
 # Graded again on any source change (pr-review.md): the rubric's `Re-grade: any source change` benchmarks.
-ALWAYS_REGRADE = tuple(b["id"] for b in load_catalog()["benchmarks"] if b.get("regrade") == "any source change")
+ALWAYS_REGRADE = RUBRIC.always_regrade
 
 
 def _stripped(lines: list[str]) -> list[str]:
@@ -88,7 +88,7 @@ def suggest_touched(baseline: dict, changed: list[str], cfg: dict) -> tuple[list
     if hot:
         touched.update(cfg["gates"]["benchmarks"])
         why.append(f"gates ({', '.join(cfg['gates']['benchmarks'])}): hot-zone files changed ({', '.join(hot)})")
-    order = [b["id"] for b in load_catalog()["benchmarks"]]
+    order = RUBRIC.ids
     cites = sorted(why[1:], key=lambda w: order.index(w.split(":")[0]) if w.split(":")[0] in order else 99)
     return [b for b in order if b in touched], why[:1] + cites
 
@@ -108,7 +108,7 @@ def carry_report(baseline: dict, read_lines, cfg: dict, commit: str, mode: str, 
     r = copy.deepcopy(baseline)
     for key in ("rollup", "publishing"):   # a carried report is a new one, graded with this kit
         r.pop(key, None)
-    r["suite_version"] = load_catalog()["suite_version"]
+    r["suite_version"] = kit_version()
     r["mode"] = mode
     r["run"] = {**(baseline.get("run") or {}), "commit": commit, "base_commit": base_commit, "date": utc_now()}
     r["config"] = {**(baseline.get("config") or {}), "hash": cfg["hash"], "preset": cfg["preset"], "scoring_version": cfg["suite_version"]}
@@ -187,7 +187,7 @@ def cmd_carry(args) -> int:
         touched, why = suggest_touched(baseline, changed, cfg)
         extra = [t.upper() for t in args.touched or [] if t.upper() not in touched]
         for t in extra:
-            if t not in {b["id"] for b in load_catalog()["benchmarks"]}:
+            if t not in RUBRIC.by_id:
                 die(f"--touched: unknown benchmark '{t}'")
         if extra:
             touched += extra

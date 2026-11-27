@@ -8,8 +8,8 @@ import sys
 from pathlib import Path
 
 from .common import (
-    DECISIONS_FILE, DEFAULTS_PATH, die, DISPOSITIONS_FILE, emit, GradekitError, load_catalog, load_toml, major,
-    parse_toml, PILLARS, PROJECT_FILE, slug, SUITE_DIR, write_json,
+    DECISIONS_FILE, DEFAULTS_PATH, die, DISPOSITIONS_FILE, emit, GradekitError, kit_version, load_toml, major,
+    parse_toml, PILLARS, PROJECT_FILE, RUBRIC, slug, SUITE_DIR, write_json,
 )
 from .config import deep_merge, load_config, resolve_config, with_config
 
@@ -77,7 +77,7 @@ def cmd_presets(args) -> int:
     names = list(defaults["presets"])
     # Org-level configs (if any) are layered in; each preset is then applied with no project answers.
     cfgs = {n: resolve_config(list(args.config or []), preset_fallback=n) for n in names}
-    catalog = load_catalog()
+    catalog = RUBRIC.catalog
     short = {"default": "Default", "service": "Service", "web_app": "Web app", "library": "Library",
              "oss_library": "OSS lib", "cli": "CLI", "internal_tool": "Internal", "prototype": "Prototype"}
     if args.markdown:
@@ -158,7 +158,7 @@ def render_project_toml(data: dict, defaults: dict | None = None, path: str = "p
     """Write a project config in the suite's standard layout, with helpful comments."""
     defaults = defaults or load_toml(DEFAULTS_PATH)
     d = copy.deepcopy(data or {})
-    out = [PROJECT_HEADER.format(version=load_catalog()["suite_version"], path=path)]
+    out = [PROJECT_HEADER.format(version=kit_version(), path=path)]
 
     proj = d.pop("project", {}) or {}
     hints = {"preset": " | ".join(defaults.get("presets", {})),
@@ -349,7 +349,7 @@ KIT_ASSET = "code-grading-suite-v{version}.zip"
 
 def kit_pin(version: str | None = None, url: str | None = None, sha256: str | None = None) -> dict:
     """{version, url, sha256} for a grading CI: the given values, or the release's own (its SHA256SUMS), by version."""
-    version = (version or load_catalog()["suite_version"]).lstrip("v")
+    version = (version or kit_version()).lstrip("v")
     if not re.fullmatch(r"\d+\.\d+\.\d+", version):
         die(f"--kit-version {version}: expected X.Y.Z")
     url = url or KIT_RELEASES.format(version=version) + KIT_ASSET.format(version=version)
@@ -461,7 +461,7 @@ def cmd_init(args) -> int:
         proj["code_repo"] = args.code_repo
     if args.path:
         proj["path"] = args.path
-    proj.update({"preset": args.preset, "suite": major(load_catalog()["suite_version"]),
+    proj.update({"preset": args.preset, "suite": major(kit_version()),
                  "languages": "<e.g. Python 3.12, FastAPI, Postgres>", "users": "<who uses it>",
                  "maturity_target": "<choose one>", "scope": "<stated scope or link to requirements>", "out_of_scope": []})
     data = {"project": proj, "answers": answers}

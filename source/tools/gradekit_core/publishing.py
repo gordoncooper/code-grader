@@ -6,9 +6,7 @@ import copy
 import re
 from pathlib import Path
 
-from .common import (
-    all_text, die, emit, level_num, load_catalog, load_json, load_report, norm, repo_relative, write_json,
-)
+from .common import all_text, die, emit, level_num, load_json, load_report, norm, repo_relative, RUBRIC, write_json
 from .config import folder_reports, load_config, project_dir_for_report
 from .rollup import weighted
 
@@ -65,7 +63,7 @@ def _ids_text(ids) -> str:
 
 def redact_report(report: dict, catalog: dict | None = None) -> tuple[dict, list[str]]:
     """The copy of a report that is safe to publish, and any places where withheld text still shows."""
-    names = {b["id"]: b["name"] for b in (catalog or load_catalog())["benchmarks"]}
+    names = {b["id"]: b["name"] for b in catalog["benchmarks"]} if catalog else RUBRIC.names
     public = strip_private(copy.deepcopy(report))
     if "holdout" in public:
         public["holdout"]["private_details"] = "[redacted]"
