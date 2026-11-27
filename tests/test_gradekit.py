@@ -67,8 +67,8 @@ def test_scoring_version_is_separate_from_kit_version(gk):
     catalog = json.loads((SRC / "rubric" / "catalog.json").read_text())
     info = call(gk, "info", {})
     assert info["suite_version"] == catalog["suite_version"]
-    # 5.0 also changes what severity means, so the scoring rules are 5.0.0; 4.x reports keep theirs (config/scoring/)
-    assert info["scoring_version"] == "5.0.0"
+    # 6.0 reshaped the rubric, so the scoring rules are 6.0.0
+    assert info["scoring_version"] == "6.0.0"
     assert catalog["suite_version"].split(".")[0] in gk.READABLE_REPORT_MAJORS
 
 

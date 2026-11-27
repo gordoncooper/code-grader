@@ -77,7 +77,7 @@ def build_monorepo_report(grading):
     repo_r, api_r = json.loads((grading / repo_rel).read_text()), json.loads((grading / api_rel).read_text())
     assert repo_r["component"]["name"] == "repo" and api_r["component"]["name"] == "api"
     na = lambda r: {b["id"] for b in r["benchmarks"] if b["applicability"] == "not_applicable"}
-    shared = {"B3", "E3", "E4", "F2", "F6", "X6"}
+    shared = {"B3", "E3", "F2", "F6"}
     assert shared.isdisjoint(na(repo_r)) and shared <= na(api_r)
     assert "A1" in na(repo_r) and next(b for b in repo_r["benchmarks"] if b["id"] == "A1")["applicability_reason"] == "graded per component"
     finish(grading, repo_rel, 7)

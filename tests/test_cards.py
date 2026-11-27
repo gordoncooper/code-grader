@@ -88,8 +88,8 @@ def test_the_rubric_files_are_linted(gk, tmp_path):
 
 def test_the_engine_reads_benchmark_facts_from_the_rubric(gk):
     """What used to be constants in the engine are fields in the rubric files (Scope, Re-grade, Sensitive, automatic)."""
-    assert gk.REPO_LEVEL == ("B3", "E3", "E4", "F2", "F6", "X6")
-    assert gk.ALWAYS_REGRADE == ("A1", "A3", "C1", "C2", "C3", "C4")
+    assert gk.REPO_LEVEL == ("B3", "E3", "F2", "F6")
+    assert gk.ALWAYS_REGRADE == ("A1", "A3", "C1", "C2", "C4")
     assert gk.PUBLISHING_DEFAULTS["sensitive_benchmarks"] == ["A2"]
     assert gk.AUTO_CAPS == {"D2-cap-1": "open critical gap"}
 
@@ -102,8 +102,8 @@ def test_every_benchmark_is_in_the_rubric(gk):
         assert b["measures"], b["id"]
         if b["pillar"] != "X":
             assert set(b["anchors"]) == {"1–3", "4–6", "7–8", "9–10"} and b["assess"], b["id"]
-    a4 = next(b for b in data["benchmarks"] if b["id"] == "A4")
-    assert "Idempotence:" in a4["measures"] and "Determinism:" in a4["measures"], "sub-points are kept"
+    e3 = next(b for b in data["benchmarks"] if b["id"] == "E3")
+    assert "One-command dev setup" in e3["measures"] and "Instructions an agent can follow" in e3["measures"], "sub-points are kept"
 
 
 def test_one_benchmark_or_one_pillar():

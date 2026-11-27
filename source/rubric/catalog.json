@@ -86,7 +86,7 @@
     },
     {
       "id": "A4",
-      "name": "Idempotence & Determinism",
+      "name": "Idempotence & Safe Retries",
       "pillar": "A",
       "conditional": false,
       "caps": [
@@ -166,7 +166,7 @@
     },
     {
       "id": "C1",
-      "name": "Readability & Clarity",
+      "name": "Readability & Consistency",
       "pillar": "C",
       "conditional": false,
       "regrade": "any source change"
@@ -174,13 +174,6 @@
     {
       "id": "C2",
       "name": "Maintainability & Complexity",
-      "pillar": "C",
-      "conditional": false,
-      "regrade": "any source change"
-    },
-    {
-      "id": "C3",
-      "name": "Consistency & Idiomatic Code",
       "pillar": "C",
       "conditional": false,
       "regrade": "any source change"
@@ -232,12 +225,6 @@
       ]
     },
     {
-      "id": "D3",
-      "name": "Practicality",
-      "pillar": "D",
-      "conditional": false
-    },
-    {
       "id": "D4",
       "name": "Intuitiveness",
       "pillar": "D",
@@ -269,27 +256,20 @@
       "caps": [
         {
           "id": "E2-cap-1",
-          "when": "Wrong setup instructions",
+          "when": "Docs misstate how to install, configure or use the project, beyond the quickstart",
           "max": 5
         }
       ]
     },
     {
       "id": "E3",
-      "name": "Developer Experience & Inner Loop",
-      "pillar": "E",
-      "conditional": false,
-      "scope": "repo"
-    },
-    {
-      "id": "E4",
-      "name": "Native Tooling & Ecosystem Fit",
+      "name": "Contributor & Agent Experience",
       "pillar": "E",
       "conditional": false,
       "scope": "repo",
       "caps": [
         {
-          "id": "E4-cap-1",
+          "id": "E3-cap-1",
           "when": "A custom build or test harness where a standard exists, with no documented reason",
           "max": 6
         }
@@ -402,13 +382,6 @@
       "name": "Compliance & Licensing",
       "pillar": "X",
       "conditional": true
-    },
-    {
-      "id": "X6",
-      "name": "Agent-Readiness",
-      "pillar": "X",
-      "conditional": true,
-      "scope": "repo"
     }
   ]
 }

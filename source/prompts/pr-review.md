@@ -26,22 +26,22 @@ Re-grade a benchmark if the diff plausibly affects it. Use this map, and add any
 
 | Change touches… | Re-grade |
 |---|---|
-| Any source code | A1, A3, C1, C2, C3, C4, plus every benchmark whose code paths changed |
+| Any source code | A1, A3, C1, C2, C4, plus every benchmark whose code paths changed |
 | Auth, input handling, crypto, secrets, permissions, logging of user data | A2 |
 | Writes, persistence, migrations, schemas, queues, retries, scripts | A4, A5 |
 | Module boundaries, new modules, imports across layers | B1, B2, B3 |
 | Public functions, endpoints, CLI flags, schemas, events | B4, D4, X2 |
 | New config, plugin points, abstractions | B5, B6 |
 | Dependency manifests or lockfiles | A2, B6, F6 |
-| Features added, removed or changed | D1, D2, D3, E2 |
+| Features added, removed or changed | D1, D2, E2 |
 | README, docs, examples, quickstart | E1, E2 |
-| Build, dev scripts, tooling config | E3, E4, F2 |
+| Build, dev scripts, tooling config | E3, F2 |
 | CI configuration | F2, plus whatever a changed gate enforces |
 | Deploy, infrastructure, Dockerfiles, environment config | F1, F5, X4 |
 | Logging, metrics, tracing | F3 |
 | Busy code paths, queries, caching, concurrency | F4, X3 |
 | UI | X1, D4 |
-| Agent instruction files (`AGENTS.md`, `CLAUDE.md`…) | X6, and check for integrity flags |
+| Agent instruction files (`AGENTS.md`, `CLAUDE.md`…) | E3, and check for integrity flags |
 | **Anything in a hot zone** | All gates, plus every benchmark the changed code relates to. Read the changed hot-zone files in full, not just the diff. |
 
 ## Step 2: Grade

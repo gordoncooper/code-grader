@@ -192,7 +192,7 @@ def page(title: str, body: str, depth: int, version: str, sidebar: str = "", act
 <meta http-equiv="Content-Security-Policy" content="{CSP}">
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <title>{html.escape(title)} · Code Grading Suite</title>
-<meta name="description" content="A rubric, prompts and browser tools for AI coding agents to grade codebases from 1 to 10 on 35 benchmarks and improve them.">
+<meta name="description" content="A rubric, prompts and browser tools for AI coding agents to grade codebases from 1 to 10 on 31 benchmarks and improve them.">
 <link rel="stylesheet" href="{up}assets/style.css">
 <link rel="icon" href="{up}assets/favicon.svg" type="image/svg+xml">
 <link rel="alternate" type="text/markdown" href="{up}AGENT.md" title="Agent entry point">
@@ -355,7 +355,7 @@ def llms_txt(version: str, zip_name: str) -> str:
     lines = [
         "# Code Grading Suite",
         "",
-        f"> Rubric and prompts for AI coding agents to grade a codebase from 1 to 10 on 35 benchmarks and improve it against those grades. Version {version}. Agents: start with AGENT.md.",
+        f"> Rubric and prompts for AI coding agents to grade a codebase from 1 to 10 on 31 benchmarks and improve it against those grades. Version {version}. Agents: start with AGENT.md.",
         "",
         "## Start",
         "- [AGENT.md](AGENT.md): entry point for agents (roles, how to download and verify the suite)",

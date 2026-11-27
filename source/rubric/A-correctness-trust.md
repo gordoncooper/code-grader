@@ -30,7 +30,7 @@
 
 ## A3. Robustness & Error Handling
 - **Measures:** Behavior when things go wrong: malformed input, dependency outages, slow networks, resource exhaustion, partial failures. Explicit error handling, useful error context, timeouts, retries with backoff and jitter, circuit breakers where warranted, resource cleanup, graceful degradation, bounded queues and buffers.
-- **Not this:** Whether retries are *safe* to repeat (A4). Whether data survives a crash (A5).
+- **Not this:** Whether retries are *safe* to repeat (A4). Whether data survives a crash (A5). Whether messages tell users what to do next (D4), and whether operators can diagnose failures (F3).
 - **Assess:** Review every catch, except, rescue and error return. Look for swallowed errors, overly broad catches, I/O with no timeout, leaked handles, unchecked return values, unbounded growth, and crashes on expected failures. Use fuzz or property tests if available.
 - **Anchors:**
   - **1–3:** Errors ignored; crashes on routine failures.
@@ -40,17 +40,15 @@
 - **Caps:** Catch-all blocks that swallow errors in core paths → max 4 (`A3-cap-1`).
 - **Re-grade:** any source change
 
-## A4. Idempotence & Determinism
-- **Measures:**
-  - **Idempotence:** operations that may be retried or repeated have the same effect as running once. This covers API mutations (idempotency keys or natural keys), message and queue consumers under redelivery, webhooks, setup, provisioning and seed scripts, migrations, infrastructure-as-code (repeated applies converge to the same state), deploys, and cron jobs.
-  - **Determinism:** the same inputs give the same outputs. Builds are reproducible, tests are deterministic, and time, randomness, ordering and environment are injected or controlled rather than hidden.
-- **Not this:** General retry and timeout policy (A3).
-- **Assess:** Run setup, seed and migration scripts twice. Look for blind INSERTs, "create" with no existence check, increments or charges on retry, non-atomic check-then-act, unordered map iteration that affects output, unseeded randomness, and `now()` called deep inside logic. Rebuild and compare artifacts or hashes where practical.
+## A4. Idempotence & Safe Retries
+- **Measures:** Operations that may be retried or repeated have the same effect as running once. This covers API mutations (idempotency keys or natural keys), message and queue consumers under redelivery, webhooks, setup, provisioning and seed scripts, migrations, infrastructure-as-code (repeated applies converge to the same state), deploys, and cron jobs.
+- **Not this:** General retry and timeout policy (A3). Deterministic tests, and time and randomness that tests can control (C4). Reproducible builds (F2).
+- **Assess:** Run setup, seed and migration scripts twice. Look for blind INSERTs, "create" with no existence check, increments or charges on retry, non-atomic check-then-act, and consumers that assume each message arrives exactly once.
 - **Anchors:**
   - **1–3:** Repeating an operation duplicates side effects; scripts break on the second run.
-  - **4–6:** Some operations safe to repeat; others not; tests occasionally nondeterministic.
-  - **7–8:** All externally triggered mutations and scripts are safe to re-run; time and randomness are injectable.
-  - **9–10:** Idempotence is designed in and tested (replay or redelivery tests); builds are reproducible; zero flaky tests.
+  - **4–6:** Some operations safe to repeat; others not.
+  - **7–8:** All externally triggered mutations and scripts are safe to re-run.
+  - **9–10:** Idempotence is designed in and tested (replay or redelivery tests).
 - **Caps:** Retry or redelivery can double-charge, double-send or duplicate records with real-world consequences → max 3 (`A4-cap-1`). Setup or migration fails or corrupts on a second run → max 5 (`A4-cap-2`).
 
 ## A5. Durability & Recoverability

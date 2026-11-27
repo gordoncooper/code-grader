@@ -19,11 +19,11 @@
   "component": null,
   "project_context_inferred": "Small internal orders API (Python), example only",
   "config": {
-    "hash": "99965e49bb3352f4",
+    "hash": "1a5db5b78197e75b",
     "preset": "service",
     "source": ".grading/project.toml",
     "component": null,
-    "scoring_version": "5.0.0"
+    "scoring_version": "6.0.0"
   },
   "commands_run": [
     {
@@ -210,8 +210,8 @@
       "fingerprint": "d28086fb46f2"
     },
     {
-      "id": "A4-002",
-      "benchmark_id": "A4",
+      "id": "C4-002",
+      "benchmark_id": "C4",
       "title": "Wall-clock time read inside domain logic",
       "severity": "major",
       "status": "open",
@@ -227,7 +227,7 @@
       ],
       "disposition": null,
       "disposition_concern": null,
-      "fingerprint": "a08d647144d3"
+      "fingerprint": "79bc2c9e7ab2"
     },
     {
       "id": "A5-001",
@@ -420,8 +420,8 @@
       "fingerprint": "a5b8ac278355"
     },
     {
-      "id": "D3-001",
-      "benchmark_id": "D3",
+      "id": "A1-002",
+      "benchmark_id": "A1",
       "title": "Money handled as floats",
       "severity": "major",
       "status": "open",
@@ -437,7 +437,7 @@
       ],
       "disposition": null,
       "disposition_concern": null,
-      "fingerprint": "1ab4612fc173"
+      "fingerprint": "68649d6a48f2"
     },
     {
       "id": "D4-001",
@@ -525,8 +525,8 @@
       "fingerprint": "cd9560d2506e"
     },
     {
-      "id": "E4-001",
-      "benchmark_id": "E4",
+      "id": "E3-002",
+      "benchmark_id": "E3",
       "title": "No standard Python project metadata",
       "severity": "minor",
       "status": "open",
@@ -541,7 +541,7 @@
       ],
       "disposition": null,
       "disposition_concern": null,
-      "fingerprint": "afefad477420"
+      "fingerprint": "43e708c1f453"
     },
     {
       "id": "F1-001",
@@ -682,8 +682,8 @@
       "fingerprint": "318cf484f6b1"
     },
     {
-      "id": "X6-001",
-      "benchmark_id": "X6",
+      "id": "E3-003",
+      "benchmark_id": "E3",
       "title": "No agent instructions or runnable verification commands",
       "severity": "major",
       "status": "open",
@@ -698,7 +698,7 @@
       ],
       "disposition": null,
       "disposition_concern": null,
-      "fingerprint": "3d2d5a88f5ce"
+      "fingerprint": "3341b86ebd00"
     },
     {
       "id": "A2-002",
@@ -736,7 +736,8 @@
       "carried_forward": false,
       "caps_applied": [],
       "finding_ids": [
-        "A1-001"
+        "A1-001",
+        "A1-002"
       ],
       "strengths": [],
       "enforcement": [],
@@ -751,6 +752,18 @@
           ],
           "expected_new_score": 8,
           "effort": "S",
+          "requires_human_decision": false,
+          "decision_question": null,
+          "optional": false
+        },
+        {
+          "id": "A1-act-2",
+          "action": "Hold money as integer cents (or Decimal) from the request to the gateway call",
+          "resolves": [
+            "A1-002"
+          ],
+          "expected_new_score": 9,
+          "effort": "M",
           "requires_human_decision": false,
           "decision_question": null,
           "optional": false
@@ -838,7 +851,7 @@
     },
     {
       "id": "A4",
-      "name": "Idempotence & Determinism",
+      "name": "Idempotence & Safe Retries",
       "pillar": "A",
       "applicability": "full",
       "applicability_reason": null,
@@ -852,8 +865,7 @@
         "Setup or migration fails or corrupts on a second run → max 5"
       ],
       "finding_ids": [
-        "A4-001",
-        "A4-002"
+        "A4-001"
       ],
       "strengths": [
         {
@@ -1166,7 +1178,7 @@
     },
     {
       "id": "C1",
-      "name": "Readability & Clarity",
+      "name": "Readability & Consistency",
       "pillar": "C",
       "applicability": "full",
       "applicability_reason": null,
@@ -1190,6 +1202,17 @@
               "note": ""
             }
           ]
+        },
+        {
+          "note": "Consistent PEP 8 style",
+          "evidence": [
+            {
+              "type": "command",
+              "command": "ruff check .",
+              "excerpt": "All checks passed!",
+              "note": ""
+            }
+          ]
         }
       ],
       "enforcement": [],
@@ -1201,6 +1224,16 @@
           "action": "Name the money values (subtotal, discount_rate) and add docstrings to order_total and charge",
           "resolves": [],
           "expected_new_score": 8,
+          "effort": "S",
+          "requires_human_decision": false,
+          "decision_question": null,
+          "optional": false
+        },
+        {
+          "id": "C1-act-2",
+          "action": "Add a formatter and linter config (ruff) and apply it once",
+          "resolves": [],
+          "expected_new_score": 9,
           "effort": "S",
           "requires_human_decision": false,
           "decision_question": null,
@@ -1248,51 +1281,6 @@
       "change_explanation": null
     },
     {
-      "id": "C3",
-      "name": "Consistency & Idiomatic Code",
-      "pillar": "C",
-      "applicability": "full",
-      "applicability_reason": null,
-      "config_weight": 1,
-      "weight": 1,
-      "weight_note": null,
-      "score": 7,
-      "confidence": "medium",
-      "carried_forward": false,
-      "caps_applied": [],
-      "finding_ids": [],
-      "strengths": [
-        {
-          "note": "Consistent PEP 8 style",
-          "evidence": [
-            {
-              "type": "command",
-              "command": "ruff check .",
-              "excerpt": "All checks passed!",
-              "note": ""
-            }
-          ]
-        }
-      ],
-      "enforcement": [],
-      "gaming_flags": [],
-      "target": 8,
-      "path_to_target": [
-        {
-          "id": "C3-act-1",
-          "action": "Add a formatter and linter config (ruff) and apply it once",
-          "resolves": [],
-          "expected_new_score": 8,
-          "effort": "S",
-          "requires_human_decision": false,
-          "decision_question": null,
-          "optional": false
-        }
-      ],
-      "previous_score": 7,
-      "change_explanation": null
-    },
-    {
       "id": "C4",
       "name": "Test Suite Quality",
       "pillar": "C",
@@ -1308,7 +1296,8 @@
         "Tests not run in CI → max 7"
       ],
       "finding_ids": [
-        "C4-001"
+        "C4-001",
+        "C4-002"
       ],
       "strengths": [],
       "enforcement": [],
@@ -1323,6 +1312,18 @@
           ],
           "expected_new_score": 7,
           "effort": "M",
+          "requires_human_decision": false,
+          "decision_question": null,
+          "optional": false
+        },
+        {
+          "id": "C4-act-2",
+          "action": "Pass the clock into create_order (or inject one), so tests can pin the time",
+          "resolves": [
+            "C4-002"
+          ],
+          "expected_new_score": 8,
+          "effort": "S",
           "requires_human_decision": false,
           "decision_question": null,
           "optional": false
@@ -1405,43 +1406,6 @@
         }
       ],
       "previous_score": 5,
-      "change_explanation": null
-    },
-    {
-      "id": "D3",
-      "name": "Practicality",
-      "pillar": "D",
-      "applicability": "full",
-      "applicability_reason": null,
-      "config_weight": 2,
-      "weight": 2,
-      "weight_note": null,
-      "score": 6,
-      "confidence": "medium",
-      "carried_forward": false,
-      "caps_applied": [],
-      "finding_ids": [
-        "D3-001"
-      ],
-      "strengths": [],
-      "enforcement": [],
-      "gaming_flags": [],
-      "target": 9,
-      "path_to_target": [
-        {
-          "id": "D3-act-1",
-          "action": "Hold money as integer cents (or Decimal) from the request to the gateway call",
-          "resolves": [
-            "D3-001"
-          ],
-          "expected_new_score": 8,
-          "effort": "M",
-          "requires_human_decision": false,
-          "decision_question": null,
-          "optional": false
-        }
-      ],
-      "previous_score": 6,
       "change_explanation": null
     },
     {
@@ -1561,30 +1525,45 @@
     },
     {
       "id": "E3",
-      "name": "Developer Experience & Inner Loop",
+      "name": "Contributor & Agent Experience",
       "pillar": "E",
       "applicability": "full",
       "applicability_reason": null,
-      "config_weight": 1,
-      "weight": 1,
+      "config_weight": 2,
+      "weight": 2,
       "weight_note": null,
-      "score": 4,
+      "score": 3,
       "confidence": "medium",
       "carried_forward": false,
       "caps_applied": [],
       "finding_ids": [
-        "E3-001"
+        "E3-001",
+        "E3-002",
+        "E3-003"
       ],
       "strengths": [],
       "enforcement": [],
       "gaming_flags": [],
-      "target": 8,
+      "target": 9,
       "path_to_target": [
         {
           "id": "E3-act-1",
-          "action": "Add a pyproject.toml with the dependencies and a one-command test run",
+          "action": "Add a pyproject.toml that declares the project (name, version, Python requirement) and its dependencies, with a one-command test run",
           "resolves": [
-            "E3-001"
+            "E3-001",
+            "E3-002"
+          ],
+          "expected_new_score": 5,
+          "effort": "S",
+          "requires_human_decision": false,
+          "decision_question": null,
+          "optional": false
+        },
+        {
+          "id": "E3-act-2",
+          "action": "Add AGENTS.md with the exact commands to install, test and lint",
+          "resolves": [
+            "E3-003"
           ],
           "expected_new_score": 7,
           "effort": "S",
@@ -1593,44 +1572,7 @@
           "optional": false
         }
       ],
-      "previous_score": 4,
-      "change_explanation": null
-    },
-    {
-      "id": "E4",
-      "name": "Native Tooling & Ecosystem Fit",
-      "pillar": "E",
-      "applicability": "full",
-      "applicability_reason": null,
-      "config_weight": 1,
-      "weight": 1,
-      "weight_note": null,
-      "score": 6,
-      "confidence": "medium",
-      "carried_forward": false,
-      "caps_applied": [],
-      "finding_ids": [
-        "E4-001"
-      ],
-      "strengths": [],
-      "enforcement": [],
-      "gaming_flags": [],
-      "target": 8,
-      "path_to_target": [
-        {
-          "id": "E4-act-1",
-          "action": "Declare the project in pyproject.toml (name, version, Python requirement)",
-          "resolves": [
-            "E4-001"
-          ],
-          "expected_new_score": 8,
-          "effort": "S",
-          "requires_human_decision": false,
-          "decision_question": null,
-          "optional": false
-        }
-      ],
-      "previous_score": 6,
+      "previous_score": 3,
       "change_explanation": null
     },
     {
@@ -2004,43 +1946,6 @@
       "path_to_target": [],
       "previous_score": null,
       "change_explanation": null
-    },
-    {
-      "id": "X6",
-      "name": "Agent-Readiness",
-      "pillar": "X",
-      "applicability": "full",
-      "applicability_reason": null,
-      "config_weight": 1,
-      "weight": 1,
-      "weight_note": null,
-      "score": 2,
-      "confidence": "medium",
-      "carried_forward": false,
-      "caps_applied": [],
-      "finding_ids": [
-        "X6-001"
-      ],
-      "strengths": [],
-      "enforcement": [],
-      "gaming_flags": [],
-      "target": 8,
-      "path_to_target": [
-        {
-          "id": "X6-act-1",
-          "action": "Add AGENTS.md with the exact commands to install, test and lint",
-          "resolves": [
-            "X6-001"
-          ],
-          "expected_new_score": 7,
-          "effort": "S",
-          "requires_human_decision": false,
-          "decision_question": null,
-          "optional": false
-        }
-      ],
-      "previous_score": 2,
-      "change_explanation": null
     }
   ],
   "integrity_flags": [],
@@ -2052,18 +1957,18 @@
   },
   "rollup": {
     "computed_by": "gradekit.py",
-    "config_hash": "99965e49bb3352f4",
+    "config_hash": "1a5db5b78197e75b",
     "pillar_scores": {
       "A": 4.6,
       "B": 6.1,
-      "C": 5.6,
-      "D": 5.5,
-      "E": 4.0,
+      "C": 5.3,
+      "D": 5.3,
+      "E": 3.3,
       "F": 3.8,
-      "X": 4.3
+      "X": 5.0
     },
-    "overall_score_uncapped": 4.9,
-    "overall_score": 4.9,
+    "overall_score_uncapped": 4.8,
+    "overall_score": 4.8,
     "overall_cap_applied": false,
     "gates": [
       {
@@ -2114,7 +2019,7 @@
       "blockers": [
         {
           "requirement": "overall ≥ 5.0",
-          "current": 4.9
+          "current": 4.8
         }
       ]
     },
@@ -2172,13 +2077,13 @@
         "status": "open",
         "benchmark_id": "A4"
       },
-      "A4-002": {
+      "C4-002": {
         "zone": "orders",
         "criticality": "hot",
         "severity": "major",
         "effective_severity": "major",
         "status": "open",
-        "benchmark_id": "A4"
+        "benchmark_id": "C4"
       },
       "A5-001": {
         "zone": "orders",
@@ -2252,13 +2157,13 @@
         "status": "new",
         "benchmark_id": "D2"
       },
-      "D3-001": {
+      "A1-002": {
         "zone": "orders",
         "criticality": "hot",
         "severity": "major",
         "effective_severity": "major",
         "status": "open",
-        "benchmark_id": "D3"
+        "benchmark_id": "A1"
       },
       "D4-001": {
         "zone": "orders",
@@ -2292,13 +2197,13 @@
         "status": "open",
         "benchmark_id": "E3"
       },
-      "E4-001": {
+      "E3-002": {
         "zone": null,
         "criticality": "normal",
         "severity": "minor",
         "effective_severity": "minor",
         "status": "open",
-        "benchmark_id": "E4"
+        "benchmark_id": "E3"
       },
       "F1-001": {
         "zone": null,
@@ -2356,13 +2261,13 @@
         "status": "open",
         "benchmark_id": "X3"
       },
-      "X6-001": {
+      "E3-003": {
         "zone": null,
         "criticality": "normal",
         "severity": "major",
         "effective_severity": "major",
         "status": "open",
-        "benchmark_id": "X6"
+        "benchmark_id": "E3"
       },
       "A2-002": {
         "zone": "payments",
@@ -2387,16 +2292,13 @@
       "B6": 9,
       "C1": 9,
       "C2": 9,
-      "C3": 8,
       "C4": 9,
       "D1": 9,
       "D2": 9,
-      "D3": 9,
       "D4": 9,
       "E1": 9,
       "E2": 9,
-      "E3": 8,
-      "E4": 8,
+      "E3": 9,
       "F1": 10,
       "F2": 8,
       "F3": 10,
@@ -2407,8 +2309,7 @@
       "X2": 8,
       "X3": 9,
       "X4": null,
-      "X5": null,
-      "X6": 8
+      "X5": null
     },
     "below_target": [
       {
@@ -2484,6 +2385,14 @@
         "weighted_gap": 12
       },
       {
+        "benchmark_id": "E3",
+        "score": 3,
+        "target": 9,
+        "gap": 6,
+        "weight": 2,
+        "weighted_gap": 12
+      },
+      {
         "benchmark_id": "E2",
         "score": 4,
         "target": 9,
@@ -2548,14 +2457,6 @@
         "weighted_gap": 6
       },
       {
-        "benchmark_id": "D3",
-        "score": 6,
-        "target": 9,
-        "gap": 3,
-        "weight": 2,
-        "weighted_gap": 6
-      },
-      {
         "benchmark_id": "D4",
         "score": 6,
         "target": 9,
@@ -2565,14 +2466,6 @@
       },
       {
         "benchmark_id": "F2",
-        "score": 2,
-        "target": 8,
-        "gap": 6,
-        "weight": 1,
-        "weighted_gap": 6
-      },
-      {
-        "benchmark_id": "X6",
         "score": 2,
         "target": 8,
         "gap": 6,
@@ -2593,14 +2486,6 @@
         "target": 9,
         "gap": 2,
         "weight": 2,
-        "weighted_gap": 4
-      },
-      {
-        "benchmark_id": "E3",
-        "score": 4,
-        "target": 8,
-        "gap": 4,
-        "weight": 1,
         "weighted_gap": 4
       },
       {
@@ -2628,14 +2513,6 @@
         "weighted_gap": 2
       },
       {
-        "benchmark_id": "E4",
-        "score": 6,
-        "target": 8,
-        "gap": 2,
-        "weight": 1,
-        "weighted_gap": 2
-      },
-      {
         "benchmark_id": "F4",
         "score": 6,
         "target": 8,
@@ -2645,14 +2522,6 @@
       },
       {
         "benchmark_id": "B3",
-        "score": 7,
-        "target": 8,
-        "gap": 1,
-        "weight": 1,
-        "weighted_gap": 1
-      },
-      {
-        "benchmark_id": "C3",
         "score": 7,
         "target": 8,
         "gap": 1,
@@ -2866,20 +2735,6 @@
         "rank": 14
       },
       {
-        "action_id": "X6-act-1",
-        "benchmark_id": "X6",
-        "tier": 2,
-        "priority": 5.0,
-        "zone": "normal",
-        "gain": 5,
-        "effort": "S",
-        "requires_human_decision": false,
-        "decision_question": null,
-        "action": "Add AGENTS.md with the exact commands to install, test and lint",
-        "decision": null,
-        "rank": 15
-      },
-      {
         "action_id": "B1-act-1",
         "benchmark_id": "B1",
         "tier": 2,
@@ -2891,7 +2746,7 @@
         "decision_question": null,
         "action": "Give the order service a small repository interface (insert_order, reserve_stock) instead of the raw db handle",
         "decision": null,
-        "rank": 16
+        "rank": 15
       },
       {
         "action_id": "B2-act-1",
@@ -2905,21 +2760,63 @@
         "decision_question": null,
         "action": "Have charge() take an amount and an idempotency key from its caller instead of reading the raw HTTP request",
         "decision": null,
-        "rank": 17
+        "rank": 16
       },
       {
-        "action_id": "D3-act-1",
-        "benchmark_id": "D3",
+        "action_id": "C4-act-2",
+        "benchmark_id": "C4",
         "tier": 2,
         "priority": 4.0,
         "zone": "hot",
+        "gain": 1,
+        "effort": "S",
+        "requires_human_decision": false,
+        "decision_question": null,
+        "action": "Pass the clock into create_order (or inject one), so tests can pin the time",
+        "decision": null,
+        "rank": 17
+      },
+      {
+        "action_id": "E3-act-1",
+        "benchmark_id": "E3",
+        "tier": 2,
+        "priority": 4.0,
+        "zone": "normal",
         "gain": 2,
+        "effort": "S",
+        "requires_human_decision": false,
+        "decision_question": null,
+        "action": "Add a pyproject.toml that declares the project (name, version, Python requirement) and its dependencies, with a one-command test run",
+        "decision": null,
+        "rank": 18
+      },
+      {
+        "action_id": "E3-act-2",
+        "benchmark_id": "E3",
+        "tier": 2,
+        "priority": 4.0,
+        "zone": "normal",
+        "gain": 2,
+        "effort": "S",
+        "requires_human_decision": false,
+        "decision_question": null,
+        "action": "Add AGENTS.md with the exact commands to install, test and lint",
+        "decision": null,
+        "rank": 19
+      },
+      {
+        "action_id": "A1-act-2",
+        "benchmark_id": "A1",
+        "tier": 2,
+        "priority": 3.0,
+        "zone": "hot",
+        "gain": 1,
         "effort": "M",
         "requires_human_decision": false,
         "decision_question": null,
         "action": "Hold money as integer cents (or Decimal) from the request to the gateway call",
         "decision": null,
-        "rank": 18
+        "rank": 20
       },
       {
         "action_id": "A4-act-1",
@@ -2933,7 +2830,7 @@
         "decision_question": null,
         "action": "Rewrite scripts/seed.sql inserts as INSERT ... ON CONFLICT (id) DO NOTHING and add a CI step that runs the seed twice",
         "decision": null,
-        "rank": 19
+        "rank": 21
       },
       {
         "action_id": "D1-act-1",
@@ -2949,21 +2846,7 @@
         "decision": {
           "status": "pending"
         },
-        "rank": 20
-      },
-      {
-        "action_id": "E3-act-1",
-        "benchmark_id": "E3",
-        "tier": 2,
-        "priority": 3.0,
-        "zone": "normal",
-        "gain": 3,
-        "effort": "S",
-        "requires_human_decision": false,
-        "decision_question": null,
-        "action": "Add a pyproject.toml with the dependencies and a one-command test run",
-        "decision": null,
-        "rank": 21
+        "rank": 22
       },
       {
         "action_id": "F6-act-1",
@@ -2977,7 +2860,7 @@
         "decision_question": null,
         "action": "Pin the dependencies in a lock file and let Dependabot propose updates",
         "decision": null,
-        "rank": 22
+        "rank": 23
       },
       {
         "action_id": "X2-act-1",
@@ -2991,7 +2874,7 @@
         "decision_question": null,
         "action": "Version the HTTP API (/v1/...) and keep a changelog of breaking changes",
         "decision": null,
-        "rank": 23
+        "rank": 24
       },
       {
         "action_id": "B6-act-1",
@@ -3005,7 +2888,7 @@
         "decision_question": null,
         "action": "Let the database stamp each order's creation time, and drop the time import from create_order",
         "decision": null,
-        "rank": 24
+        "rank": 25
       },
       {
         "action_id": "C1-act-1",
@@ -3019,7 +2902,21 @@
         "decision_question": null,
         "action": "Name the money values (subtotal, discount_rate) and add docstrings to order_total and charge",
         "decision": null,
-        "rank": 25
+        "rank": 26
+      },
+      {
+        "action_id": "C1-act-2",
+        "benchmark_id": "C1",
+        "tier": 2,
+        "priority": 2.0,
+        "zone": "normal",
+        "gain": 1,
+        "effort": "S",
+        "requires_human_decision": false,
+        "decision_question": null,
+        "action": "Add a formatter and linter config (ruff) and apply it once",
+        "decision": null,
+        "rank": 27
       },
       {
         "action_id": "C4-act-1",
@@ -3033,21 +2930,7 @@
         "decision_question": null,
         "action": "Add tests for single-item orders, the discount, a failed stock reservation and a repeated idempotency key",
         "decision": null,
-        "rank": 26
-      },
-      {
-        "action_id": "E4-act-1",
-        "benchmark_id": "E4",
-        "tier": 2,
-        "priority": 2.0,
-        "zone": "normal",
-        "gain": 2,
-        "effort": "S",
-        "requires_human_decision": false,
-        "decision_question": null,
-        "action": "Declare the project in pyproject.toml (name, version, Python requirement)",
-        "decision": null,
-        "rank": 27
+        "rank": 28
       },
       {
         "action_id": "F4-act-1",
@@ -3061,7 +2944,7 @@
         "decision_question": null,
         "action": "Reserve stock for all items in one call per order, and measure create_order with a 100-item order",
         "decision": null,
-        "rank": 28
+        "rank": 29
       },
       {
         "action_id": "B3-act-1",
@@ -3075,7 +2958,7 @@
         "decision_question": null,
         "action": "Add a package layout (src/orders/__init__.py, src/payments/__init__.py) and move the API handlers apart from the domain logic",
         "decision": null,
-        "rank": 29
+        "rank": 30
       },
       {
         "action_id": "B5-act-1",
@@ -3088,20 +2971,6 @@
         "requires_human_decision": false,
         "decision_question": null,
         "action": "Note the single-gateway decision (B5-001, accepted through 2027) beside charge(), so the next provider has an obvious seam",
-        "decision": null,
-        "rank": 30
-      },
-      {
-        "action_id": "C3-act-1",
-        "benchmark_id": "C3",
-        "tier": 2,
-        "priority": 1.0,
-        "zone": "normal",
-        "gain": 1,
-        "effort": "S",
-        "requires_human_decision": false,
-        "decision_question": null,
-        "action": "Add a formatter and linter config (ruff) and apply it once",
         "decision": null,
         "rank": 31
       },
@@ -3337,16 +3206,6 @@
           }
         ]
       },
-      "C3": {
-        "max": 9,
-        "why": [
-          {
-            "kind": "enforcement",
-            "max": 9,
-            "why": "no enforcement evidence"
-          }
-        ]
-      },
       "C4": {
         "max": 7,
         "why": [
@@ -3407,21 +3266,6 @@
           }
         ]
       },
-      "D3": {
-        "max": 8,
-        "why": [
-          {
-            "kind": "strengths",
-            "max": 8,
-            "why": "no strengths (positive evidence)"
-          },
-          {
-            "kind": "enforcement",
-            "max": 9,
-            "why": "no enforcement evidence"
-          }
-        ]
-      },
       "D4": {
         "max": 8,
         "why": [
@@ -3478,26 +3322,11 @@
           {
             "kind": "cap",
             "max": 5,
-            "why": "E2-cap-1: Wrong setup instructions"
+            "why": "Wrong setup instructions → max 5"
           }
         ]
       },
       "E3": {
-        "max": 8,
-        "why": [
-          {
-            "kind": "strengths",
-            "max": 8,
-            "why": "no strengths (positive evidence)"
-          },
-          {
-            "kind": "enforcement",
-            "max": 9,
-            "why": "no enforcement evidence"
-          }
-        ]
-      },
-      "E4": {
         "max": 8,
         "why": [
           {
@@ -3644,21 +3473,6 @@
             "kind": "critical",
             "max": 5,
             "why": "open critical finding X3-001"
-          }
-        ]
-      },
-      "X6": {
-        "max": 8,
-        "why": [
-          {
-            "kind": "strengths",
-            "max": 8,
-            "why": "no strengths (positive evidence)"
-          },
-          {
-            "kind": "enforcement",
-            "max": 9,
-            "why": "no enforcement evidence"
           }
         ]
       }

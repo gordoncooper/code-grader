@@ -40,7 +40,7 @@ def test_diff_fails_on_regression_when_asked():
 
 def test_resolve_fingerprint_is_stable():
     """It changes only with the config or the scoring rules: 99965e… under scoring 5.0, c068… (the example reports') under 4.x."""
-    assert "Effective config 99965e49bb3352f4" in run("resolve", "--project", "orders-api").stdout
+    assert "Effective config 1a5db5b78197e75b" in run("resolve", "--project", "orders-api").stdout
 
 
 def test_init_creates_a_project_folder(tmp_path):

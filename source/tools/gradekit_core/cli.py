@@ -18,7 +18,7 @@ Reports:
   rollup-repo      Combine per-component reports for a monorepo.
 
 Writing a report (graders):
-  report new       Start a report: all 35 benchmarks with weights and targets from the config.
+  report new       Start a report: all 31 benchmarks with weights and targets from the config.
   report cite      Print an evidence object for FILE:LINES with the exact quote.
   report finding   Add or update a finding (next free ID, quotes copied from the code).
   report score     Score a benchmark, or mark it limited / not applicable.

@@ -68,14 +68,14 @@ def test_a_gap_explains_a_low_score(gk):
 @pytest.fixture
 def ready(tmp_path):
     """A complete format-5 report written with `report` commands, its rollup stored by `report check --write`."""
-    from test_authoring import ALL, CODE, gk as run, start
+    from test_authoring import ALL, CODE, CONDITIONAL, gk as run, start
     repo = tmp_path / "grading"
     shutil.copytree(EXAMPLE, repo)
     rel = start(repo)
     run("report", "strength", rel, "A1", "--text", "Totals in one place", "--cite", "src/orders/service.py:1-2", "--repo", CODE, cwd=repo)
     for bid in ALL:
         run("report", "score", rel, bid, "--score", "7", "--confidence", "medium", cwd=repo)
-    for bid in ("X1", "X2", "X3", "X4", "X5", "X6"):
+    for bid in CONDITIONAL:
         run("report", "score", rel, bid, "--applicability", "not_applicable", "--reason", "not relevant here", cwd=repo)
     run("report", "set", rel, "scope_examined", "src/", cwd=repo)
     run("report", "ran", rel, "--command-text", "pytest -q", "--exit-code", "0", "--summary", "1 passed", cwd=repo)
@@ -323,7 +323,7 @@ def test_a_report_cant_choose_other_scoring_rules(gk):
     a critical finding in cold code into a major one, so the open-critical limit never applied."""
     cfg, r = config(gk), graded_here(gk)
     r["config"]["scoring_version"] = "4.2.0"
-    want = "config.scoring_version is 4.2.0, but this kit grades under scoring 5.0.0 only"
+    want = "config.scoring_version is 4.2.0, but this kit grades under scoring 6.0.0 only"
     assert any(e.startswith(want) for e in gk.validate_report(r, cfg, gk.load_catalog())[0])
     r["mode"] = "pr"   # 5.x let a pull-request report keep its 4.x base's rules
     assert any(e.startswith(want) for e in gk.validate_report(r, cfg, gk.load_catalog())[0])
@@ -343,7 +343,7 @@ def test_carry_refuses_a_baseline_graded_under_other_rules(gk, tmp_path):
     r["config"]["scoring_version"] = "4.2.0"
     base = tmp_path / "report.json"
     base.write_text(json.dumps(r))
-    with pytest.raises(gk.GradekitError, match="graded under scoring 4.2.0, and this kit grades under scoring 5.0.0 only"):
+    with pytest.raises(gk.GradekitError, match="graded under scoring 4.2.0, and this kit grades under scoring 6.0.0 only"):
         gk.cmd_carry(argparse.Namespace(baseline=str(base), allow_withheld=True, mode="full", base_commit=None, config=None,
                                         project=None, project_dir=str(EXAMPLE / "projects" / "orders-api"), component=None))
 

@@ -16,8 +16,8 @@
 - **Caps:** Any advertised core feature that is missing or broken → max 5 (`D1-cap-1`).
 
 ## D2. Gap Coverage
-- **Measures:** Absence of gaps. A gap is something the project's purpose clearly needs, or that users of this kind of software would reasonably expect, but that is missing. Examples: an auth system without password reset, a CLI without `--help` or meaningful exit codes, an API without pagination or rate-limit handling, a data tool without export, a destructive action without confirm or undo, a service without health checks, a missing platform the project says it supports.
-- **Not this:** Unfinished *existing* features (D1). A wishlist; feature creep is not rewarded.
+- **Measures:** Absence of gaps. A gap is something the project's purpose clearly needs, or that users of this kind of software would reasonably expect, but that is missing. Examples: an auth system without password reset, a CLI without `--help`, an API without pagination or rate-limit handling, a data tool without export, a destructive action without confirm or undo, a missing platform the project says it supports.
+- **Not this:** Unfinished *existing* features (D1). A wishlist; feature creep is not rewarded. Health and readiness checks (F1). Error handling and messages (A3, D4, F3).
 - **Assess:** Compare against the stated requirements, the domain's norms and 1–3 peer tools. Build a **gap register**. Mark each gap with a severity (`critical`, `major`, `minor`) and a necessity (`must-have` or `nice-to-have`) relative to the project's purpose.
 - **Anchors:**
   - **1–3:** Missing essentials that make it unfit for purpose.
@@ -26,24 +26,9 @@
   - **9–10:** Nothing a reasonable user would miss; scope boundaries are documented.
 - **Caps:** Any critical gap → max 4 (`D2-cap-1`; automatic: open critical gap).
 
-## D3. Practicality
-- **Measures:** Pragmatic fitness for purpose:
-  - Technology choices suit the team, scale and budget (no Kubernetes cluster for a nightly cron job, no hand-written ORM where a standard one works).
-  - It works with realistic data volumes, real network conditions and real user workflows, not just demo data.
-  - Trade-offs are made consciously.
-  - Operating cost and effort are proportional to the value delivered.
-  - No gold-plating, and no purity that gets in the way of delivering value.
-- **Not this:** Code-level leanness (B6). Architecture quality as such (B1).
-- **Assess:** Ask: "Would an experienced team adopt and run this as-is? What would they rip out or bolt on in the first week?" Test with realistic inputs where possible.
-- **Anchors:**
-  - **1–3:** Impractical: wrong tools, or only works in a demo.
-  - **4–6:** Usable but awkward or over-built in places.
-  - **7–8:** Sensible, grounded choices.
-  - **9–10:** Every choice clearly serves the real use case, and the trade-offs are documented.
-
 ## D4. Intuitiveness
 - **Measures:** Least surprise, for end users *and* developers. Sensible defaults; names that match the domain's vocabulary; consistent behavior across similar operations; discoverability (help text, completions, clear flags, resources and menus); error messages that say what to do next; no hidden modes, ordering traps or surprising side effects; it behaves the way users of similar tools expect.
-- **Not this:** Onboarding and time-to-first-success (E1). Docs content (E2).
+- **Not this:** Onboarding and time-to-first-success (E1). Docs content (E2). Whether errors are handled at all (A3), and whether operators can diagnose them (F3).
 - **Assess:** Do 3–5 common tasks as a first-time user without reading the source. Log every surprise, guess and dead end.
 - **Anchors:**
   - **1–3:** Confusing; users must read the source.

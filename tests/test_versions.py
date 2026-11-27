@@ -77,7 +77,7 @@ def test_new_reports_record_both_versions(repo):
     r = json.loads((repo / out["report"]).read_text())
     catalog = json.loads((SRC / "rubric" / "catalog.json").read_text())
     assert r["suite_version"] == catalog["suite_version"]
-    assert r["config"]["scoring_version"] == "5.0.0"
+    assert r["config"]["scoring_version"] == "6.0.0"
     assert r["config"]["hash"] == json.loads(NEW.read_text())["config"]["hash"], "the example is graded under this kit's rules"
 
 
@@ -105,7 +105,7 @@ def test_different_scoring_majors_are_not_compared(gk):
 def test_a_config_cant_change_the_scoring_version(gk, tmp_path):
     t = tmp_path / "p.toml"
     t.write_text('suite_version = "4.2.0"\n[project]\nname = "x"\npreset = "default"\n')
-    with pytest.raises(gk.GradekitError, match="this kit scores with 5.0.0"):
+    with pytest.raises(gk.GradekitError, match="this kit scores with 6.0.0"):
         gk.resolve_config([str(t)])
 
 

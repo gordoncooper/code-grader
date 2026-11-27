@@ -4,7 +4,7 @@
 
 ## Summary
 
-Overall **4.9**, maturity **L0** (next: L1).
+Overall **4.8**, maturity **L0** (next: L1).
 
 The committed API key is gone and the first tests exist. The biggest risks now are a silently swallowed stock-reservation error in a hot zone, no CI, and an order insert that isn't transactional.
 
@@ -15,10 +15,10 @@ The committed API key is gone and the first tests exist. The biggest risks now a
 | A1 Correctness & Functional Behavior | 5 | passed (always) |
 | A2 Security & Privacy | 5 | passed (always) |
 | A3 Robustness & Error Handling | 4 | passed (failure_impact=revenue_loss) |
-| A4 Idempotence & Determinism | 5 | passed (data_sensitivity=financial) |
+| A4 Idempotence & Safe Retries | 5 | passed (data_sensitivity=financial) |
 | A5 Durability & Recoverability | 4 | passed (data_sensitivity=financial) |
 
-Blocking L1: overall ≥ 5.0 (now 4.9)
+Blocking L1: overall ≥ 5.0 (now 4.8)
 
 ## Scorecard
 
@@ -29,7 +29,7 @@ Gates are marked ★. Weight is the weight used, after applicability.
 | A1 ★ | Correctness & Functional Behavior | 5 | 10 | 3 | medium | full |  |
 | A2 ★ | Security & Privacy | 5 | 10 | 3 | medium | full | Hard-coded payment API key removed from src/payments/api.py (A2-002 fixed) |
 | A3 ★ | Robustness & Error Handling | 4 | 10 | 3 | medium | full |  |
-| A4 ★ | Idempotence & Determinism | 5 | 10 | 3 | high | full |  |
+| A4 ★ | Idempotence & Safe Retries | 5 | 10 | 3 | high | full |  |
 | A5 ★ | Durability & Recoverability | 4 | 10 | 3 | medium | full |  |
 | | **A Correctness & Trust** | **4.6** | | | | | |
 | B1 | Architecture & Design Fitness | 6 | 9 | 2 | medium | full |  |
@@ -39,21 +39,18 @@ Gates are marked ★. Weight is the weight used, after applicability.
 | B5 | Flexibility & Extensibility | 6 | 8 | 1 | medium | full |  |
 | B6 | Leanness | 7 | 9 | 2 | medium | full | Unused helper module deleted |
 | | **B Design & Structure** | **6.1** | | | | | |
-| C1 | Readability & Clarity | 7 | 9 | 2 | medium | full |  |
+| C1 | Readability & Consistency | 7 | 9 | 2 | medium | full |  |
 | C2 | Maintainability & Complexity | 6 | 9 | 2 | medium | full |  |
-| C3 | Consistency & Idiomatic Code | 7 | 8 | 1 | medium | full |  |
 | C4 | Test Suite Quality | 3 | 9 | 2 | high | full | A unit test for order totals was added |
-| | **C Code Health** | **5.6** | | | | | |
+| | **C Code Health** | **5.3** | | | | | |
 | D1 | Feature Completeness | 5 | 9 | 2 | medium | full |  |
 | D2 | Gap Coverage | 5 | 9 | 2 | medium | full |  |
-| D3 | Practicality | 6 | 9 | 2 | medium | full |  |
 | D4 | Intuitiveness | 6 | 9 | 2 | medium | full |  |
-| | **D Value & Fitness for Purpose** | **5.5** | | | | | |
+| | **D Value & Fitness for Purpose** | **5.3** | | | | | |
 | E1 | Adopter Friendliness | 3 | 9 | 2 | high | full |  |
 | E2 | Documentation | 4 | 9 | 2 | medium | full | README now describes the service |
-| E3 | Developer Experience & Inner Loop | 4 | 8 | 1 | medium | full |  |
-| E4 | Native Tooling & Ecosystem Fit | 6 | 8 | 1 | medium | full |  |
-| | **E Adoption & Experience** | **4.0** | | | | | |
+| E3 | Contributor & Agent Experience | 3 | 9 | 2 | medium | full |  |
+| | **E Adoption & Experience** | **3.3** | | | | | |
 | F1 | Ease of Deployability | 3 | 10 | 3 | medium | full |  |
 | F2 | Build, CI/CD & Automation | 2 | 8 | 1 | high | full |  |
 | F3 | Observability & Debuggability | 3 | 10 | 3 | medium | full |  |
@@ -66,9 +63,8 @@ Gates are marked ★. Weight is the weight used, after applicability.
 | X3 | Concurrency Safety | 5 | 9 | 2 | medium | full |  |
 | X4 | Cost Efficiency | – | – | 0 | – | not_applicable | Runs on fixed, already-paid hardware; no metered resources or paid APIs. |
 | X5 | Compliance & Licensing | – | – | 0 | – | not_applicable | No regulated data and the software is not distributed. |
-| X6 | Agent-Readiness | 2 | 8 | 1 | medium | full |  |
-| | **X Conditional** | **4.3** | | | | | |
-| | **Overall** | **4.9** | | | | | |
+| | **X Conditional** | **5.0** | | | | | |
+| | **Overall** | **4.8** | | | | | |
 
 ## Applicability and weight notes
 
@@ -126,7 +122,7 @@ Answers go in `decisions.json`: tick the boxes in this report's pull request (th
 | A2-001 | critical | hot | open | Security & Privacy issue (details withheld) |
 | A3-001 | critical | hot | open | Stock reservation errors swallowed |
 | A4-001 | minor | cold | open | Seed script not re-runnable |
-| A4-002 | major | hot | open | Wall-clock time read inside domain logic |
+| C4-002 | major | hot | open | Wall-clock time read inside domain logic |
 | A5-001 | critical | hot | open | Order insert and stock reservation not in one transaction |
 | B1-001 | major | hot | open | Domain logic depends directly on the DB handle |
 | B2-001 | major | hot | open | Orders and payments share no interface; payments reads the raw request |
@@ -136,12 +132,12 @@ Answers go in `decisions.json`: tick the boxes in this report's pull request (th
 | C4-001 | major | cold | open | One test covers one happy path |
 | D1-001 | major | normal | open | XLSX export advertised but not implemented |
 | D2-001 | critical | hot | new | No way to cancel or refund an order |
-| D3-001 | major | hot | open | Money handled as floats |
+| A1-002 | major | hot | open | Money handled as floats |
 | D4-001 | major | hot | open | discount parameter silently ignored in a common case |
 | E1-001 | critical | normal | open | Quickstart command does not exist |
 | E2-001 | major | normal | open | README is one line and partly wrong |
 | E3-001 | major | normal | open | No dependency manifest or dev setup |
-| E4-001 | minor | normal | open | No standard Python project metadata |
+| E3-002 | minor | normal | open | No standard Python project metadata |
 | F1-001 | critical | normal | open | No deploy artifact or instructions |
 | F2-001 | critical | normal | open | No CI |
 | F3-001 | major | normal | open | No logging anywhere |
@@ -149,7 +145,7 @@ Answers go in `decisions.json`: tick the boxes in this report's pull request (th
 | F6-001 | major | normal | open | Dependencies not declared or pinned |
 | X2-001 | minor | normal | open | No versioning of the HTTP API |
 | X3-001 | critical | hot | open | Check-then-act race on idempotency key |
-| X6-001 | major | normal | open | No agent instructions or runnable verification commands |
+| E3-003 | major | normal | open | No agent instructions or runnable verification commands |
 | A2-002 | critical | hot | fixed | Payment API key committed in config |
 
 Fixed since the last report: A2-002.
@@ -174,8 +170,10 @@ Fixed since the last report: A2-002.
 ### A1 Correctness & Functional Behavior: 5 (target 10)
 
 - Finding A1-001 (critical, open): Discount ignored for single-item orders (`src/orders/service.py:7-8`: discount only applied when more than one item)
+- Finding A1-002 (major, open): Money handled as floats (`src/orders/service.py:9`: float arithmetic for currency)
 - Limit: at most 5 while open critical finding A1-001
 - Next: **A1-act-1** → 8 (effort S): In order_total, apply the discount to single-item orders too (drop the len(items) > 1 condition) and test a one-item discounted order
+- Next: **A1-act-2** → 9 (effort M): Hold money as integer cents (or Decimal) from the request to the gateway call
 
 ### A2 Security & Privacy: 5 (target 10)
 
@@ -192,11 +190,10 @@ Change: Hard-coded payment API key removed from src/payments/api.py (A2-002 fixe
 - Limit: at most 4 while open critical finding A3-001; A3-cap-1: Catch-all blocks that swallow errors in core paths
 - Next: **A3-act-1** → 7 (effort S): In src/orders/service.py create_order, remove the bare except; let reserve_stock failures propagate as an OutOfStock error and return 409 from the API layer
 
-### A4 Idempotence & Determinism: 5 (target 10)
+### A4 Idempotence & Safe Retries: 5 (target 10)
 
 - Strength: Payment endpoint honours idempotency keys (`src/payments/api.py:2`)
 - Finding A4-001 (minor, open): Seed script not re-runnable (`scripts/seed.sql:2`: second run fails with duplicate key)
-- Finding A4-002 (major, open): Wall-clock time read inside domain logic (`src/orders/service.py:13`: time not injectable; tests cannot control it)
 - Limit: at most 5 while A4-cap-2: Setup or migration fails or corrupts on a second run
 - Next: **A4-act-1** → 7 (effort S): Rewrite scripts/seed.sql inserts as INSERT ... ON CONFLICT (id) DO NOTHING and add a CI step that runs the seed twice
 
@@ -239,28 +236,27 @@ Change: Unused helper module deleted
 - Strength: Small, dependency-free code (ran `wc -l src/**/*.py`)
 - Next: **B6-act-1** → 8 (effort S): Let the database stamp each order's creation time, and drop the time import from create_order
 
-### C1 Readability & Clarity: 7 (target 9)
+### C1 Readability & Consistency: 7 (target 9)
 
 - Strength: Short functions with clear names (`src/orders/service.py:5`)
+- Strength: Consistent PEP 8 style (ran `ruff check .`)
 - Next: **C1-act-1** → 8 (effort S): Name the money values (subtotal, discount_rate) and add docstrings to order_total and charge
+- Next: **C1-act-2** → 9 (effort S): Add a formatter and linter config (ruff) and apply it once
 
 ### C2 Maintainability & Complexity: 6 (target 9)
 
 - Finding C2-001 (major, open): Rounding and discount logic mixed in one function (`src/orders/service.py:9`: float rounding for money; no money type)
 - Next: **C2-act-1** → 8 (effort S): Split order_total into subtotal, discount and rounding steps, each with its own test
 
-### C3 Consistency & Idiomatic Code: 7 (target 8)
-
-- Strength: Consistent PEP 8 style (ran `ruff check .`)
-- Next: **C3-act-1** → 8 (effort S): Add a formatter and linter config (ruff) and apply it once
-
 ### C4 Test Suite Quality: 3 (target 9)
 
 Change: A unit test for order totals was added
 
 - Finding C4-001 (major, open): One test covers one happy path (ran `pytest -q`: single test; create_order and charge untested)
+- Finding C4-002 (major, open): Wall-clock time read inside domain logic (`src/orders/service.py:13`: time not injectable; tests cannot control it)
 - Limit: at most 7 while C4-cap-1: Tests not run in CI
 - Next: **C4-act-1** → 7 (effort M): Add tests for single-item orders, the discount, a failed stock reservation and a repeated idempotency key
+- Next: **C4-act-2** → 8 (effort S): Pass the clock into create_order (or inject one), so tests can pin the time
 
 ### D1 Feature Completeness: 5 (target 9)
 
@@ -273,11 +269,6 @@ Change: A unit test for order totals was added
 - Finding D2-001 (critical, new): No way to cancel or refund an order (searched for cancel or refund operations (read all of src/; grep -rni 'refund\|cancel'))
 - Limit: at most 5 while open critical finding D2-001
 - Next: **D2-act-1** → 7 (effort L): Add order cancellation with a refund through the gateway (D2-001)
-
-### D3 Practicality: 6 (target 9)
-
-- Finding D3-001 (major, open): Money handled as floats (`src/orders/service.py:9`: float arithmetic for currency)
-- Next: **D3-act-1** → 8 (effort M): Hold money as integer cents (or Decimal) from the request to the gateway call
 
 ### D4 Intuitiveness: 6 (target 9)
 
@@ -295,18 +286,16 @@ Change: A unit test for order totals was added
 Change: README now describes the service
 
 - Finding E2-001 (major, open): README is one line and partly wrong (`README.md:3`: claims features that do not exist)
-- Limit: at most 5 while E2-cap-1: Wrong setup instructions
+- Limit: at most 5 while Wrong setup instructions → max 5
 - Next: **E2-act-1** → 7 (effort S): Rewrite the README: what the service does, how to run it and its tests, and the endpoints it serves
 
-### E3 Developer Experience & Inner Loop: 4 (target 8)
+### E3 Contributor & Agent Experience: 3 (target 9)
 
 - Finding E3-001 (major, open): No dependency manifest or dev setup (searched for pyproject.toml, requirements.txt, setup.cfg (ls -a at repo root))
-- Next: **E3-act-1** → 7 (effort S): Add a pyproject.toml with the dependencies and a one-command test run
-
-### E4 Native Tooling & Ecosystem Fit: 6 (target 8)
-
-- Finding E4-001 (minor, open): No standard Python project metadata (searched for pyproject.toml (ls -a at repo root))
-- Next: **E4-act-1** → 8 (effort S): Declare the project in pyproject.toml (name, version, Python requirement)
+- Finding E3-002 (minor, open): No standard Python project metadata (searched for pyproject.toml (ls -a at repo root))
+- Finding E3-003 (major, open): No agent instructions or runnable verification commands (searched for AGENTS.md / CLAUDE.md / test command docs (ls -a at repo root))
+- Next: **E3-act-1** → 5 (effort S): Add a pyproject.toml that declares the project (name, version, Python requirement) and its dependencies, with a one-command test run
+- Next: **E3-act-2** → 7 (effort S): Add AGENTS.md with the exact commands to install, test and lint
 
 ### F1 Ease of Deployability: 3 (target 10)
 
@@ -351,14 +340,9 @@ Change: README now describes the service
 - Limit: at most 5 while open critical finding X3-001
 - Next: **X3-act-1** → 8 (effort M): Claim the idempotency key atomically (insert-if-absent) before charging, so two concurrent requests can't both charge
 
-### X6 Agent-Readiness: 2 (target 8)
-
-- Finding X6-001 (major, open): No agent instructions or runnable verification commands (searched for AGENTS.md / CLAUDE.md / test command docs (ls -a at repo root))
-- Next: **X6-act-1** → 7 (effort S): Add AGENTS.md with the exact commands to install, test and lint
-
 ## Limitations
 
 - Example report for the bundled sample repo; scores are illustrative.
 - Hidden checks: 4 run, 50% passed.
 
-<sub>Rendered by gradekit from report.json (suite 6.0.0, config 99965e49bb3352f4).</sub>
+<sub>Rendered by gradekit from report.json (suite 6.0.0, config 1a5db5b78197e75b).</sub>

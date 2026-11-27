@@ -12,8 +12,9 @@ from conftest import EXAMPLE, SRC
 KIT = [sys.executable, str(SRC / "tools" / "gradekit.py")]
 ENV = dict(os.environ, PYTHONDONTWRITEBYTECODE="1")
 CODE = EXAMPLE.parent / "sample-repo"
-ALL = ["A1", "A2", "A3", "A4", "A5", "B1", "B2", "B3", "B4", "B5", "B6", "C1", "C2", "C3", "C4",
-       "D1", "D2", "D3", "D4", "E1", "E2", "E3", "E4", "F1", "F2", "F3", "F4", "F5", "F6"]
+ALL = ["A1", "A2", "A3", "A4", "A5", "B1", "B2", "B3", "B4", "B5", "B6", "C1", "C2", "C4",
+       "D1", "D2", "D4", "E1", "E2", "E3", "F1", "F2", "F3", "F4", "F5", "F6"]   # the core benchmarks (6.0)
+CONDITIONAL = ["X1", "X2", "X3", "X4", "X5"]
 
 
 @pytest.fixture
@@ -163,14 +164,14 @@ def test_a_whole_report_without_writing_json(repo):
     rel = start(repo)
     first = gk("report", "check", rel, "--json", cwd=repo, ok=False)
     assert first.returncode == 5
-    assert json.loads(first.stdout)["result"]["status"] == "incomplete" and len(json.loads(first.stdout)["result"]["todo"]) == 39
+    assert json.loads(first.stdout)["result"]["status"] == "incomplete" and len(json.loads(first.stdout)["result"]["todo"]) == 35
 
     gk("report", "finding", "add", rel, "--benchmark", "C4", "--title", "One test", "--severity", "critical",
        "--command", "pytest -q", "--excerpt", "1 passed", cwd=repo)
     gk("report", "strength", rel, "A1", "--text", "Totals in one place", "--cite", "src/orders/service.py:1-2", "--repo", CODE, cwd=repo)
     for bid in ALL:
         gk("report", "score", rel, bid, "--score", "3" if bid == "C4" else "7", "--confidence", "medium", cwd=repo)
-    for bid in ("X1", "X2", "X3", "X4", "X5", "X6"):
+    for bid in CONDITIONAL:
         gk("report", "score", rel, bid, "--applicability", "not_applicable", "--reason", "not relevant here", cwd=repo)
     gk("report", "set", rel, "scope_examined", "src/ and scripts/", cwd=repo)
     gk("report", "ran", rel, "--command-text", "pytest -q", "--exit-code", "0", "--summary", "1 passed", cwd=repo)
