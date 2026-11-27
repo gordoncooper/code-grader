@@ -1,0 +1,5 @@
+#!/bin/bash
+# nocreds COMMAND...: run COMMAND without the sandbox's credentials in its environment.
+# Keeps PATH, HOME and the proxy and CA variables, which package installs need.
+for v in $(env | cut -d= -f1 | grep -E '^(AWS_ACCESS_KEY_ID|AWS_SECRET_ACCESS_KEY|AWS_SESSION_TOKEN|GH_TOKEN|GITHUB_TOKEN|CLOUDSDK_AUTH_ACCESS_TOKEN|CLAUDE_CODE_MESSAGING_TOKEN|GIT_ASKPASS|SSH_AUTH_SOCK)$'); do unset "$v"; done
+exec "$@"
