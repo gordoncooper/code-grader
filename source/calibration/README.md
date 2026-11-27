@@ -6,7 +6,7 @@ The rubric anchors are written in words, so different graders, or the same grade
 
 1. **Pick 2–3 reference repos** that resemble what you'll grade. Ideally include one you'd call weak (around 4), one decent (around 6–7) and one strong (around 8–9). Internal repos are best; open-source projects work too.
 2. **Freeze each one at a specific commit SHA.** Calibration only means something if the code never changes.
-3. **Score them by hand.** One or two experienced engineers set the expected score and applicability for each benchmark, using the rubric. Where reviewers disagree, discuss until you agree; if you can't, the rubric wording is ambiguous and should be fixed. You don't need all 35: the 10–15 that matter most to you is enough.
+3. **Score them by hand.** One or two experienced engineers set the expected score and applicability for each benchmark, using the rubric. Where reviewers disagree, discuss until you agree; if you can't, the rubric wording is ambiguous and should be fixed. You don't need every benchmark: the 10–15 that matter most to you is enough.
 4. Save one file per repo, following `expected-scores.example.json`:
 
 ```json
@@ -50,7 +50,16 @@ The suite's own calibration lives in `golden/`: one folder per golden repo, each
 # a grader grades the golden commit as usual (prompts/cards/grader.md, with the golden's project.toml), then:
 python3 tools/gradekit.py calibration add-run calibration/golden/schedule REPORT.json --note "model, session"
 python3 tools/gradekit.py calibration run          # writes calibration/results.json and RESULTS.md
+python3 tools/gradekit.py calibration analyze      # what the runs say about the rubric itself
 ```
+
+`calibration analyze` looks across every golden repo's runs under the current scoring rules (`--all-rules` includes earlier ones) and reports:
+- **Spread:** how far graders' scores for one benchmark on one repo are apart. Above 1, the wording is too loose.
+- **Rarely full:** benchmarks that are `limited` or `not_applicable` in at least 80% of runs. They could become conditional, or go.
+- **Move together:** pairs whose scores rise and fall together across repos, once each repo's overall level is taken out. These are merge candidates. With fewer than three repos there's nothing to compare.
+- **Filed differently:** the same code (file and lines) cited under different benchmarks by different graders. That means the boundary between them is unclear.
+
+`add-run` saves each run's findings (benchmark, severity and the code they cite) along with its scores, for the last check.
 
 `calibration run` scores every run against its golden's expected scores (the same test as `calibrate`), and measures the **spread** across runs. A golden repo passes with at least 3 runs (`--min-runs`), every run passing, and no benchmark spreading more than its `criteria.max_spread` (default 1). The program passes when every golden repo does. [`RESULTS.md`](RESULTS.md) publishes the result.
 
