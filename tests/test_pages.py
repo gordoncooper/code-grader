@@ -298,7 +298,7 @@ def test_review_lists_projects_from_the_index(page, site, tmp_path):
     page.click("#gh-load")
     page.wait_for_selector("#gh-status .project-index")
     text = page.inner_text("#gh-status")
-    assert "orders-api (4.9, L0, 1 decision waiting)" in text and "billing (no report yet)" in text
+    assert "orders-api (4.8, L0, 1 decision waiting)" in text and "billing (no report yet)" in text
     page.click("#gh-status .project-index button:has-text('orders-api')")
     page.wait_for_selector("#results:not([hidden])")
     assert "Loaded orders-api" in page.inner_text("#gh-status")

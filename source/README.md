@@ -1,6 +1,6 @@
 # Code Grading Suite v6.0.0
 
-A kit for having AI agents grade a codebase from 1 to 10 on **35 benchmarks** (29 core in 6 pillars, plus 6 that apply only to some projects), and then improve it against those grades. It is built so that **rising scores mean better code**, not just code tuned to the rubric.
+A kit for having AI agents grade a codebase from 1 to 10 on **31 benchmarks** (26 core in 6 pillars, plus 5 that apply only to some projects), and then improve it against those grades. It is built so that **rising scores mean better code**, not just code tuned to the rubric.
 
 **New here? Start with [Getting started](GETTING-STARTED.md).** It walks through a full cycle using the website, with nothing to install. This page is the reference.
 

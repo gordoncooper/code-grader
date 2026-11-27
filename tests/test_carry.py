@@ -114,7 +114,7 @@ def test_pr_carry_suggests_what_to_regrade(tmp_path, changed_repo):
     res, r = carried(tmp_path, changed_repo, "--touched", "E2")
     assert sorted(res["changed_files"]) == ["scripts/seed.sql", "src/orders/service.py", "src/payments/api.py"]
     regrade = set(res["regrade"])
-    assert {"A1", "A3", "C1", "C2", "C3", "C4"} <= regrade, "always re-graded when code changes"
+    assert {"A1", "A3", "C1", "C2", "C4"} <= regrade, "always re-graded when code changes"
     assert {"A2", "A4", "A5"} <= regrade, "gates, because hot-zone files changed"
     assert "X3" in regrade and "E2" in regrade and "E1" not in regrade
     base = {b["id"]: b for b in json.loads(NEW.read_text())["benchmarks"]}
@@ -141,7 +141,7 @@ def test_full_carry_makes_the_next_report_folder(tmp_path, changed_repo):
     assert res["report"].endswith(f"-{head[:7]}/report.json")
     r = json.loads((grading / res["report"]).read_text() if not os.path.isabs(res["report"]) else open(res["report"]).read())
     assert all(b["score"] is None and not b["carried_forward"] for b in r["benchmarks"])
-    assert r["config"]["scoring_version"].startswith("5."), "a full re-grade uses this kit's rules, even from a 4.x report"
+    assert r["config"]["scoring_version"].startswith("6."), "a full re-grade uses this kit's rules"
     assert r["metrics"] == {} and r["limitations"] == []
     assert len(r["findings"]) == len(json.loads(NEW.read_text())["findings"])
 

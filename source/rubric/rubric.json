@@ -101,7 +101,7 @@
       "pillar": "A",
       "applies_when": null,
       "measures": "Behavior when things go wrong: malformed input, dependency outages, slow networks, resource exhaustion, partial failures. Explicit error handling, useful error context, timeouts, retries with backoff and jitter, circuit breakers where warranted, resource cleanup, graceful degradation, bounded queues and buffers.",
-      "not_this": "Whether retries are *safe* to repeat (A4). Whether data survives a crash (A5).",
+      "not_this": "Whether retries are *safe* to repeat (A4). Whether data survives a crash (A5). Whether messages tell users what to do next (D4), and whether operators can diagnose failures (F3).",
       "assess": "Review every catch, except, rescue and error return. Look for swallowed errors, overly broad catches, I/O with no timeout, leaked handles, unchecked return values, unbounded growth, and crashes on expected failures. Use fuzz or property tests if available.",
       "anchors": {
         "1–3": "Errors ignored; crashes on routine failures.",
@@ -120,17 +120,17 @@
     },
     {
       "id": "A4",
-      "name": "Idempotence & Determinism",
+      "name": "Idempotence & Safe Retries",
       "pillar": "A",
       "applies_when": null,
-      "measures": "Idempotence: operations that may be retried or repeated have the same effect as running once. This covers API mutations (idempotency keys or natural keys), message and queue consumers under redelivery, webhooks, setup, provisioning and seed scripts, migrations, infrastructure-as-code (repeated applies converge to the same state), deploys, and cron jobs. Determinism: the same inputs give the same outputs. Builds are reproducible, tests are deterministic, and time, randomness, ordering and environment are injected or controlled rather than hidden.",
-      "not_this": "General retry and timeout policy (A3).",
-      "assess": "Run setup, seed and migration scripts twice. Look for blind INSERTs, \"create\" with no existence check, increments or charges on retry, non-atomic check-then-act, unordered map iteration that affects output, unseeded randomness, and `now()` called deep inside logic. Rebuild and compare artifacts or hashes where practical.",
+      "measures": "Operations that may be retried or repeated have the same effect as running once. This covers API mutations (idempotency keys or natural keys), message and queue consumers under redelivery, webhooks, setup, provisioning and seed scripts, migrations, infrastructure-as-code (repeated applies converge to the same state), deploys, and cron jobs.",
+      "not_this": "General retry and timeout policy (A3). Deterministic tests, and time and randomness that tests can control (C4). Reproducible builds (F2).",
+      "assess": "Run setup, seed and migration scripts twice. Look for blind INSERTs, \"create\" with no existence check, increments or charges on retry, non-atomic check-then-act, and consumers that assume each message arrives exactly once.",
       "anchors": {
         "1–3": "Repeating an operation duplicates side effects; scripts break on the second run.",
-        "4–6": "Some operations safe to repeat; others not; tests occasionally nondeterministic.",
-        "7–8": "All externally triggered mutations and scripts are safe to re-run; time and randomness are injectable.",
-        "9–10": "Idempotence is designed in and tested (replay or redelivery tests); builds are reproducible; zero flaky tests."
+        "4–6": "Some operations safe to repeat; others not.",
+        "7–8": "All externally triggered mutations and scripts are safe to re-run.",
+        "9–10": "Idempotence is designed in and tested (replay or redelivery tests)."
       },
       "caps": [
         {
@@ -177,12 +177,12 @@
       "name": "Architecture & Design Fitness",
       "pillar": "B",
       "applies_when": null,
-      "measures": "The overall shape suits the problem: clear layering, correct dependency direction (domain logic doesn't depend on frameworks or I/O), consistent patterns, important decisions recorded, and a design that can meet the scale and requirements it actually has.",
-      "not_this": "Boundaries of individual units (B2). Physical file layout (B3).",
-      "assess": "Sketch the system's components and data flow. Look for business logic in controllers, views or SQL, framework types leaking into the domain, and mismatched architecture (e.g. microservices for a tiny app, or a monolith that's tangling under real load).",
+      "measures": "The overall shape suits the problem: clear layering, correct dependency direction (domain logic doesn't depend on frameworks or I/O), consistent patterns, important decisions recorded, and a design that meets the requirements the project actually has. The technology suits the problem, the team and the budget (no Kubernetes cluster for a nightly cron job, no hand-written ORM where a standard one works), and trade-offs are made consciously.",
+      "not_this": "Boundaries of individual units (B2). Physical file layout (B3). Building more than the purpose needs (B6). Behavior at realistic data volumes and load (F4).",
+      "assess": "Sketch the system's components and data flow. Look for business logic in controllers, views or SQL, framework types leaking into the domain, and mismatched architecture (e.g. microservices for a tiny app, or a monolith that's tangling under real load). Ask what an experienced team would rip out or bolt on in its first week.",
       "anchors": {
-        "1–3": "No discernible design.",
-        "4–6": "Some structure; frequent layer violations.",
+        "1–3": "No discernible design, or technology that fights the problem.",
+        "4–6": "Some structure; frequent layer violations; some choices that don't fit.",
         "7–8": "Clear, fitting design with a few leaks.",
         "9–10": "The design is obvious, fits the problem precisely, has recorded rationale, and its boundaries are enforced by import rules or package visibility."
       }
@@ -214,8 +214,8 @@
       "name": "Structure & Organization",
       "pillar": "B",
       "applies_when": null,
-      "measures": "The codebase is easy to navigate. Directory layout reflects the domain or architecture; things live where you'd expect; file and folder names are consistent; source, tests, scripts, config and docs are separated; no junk-drawer `utils/` or `misc/`; generated code is isolated. Repo hygiene: `.gitignore` is correct, and no build artifacts, secrets or large binaries are committed.",
-      "not_this": "Logical coupling (B2).",
+      "measures": "The codebase is easy to navigate. Directory layout reflects the domain or architecture; things live where you'd expect; file and folder names are consistent; source, tests, scripts, config and docs are separated; no junk-drawer `utils/` or `misc/`; generated code is isolated. Repo hygiene: `.gitignore` is correct, and no build artifacts or large binaries are committed.",
+      "not_this": "Logical coupling (B2). Committed secrets (A2).",
       "assess": "Pick 5 concepts (e.g. \"where is pricing calculated?\", \"where are the DB models?\") and note how quickly and confidently each can be found. Inspect the top two levels of the tree and the tracked files.",
       "anchors": {
         "1–3": "Chaotic; things scattered.",
@@ -260,8 +260,8 @@
       "name": "Leanness",
       "pillar": "B",
       "applies_when": null,
-      "measures": "No more code, dependencies, configuration or runtime weight than the job needs. Covers dead code, unused exports and files, unused or redundant dependencies, speculative abstractions and layers, reinventing what the standard library already provides, oversized bundles, binaries or images, slow startup, and a bloated configuration surface.",
-      "not_this": "Duplication and complexity (C2). Removing needed features is **not** leanness (anti-gaming).",
+      "measures": "No more code, dependencies, configuration, features or runtime weight than the job needs. Covers dead code, unused exports and files, unused or redundant dependencies, speculative abstractions and layers, gold-plating (features, options and polish beyond what the purpose needs), reinventing what the standard library already provides, oversized bundles, binaries or images, slow startup, and a bloated configuration surface.",
+      "not_this": "Duplication and complexity (C2). Operating cost (X4). Removing needed features is **not** leanness (anti-gaming).",
       "assess": "Run unused-code and unused-dependency tools (`knip`, `ts-prune`, `depcheck`, `vulture`, `cargo-udeps`, `deadcode`...). Measure bundle, image or binary size and startup time. Count abstraction layers per request path. Compare code size per feature to comparable tools.",
       "anchors": {
         "1–3": "Heavy bloat; large dead areas; dependency sprawl.",
@@ -272,17 +272,17 @@
     },
     {
       "id": "C1",
-      "name": "Readability & Clarity",
+      "name": "Readability & Consistency",
       "pillar": "C",
       "applies_when": null,
-      "measures": "How quickly a competent newcomer understands the code: intent-revealing names, small functions, shallow nesting, clear control flow, no magic numbers, comments that explain *why*, no cleverness for its own sake.",
-      "not_this": "Codebase-level navigability (B3). Style uniformity (C3).",
-      "assess": "Read core modules cold. Note functions over about 50 lines, nesting of 4+ levels, cryptic names and misleading comments.",
+      "measures": "How quickly a competent newcomer understands the code, and how uniform it is. Intent-revealing names; clear control flow; no magic numbers; comments that explain *why*; no cleverness for its own sake. Uniform conventions across the codebase (naming, error patterns, formatting, file shape), and idiomatic use of the language and framework rather than patterns carried over from somewhere else.",
+      "not_this": "Codebase-level navigability (B3). Function length, nesting and complexity (C2). Which tools a contributor uses (E3), and whether CI enforces them (F2).",
+      "assess": "Read core modules cold, and compare modules from different eras or authors. Note cryptic names, misleading comments, non-idiomatic constructs and hand-rolled standard features. Run the formatter and linter in check mode.",
       "anchors": {
-        "1–3": "Cryptic.",
-        "4–6": "Readable with effort.",
-        "7–8": "Generally clear.",
-        "9–10": "Reads like well-written prose."
+        "1–3": "Cryptic; every file looks different.",
+        "4–6": "Readable with effort; pockets of divergence.",
+        "7–8": "Generally clear, consistent and idiomatic.",
+        "9–10": "Reads like well-written prose by one expert; conventions are enforced by tooling."
       },
       "regrade": "any source change"
     },
@@ -291,9 +291,9 @@
       "name": "Maintainability & Complexity",
       "pillar": "C",
       "applies_when": null,
-      "measures": "How cheap and safe changes are at the code level: duplication, cyclomatic and cognitive complexity, change amplification, TODO/FIXME debt, stale feature flags, and hotspots (high churn × high complexity).",
+      "measures": "How cheap and safe changes are at the code level: duplication, function length and nesting depth, cyclomatic and cognitive complexity, change amplification, TODO/FIXME debt, stale feature flags, and hotspots (high churn × high complexity).",
       "not_this": "Dead code and bloat (B6). Architectural coupling (B1, B2).",
-      "assess": "Run complexity and duplication tools (`radon`, `lizard`, `jscpd`, `gocyclo`...). Use `git log` to find churn hotspots and cross-reference them with complexity. Count and sample TODOs.",
+      "assess": "Run complexity and duplication tools (`radon`, `lizard`, `jscpd`, `gocyclo`...). Note functions over about 50 lines and nesting of 4+ levels. Use `git log` to find churn hotspots and cross-reference them with complexity. Count and sample TODOs.",
       "anchors": {
         "1–3": "Widespread copy-paste; extreme complexity.",
         "4–6": "Several complexity hotspots; noticeable duplication.",
@@ -303,34 +303,18 @@
       "regrade": "any source change"
     },
     {
-      "id": "C3",
-      "name": "Consistency & Idiomatic Code",
-      "pillar": "C",
-      "applies_when": null,
-      "measures": "Uniform conventions across the codebase (naming, error patterns, formatting, file shape) and idiomatic use of the language and framework, rather than patterns carried over from somewhere else.",
-      "not_this": "Use of the ecosystem's *tooling* (E4).",
-      "assess": "Compare modules from different eras or authors. Run the formatter in check mode. Note non-idiomatic constructs and hand-rolled standard features.",
-      "anchors": {
-        "1–3": "Every file looks different.",
-        "4–6": "Pockets of divergence.",
-        "7–8": "Consistent and idiomatic.",
-        "9–10": "Looks written by one expert; conventions enforced by tooling."
-      },
-      "regrade": "any source change"
-    },
-    {
       "id": "C4",
       "name": "Test Suite Quality",
       "pillar": "C",
       "applies_when": null,
-      "measures": "Whether the tests would actually catch regressions: meaningful assertions; the right mix of unit, integration, contract and end-to-end tests; property or fuzz tests where valuable; determinism and speed; coverage of critical and failure paths.",
+      "measures": "Whether the tests would actually catch regressions: meaningful assertions; the right mix of unit, integration, contract and end-to-end tests; property or fuzz tests where valuable; coverage of critical and failure paths; speed; and determinism, with time, randomness, ordering and environment injected or controlled rather than hidden, so tests can pin them.",
       "not_this": "Whether the code is correct (A1). Tests are evidence for A1, not a substitute for it.",
-      "assess": "Run the suite with coverage. Read a sample of tests for assertion quality. Find flakiness sources (sleeps, real network calls, shared state, order dependence). Mentally mutate core logic, or run a mutation-testing tool: do tests fail?",
+      "assess": "Run the suite with coverage, twice. Read a sample of tests for assertion quality. Find flakiness sources (sleeps, real network calls, shared state, order dependence, unseeded randomness, `now()` called deep inside logic). Mentally mutate core logic, or run a mutation-testing tool: do tests fail?",
       "anchors": {
         "1–3": "No tests, or useless ones.",
         "4–6": "Some value; big gaps; heavy mocking.",
         "7–8": "Critical paths well tested; roughly 70%+ branch coverage on core logic; deterministic.",
-        "9–10": "Tests read as a specification; failure paths covered; mutations caught; gated in CI."
+        "9–10": "Tests read as a specification; failure paths covered; mutations caught; no flaky tests; gated in CI."
       },
       "caps": [
         {
@@ -373,8 +357,8 @@
       "name": "Gap Coverage",
       "pillar": "D",
       "applies_when": null,
-      "measures": "Absence of gaps. A gap is something the project's purpose clearly needs, or that users of this kind of software would reasonably expect, but that is missing. Examples: an auth system without password reset, a CLI without `--help` or meaningful exit codes, an API without pagination or rate-limit handling, a data tool without export, a destructive action without confirm or undo, a service without health checks, a missing platform the project says it supports.",
-      "not_this": "Unfinished *existing* features (D1). A wishlist; feature creep is not rewarded.",
+      "measures": "Absence of gaps. A gap is something the project's purpose clearly needs, or that users of this kind of software would reasonably expect, but that is missing. Examples: an auth system without password reset, a CLI without `--help`, an API without pagination or rate-limit handling, a data tool without export, a destructive action without confirm or undo, a missing platform the project says it supports.",
+      "not_this": "Unfinished *existing* features (D1). A wishlist; feature creep is not rewarded. Health and readiness checks (F1). Error handling and messages (A3, D4, F3).",
       "assess": "Compare against the stated requirements, the domain's norms and 1–3 peer tools. Build a **gap register**. Mark each gap with a severity (`critical`, `major`, `minor`) and a necessity (`must-have` or `nice-to-have`) relative to the project's purpose.",
       "anchors": {
         "1–3": "Missing essentials that make it unfit for purpose.",
@@ -392,27 +376,12 @@
       ]
     },
     {
-      "id": "D3",
-      "name": "Practicality",
-      "pillar": "D",
-      "applies_when": null,
-      "measures": "Pragmatic fitness for purpose: Technology choices suit the team, scale and budget (no Kubernetes cluster for a nightly cron job, no hand-written ORM where a standard one works). It works with realistic data volumes, real network conditions and real user workflows, not just demo data. Trade-offs are made consciously. Operating cost and effort are proportional to the value delivered. No gold-plating, and no purity that gets in the way of delivering value.",
-      "not_this": "Code-level leanness (B6). Architecture quality as such (B1).",
-      "assess": "Ask: \"Would an experienced team adopt and run this as-is? What would they rip out or bolt on in the first week?\" Test with realistic inputs where possible.",
-      "anchors": {
-        "1–3": "Impractical: wrong tools, or only works in a demo.",
-        "4–6": "Usable but awkward or over-built in places.",
-        "7–8": "Sensible, grounded choices.",
-        "9–10": "Every choice clearly serves the real use case, and the trade-offs are documented."
-      }
-    },
-    {
       "id": "D4",
       "name": "Intuitiveness",
       "pillar": "D",
       "applies_when": null,
       "measures": "Least surprise, for end users *and* developers. Sensible defaults; names that match the domain's vocabulary; consistent behavior across similar operations; discoverability (help text, completions, clear flags, resources and menus); error messages that say what to do next; no hidden modes, ordering traps or surprising side effects; it behaves the way users of similar tools expect.",
-      "not_this": "Onboarding and time-to-first-success (E1). Docs content (E2).",
+      "not_this": "Onboarding and time-to-first-success (E1). Docs content (E2). Whether errors are handled at all (A3), and whether operators can diagnose them (F3).",
       "assess": "Do 3–5 common tasks as a first-time user without reading the source. Log every surprise, guess and dead end.",
       "anchors": {
         "1–3": "Confusing; users must read the source.",
@@ -427,7 +396,7 @@
       "pillar": "E",
       "applies_when": null,
       "measures": "Time-to-first-success for someone *adopting* the project (end user, integrator, library consumer, new operator). Covers: Installing through standard channels. A quickstart that actually works. Runnable examples. Zero-config or sensible defaults. A clear license. A supported-versions or compatibility matrix. Upgrade and migration guides. Issue and support paths. Low integration friction with common stacks. No lock-in surprises.",
-      "not_this": "The contributor experience (E3). Docs accuracy in general (E2).",
+      "not_this": "The contributor experience (E3). Docs accuracy beyond the quickstart (E2).",
       "assess": "From a clean environment, follow the quickstart literally. Count the steps, minutes and stumbles to the first meaningful result. A quickstart that needs something the documented install doesn't provide (an extra package, a system library) fails as written.",
       "anchors": {
         "1–3": "Can't get started without help from the author.",
@@ -454,8 +423,8 @@
       "pillar": "E",
       "applies_when": null,
       "measures": "Quality and accuracy of the documentation at every layer: README (purpose, setup, usage, configuration), API reference, architecture overview, decision records, runbooks, changelog, and inline comments explaining *why*. Above all, docs must match the code.",
-      "not_this": "The onboarding experience (E1). A contributor setup or test command that doesn't work, even where it's documented (E3). Agent-specific instructions (X6).",
-      "assess": "Do the same checks every time, so graders find the same things: Run every example in the README and the main usage guide, as written, in a clean environment. Reading them isn't enough. Compare the API reference with the public names in the code: what's missing, and what's documented but gone. Check five documented behaviors that users rely on (defaults, error handling, timing, limits) against the code. Severity of a docs error: `major` when following the docs gives a wrong program, or a failure with no obvious fix; otherwise `minor` (a typo, a stale date with a clear error, a missing name). `E2-cap-1` is for instructions users follow to install, configure or run the project; a contributor setup that fails is E3.",
+      "not_this": "The onboarding experience, including a quickstart that fails (E1). Contributor setup, test commands and agent instructions, even where they're documented (E3).",
+      "assess": "Do the same checks every time, so graders find the same things: Run every example in the README and the main usage guide, as written, in a clean environment. Reading them isn't enough. Compare the API reference with the public names in the code: what's missing, and what's documented but gone. Check five documented behaviors that users rely on (defaults, error handling, timing, limits) against the code. Severity of a docs error: `major` when following the docs gives a wrong program, or a failure with no obvious fix; otherwise `minor` (a typo, a stale date with a clear error, a missing name). `E2-cap-1` is for instructions and documented behavior users rely on to install, configure or use the project, beyond the quickstart (a failing quickstart is `E1-cap-1`). A contributor setup that fails is E3.",
       "anchors": {
         "1–3": "Missing or misleading.",
         "4–6": "Basic, with gaps and stale parts: an example fails in a way that misleads, a behavior users rely on is stated wrongly, or much of the public API is undocumented.",
@@ -465,44 +434,28 @@
       "caps": [
         {
           "id": "E2-cap-1",
-          "when": "Wrong setup instructions",
+          "when": "Docs misstate how to install, configure or use the project, beyond the quickstart",
           "max": 5
         }
       ]
     },
     {
       "id": "E3",
-      "name": "Developer Experience & Inner Loop",
+      "name": "Contributor & Agent Experience",
       "pillar": "E",
       "applies_when": null,
-      "measures": "How productive a *contributor* is day to day: One-command dev setup. Fast edit-build-test cycle, with hot reload where relevant. Easy single-test runs. Local environment that matches production (compose file, devcontainer, Nix...), plus seed data. A working debugger. Discoverable task scripts (`make`, `just`, npm scripts). A contribution guide. Fast CI feedback.",
-      "not_this": "The outsider-adopter experience (E1). Choice of standard toolchain (E4).",
-      "assess": "Measure time from clone to passing tests, time to run one test, incremental build time, and how many undocumented steps you hit. A documented dev setup or test command that fails is an E3 finding, not an E2 one.",
+      "measures": "How productive a *contributor*, a person or an AI coding agent, is day to day: One-command dev setup through the ecosystem's standard package manager and manifest (`pyproject.toml`, `package.json`, `Cargo.toml`, `go.mod`, Gradle/Maven...). The standard test runner, formatter and linter, and the conventional project layout, rather than bespoke scripts that reinvent the toolchain. A fast edit-build-test cycle, easy single-test runs, and a local environment that matches production (compose file, devcontainer, Nix...), plus seed data. A working debugger, and IDE and language-server integration. Discoverable task scripts (`make`, `just`, npm scripts) and a contribution guide. Instructions an agent can follow: an `AGENTS.md`, `CLAUDE.md` or equivalent with exact build, test, lint and run commands, the conventions and module boundaries written down, and generated or protected files marked. Clear signals of success and failure (exit codes, machine-readable output), and fast CI feedback.",
+      "not_this": "The outsider-adopter experience (E1). Code-level idiom (C1). Whether CI blocks merges (F2). Publishing artifacts (F1).",
+      "assess": "Measure time from clone to passing tests, time to run one test, incremental build time, and how many undocumented steps you hit. Inventory the build, test, lint, format and task tools, and flag each custom tool where a standard exists without a documented reason. Ask whether an agent with no prior context could make a correct, verified change from the repo alone. A documented dev setup or test command that fails is an E3 finding, not an E2 one.",
       "anchors": {
-        "1–3": "Painful setup; slow loops.",
-        "4–6": "Workable with tribal knowledge.",
-        "7–8": "Quick setup; fast loops.",
-        "9–10": "Productive within an hour of cloning; inner loop measured in seconds."
-      },
-      "scope": "repo"
-    },
-    {
-      "id": "E4",
-      "name": "Native Tooling & Ecosystem Fit",
-      "pillar": "E",
-      "applies_when": null,
-      "measures": "The project uses its ecosystem's standard tools and conventions rather than bespoke ones: The native package manager and manifest (`pyproject.toml`, `package.json`, `Cargo.toml`, `go.mod`, Gradle/Maven...). The standard test runner, formatter and linter. The conventional project layout. Built-in language features and the standard library over custom scripts. Publishing in native formats (wheel, crate, npm package, OCI image). Working IDE and language-server integration. No sprawl of shell scripts that reinvent what the toolchain already does.",
-      "not_this": "Code-level idiom (C3).",
-      "assess": "Inventory the build, test, lint, format, release and task-running tools. Flag each custom tool where a standard exists, and check whether a documented reason is given.",
-      "anchors": {
-        "1–3": "A homegrown toolchain that fights the ecosystem.",
-        "4–6": "Mixed; several bespoke pieces.",
-        "7–8": "Standard tools used throughout.",
-        "9–10": "Feels native; any ecosystem developer is productive immediately with tools they already know."
+        "1–3": "Painful setup; slow loops; a homegrown toolchain that fights the ecosystem.",
+        "4–6": "Workable with tribal knowledge; several bespoke pieces.",
+        "7–8": "Quick setup with standard tools; fast loops; the main tasks are written down.",
+        "9–10": "Productive within an hour of cloning, for people and agents alike: the inner loop takes seconds, and the instructions give the exact commands."
       },
       "caps": [
         {
-          "id": "E4-cap-1",
+          "id": "E3-cap-1",
           "when": "A custom build or test harness where a standard exists, with no documented reason",
           "max": 6
         }
@@ -514,8 +467,8 @@
       "name": "Ease of Deployability",
       "pillar": "F",
       "applies_when": null,
-      "measures": "The path from merged code to running in an environment: Automated or one-command deploy. A packaged, immutable artifact (container image or package). Infrastructure as code. Configuration externalized and validated at startup. Proper secrets management. Parity between environments. Health and readiness checks. Migrations integrated into the deploy. Zero-downtime deploys and rollback where relevant. A documented runbook. For libraries and CLIs, \"deploy\" means release and publish, and installing the published artifact.",
-      "not_this": "CI checks and gates (F2). Whether operations are safe to repeat (A4).",
+      "measures": "The path from merged code to running in an environment: Automated or one-command deploy. A packaged, immutable artifact (container image or package). Infrastructure as code. Configuration externalized and validated at startup. Proper secrets management. Parity between environments. Health and readiness checks. Migrations integrated into the deploy. Zero-downtime deploys and rollback where relevant. A documented runbook. For libraries and CLIs, \"deploy\" means release and publish, in the ecosystem's native format (wheel, crate, npm package, OCI image), and installing the published artifact.",
+      "not_this": "CI checks and gates (F2). Whether operations are safe to repeat (A4). Diagnosing a running system (F3).",
       "assess": "Follow the deploy or release process on paper, or for real if possible. Count manual steps. Find hard-coded environment values. Check for a rollback path.",
       "anchors": {
         "1–3": "Deploying needs the author and code edits.",
@@ -542,7 +495,7 @@
       "pillar": "F",
       "applies_when": null,
       "measures": "Reproducible builds; automated format, lint, type and test checks; CI that blocks merges on failure; caching and speed; automated releases and versioning; pre-commit hooks.",
-      "not_this": "Which tools are used (E4). Deploy mechanics (F1).",
+      "not_this": "Which tools are used (E3). Deploy mechanics (F1). Whether the tests themselves are deterministic (C4).",
       "assess": "Inspect the CI config. Which checks run, and do they block merges? Measure CI duration if visible.",
       "anchors": {
         "1–3": "No CI.",
@@ -557,7 +510,8 @@
       "name": "Observability & Debuggability",
       "pillar": "F",
       "applies_when": null,
-      "measures": "You can tell what the system is doing and diagnose problems without attaching a debugger. Structured, leveled logs; correlation or request IDs; metrics; tracing where relevant; health endpoints; actionable error output; and no secrets or PII in telemetry. For a CLI: clear errors, verbose and debug modes, meaningful exit codes.",
+      "measures": "You can tell what the system is doing and diagnose problems without attaching a debugger. Structured, leveled logs; correlation or request IDs; metrics; tracing where relevant; error output an operator can act on; and no secrets or PII in telemetry. For a CLI: verbose and debug modes, and meaningful exit codes.",
+      "not_this": "Health and readiness checks (F1). Whether errors are handled (A3), and whether messages tell users what to do next (D4).",
       "assess": "Pick a realistic failure in a core flow. Would the logs and metrics be enough to diagnose it? For a library, which has no telemetry of its own, F3 is `limited`: grade its error messages and exceptions, and whether it logs through the host's logging, with levels.",
       "anchors": {
         "1–3": "Failures are opaque.",
@@ -571,8 +525,8 @@
       "name": "Performance, Efficiency & Scalability",
       "pillar": "F",
       "applies_when": null,
-      "measures": "Appropriate algorithms and data structures; efficient I/O (no N+1 queries; batching and streaming); sensible memory and CPU use; caching where justified; no blocking calls in async code; no unbounded growth; graceful behavior at 10× expected load; optimization based on measurement.",
-      "assess": "Review the busiest code paths. Look for queries inside loops, whole datasets loaded into memory, missing indexes and quadratic loops over large inputs. Run benchmarks or profilers if they exist.",
+      "measures": "Appropriate algorithms and data structures; efficient I/O (no N+1 queries; batching and streaming); sensible memory and CPU use; caching where justified; no blocking calls in async code; no unbounded growth; it works with realistic data volumes, real network conditions and real workflows, not just demo data; graceful behavior at 10× expected load; optimization based on measurement.",
+      "assess": "Review the busiest code paths, with realistic inputs where possible. Look for queries inside loops, whole datasets loaded into memory, missing indexes and quadratic loops over large inputs. Run benchmarks or profilers if they exist.",
       "anchors": {
         "1–3": "Will fail at expected scale.",
         "4–6": "OK now; clear inefficiencies.",
@@ -606,8 +560,8 @@
       "name": "Dependency Health & Longevity",
       "pillar": "F",
       "applies_when": null,
-      "measures": "Dependencies are pinned and locked, maintained, minimal and license-compatible, and the project resists bit rot: runtime and framework versions are within their support windows, no deprecated APIs, the toolchain is pinned, and updates are automated.",
-      "not_this": "*Reachable* vulnerabilities (A2). *Unused* dependencies (B6).",
+      "measures": "Dependencies are pinned and locked, maintained and minimal, and the project resists bit rot: runtime and framework versions are within their support windows, no deprecated APIs, the toolchain is pinned, and updates are automated.",
+      "not_this": "*Reachable* vulnerabilities (A2). *Unused* dependencies (B6). License compatibility (X5).",
       "assess": "Inspect manifests and lockfiles. Run outdated and audit checks. Check end-of-life dates for the runtime and major frameworks. Grep for deprecation warnings in build and test output.",
       "anchors": {
         "1–3": "Unpinned, abandoned or end-of-life.",
@@ -637,7 +591,8 @@
       "name": "Public API Stability & Upgradeability",
       "pillar": "X",
       "applies_when": "libraries, SDKs, public APIs",
-      "measures": "Semantic versioning, a changelog, a deprecation policy with warnings, backward-compatibility tests, a minimal public surface, a clear split between public and internal code, and migration guides for breaking changes.",
+      "measures": "Semantic versioning, a changelog that is honest about breaking changes, a deprecation policy with warnings, backward-compatibility tests, a minimal public surface, a clear split between public and internal code, and migration guides for breaking changes.",
+      "not_this": "The changelog's quality as documentation (E2).",
       "caps": [
         {
           "id": "X2-cap-1",
@@ -666,7 +621,7 @@
       "name": "Cost Efficiency",
       "pillar": "X",
       "applies_when": "code that runs on paid infrastructure or APIs",
-      "measures": "Resources are right-sized; autoscaling and scale-to-zero where sensible; no runaway loops calling paid APIs; caching of expensive calls; storage lifecycle policies; resources tagged and costs visible; budget alerts."
+      "measures": "Operating cost and effort are proportional to the value delivered. Resources are right-sized; autoscaling and scale-to-zero where sensible; no runaway loops calling paid APIs; caching of expensive calls; storage lifecycle policies; resources tagged and costs visible; budget alerts."
     },
     {
       "id": "X5",
@@ -674,15 +629,6 @@
       "pillar": "X",
       "applies_when": "regulated data, or distributed software",
       "measures": "Dependency licenses are compatible; an SBOM can be generated; audit logs exist for sensitive actions; data residency and retention controls; controls required by any applicable regimes (GDPR, HIPAA, SOC 2, PCI...) are present and documented."
-    },
-    {
-      "id": "X6",
-      "name": "Agent-Readiness",
-      "pillar": "X",
-      "applies_when": "graded by default in this workflow, because agents will maintain the code",
-      "measures": "An AI coding agent can work on this codebase safely and productively: An `AGENTS.md`, `CLAUDE.md` or equivalent with exact build, test, lint and run commands. Fast, scoped, deterministic verification commands. Conventions and module boundaries written down. No tribal knowledge needed to make a correct change. Generated and protected files clearly marked. Clear signals of success and failure (exit codes, machine-readable output).",
-      "assess": "Could an agent with no prior context make a correct, verified change from the repo alone?",
-      "scope": "repo"
     }
   ]
 }

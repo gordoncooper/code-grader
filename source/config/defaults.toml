@@ -26,8 +26,9 @@
 # The version of the scoring rules, which is not always the kit's version. It changes only
 # when the scoring rules change, so releases that only add tools, fields or wording (such as
 # 4.2.2 and 4.3.0) keep config fingerprints, and older reports, valid. 5.0.0 changed what
-# severity means (see ZONES). The kit grades under these rules only.
-suite_version = "5.0.0"
+# severity means (see ZONES). 6.0.0 reshaped the rubric: 31 benchmarks, with C3, D3, E4 and X6
+# merged into others (C1, B1/B6/F4/X4, E3, E3). The kit grades under these rules only.
+suite_version = "6.0.0"
 
 
 # -----------------------------------------------------------------------------
@@ -56,20 +57,17 @@ B4 = 2   # Interface Design & Contracts
 B5 = 1   # Flexibility & Extensibility
 B6 = 2   # Leanness
 # C: Code Health
-C1 = 2   # Readability & Clarity
+C1 = 2   # Readability & Consistency
 C2 = 2   # Maintainability & Complexity
-C3 = 1   # Consistency & Idiomatic Code
 C4 = 2   # Test Suite Quality
 # D: Value & Fitness for Purpose
 D1 = 2   # Feature Completeness
 D2 = 2   # Gap Coverage
-D3 = 2   # Practicality
 D4 = 2   # Intuitiveness
 # E: Adoption & Experience
 E1 = 2   # Adopter Friendliness
 E2 = 2   # Documentation
-E3 = 1   # Developer Experience & Inner Loop
-E4 = 1   # Native Tooling & Ecosystem Fit
+E3 = 2   # Contributor & Agent Experience
 # F: Operations & Delivery
 F1 = 2   # Ease of Deployability
 F2 = 1   # Build, CI/CD & Automation
@@ -83,7 +81,6 @@ X2 = 2   # Public API Stability & Upgradeability
 X3 = 2   # Concurrency Safety
 X4 = 2   # Cost Efficiency
 X5 = 2   # Compliance & Licensing
-X6 = 1   # Agent-Readiness
 
 # Explicit overrides beat everything else, and each one needs a reason.
 # Normally set in project.toml, e.g.:
@@ -122,7 +119,7 @@ options.developers   = { label = "Developers who integrate with it (library, SDK
 [questions.lifespan]
 prompt  = "How long will this code live?"
 default = "years"
-options.throwaway  = { label = "Days to weeks (spike, demo, experiment)", effects = { B1 = -1, B2 = -1, B5 = -1, C2 = -1, C4 = -1, E3 = -1, F6 = -1, D3 = 1 } }
+options.throwaway  = { label = "Days to weeks (spike, demo, experiment)", effects = { B1 = -1, B2 = -1, B5 = -1, C2 = -1, C4 = -1, E3 = -1, F6 = -1 } }
 options.months     = { label = "Months", effects = { B5 = -1, F6 = -1 } }
 options.years      = { label = "Years", effects = {} }
 options.indefinite = { label = "Indefinitely (core system, long-lived product)", effects = { B1 = 1, C2 = 1, F6 = 1 } }
@@ -138,10 +135,10 @@ options.safety_or_legal = { label = "Harm to people, or legal / regulatory expos
 [questions.team]
 prompt  = "Who works on it?"
 default = "small"
-options.solo        = { label = "One person", effects = { C3 = -1, E3 = -1 } }
+options.solo        = { label = "One person", effects = { C1 = -1, E3 = -1 } }
 options.small       = { label = "A small team (2–10)", effects = {} }
-options.large       = { label = "A large team or several teams", effects = { B2 = 1, C3 = 1, E3 = 1, F2 = 1 } }
-options.open_source = { label = "Open source with outside contributors", effects = { C3 = 1, E1 = 1, E2 = 1, E3 = 1, F2 = 1 } }
+options.large       = { label = "A large team or several teams", effects = { B2 = 1, C1 = 1, E3 = 1, F2 = 1 } }
+options.open_source = { label = "Open source with outside contributors", effects = { C1 = 1, E1 = 1, E2 = 1, E3 = 1, F2 = 1 } }
 
 [questions.change_rate]
 prompt  = "How often does it change?"
@@ -156,7 +153,7 @@ default = "mixed"
 options.mixed           = { label = "Mixed or unsure", effects = {} }
 options.service         = { label = "A service or API we deploy and operate", effects = { A4 = 1, F1 = 1, F3 = 2 } }
 options.website         = { label = "A website or web app", effects = { D4 = 1, F3 = 1, F4 = 1 } }
-options.package         = { label = "A library or SDK others install", effects = { B2 = 1, B4 = 1, E4 = 1, F1 = -1, F2 = 1, F5 = 1, X2 = 1 } }
+options.package         = { label = "A library or SDK others install", effects = { B2 = 1, B4 = 1, E3 = 1, F1 = -1, F2 = 1, F5 = 1, X2 = 1 } }
 options.installed_app   = { label = "A CLI, desktop or mobile app users install", effects = { A5 = -1, D4 = 1, F1 = -1, F5 = 1 } }
 options.internal_script = { label = "Scripts or tools run only by their authors", effects = { E1 = -1, F1 = -1, F5 = -1 } }
 

@@ -17,7 +17,7 @@ def test_the_index_has_what_the_pages_draw():
     p = json.loads(INDEX.read_text())["projects"][0]
     for r in p["history"]:
         assert set(r["pillars"]) >= {"A", "B", "C", "D", "E", "F"}
-        assert len(r["scores"]) == 35 and r["scores"]["X1"] == "n/a"
+        assert len(r["scores"]) == 31 and r["scores"]["X1"] == "n/a"
     d = p["pending_decisions"][0]
     assert d["benchmark_id"] == "D1" and d["action"].startswith("Either implement")
     assert p["latest"]["below_target"] > 0 and p["latest"]["actions_ready"] == 31
@@ -67,7 +67,7 @@ def test_every_project_at_a_glance(page, site):
     projects_tab("all")(page, site)
     row = page.locator(".proj-table tbody tr").first
     assert row.locator("button.name").inner_text() == "orders-api"
-    assert row.locator("td.num").inner_text() == "4.9" and "decide" in row.inner_text()
+    assert row.locator("td.num").inner_text() == "4.8" and "decide" in row.inner_text()
     assert "people: 1 decision to make" in row.inner_text()
     assert page.locator(".proj-table .spark svg").count() == 1
     assert page.inner_text("#pj-dec-count") == "1"
@@ -77,12 +77,12 @@ def test_every_project_at_a_glance(page, site):
 def test_one_project_trends_and_heatmap(page, site):
     projects_tab("project")(page, site)
     assert page.locator(".cycle-steps li.now").inner_text() == "decide"
-    assert page.locator("table.heat tbody th[scope=row]").count() == 35
+    assert page.locator("table.heat tbody th[scope=row]").count() == 31
     cell = page.locator("table.heat tbody tr", has_text="A2 Security").locator("td").last
     assert cell.inner_text() == "5" and "s5" in cell.get_attribute("class")
     assert page.locator(".multiple").count() >= 7
     page.locator(".multiple").first.locator("circle.hit").last.focus()
-    assert page.inner_text(".chart-tip") == "2026-11-07: 4.9", "a point's value shows on keyboard focus, not just hover"
+    assert page.inner_text(".chart-tip") == "2026-11-07: 4.8", "a point's value shows on keyboard focus, not just hover"
     assert "Load the index from a GitHub grading repo" in page.inner_text("#panel-project")
 
 

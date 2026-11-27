@@ -9,7 +9,17 @@ Versioning rules for the suite itself:
 After any major or minor change, re-run calibration (`calibration/README.md`) before trusting new scores.
 
 ## 6.0.0 (unreleased)
-A new major. **6.0 reads only format-5 reports and grades under one set of rules:** reports graded with 4.x stay readable with the 4.x and 5.x kits, which the site keeps serving at `/v4/` and `/v5/`.
+A new major, with a reshaped rubric and new scoring rules (scoring 6.0.0). **Scores aren't comparable with 5.x:** benchmarks were merged and their boundaries redrawn, so a 6.0 report starts a new baseline. 6.0 reads format-5 reports, but grades only under its own rules. Reports graded with 4.x and 5.x stay readable with those kits, which the site keeps serving at `/v4/` and `/v5/`.
+
+- **31 benchmarks instead of 35** (26 core and 5 conditional). The coverage is the same; what changed is the overlap, where one concern lived in several benchmarks, so one root cause was penalized more than once and graders disagreed about where a finding belonged. IDs that remain keep their meaning, and the merged ones are retired rather than renumbered:
+  - **C1 Readability & Consistency** absorbs C3 (conventions and idiom). Function length and nesting move to C2. Its base weight stays 2, and it takes over C3's question effects.
+  - **E3 Contributor & Agent Experience** absorbs E4 (standard tooling) and X6 (agent-readiness). Base weight 2; `E4-cap-1` is now `E3-cap-1`; a 9 or 10 needs instructions with the exact commands. Publishing in native formats moves to F1.
+  - **D3 Practicality** is retired: technology fit goes to B1, gold-plating to B6, realistic data volumes to F4, and operating cost to X4.
+  - **A4 Idempotence & Safe Retries** keeps idempotence. Deterministic tests and injected time and randomness move to C4, and reproducible builds to F2.
+- **One home for each shared concern.** Error handling is A3, messages that say what to do next D4, and diagnosing a running system F3 (exit codes left D2's examples). Health checks are F1, committed secrets A2, license compatibility X5, the quickstart E1 (`E2-cap-1` now covers the rest of the docs), and the changelog E2 (X2 checks it's honest about breaking changes).
+- **Weights and questions:** `team` (solo, large, open source) now adjusts C1 instead of C3, a package adjusts E3 instead of E4, and a throwaway project no longer raises Practicality.
+- **Calibration before release:** the golden repo's expected scores for the merged benchmarks (C1 and E3) are provisional until a person reviews them. The runs so far were graded under scoring 5.0 and don't count, so 6.0 needs at least three new independent runs; `calibration/RESULTS.md` says "not passed yet" until then.
+- **The bundled example is re-graded under 6.0:** its findings moved to the benchmarks that own them now (A4-002 is C4-002, D3-001 is A1-002, E4-001 and X6-001 are E3-002 and E3-003). Its latest overall is 4.8 (L0), from 4.9.
 
 - **Removed, with the 4.x reports:**
   - the 4.x scoring rules (`config/scoring/4.2.0.toml`) and the format-4 schema;

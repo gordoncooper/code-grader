@@ -1,6 +1,6 @@
 # Code Grading
 
-This is the central grading repo. Coding agents grade a codebase on 35 benchmarks, each scored 1–10, and every report lands here. Improver agents then use those reports as targets, and people stay in charge of the settings and decisions.
+This is the central grading repo. Coding agents grade a codebase on 31 benchmarks, each scored 1–10, and every report lands here. Improver agents then use those reports as targets, and people stay in charge of the settings and decisions.
 
 This repo also holds the **Code Grading Suite** itself (the prompts, rubric, config and the `gradekit` tool) and its website, so one clone gives an agent everything it needs.
 

@@ -5,12 +5,12 @@
 *Is the system shaped well, and does that shape stay easy to change?*
 
 ## B1. Architecture & Design Fitness
-- **Measures:** The overall shape suits the problem: clear layering, correct dependency direction (domain logic doesn't depend on frameworks or I/O), consistent patterns, important decisions recorded, and a design that can meet the scale and requirements it actually has.
-- **Not this:** Boundaries of individual units (B2). Physical file layout (B3).
-- **Assess:** Sketch the system's components and data flow. Look for business logic in controllers, views or SQL, framework types leaking into the domain, and mismatched architecture (e.g. microservices for a tiny app, or a monolith that's tangling under real load).
+- **Measures:** The overall shape suits the problem: clear layering, correct dependency direction (domain logic doesn't depend on frameworks or I/O), consistent patterns, important decisions recorded, and a design that meets the requirements the project actually has. The technology suits the problem, the team and the budget (no Kubernetes cluster for a nightly cron job, no hand-written ORM where a standard one works), and trade-offs are made consciously.
+- **Not this:** Boundaries of individual units (B2). Physical file layout (B3). Building more than the purpose needs (B6). Behavior at realistic data volumes and load (F4).
+- **Assess:** Sketch the system's components and data flow. Look for business logic in controllers, views or SQL, framework types leaking into the domain, and mismatched architecture (e.g. microservices for a tiny app, or a monolith that's tangling under real load). Ask what an experienced team would rip out or bolt on in its first week.
 - **Anchors:**
-  - **1–3:** No discernible design.
-  - **4–6:** Some structure; frequent layer violations.
+  - **1–3:** No discernible design, or technology that fights the problem.
+  - **4–6:** Some structure; frequent layer violations; some choices that don't fit.
   - **7–8:** Clear, fitting design with a few leaks.
   - **9–10:** The design is obvious, fits the problem precisely, has recorded rationale, and its boundaries are enforced by import rules or package visibility.
 
@@ -26,8 +26,8 @@
 - **Caps:** Circular dependencies between major modules → max 5 (`B2-cap-1`).
 
 ## B3. Structure & Organization
-- **Measures:** The codebase is easy to navigate. Directory layout reflects the domain or architecture; things live where you'd expect; file and folder names are consistent; source, tests, scripts, config and docs are separated; no junk-drawer `utils/` or `misc/`; generated code is isolated. Repo hygiene: `.gitignore` is correct, and no build artifacts, secrets or large binaries are committed.
-- **Not this:** Logical coupling (B2).
+- **Measures:** The codebase is easy to navigate. Directory layout reflects the domain or architecture; things live where you'd expect; file and folder names are consistent; source, tests, scripts, config and docs are separated; no junk-drawer `utils/` or `misc/`; generated code is isolated. Repo hygiene: `.gitignore` is correct, and no build artifacts or large binaries are committed.
+- **Not this:** Logical coupling (B2). Committed secrets (A2).
 - **Assess:** Pick 5 concepts (e.g. "where is pricing calculated?", "where are the DB models?") and note how quickly and confidently each can be found. Inspect the top two levels of the tree and the tracked files.
 - **Anchors:**
   - **1–3:** Chaotic; things scattered.
@@ -57,8 +57,8 @@
   - **9–10:** Likely changes are additive and localized, with no unused extension points.
 
 ## B6. Leanness
-- **Measures:** No more code, dependencies, configuration or runtime weight than the job needs. Covers dead code, unused exports and files, unused or redundant dependencies, speculative abstractions and layers, reinventing what the standard library already provides, oversized bundles, binaries or images, slow startup, and a bloated configuration surface.
-- **Not this:** Duplication and complexity (C2). Removing needed features is **not** leanness (anti-gaming).
+- **Measures:** No more code, dependencies, configuration, features or runtime weight than the job needs. Covers dead code, unused exports and files, unused or redundant dependencies, speculative abstractions and layers, gold-plating (features, options and polish beyond what the purpose needs), reinventing what the standard library already provides, oversized bundles, binaries or images, slow startup, and a bloated configuration surface.
+- **Not this:** Duplication and complexity (C2). Operating cost (X4). Removing needed features is **not** leanness (anti-gaming).
 - **Assess:** Run unused-code and unused-dependency tools (`knip`, `ts-prune`, `depcheck`, `vulture`, `cargo-udeps`, `deadcode`...). Measure bundle, image or binary size and startup time. Count abstraction layers per request path. Compare code size per feature to comparable tools.
 - **Anchors:**
   - **1–3:** Heavy bloat; large dead areas; dependency sprawl.

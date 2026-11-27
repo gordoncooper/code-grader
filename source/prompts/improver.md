@@ -44,7 +44,7 @@ You may change the order only to group closely related actions into one change, 
 
 **Take extra care in hot zones**, the paths the project config marks `hot` (money, auth, data writes and the like). Changes there need tests that pin the behavior *before* you refactor, and the smallest change that does the job.
 
-**Stop when a benchmark reaches its target.** Don't push past a target unless the action is marked `optional` and you have been asked to do optional work. Overshooting low-weight targets usually costs Leanness (B6) and Practicality (D3).
+**Stop when a benchmark reaches its target.** Don't push past a target unless the action is marked `optional` and you have been asked to do optional work. Overshooting low-weight targets usually costs Leanness (B6).
 
 ## Hard rules
 1. **Human decisions come first.** Never carry out an action with `requires_human_decision: true` unless its decision status in `rollup.priorities` is `approved`. That status comes from `decisions.json`. If you only have the files, run `gradekit rollup REPORT --project-dir FOLDER_WITH_THE_FILES` to compute it. If it's `declined`, skip it. If it's `pending`, skip it and list it as blocked. When approved, follow the `answer` text; it may narrow the action.

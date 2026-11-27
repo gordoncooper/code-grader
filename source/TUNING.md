@@ -78,7 +78,7 @@ overrides = { F4 = 10 }    # this project must be fast, whatever the mode
 ```toml
 [weights.overrides]
 F4 = { weight = 3, reason = "Contractual p99 latency SLA of 50 ms" }
-X6 = { weight = 0, reason = "No agents maintain this repo" }   # 0 = doesn't count at all
+X4 = { weight = 0, reason = "Runs on hardware the team already owns" }   # 0 = doesn't count at all
 ```
 
 ### 5. Add or remove gates

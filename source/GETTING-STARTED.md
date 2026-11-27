@@ -10,7 +10,7 @@ Four jobs, each done by a separate agent session (or by you):
 
 | Job | Who | What happens |
 |---|---|---|
-| **Grade** | An agent | Reads the code, runs its tests and tools, and scores 35 benchmarks from 1 to 10 with evidence. Produces `report.json` and `report.md`. |
+| **Grade** | An agent | Reads the code, runs its tests and tools, and scores 31 benchmarks from 1 to 10 with evidence. Produces `report.json` and `report.md`. |
 | **Review** | You (or an agent helping you) | Checks the report, compares it with the previous one, and answers the few questions that need a person's call. |
 | **Improve** | An agent | Works down the report's ranked to-do list and opens a pull request on your code. |
 | **Check** | An agent | On each code pull request, re-grades only what changed, and fails anything that made the code worse. |

@@ -16,8 +16,8 @@
   - Migrations integrated into the deploy.
   - Zero-downtime deploys and rollback where relevant.
   - A documented runbook.
-  - For libraries and CLIs, "deploy" means release and publish, and installing the published artifact.
-- **Not this:** CI checks and gates (F2). Whether operations are safe to repeat (A4).
+  - For libraries and CLIs, "deploy" means release and publish, in the ecosystem's native format (wheel, crate, npm package, OCI image), and installing the published artifact.
+- **Not this:** CI checks and gates (F2). Whether operations are safe to repeat (A4). Diagnosing a running system (F3).
 - **Assess:** Follow the deploy or release process on paper, or for real if possible. Count manual steps. Find hard-coded environment values. Check for a rollback path.
 - **Anchors:**
   - **1–3:** Deploying needs the author and code edits.
@@ -28,7 +28,7 @@
 
 ## F2. Build, CI/CD & Automation
 - **Measures:** Reproducible builds; automated format, lint, type and test checks; CI that blocks merges on failure; caching and speed; automated releases and versioning; pre-commit hooks.
-- **Not this:** Which tools are used (E4). Deploy mechanics (F1).
+- **Not this:** Which tools are used (E3). Deploy mechanics (F1). Whether the tests themselves are deterministic (C4).
 - **Assess:** Inspect the CI config. Which checks run, and do they block merges? Measure CI duration if visible.
 - **Anchors:**
   - **1–3:** No CI.
@@ -38,7 +38,8 @@
 - **Scope:** repo
 
 ## F3. Observability & Debuggability
-- **Measures:** You can tell what the system is doing and diagnose problems without attaching a debugger. Structured, leveled logs; correlation or request IDs; metrics; tracing where relevant; health endpoints; actionable error output; and no secrets or PII in telemetry. For a CLI: clear errors, verbose and debug modes, meaningful exit codes.
+- **Measures:** You can tell what the system is doing and diagnose problems without attaching a debugger. Structured, leveled logs; correlation or request IDs; metrics; tracing where relevant; error output an operator can act on; and no secrets or PII in telemetry. For a CLI: verbose and debug modes, and meaningful exit codes.
+- **Not this:** Health and readiness checks (F1). Whether errors are handled (A3), and whether messages tell users what to do next (D4).
 - **Assess:** Pick a realistic failure in a core flow. Would the logs and metrics be enough to diagnose it? For a library, which has no telemetry of its own, F3 is `limited`: grade its error messages and exceptions, and whether it logs through the host's logging, with levels.
 - **Anchors:**
   - **1–3:** Failures are opaque.
@@ -47,8 +48,8 @@
   - **9–10:** Any production issue can be diagnosed from telemetry alone; signals are documented, and alerting exists where relevant.
 
 ## F4. Performance, Efficiency & Scalability
-- **Measures:** Appropriate algorithms and data structures; efficient I/O (no N+1 queries; batching and streaming); sensible memory and CPU use; caching where justified; no blocking calls in async code; no unbounded growth; graceful behavior at 10× expected load; optimization based on measurement.
-- **Assess:** Review the busiest code paths. Look for queries inside loops, whole datasets loaded into memory, missing indexes and quadratic loops over large inputs. Run benchmarks or profilers if they exist.
+- **Measures:** Appropriate algorithms and data structures; efficient I/O (no N+1 queries; batching and streaming); sensible memory and CPU use; caching where justified; no blocking calls in async code; no unbounded growth; it works with realistic data volumes, real network conditions and real workflows, not just demo data; graceful behavior at 10× expected load; optimization based on measurement.
+- **Assess:** Review the busiest code paths, with realistic inputs where possible. Look for queries inside loops, whole datasets loaded into memory, missing indexes and quadratic loops over large inputs. Run benchmarks or profilers if they exist.
 - **Anchors:**
   - **1–3:** Will fail at expected scale.
   - **4–6:** OK now; clear inefficiencies.
@@ -66,8 +67,8 @@
 - **Caps:** Machine-specific assumptions in core paths → max 4 (`F5-cap-1`).
 
 ## F6. Dependency Health & Longevity
-- **Measures:** Dependencies are pinned and locked, maintained, minimal and license-compatible, and the project resists bit rot: runtime and framework versions are within their support windows, no deprecated APIs, the toolchain is pinned, and updates are automated.
-- **Not this:** *Reachable* vulnerabilities (A2). *Unused* dependencies (B6).
+- **Measures:** Dependencies are pinned and locked, maintained and minimal, and the project resists bit rot: runtime and framework versions are within their support windows, no deprecated APIs, the toolchain is pinned, and updates are automated.
+- **Not this:** *Reachable* vulnerabilities (A2). *Unused* dependencies (B6). License compatibility (X5).
 - **Assess:** Inspect manifests and lockfiles. Run outdated and audit checks. Check end-of-life dates for the runtime and major frameworks. Grep for deprecation warnings in build and test output.
 - **Anchors:**
   - **1–3:** Unpinned, abandoned or end-of-life.

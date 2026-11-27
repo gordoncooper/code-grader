@@ -45,7 +45,7 @@ def test_index_content(gk):
     (p,) = idx["projects"]
     assert p["name"] == "orders-api" and p["preset"] == "service" and p["problems"] == []
     assert [h["folder"] for h in p["history"]] == ["2026-10-24-9f8e7d6", "2026-11-07-a1b2c3d"]
-    assert p["latest"]["overall"] == 4.9 and p["latest"]["level"] == "L0" and p["latest"]["next_level"] == "L1"
+    assert p["latest"]["overall"] == 4.8 and p["latest"]["level"] == "L0" and p["latest"]["next_level"] == "L1"
     assert [{k: d[k] for k in ("action_id", "folder", "question")} for d in p["pending_decisions"]] == [
         {"action_id": "D1-act-1", "folder": "2026-11-07-a1b2c3d",
          "question": "Implement CSV and XLSX export, or drop the export claim from the README?"}]
@@ -104,7 +104,7 @@ def test_ci_accepts_only_a_current_index(grading):
     res = ci(grading)
     assert res["ok"] and res["kind"] == "settings", res
     idx = grading / "projects" / "index.json"
-    idx.write_text(idx.read_text().replace('"overall": 4.9', '"overall": 9.9'))
+    idx.write_text(idx.read_text().replace('"overall": 4.8', '"overall": 9.9'))
     git(grading, "commit", "-qam", "hand edit")
     res = ci(grading)
     assert not res["ok"] and any("index.json doesn't match" in p for p in res["problems"])

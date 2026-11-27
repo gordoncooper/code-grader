@@ -40,7 +40,7 @@ Run `gradekit resolve --config project.toml --explain A4` to see exactly how any
 |  | `internal_org` *(default)* | — | — |
 |  | `public` | A2 +1, D4 +1, X1 +1 | — |
 |  | `developers` | B4 +1, E1 +1, E2 +1, X2 +1 | — |
-| **lifespan**<br>How long will this code live? | `throwaway` | B1 -1, B2 -1, B5 -1, C2 -1, C4 -1, E3 -1, F6 -1, D3 +1 | — |
+| **lifespan**<br>How long will this code live? | `throwaway` | B1 -1, B2 -1, B5 -1, C2 -1, C4 -1, E3 -1, F6 -1 | — |
 |  | `months` | B5 -1, F6 -1 | — |
 |  | `years` *(default)* | — | — |
 |  | `indefinite` | B1 +1, C2 +1, F6 +1 | — |
@@ -48,17 +48,17 @@ Run `gradekit resolve --config project.toml --explain A4` to see exactly how any
 |  | `degraded_work` *(default)* | — | — |
 |  | `revenue_loss` | A3 +1, A4 +1, F1 +1, F3 +1 | A3 |
 |  | `safety_or_legal` | A3 +1, A5 +1, C4 +1, F3 +1 | A3, A5 |
-| **team**<br>Who works on it? | `solo` | C3 -1, E3 -1 | — |
+| **team**<br>Who works on it? | `solo` | C1 -1, E3 -1 | — |
 |  | `small` *(default)* | — | — |
-|  | `large` | B2 +1, C3 +1, E3 +1, F2 +1 | — |
-|  | `open_source` | C3 +1, E1 +1, E2 +1, E3 +1, F2 +1 | — |
+|  | `large` | B2 +1, C1 +1, E3 +1, F2 +1 | — |
+|  | `open_source` | C1 +1, E1 +1, E2 +1, E3 +1, F2 +1 | — |
 | **change_rate**<br>How often does it change? | `rare` | B5 -1 | — |
 |  | `regular` *(default)* | — | — |
 |  | `constant` | B5 +1, C2 +1, C4 +1, F2 +1 | — |
 | **delivery**<br>How is it delivered? | `mixed` *(default)* | — | — |
 |  | `service` | A4 +1, F1 +1, F3 +2 | — |
 |  | `website` | D4 +1, F3 +1, F4 +1 | — |
-|  | `package` | B2 +1, B4 +1, E4 +1, F1 -1, F2 +1, F5 +1, X2 +1 | — |
+|  | `package` | B2 +1, B4 +1, E3 +1, F1 -1, F2 +1, F5 +1, X2 +1 | — |
 |  | `installed_app` | A5 -1, D4 +1, F1 -1, F5 +1 | — |
 |  | `internal_script` | E1 -1, F1 -1, F5 -1 | — |
 | **scale**<br>What load or data volume does it face? | `small` | F4 -1 | — |
@@ -88,7 +88,7 @@ A preset is a set of typical answers. A project picks one, then overrides any an
 | A1 | Correctness & Functional Behavior | 3 | **3** | **3** | **3** | **3** | **3** | **3** | **3** | **3** |
 | A2 | Security & Privacy | 3 | **3** | **3** | **3** | **3** | **3** | **3** | **3** | **3** |
 | A3 | Robustness & Error Handling | 2 | 2 | **3** | 2 | 2 | 2 | 2 | 1 | 1 |
-| A4 | Idempotence & Determinism | 2 | 2 | 3 | 2 | 2 | 2 | 2 | 2 | 2 |
+| A4 | Idempotence & Safe Retries | 2 | 2 | 3 | 2 | 2 | 2 | 2 | 2 | 2 |
 | A5 | Durability & Recoverability | 2 | 2 | 2 | **3** | 2 | 2 | 1 | 2 | 2 |
 | B1 | Architecture & Design Fitness | 2 | 2 | 2 | 2 | 3 | 3 | 2 | 2 | 1 |
 | B2 | Modularity & Decoupling | 2 | 2 | 2 | 2 | 3 | 3 | 2 | 2 | 1 |
@@ -96,18 +96,15 @@ A preset is a set of typical answers. A project picks one, then overrides any an
 | B4 | Interface Design & Contracts | 2 | 2 | 2 | 2 | 3 | 3 | 3 | 2 | 2 |
 | B5 | Flexibility & Extensibility | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 |
 | B6 | Leanness | 2 | 2 | 2 | 2 | 2 | 2 | 2 | 2 | 2 |
-| C1 | Readability & Clarity | 2 | 2 | 2 | 2 | 2 | 2 | 2 | 2 | 2 |
+| C1 | Readability & Consistency | 2 | 2 | 2 | 2 | 2 | 3 | 2 | 2 | 1 |
 | C2 | Maintainability & Complexity | 2 | 2 | 2 | 2 | 3 | 3 | 2 | 2 | 1 |
-| C3 | Consistency & Idiomatic Code | 1 | 1 | 1 | 1 | 1 | 2 | 1 | 1 | 1 |
 | C4 | Test Suite Quality | 2 | 2 | 2 | 2 | 2 | 2 | 2 | 2 | 1 |
 | D1 | Feature Completeness | 2 | 2 | 2 | 2 | 2 | 2 | 2 | 2 | 2 |
 | D2 | Gap Coverage | 2 | 2 | 2 | 2 | 2 | 2 | 2 | 2 | 2 |
-| D3 | Practicality | 2 | 2 | 2 | 2 | 2 | 2 | 2 | 2 | 3 |
 | D4 | Intuitiveness | 2 | 2 | 2 | 3 | 2 | 2 | 3 | 2 | 2 |
 | E1 | Adopter Friendliness | 2 | 2 | 2 | 2 | 3 | 3 | 3 | 1 | 1 |
 | E2 | Documentation | 2 | 2 | 2 | 2 | 3 | 3 | 3 | 2 | 2 |
-| E3 | Developer Experience & Inner Loop | 1 | 1 | 1 | 1 | 1 | 2 | 1 | 1 | 1 |
-| E4 | Native Tooling & Ecosystem Fit | 1 | 1 | 1 | 1 | 2 | 2 | 1 | 1 | 1 |
+| E3 | Contributor & Agent Experience | 2 | 2 | 2 | 2 | 3 | 3 | 2 | 2 | 1 |
 | F1 | Ease of Deployability | 2 | 2 | 3 | 2 | 1 | 1 | 1 | 1 | 1 |
 | F2 | Build, CI/CD & Automation | 1 | 1 | 1 | 1 | 2 | 3 | 1 | 1 | 1 |
 | F3 | Observability & Debuggability | 1 | 1 | 3 | 2 | 1 | 1 | 1 | 1 | 1 |
@@ -119,7 +116,8 @@ A preset is a set of typical answers. A project picks one, then overrides any an
 | X3 | Concurrency Safety | 2 | 2 | 2 | 2 | 2 | 2 | 2 | 2 | 2 |
 | X4 | Cost Efficiency | 2 | 2 | 2 | 2 | 2 | 2 | 2 | 2 | 2 |
 | X5 | Compliance & Licensing | 2 | 2 | 2 | 3 | 2 | 2 | 2 | 2 | 2 |
-| X6 | Agent-Readiness | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 |
+
+**Bold** = gate for that preset.
 
 **Bold** = gate for that preset.
 

@@ -60,7 +60,7 @@ def test_a_good_report_pull_request(repo):
     res = ci(repo, "--site", "https://example.com/suite", "--grading-repo-url", "https://github.com/acme/grading",
              "--branch", "report/orders-api/2026-11-07-a1b2c3d")
     assert res["ok"] and res["kind"] == "report" and res["labels"] == ["grading: report"], res
-    assert res["summary"]["overall"] == 4.9 and res["summary"]["level"] == "L0"
+    assert res["summary"]["overall"] == 4.8 and res["summary"]["level"] == "L0"
     c = res["comment"]
     assert c.startswith("<!-- gradekit-ci -->") and "✅ passed" in c and "- [ ] D1-act-1:" in c
     assert "review.html?repo=https://github.com/acme/grading&project=orders-api&ref=report/orders-api/2026-11-07-a1b2c3d" in c

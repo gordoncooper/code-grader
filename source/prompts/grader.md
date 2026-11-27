@@ -271,7 +271,7 @@ A **finding** is one specific problem with one root cause.
   | `major` | A real defect or gap people will hit, but with a workaround or a limited reach: wrong results in a realistic edge case, a crash or hang on input that's easy to avoid, a documented path that doesn't work, a missing safeguard on an important path, or a structural problem that slows every change in an area. | A CLI that hangs on an empty input file instead of failing. A date off by one day across a DST change. Setup docs missing a required step. A public function that swallows errors and returns `None`. |
   | `minor` | Worth fixing, but little happens when it bites. | Inconsistent naming. A misleading log message. A missing docstring on an internal helper. An unpinned dev tool. |
 
-  Where the code runs is part of its consequence: the same wrong result is worse in code that moves money than in an example script, so judge it there. A readability, naming or style problem (C1, C3) is `minor` wherever it is, `major` only when it slows every change in an area, and never `critical`. Zones don't shift severity (they did before scoring 5.0); they raise the bar instead: maturity allows no critical findings in hot zones from L2, and no major ones from L3.
+  Where the code runs is part of its consequence: the same wrong result is worse in code that moves money than in an example script, so judge it there. A readability, naming or style problem (C1) is `minor` wherever it is, `major` only when it slows every change in an area, and never `critical`. Zones don't shift severity (they did before scoring 5.0); they raise the bar instead: maturity allows no critical findings in hot zones from L2, and no major ones from L3.
 - **Location:** code evidence places a finding in a zone automatically. A finding with no code evidence (e.g. "no rate limiting anywhere") should list the affected areas in `paths` (repo-relative paths or globs, e.g. `["src/api/**"]`), so it lands in the right zone.
 - **`first_seen_commit`:** carried over from the previous report; the current commit for `new` findings; the PR's base commit (or the previous report's commit) for `noticed` ones.
 - **`fingerprint`:** written by `gradekit` from the benchmark, the files and the quoted code, so the same problem is recognized across reports. Don't write it yourself.
@@ -316,11 +316,11 @@ Record raw measurements in `metrics` so trends can be tracked independently of y
 |---|---|---|
 | `build_passes` | bool | A1, F2 |
 | `tests_total`, `tests_failed`, `tests_skipped` | counts | A1, C4 |
-| `flaky_tests_detected` | count, from reruns if you did any | A4, C4 |
+| `flaky_tests_detected` | count, from reruns if you did any | C4 |
 | `line_coverage_pct`, `branch_coverage_pct` | whole project | C4 |
 | `core_branch_coverage_pct` | core domain modules only; name them in notes | C4 |
 | `mutation_score_pct` | if a mutation tool was run | C4 |
-| `lint_errors`, `lint_warnings` | with the linter and config the project's CI runs; if CI runs none, the one its contributor docs name; if that can't run either, the language's long-standing default linter at its defaults (for Python, `flake8`, whose defaults don't change between versions the way `ruff`'s do). Say which, and its version, in `metrics_notes` | C3 |
+| `lint_errors`, `lint_warnings` | with the linter and config the project's CI runs; if CI runs none, the one its contributor docs name; if that can't run either, the language's long-standing default linter at its defaults (for Python, `flake8`, whose defaults don't change between versions the way `ruff`'s do). Say which, and its version, in `metrics_notes` | C1 |
 | `lint_suppressions` | count of inline disable comments | anti-gaming |
 | `type_errors_strict` | at strict settings | B4 |
 | `type_escape_hatches` | `any`, casts, `ignore` comments | B4 |
@@ -330,7 +330,7 @@ Record raw measurements in `metrics` so trends can be tracked independently of y
 | `loc_source`, `loc_tests` | non-blank, non-comment lines | context |
 | `complexity_p95`, `complexity_max` | cyclomatic, per function | C2 |
 | `duplication_pct` | | C2 |
-| `functions_over_50_lines` | | C1 |
+| `functions_over_50_lines` | | C2 |
 | `dependency_cycles` | between modules | B2 |
 | `todo_fixme_count` | | C2 |
 | `dead_code_items` | from unused-code tools | B6 |
@@ -406,7 +406,7 @@ Within each tier, actions are ordered by weight × points gained × zone multipl
 
 If the project config defines `[[components]]` (each with a name, path, weight, and optionally its own preset, answers, zones and gates):
 - Produce **one report per component**, named `components/NAME.json` / `.md` inside your report folder, plus the `repo` report as `report.json` / `report.md`. `gradekit report new … --component NAME` starts each one with its component's config and its `component` block filled in, and `--component repo` starts the repo report. Both mark the benchmarks graded elsewhere as `not_applicable` for you; score one anyway if a component has its own setup for it.
-- Also produce one report for a component named **`repo`**, using the project-level config. It covers concerns shared by the whole repository: B3, E3, E4, F2, F6 and X6. Mark every other benchmark `not_applicable` with the reason "graded per component."
+- Also produce one report for a component named **`repo`**, using the project-level config. It covers concerns shared by the whole repository: B3, E3, F2 and F6. Mark every other benchmark `not_applicable` with the reason "graded per component."
 - In the component reports, mark those shared benchmarks `not_applicable` with the reason "graded at repo level", unless a component has its own separate setup for one of them (e.g. its own CI pipeline). In that case, grade it in the component.
 - Finish each report with `report check … --write`, then run `gradekit rollup-repo REPORT_FOLDER --write`, which stores the repo-wide result in `report.json` (`repo_rollup`). The repo-wide overall score is weighted by component weight, and the repo-wide maturity level is the **lowest** of any component's level. `deliver` redacts and renders every component report along with `report.json`, and `gradekit ci` checks each one.
 
@@ -445,7 +445,7 @@ Write `report.json` matching `schema/report.schema.json`. Abbreviated example:
      "disposition": null, "disposition_concern": null}
   ],
   "benchmarks": [
-    {"id": "A4", "name": "Idempotence & Determinism", "pillar": "A",
+    {"id": "A4", "name": "Idempotence & Safe Retries", "pillar": "A",
      "applicability": "full", "applicability_reason": null,
      "config_weight": 3, "weight": 3, "weight_note": null,
      "score": 5, "confidence": "high", "carried_forward": false,
@@ -466,7 +466,7 @@ Write `report.json` matching `schema/report.schema.json`. Abbreviated example:
 }
 ```
 
-Include **every** benchmark from `rubric/catalog.json` (all 29 core and all 6 conditional) exactly once, using `not_applicable` where needed.
+Include **every** benchmark from `rubric/catalog.json` (all 26 core and all 5 conditional) exactly once, using `not_applicable` where needed.
 
 ### B. Human-readable report (`report.md`)
 `gradekit render report` produces this from `report.json`, using its `summary` and each benchmark's `rationale`. Only write it by hand if you can't run Python, with these sections:

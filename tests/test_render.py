@@ -54,7 +54,7 @@ def test_public_text_withholds_sensitive_findings_even_before_redact(gk):
 def test_pr_title_body_and_branch(gk):
     pr = gk.render_report_pr(json.loads(NEW.read_text()), cfg(gk), site="https://example.com/grading/",
                              grading_repo="https://github.com/acme/grading")
-    assert pr["title"] == "Report: orders-api 2026-11-07 — 4.9 (L0)"
+    assert pr["title"] == "Report: orders-api 2026-11-07 — 4.8 (L0)"
     assert pr["branch"] == "report/orders-api/2026-11-07-a1b2c3d"
     assert "https://example.com/grading/app/review.html?repo=https://github.com/acme/grading&project=orders-api&ref=report/orders-api/2026-11-07-a1b2c3d" in pr["body"]
     assert "D1-act-1" in pr["body"] and "A1: 5 — passed" in pr["body"]
