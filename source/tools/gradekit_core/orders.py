@@ -7,7 +7,9 @@ import re
 from pathlib import Path
 
 from .common import die, emit, GradekitError, load_json, plural, PROJECT_FILE, utc_now, write_json
-from .config import load_config, project_dir_from_args, project_dir_or_die, report_folders, SCHEDULE_DEFAULTS
+from .config import (
+    load_config, project_dir_from_args, project_dir_or_die, report_folders, SCHEDULE_DEFAULTS, with_config,
+)
 
 
 # A work order is the request behind a run: who asked for what (grade, review, improve or check a pull
@@ -231,3 +233,45 @@ def cmd_order_close(args) -> int:
     write_json(f, o)
     emit(args, {"order": o}, f"{args.id}: {args.status}")
     return 0
+
+
+# =========================================================================== commands
+# How the command line reads this module's commands. cli.build_parser adds them in order.
+
+
+def add_order(sub):
+    p = sub.add_parser("order", help="work orders: the request behind a run (new, list, close)")
+    osub = p.add_subparsers(dest="order_cmd", required=True, metavar="STEP")
+    q = osub.add_parser("new", help="write projects/NAME/orders/<id>.json, and print the ID to give the agent")
+    with_config(q)
+    q.add_argument("--role", required=True, choices=ORDER_ROLES)
+    q.add_argument("--commit", help="the commit to grade or check")
+    q.add_argument("--base-commit", help="prcheck: the change's base commit")
+    q.add_argument("--change", metavar="URL", help="prcheck: the pull request")
+    q.add_argument("--delivery", help="how the agent hands back its work, e.g. pr")
+    q.add_argument("--budget", help="improve: how much to do, e.g. \"tier 0 and 1\"")
+    q.add_argument("--by", help="who asked")
+    q.add_argument("--note", help="anything else the agent should know")
+    q.set_defaults(fn=cmd_order_new)
+    q = osub.add_parser("list", help="open work orders (with --all, every one), for a project or the whole grading repo")
+    with_config(q)
+    q.add_argument("--all", action="store_true")
+    q.set_defaults(fn=cmd_order_list)
+    q = osub.add_parser("close", help="mark a work order done or cancelled (a report that records its ID closes it by itself)")
+    with_config(q)
+    q.add_argument("id")
+    q.add_argument("--status", choices=["done", "cancelled"], default="done")
+    q.add_argument("--by")
+    q.add_argument("--note")
+    q.set_defaults(fn=cmd_order_close)
+
+
+def add_due(sub):
+    p = sub.add_parser("due", help="which projects are due for a grade under their [schedule]; --write-orders asks for each")
+    p.add_argument("--project", metavar="NAME"); p.add_argument("--grading-repo", metavar="DIR"); p.add_argument("--project-dir", metavar="DIR")
+    p.add_argument("--check-code", action="store_true", help="read each code repo's newest commit with `git ls-remote` (needs read access)")
+    p.add_argument("--code-head", action="append", metavar="NAME=SHA", help="a project's newest code commit, if you know it (repeatable)")
+    p.add_argument("--write-orders", action="store_true", help="write a grade work order for each project that's due")
+    p.add_argument("--by", default="schedule", help="requested_by on the orders (default: schedule)")
+    p.add_argument("--today", metavar="YYYY-MM-DD", help="default: today (UTC)")
+    p.set_defaults(fn=cmd_due)

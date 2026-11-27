@@ -731,3 +731,32 @@ def render_guard(cmp: dict) -> list[str]:
     if cmp.get("regressions"):
         out += ["", f"**Not explained:** {', '.join(f'`{k}`' for k in cmp['regressions'])}."]
     return out
+
+
+# =========================================================================== commands
+# How the command line reads this module's commands. cli.build_parser adds them in order.
+
+
+def add_guard(sub):
+    p = sub.add_parser("guard", help="improvers: run the code's checks before changing it, then prove nothing got worse")
+    gsub = p.add_subparsers(dest="guard_cmd", required=True, metavar="STEP")
+    q = gsub.add_parser("snapshot", help="before any change: run the checks and record the results (in .git/, never committed)")
+    q.add_argument("code", nargs="?", default=".", help="the code checkout (default: here)")
+    q.add_argument("--check", action="append", metavar="NAME=COMMAND",
+                   help='a check to run, e.g. tests="pytest -q" (repeatable; run from the code folder, or --path)')
+    q.add_argument("--from-report", metavar="REPORT", help="also use the tests, lint, type-check, coverage, build and audit commands the grader ran")
+    q.add_argument("--path", metavar="SUBDIR", help="only this part of the code (the project's `path`): checks run there, and only it is scanned")
+    q.add_argument("--timeout", type=int, default=GUARD_TIMEOUT, metavar="SEC", help=f"per check (default {GUARD_TIMEOUT})")
+    q.add_argument("--out", metavar="FILE", help="where to write it (default: .git/gradekit/guard-before.json)")
+    q.add_argument("--list", action="store_true", help="show the checks it would run, and run nothing")
+    q.set_defaults(fn=cmd_guard_snapshot)
+    q = gsub.add_parser("compare", help="after changing: run the same checks again; exit 2 if anything got worse")
+    q.add_argument("code", nargs="?", default=".", help="the code checkout (default: here)")
+    q.add_argument("--before", metavar="FILE", help="the snapshot (default: .git/gradekit/guard-before.json)")
+    q.add_argument("--after", metavar="FILE", help="compare with this snapshot instead of running the checks now")
+    q.add_argument("--explain", action="append", metavar="KEY=REASON",
+                   help='a deliberate change, e.g. tests.passed="removed the tests of the deleted export helper" (repeatable)')
+    q.add_argument("--coverage-tolerance", type=float, default=0.1, metavar="POINTS", help="coverage may move this much (default 0.1)")
+    q.add_argument("--timeout", type=int, default=GUARD_TIMEOUT, metavar="SEC", help=f"per check (default {GUARD_TIMEOUT})")
+    q.add_argument("--out", metavar="FILE", help="where to write the result (default: .git/gradekit/guard-compare.json)")
+    q.set_defaults(fn=cmd_guard_compare)

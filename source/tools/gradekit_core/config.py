@@ -384,3 +384,17 @@ def project_dir_or_die(args) -> Path:
     if not pdir or not (pdir / PROJECT_FILE).exists():
         die("which project? --project-dir projects/NAME (or --project NAME in the grading repo's root)")
     return pdir
+
+
+# =========================================================================== commands
+# How the command line reads this module's commands. cli.build_parser adds them in order.
+
+
+def with_config(p):
+    p.add_argument("--project", metavar="NAME", help="project folder projects/NAME in the grading repo")
+    p.add_argument("--grading-repo", metavar="DIR", help="grading repo root (default: current folder)")
+    p.add_argument("--project-dir", metavar="DIR", help="a project folder anywhere (project.toml, decisions.json, reports/…)")
+    p.add_argument("--config", action="append", metavar="FILE",
+                   help="config TOML (repeatable, layered in order over defaults) or one effective-config JSON; "
+                        "default: the project's project.toml (+ org.toml at the grading repo root)")
+    p.add_argument("--component", help="monorepo component name from the project config")

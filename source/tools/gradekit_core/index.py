@@ -166,3 +166,15 @@ def cmd_index(args) -> int:
     emit(args, {"written": str(out), "changed": not up_to_date, "index": data},
          "\n".join(summary + ["", f"{'wrote' if not up_to_date else 'unchanged:'} {out}"]))
     return 0
+
+
+# =========================================================================== commands
+# How the command line reads this module's commands. cli.build_parser adds them in order.
+
+
+def add_index(sub):
+    p = sub.add_parser("index", help="grading repos: write projects/index.json (latest scores, history, decisions waiting)")
+    p.add_argument("--grading-repo", metavar="DIR", help="grading repo root (default: current folder)")
+    p.add_argument("--out", metavar="FILE", help="default: projects/index.json")
+    p.add_argument("--check", action="store_true", help="don't write; exit 1 if the file is missing or out of date")
+    p.set_defaults(fn=cmd_index)

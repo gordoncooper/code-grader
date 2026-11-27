@@ -192,3 +192,13 @@ def cmd_mcp(args) -> int:
             out.write(json.dumps(resp, ensure_ascii=False) + "\n")
             out.flush()
     return 0
+
+
+# =========================================================================== commands
+# How the command line reads this module's commands. cli.build_parser adds them in order.
+
+
+def add_mcp(sub):
+    p = sub.add_parser("mcp", help="run as an MCP server on stdin/stdout: every command becomes a tool, for agents without a shell")
+    p.add_argument("--list", action="store_true", help="print the tools it offers, and exit")
+    p.set_defaults(fn=cmd_mcp)

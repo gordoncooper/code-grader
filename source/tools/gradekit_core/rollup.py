@@ -7,7 +7,7 @@ from .common import (
     die, expected_weight, HEAT, level_num, load_catalog, load_report, norm, OPEN_STATUSES, PILLARS,
     refresh_fingerprint, REPO_LEVEL, SEVERITIES, write_json,
 )
-from .config import load_config
+from .config import load_config, with_config
 from .zones import analyze_findings
 
 
@@ -447,3 +447,16 @@ def cmd_rollup(args) -> int:
         print(f"\nwrote rollup to {out}")
     args._result = {"rollup": roll, "written": out}
     return 1 if roll["weight_issues"] else 0
+
+
+# =========================================================================== commands
+# How the command line reads this module's commands. cli.build_parser adds them in order.
+
+
+def add_rollup(sub):
+    p = sub.add_parser("rollup", help="compute gates, zones, scores, targets, maturity and priorities")
+    p.add_argument("report", nargs="?", help="report JSON (default: the project's latest report)")
+    with_config(p)
+    p.add_argument("--write", action="store_true", help="write rollup and targets back into the report")
+    p.add_argument("--out", help="write the updated report here instead")
+    p.set_defaults(fn=cmd_rollup)

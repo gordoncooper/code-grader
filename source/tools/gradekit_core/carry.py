@@ -9,10 +9,10 @@ from .common import (
     die, emit, finding_similarity, iter_evidence, kit_scoring_version, load_catalog, load_report, major, norm,
     pin_problem, repo_relative, REPORT_FORMAT, scoring_version_of, started_arg, utc_now, write_json,
 )
-from .config import project_dir_for_report, project_dir_from_args
+from .config import project_dir_for_report, project_dir_from_args, with_config
 from .zones import glob_to_regex, zone_for_path
 from .publishing import private_path
-from .authoring import authoring_config, load_for_edit, normalize_report, repo_reader, save_edit
+from .authoring import authoring_config, load_for_edit, normalize_report, provenance, repo_reader, report_arg, save_edit
 
 
 # The next report starts from the last one: findings keep their IDs, and every code citation is
@@ -280,3 +280,35 @@ def cmd_report_match(args) -> int:
         lines.append("to keep an earlier ID: `report match … --apply`, or re-add the finding with `finding add --id OLD-ID`")
     emit(args, {"matches": pairs, "applied": [{"from": p["new"], "to": p["old"]} for p in applied]}, "\n".join(lines))
     return 0
+
+
+# =========================================================================== commands
+# How the command line reads this module's commands. cli.build_parser adds them in order.
+
+
+def add_report_match(rsub):
+    q = rsub.add_parser("match", help="suggest which earlier finding each newly written finding is, to keep its ID")
+    report_arg(q)
+    q.add_argument("--baseline", required=True, help="the previous report")
+    q.add_argument("--threshold", type=float, default=0.35, help="lowest similarity to suggest (0–1)")
+    q.add_argument("--apply", action="store_true", help="rename unambiguous matches to their earlier IDs")
+    q.add_argument("--apply-at", type=float, default=0.6, help="lowest similarity --apply acts on")
+    q.set_defaults(fn=cmd_report_match)
+
+
+def add_carry(sub):
+    p = sub.add_parser("carry", help="start the next report from the last one, with citations moved to the new code")
+    p.add_argument("baseline", help="the last report (the full one, not the public copy, if it withholds findings)")
+    p.add_argument("--repo", required=True, metavar="DIR_OR_ZIP", help="the code at the new commit")
+    p.add_argument("--commit", required=True, help="the new commit")
+    p.add_argument("--mode", choices=["pr", "full"], default="pr")
+    p.add_argument("--base-commit", help="pr mode: the pull request's base commit")
+    p.add_argument("--changed", nargs="+", metavar="FILE", help="files the change touched (default: from git, if --repo is a checkout)")
+    p.add_argument("--touched", nargs="+", metavar="ID", help="more benchmarks to re-grade, on top of those suggested from the changed files")
+    p.add_argument("--out", metavar="FILE", help="where to write (required in pr mode; full mode defaults to a new report folder)")
+    p.add_argument("--force", action="store_true")
+    p.add_argument("--allow-withheld", action="store_true", help="carry from a public copy anyway")
+    p.add_argument("--grader", help="the agent or person grading now (default: the baseline's)")
+    provenance(p)
+    with_config(p)
+    p.set_defaults(fn=cmd_carry)

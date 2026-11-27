@@ -9,7 +9,7 @@ from .common import (
     benchmarks_by_id, die, expected_weight, level_num, load_catalog, load_json, load_report, major, OPEN_STATUSES,
     scoring_version_of, write_json,
 )
-from .config import load_config
+from .config import load_config, with_config
 from .records import disposition_entry
 from .rollup import apply_rollup, compute_rollup
 
@@ -278,3 +278,33 @@ def cmd_calibrate(args) -> int:
     args._result = {"pass": ok, "within_tolerance_pct": round(pct, 1), "mae": round(mae, 3), "bias": round(bias, 3),
                     "compared": total, "applicability_mismatches": mism, "criteria": crit}
     return 0 if ok else 4
+
+
+# =========================================================================== commands
+# How the command line reads this module's commands. cli.build_parser adds them in order.
+
+
+def add_stability(sub):
+    p = sub.add_parser("stability", help="median consensus across independent runs")
+    p.add_argument("reports", nargs="+")
+    with_config(p)
+    p.add_argument("--out", help="write the consensus report here")
+    p.add_argument("--strict", action="store_true", help="exit 3 if any benchmark is unstable")
+    p.set_defaults(fn=cmd_stability)
+
+
+def add_diff(sub):
+    p = sub.add_parser("diff", help="compare two reports (default: the project's previous and latest)")
+    p.add_argument("old", nargs="?")
+    p.add_argument("new", nargs="?")
+    with_config(p)
+    p.add_argument("--old-config", action="append", metavar="FILE", help="config the old report was graded with, if different")
+    p.add_argument("--fail-on-regression", action="store_true")
+    p.set_defaults(fn=cmd_diff)
+
+
+def add_calibrate(sub):
+    p = sub.add_parser("calibrate", help="compare a report with expected scores")
+    p.add_argument("report")
+    p.add_argument("expected")
+    p.set_defaults(fn=cmd_calibrate)

@@ -10,7 +10,7 @@ from .common import (
     benchmarks_by_id, dash, DECISIONS_FILE, die, emit, enforcement_items, evidence_line, load_catalog, load_json,
     load_report, PILLARS, PROJECT_FILE, utc_now,
 )
-from .config import load_config, project_dir_or_die, PUBLISHING_DEFAULTS, report_folders
+from .config import load_config, project_dir_or_die, PUBLISHING_DEFAULTS, report_folders, with_config
 from .rollup import compute_rollup, decision_for
 from .publishing import redact_report, sensitive_ids
 from .compare import compute_diff
@@ -529,3 +529,59 @@ def cmd_render_log(args) -> int:
             die(f"{args.guard} isn't a `guard compare` result (it writes .git/gradekit/guard-compare.json, or --out)")
     render_out(args, render_improve_log(log, report, cfg, guard), None)
     return 0
+
+
+# =========================================================================== commands
+# How the command line reads this module's commands. cli.build_parser adds them in order.
+
+
+def add_decisions(sub):
+    p = sub.add_parser("decisions", help="the newest report's decision questions and their answers")
+    p.add_argument("--project", metavar="NAME"); p.add_argument("--grading-repo", metavar="DIR"); p.add_argument("--project-dir", metavar="DIR")
+    p.add_argument("--approved", action="store_true", help="only the approved ones: exactly what may be acted on")
+    p.set_defaults(fn=cmd_decisions)
+
+
+def add_decide(sub):
+    p = sub.add_parser("decide", help="record answers to decision questions in decisions.json (by ID, or from a PR checklist)")
+    p.add_argument("--project", metavar="NAME"); p.add_argument("--grading-repo", metavar="DIR"); p.add_argument("--project-dir", metavar="DIR")
+    p.add_argument("--approve", nargs="+", metavar="ACTION_ID")
+    p.add_argument("--decline", nargs="+", metavar="ACTION_ID")
+    p.add_argument("--from-checklist", metavar="FILE", help="a report PR's description ('-' for stdin): each ticked box approves its action")
+    p.add_argument("--by", required=True, help="who decided (a name, email or code-host login)")
+    p.add_argument("--answer", help="an answer or conditions, recorded with each decision")
+    p.add_argument("--date", metavar="YYYY-MM-DD", help="default: today (UTC)")
+    p.set_defaults(fn=cmd_decide)
+
+
+def add_render(sub):
+    p = sub.add_parser("render", help="markdown from report data: report.md, PR title/body, PR-check comment, improvement log")
+    rsub = p.add_subparsers(dest="render_cmd", required=True, metavar="WHAT")
+    def render_dest(q, default_note):
+        q.add_argument("--out", metavar="FILE", help=f"where to write ('-' for stdout; default: {default_note})")
+        q.add_argument("--stdout", action="store_true", help="print instead of writing the default file")
+    q = rsub.add_parser("report", help="report.md from report.json (sensitive findings withheld in public grading repos)")
+    q.add_argument("report")
+    render_dest(q, "beside the report, e.g. report.md")
+    with_config(q)
+    q.set_defaults(fn=cmd_render_report)
+    q = rsub.add_parser("pr", help="the grading pull request: branch, title and body (title on the first line)")
+    q.add_argument("report")
+    q.add_argument("--site", metavar="URL", help="the suite website, for a link to its Review page")
+    q.add_argument("--grading-repo-url", metavar="URL", help="the grading repo (e.g. https://github.com/acme/grading), for that link")
+    q.add_argument("--branch", help="default: report/<project>/<date>-<commit>")
+    with_config(q)
+    q.set_defaults(fn=cmd_render_pr)
+    q = rsub.add_parser("check", help="the PR-check comment, comparing the baseline report with the PR report")
+    q.add_argument("old", help="baseline report (newest merged report)")
+    q.add_argument("new", help="the PR report (mode pr)")
+    render_dest(q, "stdout")
+    with_config(q)
+    q.set_defaults(fn=cmd_render_check)
+    q = rsub.add_parser("log", help="the improver's log, from a small JSON file (see prompts/improver.md)")
+    q.add_argument("log", help="improve-log.json")
+    q.add_argument("--report", help="the report worked from: adds pending decisions as blocked and declined ones as skipped")
+    q.add_argument("--guard", metavar="FILE", help="the `guard compare` result: adds the before → after table of the code's checks")
+    render_dest(q, "stdout")
+    with_config(q)
+    q.set_defaults(fn=cmd_render_log)

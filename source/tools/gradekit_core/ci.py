@@ -400,3 +400,23 @@ def cmd_ci(args) -> int:
     lines.append(f"\n{'passed' if res['ok'] else 'needs changes'}; labels: {', '.join(res['labels']) or 'none'}")
     emit(args, res, "\n".join(lines))
     return 0 if res["ok"] else 1
+
+
+# =========================================================================== commands
+# How the command line reads this module's commands. cli.build_parser adds them in order.
+
+
+def add_ci(sub):
+    p = sub.add_parser("ci", help="grading repos: check a pull request (one report, or settings), write a comment and labels",
+                       description="Run in a grading repo's CI on a pull request. Templates for GitHub Actions and GitLab CI "
+                                   "are in the kit's ci/ folder (`gradekit init --ci github|gitlab` adds one).")
+    p.add_argument("--base", required=True, help="the target branch, e.g. origin/main")
+    p.add_argument("--head", default="HEAD")
+    p.add_argument("--grading-repo", metavar="DIR", help="the grading repo checkout (default: current folder)")
+    p.add_argument("--changed", nargs="+", metavar="[A|M|D:]PATH", help="the changed files, if git can't list them")
+    p.add_argument("--site", metavar="URL", help="the suite website, for a Review-page link")
+    p.add_argument("--grading-repo-url", metavar="URL", help="this repo's address, for that link")
+    p.add_argument("--branch", help="the pull request's branch, for that link")
+    p.add_argument("--comment-file", metavar="FILE", help="write the summary comment (markdown) here")
+    p.add_argument("--labels-file", metavar="FILE", help="write the labels to set, one per line, here")
+    p.set_defaults(fn=cmd_ci)

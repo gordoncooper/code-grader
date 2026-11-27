@@ -9,11 +9,12 @@ import sys
 from pathlib import Path
 
 from .common import (
-    benchmarks_by_id, die, emit, enforcement_items, evidence_line, EXIT_INCOMPLETE, expected_weight, _finite_number,
-    iter_evidence, load_catalog, load_json, load_report, MAX_QUOTE_LINES, norm, _not_json, pin_problem, plural,
-    refresh_fingerprint, REPO_LEVEL, repo_relative, REPORT_FORMAT, say_later, slug, started_arg, utc_now, write_json,
+    benchmarks_by_id, die, emit, enforcement_items, evidence_line, EXIT_INCOMPLETE, expected_weight,
+    FINDING_STATUSES, _finite_number, GAP_STATUSES, iter_evidence, load_catalog, load_json, load_report,
+    MAX_QUOTE_LINES, norm, _not_json, pin_problem, plural, refresh_fingerprint, REPO_LEVEL, repo_relative,
+    REPORT_FORMAT, say_later, SEVERITIES, slug, started_arg, utc_now, write_json,
 )
-from .config import load_config, project_dir_for_report, project_dir_from_args, report_folders
+from .config import load_config, project_dir_for_report, project_dir_from_args, report_folders, with_config
 from .records import ACCEPT_HINT, open_disputes, WITHDRAW_HINT
 from .rollup import (
     apply_rollup, CAP_SEVERITIES, catalog_caps, compute_rollup, compute_targets, gate_not_applicable, over_limit,
@@ -1081,3 +1082,250 @@ def cmd_report_check(args) -> int:
         result["wrote"] = wrote
     emit(args, result, "\n".join(lines))
     return 1 if errors else EXIT_INCOMPLETE if todo else 0
+
+
+# =========================================================================== commands
+# How the command line reads this module's commands. cli.build_parser adds them in order.
+
+
+def evidence_args(q, cite_help="FILE:LINE or FILE:START-END; the quote is copied from the file (repeatable)"):
+    q.add_argument("--cite", action=InOrderAppend, metavar="FILE:LINES", help=cite_help)
+    q.add_argument("--repo", metavar="DIR_OR_ZIP", help="the code checkout (or a zip of it) that --cite reads")
+    q.add_argument("--command", action=InOrderAppend, metavar="CMD",
+                   help="evidence from a command you ran (@N: the Nth command recorded with `report ran`; repeatable)…")
+    q.add_argument("--excerpt", action=InOrderAppend, metavar="TEXT",
+                   help="…and the relevant part of its output, copied ('@file' or '-' for stdin); one per --command, in order")
+    q.add_argument("--no-output", action=InOrderTrue, help="…or: it printed nothing (say what happened in --note)")
+    q.add_argument("--absence", action=InOrderAppend, metavar="WHAT", help="evidence that something is missing: what you looked for (repeatable)…")
+    q.add_argument("--method", action=InOrderAppend, metavar="HOW", help="…and how you searched; one per --absence, in order")
+    q.add_argument("--note", action=InOrderAppend, help="a note on the evidence given just before it (repeatable); "
+                   "given once, it goes on every evidence item of this command")
+
+
+def report_arg(q):
+    q.add_argument("report", help="the report JSON being written")
+    with_config(q)
+
+
+def provenance(p):
+    p.add_argument("--model", help="the model grading, e.g. claude-opus-5-5 (a finished report needs it)")
+    p.add_argument("--session", help="the agent session's ID or URL, so reviewers can see who graded")
+    p.add_argument("--work-order", help="the work order this run answers (its ID)")
+    p.add_argument("--started", metavar="UTC_TIME", help="when the run began, if before this command (e.g. "
+                   "the `date -u +%%Y-%%m-%%dT%%H:%%M:%%SZ` you noted before preflight); usage.minutes counts from it")
+
+
+def add_report_new(rsub):
+    q = rsub.add_parser("new", help="start a report: every benchmark with its weight and target filled in")
+    with_config(q)
+    q.add_argument("--commit", required=True, help="the commit being graded")
+    q.add_argument("--base-commit", help="pr mode: the pull request's base commit")
+    q.add_argument("--mode", choices=["full", "pr"], default="full")
+    q.add_argument("--grader", default="unknown", help="the agent or person grading, e.g. Claude Code")
+    provenance(q)
+    q.add_argument("--run", metavar="N/COUNT", help="for several independent graders: e.g. 2/3 (writes runs/run-2.json)")
+    q.add_argument("--suite-source", default="local", help="where the suite came from, e.g. the AGENT.md URL and version")
+    q.add_argument("--out", metavar="FILE", help="write here instead of projects/NAME/reports/<date>-<commit>/report.json")
+    q.add_argument("--force", action="store_true", help="overwrite an existing report")
+    q.set_defaults(fn=cmd_report_new)
+
+
+def add_report_cite(rsub):
+    q = rsub.add_parser("cite", help="print an evidence object for FILE:LINES with the exact quote")
+    q.add_argument("spec", metavar="FILE:LINES")
+    q.add_argument("--repo", required=True, metavar="DIR_OR_ZIP")
+    q.add_argument("--note")
+    q.add_argument("--compact", action="store_true", help="one line")
+    q.set_defaults(fn=cmd_report_cite)
+
+
+def add_finding_add(fsub):
+    q = fsub.add_parser("add", help="add a finding; its ID is the next free one for the benchmark")
+    report_arg(q)
+    q.add_argument("--benchmark", required=True, metavar="ID")
+    q.add_argument("--title", required=True)
+    q.add_argument("--severity", required=True, choices=SEVERITIES[::-1])
+    q.add_argument("--status", default="new", choices=FINDING_STATUSES,
+                   help="new (caused by the graded code), noticed (already there before, first recorded now), open, …")
+    q.add_argument("--first-seen", metavar="COMMIT", help="default: the graded commit")
+    q.add_argument("--id", help="reuse an ID from the previous report (default: next free ID)")
+    q.add_argument("--paths", nargs="+", metavar="GLOB", help="areas the finding concerns, for zones when there's no code evidence")
+    q.add_argument("--sensitive", action="store_true", help="details must not be public (security); see `redact`")
+    q.add_argument("--cap", metavar="CAP_ID", help="the rubric cap this finding triggers, e.g. E1-cap-1: it holds while the finding is open")
+    evidence_args(q)
+    q.set_defaults(fn=cmd_finding_add)
+
+
+def add_finding_update(fsub):
+    q = fsub.add_parser("update", help="change a finding or add evidence to it")
+    report_arg(q)
+    q.add_argument("id")
+    q.add_argument("--title")
+    q.add_argument("--severity", choices=SEVERITIES[::-1])
+    q.add_argument("--status", choices=FINDING_STATUSES)
+    q.add_argument("--disposition-concern", metavar="TEXT", help="why an accepted finding should be reconsidered ('' clears it)")
+    q.add_argument("--paths", nargs="+", metavar="GLOB")
+    g = q.add_mutually_exclusive_group()
+    g.add_argument("--sensitive", dest="sensitive", action="store_true", default=None)
+    g.add_argument("--not-sensitive", dest="sensitive", action="store_false")
+    q.add_argument("--replace-evidence", action="store_true", help="replace the evidence instead of adding to it")
+    q.add_argument("--cap", metavar="CAP_ID", help="the rubric cap this finding triggers ('' removes it)")
+    evidence_args(q)
+    q.set_defaults(fn=cmd_finding_update)
+
+
+def add_report_score(rsub):
+    q = rsub.add_parser("score", help="score a benchmark, or mark it limited / not applicable")
+    report_arg(q)
+    q.add_argument("benchmark", metavar="ID")
+    q.add_argument("--score", type=int, choices=range(1, 11), metavar="1-10")
+    q.add_argument("--confidence", choices=CONFIDENCE)
+    q.add_argument("--applicability", choices=["full", "limited", "not_applicable"])
+    q.add_argument("--reason", help="why it's limited or not applicable (the project's purpose, not its quality)")
+    q.add_argument("--rationale", help="one line: why this score (shown in the scorecard)")
+    q.add_argument("--why", help="what changed since the previous report")
+    q.add_argument("--weight-note", help="if the configured weight looks wrong for this code, say why")
+    q.add_argument("--cap", action="append", metavar="CAP_ID",
+                   help="a rubric cap that holds for this benchmark, e.g. E1-cap-1 (repeatable). Better: put it on the finding that triggers it")
+    q.add_argument("--gaming-flag", action="append", help="a gaming pattern you found (repeatable)")
+    q.set_defaults(fn=cmd_report_score)
+
+
+def add_report_strength(rsub):
+    q = rsub.add_parser("strength", help="add a strength (positive evidence) to a benchmark")
+    report_arg(q)
+    q.add_argument("benchmark", metavar="ID")
+    q.add_argument("--text", required=True, help="what is good")
+    evidence_args(q)
+    q.set_defaults(fn=cmd_report_strength)
+
+
+def add_report_enforcement(rsub):
+    q = rsub.add_parser("enforcement", help="add evidence that a benchmark's quality is enforced (CI, lint rule, test)")
+    report_arg(q)
+    q.add_argument("benchmark", metavar="ID")
+    q.add_argument("--text", required=True, help="what enforces it, e.g. 'CI runs mypy --strict on every PR'")
+    evidence_args(q)
+    q.set_defaults(fn=cmd_report_enforcement)
+
+
+def add_report_action(rsub):
+    q = rsub.add_parser("action", help="add a step on a benchmark's path to its target")
+    report_arg(q)
+    q.add_argument("benchmark", metavar="ID")
+    q.add_argument("--action", required=True, help="what to do")
+    q.add_argument("--resolves", nargs="*", default=[], metavar="ID", help="finding or gap IDs it resolves")
+    q.add_argument("--new-score", type=int, required=True, choices=range(1, 11), metavar="1-10", help="the benchmark's expected score once this action is done, counting this benchmark's earlier actions as done too (so a second step that takes it from 6 to 8 says 8)")
+    q.add_argument("--effort", required=True, choices=["S", "M", "L"])
+    q.add_argument("--decision", metavar="QUESTION", help="a yes/no question a person must answer first")
+    q.add_argument("--optional", action="store_true", help="beyond the target; only done when asked")
+    q.add_argument("--why-first", metavar="TEXT", help="one line for top_priorities on why it comes first (default: a line from its tier)")
+    q.set_defaults(fn=cmd_report_action)
+
+
+def add_report_show(rsub):
+    q = rsub.add_parser("show", help="list a report's strengths, enforcement, findings and actions, numbered for update and remove")
+    q.add_argument("report", help="the report JSON")
+    q.add_argument("what", nargs="?", metavar="ID|features|gaps|metrics|commands",
+                   help="one benchmark, or the features, gaps, metrics or commands (default: every benchmark with records)")
+    q.set_defaults(fn=cmd_report_show)
+
+
+def add_report_update(rsub):
+    q = rsub.add_parser("update", help="change a strength, enforcement item, action or gap (findings: `report finding update`)")
+    report_arg(q)
+    q.add_argument("ref", metavar="REF", help=EDIT_REF_HELP.replace(", feature/N, or, for remove, a finding ID", ""))
+    q.add_argument("--text", help="strength or enforcement: the new text")
+    evidence_args(q)
+    q.add_argument("--replace-evidence", action="store_true", help="strength or enforcement: replace its evidence instead of adding to it")
+    q.add_argument("--action", help="action: what to do")
+    q.add_argument("--new-score", type=int, choices=range(1, 11), metavar="1-10", help="action: see `report action --help`")
+    q.add_argument("--effort", choices=["S", "M", "L"])
+    q.add_argument("--resolves", nargs="*", metavar="ID", help="action: the finding or gap IDs it resolves (replaces the list)")
+    q.add_argument("--decision", metavar="QUESTION", help="action: a question a person must answer first ('' for none)")
+    g = q.add_mutually_exclusive_group()
+    g.add_argument("--optional", dest="optional", action="store_true", default=None, help="action: beyond the target, done only when asked")
+    g.add_argument("--not-optional", dest="optional", action="store_false", help="action: needed to reach the target")
+    q.add_argument("--why-first", metavar="TEXT", help="action: one line for top_priorities ('' for the default)")
+    q.add_argument("--gap", help="gap: its text")
+    q.add_argument("--severity", choices=SEVERITIES[::-1])
+    q.add_argument("--necessity", choices=["must-have", "nice-to-have"])
+    q.add_argument("--status", choices=GAP_STATUSES)
+    q.add_argument("--rationale")
+    q.add_argument("--benchmarks", nargs="+", metavar="ID", help="gap: the benchmarks it affects (replaces the list)")
+    q.add_argument("--command-text", metavar="CMD", help="command/N: exactly what ran (evidence quoting the old text follows it)")
+    q.add_argument("--exit-code", type=int, help="command/N")
+    q.add_argument("--summary", help="command/N: what it showed")
+    q.add_argument("--workdir", metavar="DIR", help="command/N ('' to clear)")
+    q.add_argument("--env", metavar="TEXT", help="command/N ('' to clear)")
+    q.set_defaults(fn=cmd_report_update)
+
+
+def add_report_remove(rsub):
+    q = rsub.add_parser("remove", help="remove a strength, enforcement item, action, feature, or a finding or gap new in this report")
+    report_arg(q)
+    q.add_argument("ref", metavar="REF", help=EDIT_REF_HELP + " (only one no earlier report has: IDs that were reported stay)")
+    q.set_defaults(fn=cmd_report_remove)
+
+
+def add_report_gap(rsub):
+    q = rsub.add_parser("gap", help="add a gap (something the code should do but doesn't)")
+    report_arg(q)
+    q.add_argument("--gap", required=True)
+    q.add_argument("--severity", required=True, choices=SEVERITIES[::-1])
+    q.add_argument("--necessity", required=True, choices=["must-have", "nice-to-have"])
+    q.add_argument("--status", default="new", choices=GAP_STATUSES)
+    q.add_argument("--rationale")
+    q.add_argument("--benchmarks", nargs="+", required=True, metavar="ID")
+    q.set_defaults(fn=cmd_report_gap)
+
+
+def add_report_feature(rsub):
+    q = rsub.add_parser("feature", help="add a feature to the inventory (the same name again updates it: status, source, evidence)")
+    report_arg(q)
+    q.add_argument("--feature", required=True)
+    q.add_argument("--source", required=True, help="where it's claimed, e.g. README")
+    q.add_argument("--status", required=True, choices=["complete", "partial", "stub", "broken", "undocumented"])
+    evidence_args(q)
+    q.set_defaults(fn=cmd_report_feature)
+
+
+def add_report_flag(rsub):
+    q = rsub.add_parser("flag", help="record an integrity flag: repo text that tries to influence grading")
+    report_arg(q)
+    q.add_argument("--description", required=True)
+    evidence_args(q)
+    q.set_defaults(fn=cmd_report_flag)
+
+
+def add_report_ran(rsub):
+    q = rsub.add_parser("ran", help="record a command you ran")
+    report_arg(q)
+    q.add_argument("--command", "--command-text", dest="command_text", required=True, metavar="CMD",
+                   help="exactly what you ran, so others (and `guard snapshot --from-report`) can run it again; notes go in --summary")
+    q.add_argument("--exit-code", type=int)
+    q.add_argument("--summary", required=True)
+    q.add_argument("--workdir", metavar="DIR", help="where it ran, if not the code checkout (e.g. 'a copy of CODE')")
+    q.add_argument("--output", metavar="FILE", help="its output (saved to a file, or '-' for stdin): gradekit keeps a fingerprint, "
+                   "so `report check` can tell whether excerpts were copied from it")
+    q.add_argument("--env", metavar="TEXT", help="what it ran with, e.g. 'Python 3.13 venv with requirements-dev.txt'")
+    q.set_defaults(fn=cmd_report_ran)
+
+
+def add_report_set(rsub):
+    q = rsub.add_parser("set", help=f"set a field: {', '.join(SETTABLE)} (dotted keys, e.g. metrics.line_coverage_pct)")
+    report_arg(q)
+    q.add_argument("key", help="e.g. summary, metrics.line_coverage_pct, or limitations.2 (one item of a list)")
+    q.add_argument("value", nargs="?", help="JSON (a number, true, an object…) or plain text")
+    q.add_argument("--append", action="store_true", help="append to a list")
+    q.add_argument("--remove", action="store_true", help="remove one item of a list (key LIST.N)")
+    q.set_defaults(fn=cmd_report_set)
+
+
+def add_report_check(rsub):
+    q = rsub.add_parser("check", help="what's missing or wrong; with --write, store the rollup when it's complete")
+    report_arg(q)
+    q.add_argument("--repo", metavar="DIR_OR_ZIP", help="also verify every citation against the code")
+    q.add_argument("--tolerance", type=int, default=2)
+    q.add_argument("--write", action="store_true", help="store the rollup and the finish time")
+    q.set_defaults(fn=cmd_report_check)

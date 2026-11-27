@@ -164,3 +164,24 @@ def cmd_calibration_run(args) -> int:
     emit(args, {"results": res, "written": [str(out), str(mdo)]},
          "\n".join(lines + [f"\ncalibration: {'PASS' if res['pass'] else 'not passed yet'}; wrote {out} and {mdo}"]))
     return 0
+
+
+# =========================================================================== commands
+# How the command line reads this module's commands. cli.build_parser adds them in order.
+
+
+def add_calibration(sub):
+    p = sub.add_parser("calibration", help="the calibration program: golden repos, repeated runs, published results")
+    csub = p.add_subparsers(dest="calibration_cmd", required=True, metavar="STEP")
+    q = csub.add_parser("add-run", help="save a grader's scores for a golden repo as runs/run-N.json")
+    q.add_argument("golden", help="the golden repo's folder, e.g. calibration/golden/schedule")
+    q.add_argument("report", help="the grader's report.json for the golden commit")
+    q.add_argument("--note", help="e.g. which model or session, anything unusual")
+    q.set_defaults(fn=cmd_calibration_add_run)
+    q = csub.add_parser("run", help="score every run against its golden repo; write results.json and RESULTS.md")
+    q.add_argument("--golden-dir", default=str(GOLDEN_DIR))
+    q.add_argument("--min-runs", type=int, default=3, help="independent runs each golden repo needs (default 3)")
+    q.add_argument("--out", default=str(CALIBRATION_RESULTS))
+    q.add_argument("--markdown", default=str(CALIBRATION_MD))
+    q.add_argument("--check", action="store_true", help="only check the written results are up to date (exit 1 if not)")
+    q.set_defaults(fn=cmd_calibration_run)

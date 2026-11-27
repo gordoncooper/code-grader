@@ -7,7 +7,7 @@ import tempfile
 from pathlib import Path
 
 from .common import die, emit, EXIT_INCOMPLETE, git_out, load_catalog, load_report, write_json
-from .config import component_reports, project_dir_for_report, PUBLISHING_DEFAULTS
+from .config import component_reports, project_dir_for_report, PUBLISHING_DEFAULTS, with_config
 from .rollup import apply_rollup
 from .publishing import private_path, publish_problems, redact_report
 from .validate import validate_report
@@ -222,3 +222,28 @@ def cmd_deliver(args) -> int:
 def shell_join(parts) -> str:
     import shlex
     return " ".join(shlex.quote(str(p)) for p in parts)
+
+
+# =========================================================================== commands
+# How the command line reads this module's commands. cli.build_parser adds them in order.
+
+
+def add_deliver(sub):
+    p = sub.add_parser("deliver", help="hand back a finished report: pr, save or return (prints the git steps, or runs them)",
+                       description="Checks the report is finished, withholds sensitive findings if the grading repo is public, "
+                                   "renders report.md, then delivers. For pr it prints the branch, commit, title and body "
+                                   "(or does the git steps with --run); pushing and opening the pull request are opt-in.")
+    p.add_argument("report", help="the finished report.json, in projects/NAME/reports/<folder>/")
+    p.add_argument("--delivery", choices=["pr", "save", "return"], default="pr")
+    p.add_argument("--repo", metavar="DIR_OR_ZIP", help="also verify every citation against the code first")
+    p.add_argument("--run", action="store_true", help="pr: create the branch and commit (otherwise just print the steps)")
+    p.add_argument("--push", action="store_true", help="pr, with --run: push the branch")
+    p.add_argument("--open", choices=["github", "gitlab"], help="pr, with --push: open it with gh or glab (needs them installed and signed in)")
+    p.add_argument("--base", metavar="BRANCH", help="pr: branch to start from and target (default: the remote's default branch)")
+    p.add_argument("--remote", default="origin")
+    p.add_argument("--branch", help="default: report/<project>/<date>-<commit>")
+    p.add_argument("--body-file", metavar="FILE", help="where to write the pull request body (default: a temp file)")
+    p.add_argument("--site", metavar="URL", help="the suite website, for a Review-page link in the body")
+    p.add_argument("--grading-repo-url", metavar="URL", help="the grading repo's address, for that link")
+    with_config(p)
+    p.set_defaults(fn=cmd_deliver)
