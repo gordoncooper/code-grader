@@ -10,9 +10,10 @@ dbader/schedule @ 82a43db (Release 1.2.2), graded with project.toml beside this 
 
 | Run | Model | Within tolerance | MAE | Bias | Result |
 |---|---|:-:|:-:|:-:|---|
-| none yet | | | | | |
+| run-16 | claude-opus-5-5 | 96.4% | 0.5 | -0.429 | pass |
+| run-17 | claude-opus-5-5 | 92.9% | 0.571 | +0 | pass |
 
-Runs: 0 of 3. Spread across runs: needs at least two runs.
+Runs: 2 of 3. Spread across runs: largest 2, mean 0.5; above 1 on B5.
 
 Not counted, because they were graded under earlier scoring rules: run-1, run-2, run-3, run-4, run-5, run-6, run-7, run-8, run-9, run-10, run-11, run-12, run-13, run-14, run-15.
 
