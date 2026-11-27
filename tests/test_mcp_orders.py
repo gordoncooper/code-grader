@@ -131,7 +131,7 @@ def test_one_message_that_breaks_never_stops_the_server(gk, monkeypatch, capsys)
         if msg.get("id") == 2:
             raise RuntimeError("boom")
         return real(msg, state)
-    monkeypatch.setattr(gk, "mcp_handle", flaky)
+    monkeypatch.setattr(gk.core.mcp, "mcp_handle", flaky)
     lines = "".join(json.dumps({"jsonrpc": "2.0", "id": i, "method": "ping"}) + "\n" for i in (1, 2, 3))
     monkeypatch.setattr(sys, "stdin", io.StringIO(lines))
     assert gk.cmd_mcp(argparse.Namespace(list=False)) == 0

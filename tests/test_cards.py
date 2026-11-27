@@ -25,7 +25,8 @@ def test_every_role_has_a_card():
 # --------------------------------------------------------------------------- no rule is lost
 
 def test_every_rule_is_kept_by_a_check_or_a_card():
-    sources = (SRC / "tools" / "gradekit.py").read_text() + (SRC / "schema" / "report.schema.json").read_text()
+    engine = [SRC / "tools" / "gradekit.py", *sorted((SRC / "tools" / "gradekit_core").glob("*.py"))]
+    sources = "".join(p.read_text() for p in engine) + (SRC / "schema" / "report.schema.json").read_text()
     missing = []
     for r in RULES:
         assert bool(r.get("check")) != bool(r.get("card")), f"{r['id']}: a rule is kept by a check or by a card"

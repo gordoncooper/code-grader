@@ -118,7 +118,7 @@ def test_json_output_is_always_valid_json(gk, monkeypatch, capsys, tmp_path):
     def odd(args):
         args._result = {"x": float("inf")}
         return 0
-    monkeypatch.setattr(gk, "cmd_presets", odd)
+    monkeypatch.setattr(gk.core.cli, "cmd_presets", odd)
     assert gk.main(["presets", "--json"]) == 1
     env = json.loads(capsys.readouterr().out, **strict)
     assert env["ok"] is False and "the result isn't JSON" in env["error"]
@@ -127,7 +127,7 @@ def test_json_output_is_always_valid_json(gk, monkeypatch, capsys, tmp_path):
 def test_json_is_one_object_even_when_gradekit_breaks(gk, monkeypatch, capsys):
     def boom(args):
         raise RuntimeError("boom")
-    monkeypatch.setattr(gk, "cmd_presets", boom)
+    monkeypatch.setattr(gk.core.cli, "cmd_presets", boom)
     assert gk.main(["presets", "--json"]) == 1
     out = capsys.readouterr()
     env = json.loads(out.out)
