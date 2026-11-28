@@ -47,7 +47,7 @@ max = 3
 A1 = 3   # Correctness & Functional Behavior
 A2 = 3   # Security & Privacy
 A3 = 2   # Robustness & Error Handling
-A4 = 2   # Idempotence & Determinism
+A4 = 2   # Idempotence & Safe Retries
 A5 = 2   # Durability & Recoverability
 # B: Design & Structure
 B1 = 2   # Architecture & Design Fitness

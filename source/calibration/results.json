@@ -1,14 +1,14 @@
 {
   "_about": "Written by `gradekit calibration run`. Don't edit: a kit test checks it matches the golden runs and the current scoring rules.",
   "scoring_version": "6.0.0",
-  "scoring_fingerprint": "8efdf855283b43e3",
+  "scoring_fingerprint": "64209db4b39cacfa",
   "min_runs": 3,
   "pass": false,
   "goldens": [
     {
       "name": "schedule",
       "reference": "dbader/schedule @ 82a43db (Release 1.2.2), graded with project.toml beside this file",
-      "set_by": "the 4.3 release gate's grade (one grader, 2026-11-08), with changes made with the maintainer's approval on 2026-11-08: E2 5 → 7, because independent graders found only minor documentation problems; A1 8 → 5 under the 4.x zone shift, then → 7 when scoring 5.0 made severity consequence-based (the zero-interval hang is a major finding with an easy workaround, not a critical one), set before the scoring-5.0 runs and provisional until a person reviews it. The other scores are still the 4.3 grade's. For scoring 6.0 (2026-11-27), merged benchmarks were set from the ones they absorbed, provisional until a person reviews them: C1 7 (with C3's 8), E3 5 (with E4's 7 and X6's 5); D3's 9 went with D3, whose parts now sit in B1, B6, F4 and X4",
+      "set_by": "the 4.3 release gate's grade (one grader, 2026-11-08), with changes made with the maintainer's approval on 2026-11-08: E2 5 → 7, because independent graders found only minor documentation problems; A1 8 → 5 under the 4.x zone shift, then → 7 when scoring 5.0 made severity consequence-based (the zero-interval hang is a major finding with an easy workaround, not a critical one), set before the scoring-5.0 runs and provisional until a person reviews it. The other scores are still the 4.3 grade's. For scoring 6.0 (2026-11-27), merged benchmarks were set from the ones they absorbed, provisional until a person reviews them: C1 7 (with C3's 8), E3 5 (with E4's 7 and X6's 5); D3's 9 went with D3, whose parts now sit in B1, B6, F4 and X4. For the 6.0 wording fixes (2026-11-27), the maintainer left two calls to Claude: E2 7 → 5, because docs/examples.rst states the wrong first-run time for every(5).hours.at(\"20:30\"), which the clarified severity rule makes major, so E2-cap-1 applies; and X2 7 → 4, because patch 1.2.2 removed Job.period, which Python's naming conventions make public and 1.2.1's API reference listed, so X2-cap-1 applies",
       "runs": [],
       "earlier_runs": [
         {

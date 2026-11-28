@@ -32,7 +32,7 @@
   - **Run every example** in the README and the main usage guide, as written, in a clean environment. Reading them isn't enough.
   - **Compare the API reference with the public names in the code:** what's missing, and what's documented but gone.
   - **Check five documented behaviors** that users rely on (defaults, error handling, timing, limits) against the code.
-  - **Severity of a docs error:** `major` when following the docs gives a wrong program, or a failure with no obvious fix; otherwise `minor` (a typo, a stale date with a clear error, a missing name).
+  - **Severity of a docs error:** `major` when following the docs gives a wrong program, or a failure with no obvious fix. A wrong program includes one that runs without an error but does something other than the docs say: a wrong stated result, time, value or default in a behavior users rely on. Otherwise `minor` (a typo, a stale date with a clear error, a missing name).
   - `E2-cap-1` is for instructions and documented behavior users rely on to install, configure or use the project, beyond the quickstart (a failing quickstart is `E1-cap-1`). A contributor setup that fails is E3.
 - **Anchors:**
   - **1–3:** Missing or misleading.

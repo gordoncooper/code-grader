@@ -18,7 +18,7 @@ from .config import load_config, project_dir_for_report, project_dir_from_args, 
 from .records import ACCEPT_HINT, open_disputes, WITHDRAW_HINT
 from .rollup import (
     apply_rollup, CAP_SEVERITIES, catalog_caps, compute_rollup, compute_targets, gate_not_applicable, over_limit,
-    resolve_cap, score_limits,
+    NO_ENFORCEMENT_MAX, NO_STRENGTH_MAX, resolve_cap, score_limits,
 )
 from .validate import validate_report
 from .evidence import fs_reader, record_citations_checked, verify_evidence, zip_reader
@@ -130,10 +130,12 @@ def cite(spec: str, read_lines, note: str | None = None) -> dict:
         start += 1
     while not lines[end - 1].strip():
         end -= 1
-    if end - start + 1 > MAX_QUOTE_LINES:   # a quote is 1-3 lines: keep the first three, and say so
-        say_later(f"note: {rel}:{asked[0]}-{asked[1]} is {asked[1] - asked[0] + 1} lines and a quote is at most {MAX_QUOTE_LINES}: cited "
+    cut = None
+    if end - start + 1 > MAX_QUOTE_LINES:   # a quote is 1-3 lines: keep the first three, say so, and mark it for `report check`
+        cut = f"{asked[0]}-{asked[1]}"
+        say_later(f"note: {rel}:{cut} is {asked[1] - asked[0] + 1} lines and a quote is at most {MAX_QUOTE_LINES}: cited "
                   f"{rel}:{start}-{start + MAX_QUOTE_LINES - 1}. If the line that shows it is further down, cite that instead, "
-                  "or give --cite again for it")
+                  "or give --cite again for it; `report check` lists cut quotes until you cite them again")
         end = start + MAX_QUOTE_LINES - 1
         while not lines[end - 1].strip():
             end -= 1
@@ -143,6 +145,8 @@ def cite(spec: str, read_lines, note: str | None = None) -> dict:
     first = quote.strip().splitlines()[0].strip()
     say_later(f"cited {rel}:{start}{'' if start == end else f'-{end}'}: {first[:70]}{'…' if len(first) > 70 or start != end else ''}")
     ev = {"type": "code", "file": rel, "lines": str(start) if start == end else f"{start}-{end}", "quote": quote}
+    if cut:
+        ev["cut_from"] = cut
     if note:
         ev["note"] = note
     return ev
@@ -256,12 +260,14 @@ def evidence_from_args(args, required: bool = False, report: dict | None = None)
     for k, (command, kind, value) in enumerate(paired(args, "command", ("excerpt", "no_output"), "--excerpt (or --no-output)")
                                                if as_list(getattr(args, "command", None)) else []):
         m = re.fullmatch(r"@(\d+)", command.strip())
+        picked = None
         if m:   # a command already recorded with `report ran`: its exact text
             n = int(m.group(1))
             if not 1 <= n <= len(ran):
                 die(f"--command {command}: the report has {plural(len(ran), 'recorded command')} "
                     "(`report show REPORT commands` numbers them)")
-            command = ran[n - 1]["command"]
+            picked = ran[n - 1]
+            command = picked["command"]
         if kind == "no_output":
             excerpt = "(no output)"
         else:
@@ -269,8 +275,8 @@ def evidence_from_args(args, required: bool = False, report: dict | None = None)
             if not (excerpt or "").strip():
                 die("--command needs --excerpt (the relevant output, copied; '@file' or '-' for stdin), or --no-output "
                     "for a command that printed nothing (say what happened, e.g. the exit code or a timeout, in --note)")
-            fp = next((c.get("output") for c in ran if norm(str(c.get("command") or "")) == norm(command) and c.get("output")), None)
-            bad = excerpt_mismatches(excerpt, fp or {})
+            same = [picked] if picked is not None else [c for c in ran if norm(str(c.get("command") or "")) == norm(command)]
+            bad = excerpt_mismatches_any(excerpt, [c.get("output") for c in same])
             if bad:
                 die(f"{plural(len(bad), 'line')} of this excerpt {'is' if len(bad) == 1 else 'are'}n't "
                     f"{'a whole line' if len(bad) == 1 else 'whole lines'} of what `{command[:50]}` printed (e.g. {bad[0][:70]!r}). "
@@ -372,7 +378,7 @@ def cmd_report_new(args) -> int:
                 "run_index": run_index, "run_count": run_count, "suite_source": args.suite_source},
         "component": ({"name": cfg["component"]["name"], "path": cfg["component"].get("path"), "weight": cfg["component"].get("weight", 1)}
                       if cfg.get("component") else None),
-        "config": {"hash": cfg["hash"], "preset": cfg["preset"], "source": " + ".join(cfg["sources"][1:]) or None,
+        "config": {"hash": cfg["hash"], "preset": cfg["preset"], "source": " + ".join(source_label(s, pdir) for s in cfg["sources"][1:]) or None,
                    "component": (cfg.get("component") or {}).get("name"), "scoring_version": cfg["suite_version"]},
         "commands_run": [], "scope_examined": "", "metrics": {}, "feature_inventory": [], "gap_register": [],
         "findings": [], "benchmarks": [blank_benchmark(c, cfg) for c in catalog["benchmarks"]], "integrity_flags": [],
@@ -596,7 +602,11 @@ def cmd_report_action(args) -> int:
         act["why_first"] = args.why_first
     b["path_to_target"].append(act)
     save_edit(args, report, cfg)
-    emit(args, {"id": aid, "action": act}, f"added {aid}" + (" (needs a human decision)" if args.decision else ""))
+    needs = ([] if (args.new_score or 0) < NO_STRENGTH_MAX + 1 or b.get("strengths") else ["strengths"]) \
+        + ([] if (args.new_score or 0) < NO_ENFORCEMENT_MAX + 1 or enforcement_items(b) else ["enforcement"])
+    hint = (f"; note: a {args.new_score} needs {' and '.join(needs)}, and {b['id']} has none recorded. If this action doesn't add "
+            f"{'them' if len(needs) > 1 else 'it'}, expect {NO_STRENGTH_MAX if 'strengths' in needs else NO_ENFORCEMENT_MAX}") if needs else ""
+    emit(args, {"id": aid, "action": act}, f"added {aid}" + (" (needs a human decision)" if args.decision else "") + hint)
     return 0
 
 
@@ -681,6 +691,8 @@ def show_lines(report: dict, what: str | None) -> list[str]:
         keys = list(dict.fromkeys(list((report.get("metrics") or {}).keys()) + list(notes.keys())))
         return [f"metrics.{k} = {json.dumps((report.get('metrics') or {}).get(k))}" + (f"  (metrics_notes.{k}: {notes[k]})" if k in notes else "")
                 for k in keys] or ["no metrics yet: `report set REPORT metrics.KEY VALUE` (prompts/grader.md lists the keys)"]
+    if what and what.lower() in ("limitation", "limitations"):
+        return [f"{i}. {text}" for i, text in enumerate(report.get("limitations") or [], 1)] or ["no limitations yet"]
     if what and what.lower() in ("command", "commands"):
         return [f"{i}. `{c.get('command')}` → {c.get('exit_code')}: {c.get('result_summary')}" + (f" (in {c['workdir']})" if c.get("workdir") else "")
                 for i, c in enumerate(report.get("commands_run") or [], 1)] or ["no commands recorded yet"]
@@ -755,13 +767,20 @@ def cmd_report_update(args) -> int:
                     item.pop(field, None)
                 else:
                     item[field] = getattr(args, key)
-        moved = 0
+        moved = left = 0
         if args.command_text is not None and args.command_text != old:   # evidence that quotes it follows the new text
+            others = [c.get("output") for c in report.get("commands_run") or []
+                      if c is not item and norm(str(c.get("command") or "")) == norm(str(old or ""))]
             for _, ev, _ in iter_evidence(report):
                 if ev.get("type") == "command" and ev.get("command") == old:
+                    excerpt = str(ev.get("excerpt") or "")
+                    if others and (excerpt_mismatches_any(excerpt, [item.get("output")]) or not excerpt_mismatches_any(excerpt, others)):
+                        left += 1   # another command has the old text too, and this excerpt isn't only from this one's output
+                        continue
                     ev["command"] = args.command_text
                     moved += 1
-        changed = sorted(given) + ([f"{plural(moved, 'evidence item')} now quote the new text"] if moved else [])
+        changed = sorted(given) + ([f"{plural(moved, 'evidence item')} now quote the new text"] if moved else []) \
+            + ([f"{plural(left, 'evidence item')} still quote the old text, which another recorded command has too"] if left else [])
     elif kind == "action":
         if args.resolves is not None:
             ids = {f.get("id") for f in report["findings"]} | {g.get("id") for g in report["gap_register"]}
@@ -832,12 +851,15 @@ def cmd_report_feature(args) -> int:
     same = [f for f in report["feature_inventory"] if str(f.get("feature", "")).strip().lower() == args.feature.strip().lower()]
     if same:   # the same feature again updates it, e.g. when `carry` says its citation needs new evidence
         feat = same[0]
+        had = len(feat.get("evidence") or [])
         feat.update({"source": args.source or feat.get("source"), "status": args.status})
         if evidence:
             feat["evidence"] = evidence
         save_edit(args, report, cfg)
-        emit(args, {"feature": feat, "updated": True},
-             f"updated feature '{feat['feature']}' ({args.status}{', new evidence' if evidence else ''})")
+        emit(args, {"feature": feat, "updated": True, "evidence_replaced": had if evidence else 0},
+             f"updated feature '{feat['feature']}' ({args.status})"
+             + (f": its {plural(had, 'evidence item')} replaced by the {len(evidence)} given (a feature is one record; "
+                "give all its evidence at once)" if evidence and had else ", new evidence" if evidence else ""))
         return 0
     feat = {"feature": args.feature, "source": args.source, "status": args.status, "evidence": evidence}
     report["feature_inventory"].append(feat)
@@ -858,14 +880,18 @@ def cmd_report_flag(args) -> int:
 OUTPUT_LINES_MAX = 5000
 
 
+ANSI_RE = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)")   # color and other terminal codes
+
+
 def output_line_key(line: str) -> str:
-    return hashlib.sha256(" ".join(line.split()).encode("utf-8", "replace")).hexdigest()[:10]
+    """A line of output as `report ran --output` keeps it: terminal codes (color) left out, whitespace evened out."""
+    return hashlib.sha256(" ".join(ANSI_RE.sub("", line).split()).encode("utf-8", "replace")).hexdigest()[:10]
 
 
 def output_fingerprint(text: str) -> dict:
     """What `report ran --output` keeps of a command's output: one short hash per distinct line (whitespace evened
     out), so `report check` can tell whether an excerpt was copied from it, without storing the output itself."""
-    lines = [l for l in text.splitlines() if l.strip()]
+    lines = [l for l in text.splitlines() if ANSI_RE.sub("", l).strip()]
     keys = sorted({output_line_key(l) for l in lines})
     if len(keys) > OUTPUT_LINES_MAX:
         return {"lines": len(lines), "too_long": True}
@@ -878,7 +904,15 @@ def excerpt_mismatches(excerpt: str, fp: dict) -> list[str]:
         return []
     known = set(fp["line_hashes"])
     return [l.strip() for l in excerpt.splitlines()
-            if l.strip() and l.strip() not in ("...", "…", "[...]", "(no output)") and output_line_key(l) not in known]
+            if ANSI_RE.sub("", l).strip() and l.strip() not in ("...", "…", "[...]", "(no output)") and output_line_key(l) not in known]
+
+
+def excerpt_mismatches_any(excerpt: str, fps: list) -> list[str]:
+    """The excerpt checked against the output of every recorded command with its text (a command run twice has two):
+    nothing when one of them has every line, or when one can't be checked; else the closest one's mismatches."""
+    if not fps or any(not fp or fp.get("too_long") or not fp.get("line_hashes") for fp in fps):
+        return []
+    return min((excerpt_mismatches(excerpt, fp) for fp in fps), key=len)
 
 
 def cmd_report_ran(args) -> int:
@@ -900,6 +934,21 @@ def cmd_report_ran(args) -> int:
 
 SETTABLE = ("summary", "scope_examined", "project_context_inferred", "metrics", "metrics_notes", "limitations", "holdout",
             "top_priorities", "run")
+
+
+def source_label(path: str, pdir: Path | None) -> str:
+    """A config file as a report names it: relative to the grading repo (the folder above projects/), else to the current
+    folder, else just its name, so a shared report doesn't carry a local path."""
+    p = Path(path)
+    if not p.is_absolute():
+        return path
+    bases = ([pdir.resolve().parent.parent] if pdir is not None and pdir.resolve().parent.name == "projects" else []) + [Path.cwd().resolve()]
+    for base in bases:
+        try:
+            return p.resolve().relative_to(base).as_posix()
+        except ValueError:
+            continue
+    return p.name
 
 
 def cmd_report_set(args) -> int:
@@ -992,12 +1041,19 @@ def report_todo(report: dict, pdir: Path | None = None) -> list[str]:
     return todo
 
 
+def cut_quotes(report: dict) -> list[str]:
+    """Code evidence that kept only the first lines of a longer range: the line that shows the point may have been cut."""
+    return [f"{where}: its quote from {ev.get('file')} kept lines {ev.get('lines')} of the {ev['cut_from']} you cited. If they show the "
+            f"point, cite exactly those again (`--cite {ev.get('file')}:{ev.get('lines')}`, with --replace-evidence); if not, cite the lines that do"
+            for where, ev, _ in iter_evidence(report) if ev.get("type") == "code" and ev.get("cut_from")]
+
+
 def unrecorded_commands(report: dict) -> list[str]:
     """Command evidence whose command isn't in commands_run (the excerpt can't be traced to a recorded run), and
     excerpts with lines that aren't in the output recorded with `report ran --output`."""
     ran: dict = {}
     for c in report.get("commands_run") or []:
-        ran.setdefault(norm(str(c.get("command") or "")), c.get("output"))
+        ran.setdefault(norm(str(c.get("command") or "")), []).append(c.get("output"))
     out, seen = [], set()
     def walk(where, evs):
         for ev in evs or []:
@@ -1010,7 +1066,7 @@ def unrecorded_commands(report: dict) -> list[str]:
                     out.append(f"{where}: its excerpt is from `{str(ev.get('command'))[:60]}`, which isn't in commands_run: record it with "
                                "`report ran`, then cite it as `--command @N`")
                 continue
-            bad = excerpt_mismatches(str(ev.get("excerpt") or ""), ran[key] or {})
+            bad = excerpt_mismatches_any(str(ev.get("excerpt") or ""), ran[key])
             if bad:
                 out.append(f"{where}: {plural(len(bad), 'line')} of its excerpt from `{str(ev.get('command'))[:40]}` "
                            f"{'is' if len(bad) == 1 else 'are'}n't in that command's recorded output (e.g. {bad[0][:60]!r}): "
@@ -1033,6 +1089,7 @@ def cmd_report_check(args) -> int:
     if note:
         warnings.append(note)
     warnings += unrecorded_commands(report)
+    warnings += cut_quotes(report)
     todo = report_todo(report, pdir_)
     todo_ids = {t.split(" ", 1)[0] for t in todo}
     # A blank benchmark fails several rules at once; the to-do list says it once.
@@ -1057,10 +1114,12 @@ def cmd_report_check(args) -> int:
             apply_rollup(report, cfg)
             if evidence is not None:
                 record_citations_checked(report, evidence)
+            before, started = report["run"].get("date"), report["run"].get("started")
             report["run"]["date"] = utc_now()
             usage = report["run"].setdefault("usage", {})
-            if usage.get("minutes") is None and report["run"].get("started"):
-                usage["minutes"] = minutes_between(report["run"]["started"], report["run"]["date"])
+            if started and (usage.get("minutes") is None
+                            or (before and usage["minutes"] == minutes_between(started, before))):   # still the tool's own count
+                usage["minutes"] = minutes_between(started, report["run"]["date"])
             wrote = (f"wrote {args.report}: the rollup (overall {roll['overall_score']}, {roll['maturity']['current_level']}) and the finish "
                      f"time {report['run']['date']}" + (f", {report['run']['usage']['minutes']:g} min" if (report["run"].get("usage") or {}).get("minutes") is not None else ""))
         else:

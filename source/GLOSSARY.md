@@ -6,7 +6,7 @@ Generated from `rubric/glossary.json` by `gradekit glossary --markdown`. Edit th
 
 ## Scoring
 
-**benchmark**: One of the 35 things the suite grades, such as A2 Security & Privacy. Each has a rubric with what to assess and what each score means. *Not:* criterion.
+**benchmark**: One of the things the suite grades, such as A2 Security & Privacy. Each has a rubric with what to assess and what each score means. *Not:* criterion.
 
 **pillar**: A group of benchmarks (A to F, plus X for the conditional ones). A pillar's score is the weighted average of its benchmarks. *Not:* dimension.
 

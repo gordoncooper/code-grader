@@ -7,7 +7,7 @@
 ## D1. Feature Completeness
 - **Measures:** Every feature the project claims or exposes (README, docs, CLI help, routes, UI, config options) is fully implemented and works end to end, with parity across surfaces (e.g. the CLI and the API both support it). No stubs, placeholder UI, dead buttons, `NotImplementedError` or half-wired flags.
 - **Not this:** Features that are *missing* but expected (D2).
-- **Assess:** Build a **feature inventory** from your recon list and give each feature a status: `complete`, `partial`, `stub`, `broken` or `undocumented`. Exercise each one, or as many as practical.
+- **Assess:** Build a **feature inventory** from your recon list and give each feature a status: `complete`, `partial`, `stub`, `broken` or `undocumented`. Exercise each one, or as many as practical. A status says whether the feature works in normal use: a defect in an edge case belongs to the benchmark that owns it (a wrong result A1, a misleading doc E2), so the feature stays `complete` and D1 doesn't drop for it too.
 - **Anchors:**
   - **1–3:** Most claimed features broken or stubbed.
   - **4–6:** Core features work; several partial.
