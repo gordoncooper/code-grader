@@ -20,6 +20,7 @@ from .rubric import parse_rubric
 # unmeasured.
 
 GOLDEN_DIR = SUITE_DIR / "calibration" / "golden"
+CANDIDATE_DIR = SUITE_DIR / "calibration" / "candidates"   # golden repos still waiting for a review and their runs
 CALIBRATION_RESULTS = SUITE_DIR / "calibration" / "results.json"
 CALIBRATION_MD = SUITE_DIR / "calibration" / "RESULTS.md"
 
@@ -184,11 +185,13 @@ def _pearson(xs: list[float], ys: list[float]) -> float | None:
     return None if not sx or not sy else sum((x - mx) * (y - my) for x, y in zip(xs, ys)) / (sx * sy)
 
 
-def calibration_analysis(golden_dir: Path, all_rules: bool = False) -> dict:
+def calibration_analysis(golden_dir: Path | list[Path], all_rules: bool = False) -> dict:
     """What the runs say about the rubric's shape: where graders disagree (spread), which benchmarks rarely apply,
     which ones move together across repos once each repo's overall level is taken out, and the same code filed
     under different benchmarks by different graders."""
-    goldens = counted_runs(golden_dir, all_rules)
+    goldens: dict = {}
+    for d in (golden_dir if isinstance(golden_dir, list) else [golden_dir]):   # golden repos, then candidates
+        goldens.update(counted_runs(Path(d), all_rules))
     ids = list(dict.fromkeys(bid for runs in goldens.values() for r in runs for bid in (r.get("scores") or {})))
     spread, not_full, means = {}, {}, {}
     for name, runs in goldens.items():
@@ -251,7 +254,7 @@ def analysis_text(res: dict) -> str:
 
 
 def cmd_calibration_analyze(args) -> int:
-    res = calibration_analysis(Path(args.golden_dir), args.all_rules)
+    res = calibration_analysis([Path(d) for d in args.golden_dir or [GOLDEN_DIR, CANDIDATE_DIR]], args.all_rules)
     emit(args, res, analysis_text(res))
     return 0
 
@@ -295,6 +298,7 @@ def add_calibration(sub):
     q.add_argument("--check", action="store_true", help="only check the written results are up to date (exit 1 if not)")
     q.set_defaults(fn=cmd_calibration_run)
     q = csub.add_parser("analyze", help="what the runs say about the rubric: spread, rarely applies, move together, filed differently")
-    q.add_argument("--golden-dir", default=str(GOLDEN_DIR))
+    q.add_argument("--golden-dir", action="append",
+                   help="a folder of golden repos (repeatable; default: calibration/golden and calibration/candidates)")
     q.add_argument("--all-rules", action="store_true", help="include runs graded under earlier scoring rules (benchmarks matched by ID)")
     q.set_defaults(fn=cmd_calibration_analyze)
