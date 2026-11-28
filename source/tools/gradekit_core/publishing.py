@@ -6,7 +6,7 @@ import copy
 import re
 from pathlib import Path
 
-from .common import all_text, die, emit, level_num, load_json, load_report, norm, repo_relative, RUBRIC, write_json
+from .common import all_text, die, emit, iter_evidence, level_num, load_json, load_report, norm, repo_relative, RUBRIC, write_json
 from .config import folder_reports, load_config, project_dir_for_report
 from .rollup import weighted
 
@@ -86,6 +86,14 @@ def redact_report(report: dict, catalog: dict | None = None) -> tuple[dict, list
         findings.append(g)
     if "findings" in public:
         public["findings"] = findings
+    # A command only a withheld finding cites is withheld too: its text (a curl with a forged token, say) is the details.
+    quoted_by = lambda evs: {norm(str(ev.get("command") or "")) for ev in evs if ev.get("type") == "command"}
+    private_cmds = quoted_by(ev for f in report.get("findings", []) if f.get("id") in ids for ev in f.get("evidence", []))
+    private_cmds -= quoted_by(ev for _, ev, _ in iter_evidence(public))
+    for c in public.get("commands_run", []) or []:
+        if norm(str(c.get("command") or "")) in private_cmds:
+            c.update({"command": "(withheld: only a withheld finding cites it)", "summary": "[redacted]"})
+            c.pop("output", None)
 
     reworded: dict[str, dict] = {}
     for b in public.get("benchmarks", []):

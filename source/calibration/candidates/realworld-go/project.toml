@@ -1,0 +1,42 @@
+# Code Grading Suite: project configuration for a calibration golden repo
+# People own this file. Agents read it but don't change it.
+# Check it with:  python3 SUITE_DIR/tools/gradekit.py resolve --config projects/<name>/project.toml
+
+[project]
+name            = "realworld-go"
+description     = "The RealWorld (Conduit) blogging API in Go: users, profiles, articles, comments and tags, with Gin and GORM on SQLite."
+code_repo       = "https://github.com/gothinkster/golang-gin-realworld-example-app"   # where the code lives (informational)
+suite           = "6"
+preset          = "service"   # default | service | web_app | library | oss_library | cli | internal_tool | prototype
+languages       = "Go"
+users           = "Clients of the Conduit blogging API, and developers who study it as a reference backend"
+
+# Answers override the preset. Each one moves specific weights; see `gradekit resolve --explain ID`.
+[answers]
+data_sensitivity  = "personal"   # What is the most sensitive data this code handles? (none | internal | personal | financial | regulated)
+audience          = "public"   # Who uses it? (just_me | team | internal_org | public | developers)
+lifespan          = "years"   # How long will this code live? (throwaway | months | years | indefinite)
+failure_impact    = "inconvenience"   # What happens when it fails? (inconvenience | degraded_work | revenue_loss | safety_or_legal)
+team              = "open_source"   # Who works on it? (solo | small | large | open_source)
+change_rate       = "regular"   # How often does it change? (rare | regular | constant)
+delivery          = "service"   # How is it delivered? (mixed | service | website | package | installed_app | internal_script)
+scale             = "small"   # What load or data volume does it face? (small | moderate | large | massive)
+
+# Criticality zones: the first match wins, so list specific zones first.
+# hot = matters most (money, auth, data writes); cold = matters least (scripts, examples).
+
+[[zones]]
+name        = "auth-and-accounts"
+paths       = ["users/**", "common/utils.go"]
+criticality = "hot"
+why         = "Sign-up, login, password hashes, JWTs and the auth middleware"
+
+[[zones]]
+name        = "scripts"
+paths       = ["scripts/**"]
+criticality = "cold"
+why         = "Coverage, formatting and spec-test helper scripts"
+
+# Where improving agents stop: proportional (default) | maximal | level:L3
+[targets]
+mode = "proportional"

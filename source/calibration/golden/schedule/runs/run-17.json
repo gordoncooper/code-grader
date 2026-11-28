@@ -1,0 +1,470 @@
+{
+  "graded": "2026-11-27T20:11:23Z",
+  "commit": "82a43db1b938d8fdf60103bd41f329e06c8d3651",
+  "suite_version": "6.0.0",
+  "scoring_version": "6.0.0",
+  "grader": "Claude Code",
+  "model": "claude-opus-5-5",
+  "note": "Claude Opus 5.5 subagent, effort max, fresh session; kit copy without calibration/ or CHANGELOG",
+  "rules_fingerprint": "8efdf855283b43e3",
+  "minutes": 44.8,
+  "scores": {
+    "A1": {
+      "score": 7,
+      "applicability": "full"
+    },
+    "A2": {
+      "score": 8,
+      "applicability": "full"
+    },
+    "A3": {
+      "score": 6,
+      "applicability": "full"
+    },
+    "A4": {
+      "score": 7,
+      "applicability": "limited"
+    },
+    "A5": {
+      "score": null,
+      "applicability": "not_applicable"
+    },
+    "B1": {
+      "score": 8,
+      "applicability": "full"
+    },
+    "B2": {
+      "score": 7,
+      "applicability": "full"
+    },
+    "B3": {
+      "score": 8,
+      "applicability": "full"
+    },
+    "B4": {
+      "score": 6,
+      "applicability": "full"
+    },
+    "B5": {
+      "score": 8,
+      "applicability": "full"
+    },
+    "B6": {
+      "score": 8,
+      "applicability": "full"
+    },
+    "C1": {
+      "score": 8,
+      "applicability": "full"
+    },
+    "C2": {
+      "score": 7,
+      "applicability": "full"
+    },
+    "C4": {
+      "score": 8,
+      "applicability": "full"
+    },
+    "D1": {
+      "score": 9,
+      "applicability": "full"
+    },
+    "D2": {
+      "score": 8,
+      "applicability": "full"
+    },
+    "D4": {
+      "score": 7,
+      "applicability": "full"
+    },
+    "E1": {
+      "score": 4,
+      "applicability": "full"
+    },
+    "E2": {
+      "score": 5,
+      "applicability": "full"
+    },
+    "E3": {
+      "score": 5,
+      "applicability": "full"
+    },
+    "F1": {
+      "score": 5,
+      "applicability": "full"
+    },
+    "F2": {
+      "score": 6,
+      "applicability": "full"
+    },
+    "F3": {
+      "score": 8,
+      "applicability": "limited"
+    },
+    "F4": {
+      "score": 8,
+      "applicability": "full"
+    },
+    "F5": {
+      "score": 7,
+      "applicability": "full"
+    },
+    "F6": {
+      "score": 4,
+      "applicability": "full"
+    },
+    "X1": {
+      "score": null,
+      "applicability": "not_applicable"
+    },
+    "X2": {
+      "score": 7,
+      "applicability": "full"
+    },
+    "X3": {
+      "score": 6,
+      "applicability": "limited"
+    },
+    "X4": {
+      "score": null,
+      "applicability": "not_applicable"
+    },
+    "X5": {
+      "score": 9,
+      "applicability": "limited"
+    }
+  },
+  "findings": [
+    {
+      "benchmark": "A1",
+      "severity": "major",
+      "title": "A zero or negative interval hangs forever inside .do() instead of raising",
+      "places": [
+        "schedule/__init__.py:729",
+        "schedule/__init__.py:733-734"
+      ]
+    },
+    {
+      "benchmark": "A1",
+      "severity": "minor",
+      "title": "Plain interval jobs pause for about an hour when DST ends, because next runs are naive local wall-clock times",
+      "places": [
+        "schedule/__init__.py:717"
+      ]
+    },
+    {
+      "benchmark": "A1",
+      "severity": "minor",
+      "title": "until() with a timezone-aware datetime fails with a raw TypeError",
+      "places": [
+        "schedule/__init__.py:638"
+      ]
+    },
+    {
+      "benchmark": "A2",
+      "severity": "minor",
+      "title": "DEBUG log lines include the job's arguments, so secrets passed to jobs reach the logs",
+      "places": [
+        "schedule/__init__.py:690",
+        "schedule/__init__.py:270"
+      ]
+    },
+    {
+      "benchmark": "A2",
+      "severity": "minor",
+      "title": "No security scanning in CI, and the workflow does not limit its token's permissions",
+      "places": []
+    },
+    {
+      "benchmark": "A3",
+      "severity": "major",
+      "title": "A job that raises is never rescheduled and blocks every due job sorted after it",
+      "places": [
+        "schedule/__init__.py:691-693",
+        "schedule/__init__.py:99-101"
+      ]
+    },
+    {
+      "benchmark": "A4",
+      "severity": "minor",
+      "title": "Calling .do() twice on the same Job registers it twice, so it runs twice per due time",
+      "places": [
+        "schedule/__init__.py:663"
+      ]
+    },
+    {
+      "benchmark": "B2",
+      "severity": "minor",
+      "title": "No seam for the clock: next-run logic calls datetime.datetime.now() directly, so tests must replace datetime.datetime process-wide",
+      "places": [
+        "schedule/__init__.py:672",
+        "schedule/__init__.py:717",
+        "test_schedule.py:77-78"
+      ]
+    },
+    {
+      "benchmark": "B2",
+      "severity": "minor",
+      "title": "The Scheduler does not own its job list: Job.do() appends itself to scheduler.jobs, and the module exposes that same list as schedule.jobs",
+      "places": [
+        "schedule/__init__.py:663",
+        "schedule/__init__.py:840"
+      ]
+    },
+    {
+      "benchmark": "B3",
+      "severity": "minor",
+      "title": "Packaging metadata is split across pyproject.toml, setup.py and setup.cfg",
+      "places": [
+        "pyproject.toml:8",
+        "setup.cfg:1-2"
+      ]
+    },
+    {
+      "benchmark": "B4",
+      "severity": "minor",
+      "title": "The fluent Job API is unannotated, so typed users get Any from every(...).minutes onward despite py.typed",
+      "places": [
+        "schedule/__init__.py:331-333"
+      ]
+    },
+    {
+      "benchmark": "B4",
+      "severity": "minor",
+      "title": "at()'s tz parameter is annotated Optional[str] but documented and implemented to accept pytz timezone objects",
+      "places": [
+        "schedule/__init__.py:471",
+        "schedule/__init__.py:503-504"
+      ]
+    },
+    {
+      "benchmark": "B4",
+      "severity": "minor",
+      "title": "Units and weekdays are free-form strings on public, mutable Job attributes, checked only when the next run is computed",
+      "places": [
+        "schedule/__init__.py:233",
+        "schedule/__init__.py:249",
+        "schedule/__init__.py:704-705"
+      ]
+    },
+    {
+      "benchmark": "B6",
+      "severity": "minor",
+      "title": "docs/conf.py is 373 lines of Sphinx quickstart boilerplate, 231 of them comment lines, mostly commented-out defaults",
+      "places": [
+        "docs/conf.py:99-101"
+      ]
+    },
+    {
+      "benchmark": "C1",
+      "severity": "minor",
+      "title": "Slips in user-facing messages and comments",
+      "places": [
+        "schedule/__init__.py:660-661",
+        "schedule/__init__.py:259",
+        "schedule/__init__.py:230"
+      ]
+    },
+    {
+      "benchmark": "C2",
+      "severity": "minor",
+      "title": "Job.at() is an 89-line method with cyclomatic complexity 25 that re-derives the format from the unit three times",
+      "places": [
+        "schedule/__init__.py:471",
+        "schedule/__init__.py:538-540"
+      ]
+    },
+    {
+      "benchmark": "C2",
+      "severity": "minor",
+      "title": "The seven weekday properties are copy-pasted 11-line blocks that differ only in the day name",
+      "places": [
+        "schedule/__init__.py:381-383",
+        "schedule/__init__.py:392-394"
+      ]
+    },
+    {
+      "benchmark": "C4",
+      "severity": "minor",
+      "title": "Failure paths and a few contracts are untested: no raising job, no zero or negative interval, last_run never asserted",
+      "places": []
+    },
+    {
+      "benchmark": "D4",
+      "severity": "minor",
+      "title": "Some error messages mislead: to() reports the opposite of the problem and at() prints a literal {}",
+      "places": [
+        "schedule/__init__.py:710-711",
+        "schedule/__init__.py:547-549"
+      ]
+    },
+    {
+      "benchmark": "D4",
+      "severity": "minor",
+      "title": "Using a timezone without pytz fails with a bare ModuleNotFoundError that does not say what to install",
+      "places": [
+        "schedule/__init__.py:498-499"
+      ]
+    },
+    {
+      "benchmark": "D4",
+      "severity": "minor",
+      "title": "An async def job is accepted and then silently never runs",
+      "places": [
+        "schedule/__init__.py:655"
+      ]
+    },
+    {
+      "benchmark": "E1",
+      "severity": "major",
+      "title": "The README quickstart fails as written: its timezone line needs pytz, which pip install schedule does not install",
+      "places": [
+        "README.rst:27",
+        "README.rst:44"
+      ]
+    },
+    {
+      "benchmark": "E2",
+      "severity": "major",
+      "title": "The usage guide states the wrong first run for every(N).hours.at(): it says 06:20:30, the code runs it at 07:20:30",
+      "places": [
+        "docs/examples.rst:32-34"
+      ]
+    },
+    {
+      "benchmark": "E2",
+      "severity": "minor",
+      "title": "The DST 'clock moves backwards' example describes the change as 02:00 to 03:00",
+      "places": [
+        "docs/timezones.rst:52-53"
+      ]
+    },
+    {
+      "benchmark": "E2",
+      "severity": "minor",
+      "title": "The API reference omits repeat() and the ScheduleError, ScheduleValueError and IntervalError exceptions, and lists CancelJob under Exceptions",
+      "places": [
+        "docs/reference.rst:39"
+      ]
+    },
+    {
+      "benchmark": "E2",
+      "severity": "minor",
+      "title": "Several snippets fail when run as written: missing imports, and an until() example whose deadlines are already past",
+      "places": [
+        "docs/examples.rst:213-214",
+        "docs/examples.rst:242-243"
+      ]
+    },
+    {
+      "benchmark": "E2",
+      "severity": "minor",
+      "title": "Small slips: the README's supported-versions line and run_all()'s docstring",
+      "places": [
+        "README.rst:20",
+        "schedule/__init__.py:107"
+      ]
+    },
+    {
+      "benchmark": "E3",
+      "severity": "major",
+      "title": "The documented dev setup and test command do not work: pytest will not start in the environment requirements-dev.txt builds, and on Python 3.13 the requirements do not install",
+      "places": [
+        "docs/development.rst:22",
+        "requirements-dev.txt:5-7"
+      ]
+    },
+    {
+      "benchmark": "E3",
+      "severity": "minor",
+      "title": "No contributor or agent guide in the repository: the dev notes in docs/development.rst never mention tox, which CI actually runs, or how to run one test",
+      "places": []
+    },
+    {
+      "benchmark": "F1",
+      "severity": "major",
+      "title": "Releases are a manual procedure that breaks at its build step and publishes only a wheel",
+      "places": [
+        "docs/development.rst:61-62",
+        "docs/development.rst:53"
+      ]
+    },
+    {
+      "benchmark": "F2",
+      "severity": "minor",
+      "title": "CI runs no linter and type-checks only at mypy's default strictness, so the flake8 check the docs describe is never enforced",
+      "places": [
+        ".github/workflows/ci.yml:77-78",
+        "tox.ini:24"
+      ]
+    },
+    {
+      "benchmark": "F2",
+      "severity": "minor",
+      "title": "No caching or pre-commit hooks: every CI job installs tox and all dependencies from scratch",
+      "places": [
+        ".github/workflows/ci.yml:24-25"
+      ]
+    },
+    {
+      "benchmark": "F5",
+      "severity": "minor",
+      "title": "'OS Independent' is claimed, but CI runs only on Linux and the test suite cannot run on Windows",
+      "places": [
+        "setup.py:43",
+        ".github/workflows/ci.yml:13",
+        "test_schedule.py:29-30"
+      ]
+    },
+    {
+      "benchmark": "F6",
+      "severity": "major",
+      "title": "The build uses setuptools metadata that setuptools has deprecated with a 2027-02-18 deadline, and the setuptools requirement is unbounded",
+      "places": [
+        "pyproject.toml:2",
+        "pyproject.toml:10"
+      ]
+    },
+    {
+      "benchmark": "F6",
+      "severity": "minor",
+      "title": "Dependency upkeep is manual: no Dependabot or Renovate, and the one pinned dev tool is a 2020 black with five known advisories",
+      "places": [
+        "requirements-dev.txt:7-8"
+      ]
+    },
+    {
+      "benchmark": "F6",
+      "severity": "minor",
+      "title": "The supported and tested Pythons are out of date: 3.7 to 3.9 are end-of-life, 3.13 and later are not declared, and CI uses deprecated action versions",
+      "places": [
+        "setup.py:46-48",
+        ".github/workflows/ci.yml:17",
+        ".github/workflows/ci.yml:19-21"
+      ]
+    },
+    {
+      "benchmark": "X2",
+      "severity": "minor",
+      "title": "No __all__: the module's imports (datetime, time, random, re, logging, functools and typing names) are part of its public namespace",
+      "places": [
+        "schedule/__init__.py:41-43"
+      ]
+    },
+    {
+      "benchmark": "X2",
+      "severity": "minor",
+      "title": "No deprecation mechanism or backward-compatibility tests",
+      "places": []
+    },
+    {
+      "benchmark": "X3",
+      "severity": "minor",
+      "title": "No thread-safety statement and no lock around the job list, although the docs run run_pending() in a background thread while the main thread keeps going",
+      "places": [
+        "schedule/__init__.py:87",
+        "docs/background-execution.rst:29-31"
+      ]
+    }
+  ]
+}

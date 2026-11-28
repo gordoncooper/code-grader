@@ -23,7 +23,7 @@
   - **4–6:** Some modules; heavy coupling; god files.
   - **7–8:** Clean boundaries; coupling controlled.
   - **9–10:** Every unit has one clear job and a narrow interface; replacing one touches only its seam.
-- **Caps:** Circular dependencies between major modules → max 5 (`B2-cap-1`).
+- **Caps:** Circular dependencies between major modules (top-level packages, or the feature folders the code is organized by; a cycle between two folders counts even when no single file is in one) → max 5 (`B2-cap-1`).
 
 ## B3. Structure & Organization
 - **Measures:** The codebase is easy to navigate. Directory layout reflects the domain or architecture; things live where you'd expect; file and folder names are consistent; source, tests, scripts, config and docs are separated; no junk-drawer `utils/` or `misc/`; generated code is isolated. Repo hygiene: `.gitignore` is correct, and no build artifacts or large binaries are committed.
@@ -48,7 +48,7 @@
 
 ## B5. Flexibility & Extensibility
 - **Measures:** Likely changes can be made without invasive edits. Things that vary are config rather than code; extension points (plugins, hooks, strategies, adapters) exist *where there is real demand*; no hard-coded assumptions that limit growth (single tenant, one currency or locale, one region, one storage backend); feature flags where they help.
-- **Not this:** Speculative over-engineering is penalized under Leanness (B6). Flexibility should be earned by likely change, not imagined change. Coupling between modules in general (B2): a hard-wired choice that a likely change has to replace (one backend, one unit system, one locale) is B5's; coupling that makes unrelated changes ripple is B2's.
+- **Not this:** Speculative over-engineering is penalized under Leanness (B6). Flexibility should be earned by likely change, not imagined change. Coupling between modules in general (B2): a hard-wired choice that a likely change has to replace (one backend, one unit system, one locale) is B5's; coupling that makes unrelated changes ripple is B2's. Hard-coded environment values, such as an API's URL, are F1's.
 - **Assess:** Take 3 likely change requests from the project itself: its open issues and feature requests, its roadmap or changelog, or what its docs say users ask for. Invent one only when the project gives none, and say so in the rationale. For each, trace the blast radius: the files and functions it touches, and the risk involved. Name the 3 changes in the rationale, so the score can be checked.
 - **Anchors:**
   - **1–3:** Every change ripples through the codebase.

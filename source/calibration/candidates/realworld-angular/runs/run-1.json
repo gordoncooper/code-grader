@@ -1,0 +1,551 @@
+{
+  "graded": "2026-11-28T00:52:28Z",
+  "commit": "a7a19c511b0b25aab1d929a4c0fe6ba55aaeff5c",
+  "suite_version": "6.0.0",
+  "scoring_version": "6.0.0",
+  "grader": "Claude Code",
+  "model": "claude-opus-5-5",
+  "note": "reference grade (it set expected.json): Claude Opus 5.5 subagent, effort max, fresh session; kit copy without calibration/ or CHANGELOG",
+  "rules_fingerprint": "64209db4b39cacfa",
+  "minutes": 54,
+  "scores": {
+    "A1": {
+      "score": 6,
+      "applicability": "full"
+    },
+    "A2": {
+      "score": 7,
+      "applicability": "full"
+    },
+    "A3": {
+      "score": 5,
+      "applicability": "full"
+    },
+    "A4": {
+      "score": 7,
+      "applicability": "full"
+    },
+    "A5": {
+      "score": 7,
+      "applicability": "limited"
+    },
+    "B1": {
+      "score": 7,
+      "applicability": "full"
+    },
+    "B2": {
+      "score": 7,
+      "applicability": "full"
+    },
+    "B3": {
+      "score": 8,
+      "applicability": "full"
+    },
+    "B4": {
+      "score": 7,
+      "applicability": "full"
+    },
+    "B5": {
+      "score": 7,
+      "applicability": "full"
+    },
+    "B6": {
+      "score": 7,
+      "applicability": "full"
+    },
+    "C1": {
+      "score": 7,
+      "applicability": "full"
+    },
+    "C2": {
+      "score": 8,
+      "applicability": "full"
+    },
+    "C4": {
+      "score": 4,
+      "applicability": "full"
+    },
+    "D1": {
+      "score": 8,
+      "applicability": "full"
+    },
+    "D2": {
+      "score": 6,
+      "applicability": "full"
+    },
+    "D4": {
+      "score": 7,
+      "applicability": "full"
+    },
+    "E1": {
+      "score": 8,
+      "applicability": "full"
+    },
+    "E2": {
+      "score": 7,
+      "applicability": "full"
+    },
+    "E3": {
+      "score": 5,
+      "applicability": "full"
+    },
+    "F1": {
+      "score": 6,
+      "applicability": "full"
+    },
+    "F2": {
+      "score": 6,
+      "applicability": "full"
+    },
+    "F3": {
+      "score": 5,
+      "applicability": "full"
+    },
+    "F4": {
+      "score": 7,
+      "applicability": "full"
+    },
+    "F5": {
+      "score": 7,
+      "applicability": "full"
+    },
+    "F6": {
+      "score": 5,
+      "applicability": "full"
+    },
+    "X1": {
+      "score": 4,
+      "applicability": "full"
+    },
+    "X2": {
+      "score": null,
+      "applicability": "not_applicable"
+    },
+    "X3": {
+      "score": 5,
+      "applicability": "full"
+    },
+    "X4": {
+      "score": null,
+      "applicability": "not_applicable"
+    },
+    "X5": {
+      "score": 7,
+      "applicability": "full"
+    }
+  },
+  "findings": [
+    {
+      "benchmark": "A1",
+      "severity": "major",
+      "title": "Profile page keeps showing the previous user when you navigate to another profile",
+      "places": [
+        "src/app/features/profile/pages/profile/profile.component.ts:42-43",
+        "src/app/features/profile/components/profile-articles.component.ts:28-29"
+      ]
+    },
+    {
+      "benchmark": "A1",
+      "severity": "minor",
+      "title": "Favorite and Follow leave a live subscription to the auth stream after every click",
+      "places": [
+        "src/app/features/article/components/favorite-button.component.ts:53-55",
+        "src/app/features/profile/components/follow-button.component.ts:55-57"
+      ]
+    },
+    {
+      "benchmark": "A1",
+      "severity": "minor",
+      "title": "ifAuthenticated directive hides its content when the auth stream repeats the same value",
+      "places": [
+        "src/app/core/auth/if-authenticated.directive.ts:28-30",
+        "src/app/core/auth/services/user.service.ts:55"
+      ]
+    },
+    {
+      "benchmark": "A2",
+      "severity": "minor",
+      "title": "Fonts and icons load from third-party CDNs at runtime, without Subresource Integrity",
+      "places": [
+        "src/index.html:9",
+        "src/index.html:10-11"
+      ]
+    },
+    {
+      "benchmark": "A2",
+      "severity": "minor",
+      "title": "No Content-Security-Policy, although the session token sits in localStorage",
+      "places": [
+        "src/app/core/auth/services/jwt.service.ts:9-10"
+      ]
+    },
+    {
+      "benchmark": "A3",
+      "severity": "major",
+      "title": "Article list has no error path: a failed load shows 'Loading articles...' forever",
+      "places": [
+        "src/app/features/article/components/article-list.component.ts:124-126"
+      ]
+    },
+    {
+      "benchmark": "A3",
+      "severity": "major",
+      "title": "Article and profile pages pass the wrong error shape to app-list-errors, so load errors show a blank page",
+      "places": [
+        "src/app/features/article/pages/article/article.component.ts:72-74",
+        "src/app/shared/components/list-errors.component.ts:12-13",
+        "src/app/features/profile/pages/profile/profile.component.ts:45-47"
+      ]
+    },
+    {
+      "benchmark": "A3",
+      "severity": "minor",
+      "title": "Failed delete, favorite and follow requests fail silently",
+      "places": [
+        "src/app/features/article/pages/article/article.component.ts:116-118",
+        "src/app/features/article/components/favorite-button.component.ts:74-76"
+      ]
+    },
+    {
+      "benchmark": "A3",
+      "severity": "minor",
+      "title": "No timeout on any API request",
+      "places": []
+    },
+    {
+      "benchmark": "A4",
+      "severity": "minor",
+      "title": "Favorite, Follow and Delete buttons are only styled as disabled during a request, so a double click sends it twice",
+      "places": [
+        "src/app/features/article/components/favorite-button.component.ts:24-25",
+        "realworld/assets/theme/styles.css:493-495"
+      ]
+    },
+    {
+      "benchmark": "A5",
+      "severity": "minor",
+      "title": "Article drafts exist only in memory: no unsaved-changes guard and no draft saving",
+      "places": [
+        "src/app/app.routes.ts:47-48"
+      ]
+    },
+    {
+      "benchmark": "B1",
+      "severity": "minor",
+      "title": "State handling mixes RxJS subjects, signals, AsyncPipe and a third-party rxLet, with no stated convention",
+      "places": [
+        "src/app/core/auth/services/user.service.ts:49-50",
+        "src/app/core/layout/header.component.ts:15-16",
+        "src/app/features/article/pages/home/home.component.ts:10"
+      ]
+    },
+    {
+      "benchmark": "B2",
+      "severity": "minor",
+      "title": "The article and profile features import each other",
+      "places": [
+        "src/app/features/article/pages/article/article.component.ts:22",
+        "src/app/features/profile/components/profile-articles.component.ts:3"
+      ]
+    },
+    {
+      "benchmark": "B2",
+      "severity": "minor",
+      "title": "ArticleListComponent writes paging values into the config object its parent passed in",
+      "places": [
+        "src/app/features/article/components/article-list.component.ts:116-118"
+      ]
+    },
+    {
+      "benchmark": "B3",
+      "severity": "minor",
+      "title": "Feature folders follow different layouts",
+      "places": [
+        "src/app/app.routes.ts:25",
+        "src/app/app.routes.ts:35"
+      ]
+    },
+    {
+      "benchmark": "B4",
+      "severity": "minor",
+      "title": "The Errors type doesn't match the error objects the app actually produces",
+      "places": [
+        "src/app/core/models/errors.model.ts:1-3",
+        "src/app/core/interceptors/error.interceptor.ts:51"
+      ]
+    },
+    {
+      "benchmark": "B4",
+      "severity": "minor",
+      "title": "Type escape hatches in app code",
+      "places": [
+        "src/app/features/article/services/articles.service.ts:17-18",
+        "src/app/features/article/pages/editor/editor.component.ts:25",
+        "src/app/core/auth/auth.component.ts:74"
+      ]
+    },
+    {
+      "benchmark": "B4",
+      "severity": "minor",
+      "title": "JwtService.getToken() is typed string but returns undefined when no token is stored",
+      "places": [
+        "src/app/core/auth/services/jwt.service.ts:5-6"
+      ]
+    },
+    {
+      "benchmark": "B6",
+      "severity": "minor",
+      "title": "Unused, duplicate and misplaced dependencies",
+      "places": [
+        "package.json:29",
+        "package.json:35",
+        "package.json:49",
+        "package.json:54"
+      ]
+    },
+    {
+      "benchmark": "B6",
+      "severity": "minor",
+      "title": "Build ships about 518 kB of SVGs from the submodule that the app never references",
+      "places": [
+        "angular.json:25-26"
+      ]
+    },
+    {
+      "benchmark": "C1",
+      "severity": "minor",
+      "title": "Injection and input styles vary within and across components",
+      "places": [
+        "src/app/core/auth/auth.component.ts:27-29",
+        "src/app/core/layout/header.component.ts:14",
+        "src/app/features/article/components/article-preview.component.ts:36-38"
+      ]
+    },
+    {
+      "benchmark": "C2",
+      "severity": "minor",
+      "title": "Template blocks are duplicated instead of extracted",
+      "places": []
+    },
+    {
+      "benchmark": "C4",
+      "severity": "major",
+      "title": "The unit-test suite cannot run: zone.js is not a dependency and the TestBed is initialized twice",
+      "places": [
+        "src/test-setup.ts:1-2",
+        "src/test-setup.ts:10",
+        "src/app/features/article/services/articles.service.spec.ts:13-14"
+      ]
+    },
+    {
+      "benchmark": "C4",
+      "severity": "major",
+      "title": "Unit tests are not run in CI",
+      "places": [
+        ".github/workflows/lint.yml:24-25",
+        ".github/workflows/playwright.yml:28-29"
+      ]
+    },
+    {
+      "benchmark": "C4",
+      "severity": "major",
+      "title": "No tests for components, guards, interceptors, the ifAuthenticated directive or pipes",
+      "places": []
+    },
+    {
+      "benchmark": "C4",
+      "severity": "minor",
+      "title": "Service specs are padded with near-identical cases",
+      "places": [
+        "src/app/features/article/services/tags.service.spec.ts:98-99",
+        "src/app/features/article/services/tags.service.spec.ts:107-108"
+      ]
+    },
+    {
+      "benchmark": "C4",
+      "severity": "minor",
+      "title": "E2E failure-path tests only check that the page doesn't crash",
+      "places": [
+        "realworld/specs/e2e/error-handling.spec.ts:895-896",
+        "realworld/specs/e2e/error-handling.spec.ts:898"
+      ]
+    },
+    {
+      "benchmark": "D4",
+      "severity": "minor",
+      "title": "Any error response without the API's error body is reported as a lost internet connection",
+      "places": [
+        "src/app/core/interceptors/error.interceptor.ts:47-49"
+      ]
+    },
+    {
+      "benchmark": "D4",
+      "severity": "minor",
+      "title": "Signed-out users are sent to Sign up by Favorite but to Sign in by Follow",
+      "places": [
+        "src/app/features/article/components/favorite-button.component.ts:56-57",
+        "src/app/features/profile/components/follow-button.component.ts:58-59"
+      ]
+    },
+    {
+      "benchmark": "E1",
+      "severity": "minor",
+      "title": "README states no supported versions",
+      "places": [
+        "README.md:15"
+      ]
+    },
+    {
+      "benchmark": "E2",
+      "severity": "minor",
+      "title": "README doesn't say which backend the app talks to or how to point it at another",
+      "places": [
+        "README.md:32"
+      ]
+    },
+    {
+      "benchmark": "E2",
+      "severity": "minor",
+      "title": "No architecture notes or changelog for a codebase meant to be studied",
+      "places": []
+    },
+    {
+      "benchmark": "E3",
+      "severity": "major",
+      "title": "The documented unit-test command fails on a fresh clone",
+      "places": [
+        "CLAUDE.md:8"
+      ]
+    },
+    {
+      "benchmark": "E3",
+      "severity": "minor",
+      "title": "Stale pointers in contributor files",
+      "places": [
+        "CLAUDE.md:20",
+        "package.json:19",
+        "tsconfig.spec.json:6"
+      ]
+    },
+    {
+      "benchmark": "E3",
+      "severity": "minor",
+      "title": "No linter in the toolchain",
+      "places": []
+    },
+    {
+      "benchmark": "F1",
+      "severity": "major",
+      "title": "The API base URL is hard-coded, so any other backend or environment needs a code change",
+      "places": [
+        "src/app/core/interceptors/api.interceptor.ts:4"
+      ]
+    },
+    {
+      "benchmark": "F1",
+      "severity": "minor",
+      "title": "Nothing documents how the release zip reaches a host or what hosting it needs",
+      "places": [
+        ".github/workflows/deploy.yml:23-24"
+      ]
+    },
+    {
+      "benchmark": "F2",
+      "severity": "minor",
+      "title": "Pull requests never build the production bundle",
+      "places": [
+        ".github/workflows/deploy.yml:3-5"
+      ]
+    },
+    {
+      "benchmark": "F2",
+      "severity": "minor",
+      "title": "CI installs aren't frozen and actions aren't pinned",
+      "places": [
+        ".github/workflows/lint.yml:21-22"
+      ]
+    },
+    {
+      "benchmark": "F3",
+      "severity": "minor",
+      "title": "Client errors go only to the browser console",
+      "places": []
+    },
+    {
+      "benchmark": "F4",
+      "severity": "minor",
+      "title": "Redundant API calls on common paths",
+      "places": [
+        "src/app/features/profile/components/profile-articles.component.ts:28-29",
+        "src/app/features/article/pages/editor/editor.component.ts:45"
+      ]
+    },
+    {
+      "benchmark": "F5",
+      "severity": "minor",
+      "title": "The declared browser matrix is untested: CI runs Chromium only",
+      "places": [
+        ".browserslistrc:8-9",
+        "realworld/specs/e2e/playwright.base.ts:45-47"
+      ]
+    },
+    {
+      "benchmark": "F6",
+      "severity": "major",
+      "title": "Angular is pinned at 21.2.12: behind the 21.2.x patches that fix 10 high-severity advisories, and a major version behind",
+      "places": [
+        "package.json:31-32"
+      ]
+    },
+    {
+      "benchmark": "F6",
+      "severity": "minor",
+      "title": "Deprecated tooling in the setup and release path",
+      "places": [
+        "package.json:22",
+        ".husky/pre-commit:2",
+        ".github/workflows/deploy.yml:27"
+      ]
+    },
+    {
+      "benchmark": "X1",
+      "severity": "major",
+      "title": "Deleting a comment and removing an editor tag can't be done from the keyboard",
+      "places": [
+        "src/app/features/article/components/article-comment.component.ts:32-33",
+        "src/app/features/article/pages/editor/editor.component.html:50-51"
+      ]
+    },
+    {
+      "benchmark": "X1",
+      "severity": "major",
+      "title": "Avatar images and avatar links have no text alternative, and the page declares no language",
+      "places": [
+        "src/index.html:2",
+        "src/app/features/article/components/article-meta.component.ts:11-12"
+      ]
+    },
+    {
+      "benchmark": "X1",
+      "severity": "minor",
+      "title": "Every page has the same title",
+      "places": [
+        "src/index.html:5"
+      ]
+    },
+    {
+      "benchmark": "X1",
+      "severity": "minor",
+      "title": "UI text is hard-coded English",
+      "places": []
+    },
+    {
+      "benchmark": "X3",
+      "severity": "major",
+      "title": "Article list doesn't cancel superseded queries, so a slow response for the previous tab overwrites the current one",
+      "places": [
+        "src/app/features/article/components/article-list.component.ts:121-123"
+      ]
+    }
+  ]
+}

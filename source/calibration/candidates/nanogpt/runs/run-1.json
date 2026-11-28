@@ -1,0 +1,493 @@
+{
+  "graded": "2026-11-28T00:56:29Z",
+  "commit": "93a43d9a5c22450bbf06e78da2cb6eeef084b717",
+  "suite_version": "6.0.0",
+  "scoring_version": "6.0.0",
+  "grader": "Claude Code",
+  "model": "claude-opus-5-5",
+  "session": "https://claude.ai/code/session_01CznWn73sGpNhVB7QP3y4KQ",
+  "note": "reference grade (it set expected.json): Claude Opus 5.5 subagent, effort max, fresh session; kit copy without calibration/ or CHANGELOG",
+  "rules_fingerprint": "64209db4b39cacfa",
+  "minutes": 56.7,
+  "scores": {
+    "A1": {
+      "score": 3,
+      "applicability": "full"
+    },
+    "A2": {
+      "score": 8,
+      "applicability": "full"
+    },
+    "A3": {
+      "score": 5,
+      "applicability": "full"
+    },
+    "A4": {
+      "score": 5,
+      "applicability": "full"
+    },
+    "A5": {
+      "score": 4,
+      "applicability": "full"
+    },
+    "B1": {
+      "score": 8,
+      "applicability": "full"
+    },
+    "B2": {
+      "score": 6,
+      "applicability": "full"
+    },
+    "B3": {
+      "score": 8,
+      "applicability": "full"
+    },
+    "B4": {
+      "score": 5,
+      "applicability": "full"
+    },
+    "B5": {
+      "score": 7,
+      "applicability": "full"
+    },
+    "B6": {
+      "score": 8,
+      "applicability": "full"
+    },
+    "C1": {
+      "score": 8,
+      "applicability": "full"
+    },
+    "C2": {
+      "score": 7,
+      "applicability": "full"
+    },
+    "C4": {
+      "score": 1,
+      "applicability": "full"
+    },
+    "D1": {
+      "score": 8,
+      "applicability": "full"
+    },
+    "D2": {
+      "score": 8,
+      "applicability": "full"
+    },
+    "D4": {
+      "score": 6,
+      "applicability": "full"
+    },
+    "E1": {
+      "score": 8,
+      "applicability": "full"
+    },
+    "E2": {
+      "score": 7,
+      "applicability": "full"
+    },
+    "E3": {
+      "score": 4,
+      "applicability": "full"
+    },
+    "F1": {
+      "score": 6,
+      "applicability": "limited"
+    },
+    "F2": {
+      "score": 1,
+      "applicability": "full"
+    },
+    "F3": {
+      "score": 6,
+      "applicability": "full"
+    },
+    "F4": {
+      "score": 8,
+      "applicability": "full"
+    },
+    "F5": {
+      "score": 6,
+      "applicability": "full"
+    },
+    "F6": {
+      "score": 3,
+      "applicability": "full"
+    },
+    "X1": {
+      "score": null,
+      "applicability": "not_applicable"
+    },
+    "X2": {
+      "score": null,
+      "applicability": "not_applicable"
+    },
+    "X3": {
+      "score": 8,
+      "applicability": "full"
+    },
+    "X4": {
+      "score": 8,
+      "applicability": "full"
+    },
+    "X5": {
+      "score": 6,
+      "applicability": "full"
+    }
+  },
+  "findings": [
+    {
+      "benchmark": "A1",
+      "severity": "major",
+      "title": "eval_only is ignored when resuming: an evaluate-only run keeps training and overwrites the checkpoint it was asked to evaluate",
+      "places": [
+        "train.py:287",
+        "train.py:39"
+      ]
+    },
+    {
+      "benchmark": "A1",
+      "severity": "minor",
+      "title": "best_val_loss is overwritten with the latest validation loss whenever always_save_checkpoint is on (the default)",
+      "places": [
+        "train.py:274-275"
+      ]
+    },
+    {
+      "benchmark": "A1",
+      "severity": "minor",
+      "title": "Training runs max_iters + 1 optimizer steps and never evaluates or saves the last one",
+      "places": [
+        "train.py:332-333"
+      ]
+    },
+    {
+      "benchmark": "A1",
+      "severity": "minor",
+      "title": "Command-line values that contain '=' crash the configurator",
+      "places": [
+        "configurator.py:32"
+      ]
+    },
+    {
+      "benchmark": "A1",
+      "severity": "minor",
+      "title": "Imported GPT-2 weights run with exact GELU, but the checkpoints were trained with GPT-2's tanh approximation, so outputs don't match GPT-2",
+      "places": [
+        "model.py:83"
+      ]
+    },
+    {
+      "benchmark": "A2",
+      "severity": "minor",
+      "title": "Dataset metadata and config files are loaded as code: meta.pkl is unpickled and config files are exec'd, so a shared dataset folder or config can run arbitrary code",
+      "places": [
+        "train.py:141-142",
+        "configurator.py:28",
+        "train.py:162"
+      ]
+    },
+    {
+      "benchmark": "A4",
+      "severity": "major",
+      "title": "A failed dataset download is cached: a retry skips the download and silently writes an empty dataset",
+      "places": [
+        "data/shakespeare_char/prepare.py:14-16",
+        "data/shakespeare_char/prepare.py:16-17"
+      ]
+    },
+    {
+      "benchmark": "A5",
+      "severity": "major",
+      "title": "The only checkpoint is overwritten in place, non-atomically: a crash, kill or full disk during torch.save leaves no usable checkpoint",
+      "places": [
+        "train.py:285-286"
+      ]
+    },
+    {
+      "benchmark": "A5",
+      "severity": "minor",
+      "title": "Resume is not exact: RNG and GradScaler state aren't checkpointed, so a resumed run replays the batch sequence from the start of training",
+      "places": [
+        "train.py:106",
+        "train.py:277-279",
+        "train.py:281-283"
+      ]
+    },
+    {
+      "benchmark": "A3",
+      "severity": "minor",
+      "title": "Dataset downloads have no timeout and no HTTP status check",
+      "places": [
+        "data/shakespeare_char/prepare.py:17",
+        "data/shakespeare/prepare.py:11"
+      ]
+    },
+    {
+      "benchmark": "B2",
+      "severity": "minor",
+      "title": "train.py is one module-level script whose helpers read globals injected by the exec'd configurator, so no part of the training flow can be imported or tested alone",
+      "places": [
+        "train.py:76-78",
+        "train.py:116-118",
+        "train.py:123"
+      ]
+    },
+    {
+      "benchmark": "B4",
+      "severity": "major",
+      "title": "Config files are exec'd with no key validation: a misspelled setting is silently ignored, while the same typo on the command line is rejected",
+      "places": [
+        "configurator.py:26-28"
+      ]
+    },
+    {
+      "benchmark": "B4",
+      "severity": "minor",
+      "title": "No type annotations on any function; contracts live in shape comments and bare asserts",
+      "places": [
+        "model.py:306-308",
+        "model.py:309-310"
+      ]
+    },
+    {
+      "benchmark": "B4",
+      "severity": "minor",
+      "title": "Checkpoint keys depend on whether the model was compiled: train.py saves the torch.compile wrapper, so every loader has to strip an '_orig_mod.' prefix it doesn't understand",
+      "places": [
+        "train.py:253",
+        "train.py:172-174"
+      ]
+    },
+    {
+      "benchmark": "B5",
+      "severity": "minor",
+      "title": "Tokenizer choice is hard-wired into sample.py: a dataset with any other encoding needs code edits",
+      "places": [
+        "sample.py:65-67"
+      ]
+    },
+    {
+      "benchmark": "B6",
+      "severity": "minor",
+      "title": "Leftovers: unoptimized_model is assigned but never used, and GPT.from_pretrained ignores cls",
+      "places": [
+        "train.py:207",
+        "model.py:232"
+      ]
+    },
+    {
+      "benchmark": "C1",
+      "severity": "minor",
+      "title": "No formatter or linter configured, and small style drifts have crept in",
+      "places": [
+        "model.py:148"
+      ]
+    },
+    {
+      "benchmark": "C2",
+      "severity": "minor",
+      "title": "Runtime setup and the training step are copy-pasted across train.py, sample.py and bench.py, and the copies have already drifted",
+      "places": [
+        "sample.py:30-32",
+        "bench.py:37-39",
+        "bench.py:40-41"
+      ]
+    },
+    {
+      "benchmark": "C4",
+      "severity": "major",
+      "title": "No automated tests at all",
+      "places": []
+    },
+    {
+      "benchmark": "D4",
+      "severity": "minor",
+      "title": "Command-line mistakes end in a bare AssertionError with no message, located in '<string>'",
+      "places": [
+        "configurator.py:41-42"
+      ]
+    },
+    {
+      "benchmark": "D4",
+      "severity": "minor",
+      "title": "Ordering trap: a config file given after a --key=value override silently undoes it",
+      "places": [
+        "configurator.py:20-22",
+        "configurator.py:44-45"
+      ]
+    },
+    {
+      "benchmark": "E1",
+      "severity": "minor",
+      "title": "No supported versions stated: no Python version, no tested PyTorch range, no OS matrix",
+      "places": [
+        "README.md:15",
+        "README.md:202"
+      ]
+    },
+    {
+      "benchmark": "E2",
+      "severity": "minor",
+      "title": "Resuming an interrupted run is undocumented: init_from='resume' appears only in a code comment",
+      "places": [
+        "train.py:41"
+      ]
+    },
+    {
+      "benchmark": "E2",
+      "severity": "minor",
+      "title": "Stale or inaccurate statements: 2022 nightly-build advice, bench.py called identical to the training loop, 4 days vs 5 days",
+      "places": [
+        "README.md:202",
+        "README.md:75",
+        "README.md:200",
+        "config/train_gpt2.py:2"
+      ]
+    },
+    {
+      "benchmark": "E3",
+      "severity": "major",
+      "title": "No contributor workflow: no contribution guide or agent instructions, no dev setup, and no lint, format or type-check tooling (the missing tests are C4-001)",
+      "places": []
+    },
+    {
+      "benchmark": "F2",
+      "severity": "major",
+      "title": "No CI or automated checks of any kind",
+      "places": []
+    },
+    {
+      "benchmark": "F1",
+      "severity": "minor",
+      "title": "No packaged runtime to launch from: each GPU node is set up by hand with an unpinned pip install",
+      "places": [
+        "README.md:15"
+      ]
+    },
+    {
+      "benchmark": "F3",
+      "severity": "minor",
+      "title": "Console output is bare print lines: no timestamps, levels or log file, and the learning rate, gradient norm and checkpoint details never reach the console",
+      "places": [
+        "train.py:327",
+        "train.py:269-271"
+      ]
+    },
+    {
+      "benchmark": "F4",
+      "severity": "minor",
+      "title": "generate() has no KV cache: every new token re-runs the model over the whole context",
+      "places": [
+        "model.py:314-316"
+      ]
+    },
+    {
+      "benchmark": "F5",
+      "severity": "minor",
+      "title": "bench.py calls CUDA unconditionally, so it fails on CPU and Apple MPS even with --device=cpu",
+      "places": [
+        "bench.py:99"
+      ]
+    },
+    {
+      "benchmark": "F5",
+      "severity": "minor",
+      "title": "Scripts only run from the repository root: configurator.py and data/ are opened by relative paths",
+      "places": [
+        "train.py:77",
+        "train.py:115"
+      ]
+    },
+    {
+      "benchmark": "A1",
+      "severity": "minor",
+      "title": "Resume takes the model's shape from the checkpoint but leaves the data loader on the config's block_size, so resuming the README's CPU run with its config crashes",
+      "places": [
+        "train.py:166-167"
+      ]
+    },
+    {
+      "benchmark": "A5",
+      "severity": "major",
+      "title": "Restarting a run with the same command starts from scratch and overwrites its checkpoint at the first eval, with no warning",
+      "places": [
+        "train.py:149-151"
+      ]
+    },
+    {
+      "benchmark": "A3",
+      "severity": "major",
+      "title": "A diverged run isn't detected: training continues on NaN loss and, with always_save_checkpoint on (the default), the next eval saves the NaN model over the last good checkpoint",
+      "places": [
+        "train.py:274",
+        "train.py:40"
+      ]
+    },
+    {
+      "benchmark": "A1",
+      "severity": "minor",
+      "title": "generate() doesn't guard its inputs: temperature 0 (greedy decoding) and an empty prompt both crash",
+      "places": [
+        "model.py:318",
+        "model.py:190"
+      ]
+    },
+    {
+      "benchmark": "A1",
+      "severity": "minor",
+      "title": "The learning-rate schedule divides by zero when lr_decay_iters equals warmup_iters",
+      "places": [
+        "train.py:239"
+      ]
+    },
+    {
+      "benchmark": "B3",
+      "severity": "minor",
+      "title": ".gitignore misses tool outputs the scripts create in the repo root: wandb/ run folders and bench.py's bench_log/ traces",
+      "places": [
+        ".gitignore:6-8"
+      ]
+    },
+    {
+      "benchmark": "F6",
+      "severity": "major",
+      "title": "No dependency manifest, pins or lockfile: every install resolves whatever versions are newest that day",
+      "places": [
+        "README.md:15"
+      ]
+    },
+    {
+      "benchmark": "F6",
+      "severity": "minor",
+      "title": "Deprecated API: torch.cuda.amp.GradScaler (FutureWarning on every training run)",
+      "places": [
+        "train.py:196"
+      ]
+    },
+    {
+      "benchmark": "X3",
+      "severity": "minor",
+      "title": "Gradient-sync skipping toggles DDP's internal require_backward_grad_sync attribute instead of the no_sync() API",
+      "places": [
+        "train.py:296-298"
+      ]
+    },
+    {
+      "benchmark": "X4",
+      "severity": "minor",
+      "title": "The utilisation figure (MFU) assumes an A100 whatever the hardware, and shows -100% for the first iterations",
+      "places": [
+        "model.py:301"
+      ]
+    },
+    {
+      "benchmark": "X5",
+      "severity": "minor",
+      "title": "The license isn't declared in any machine-readable metadata, and the repo has no dependency inventory to build an SBOM or license check from",
+      "places": [
+        "LICENSE:1-3"
+      ]
+    }
+  ]
+}

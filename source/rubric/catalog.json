@@ -41,12 +41,12 @@
       "caps": [
         {
           "id": "A1-cap-1",
-          "when": "Failing build or tests",
+          "when": "Failing build or tests: tests that run and fail, not a test command that runs none (that's C4's and E3's)",
           "max": 4
         },
         {
           "id": "A1-cap-2",
-          "when": "A bug that corrupts or loses data",
+          "when": "A bug that corrupts or loses data the user keeps (records, files, saved state such as a training checkpoint) on a path the docs or config support",
           "max": 3
         }
       ]
@@ -79,7 +79,7 @@
       "caps": [
         {
           "id": "A3-cap-1",
-          "when": "Catch-all blocks that swallow errors in core paths",
+          "when": "Errors swallowed in core paths, by catch-all blocks or by error returns that are ignored (Go's `_ = f()`, Rust's `let _ =`)",
           "max": 4
         }
       ]
@@ -115,7 +115,7 @@
         },
         {
           "id": "A5-cap-2",
-          "when": "Persistent production data with no backup",
+          "when": "Persistent production data with no backup, where the project runs or ships its own deployment",
           "max": 5
         }
       ]
@@ -134,7 +134,7 @@
       "caps": [
         {
           "id": "B2-cap-1",
-          "when": "Circular dependencies between major modules",
+          "when": "Circular dependencies between major modules (top-level packages, or the feature folders the code is organized by; a cycle between two folders counts even when no single file is in one)",
           "max": 5
         }
       ]
@@ -340,7 +340,7 @@
       "caps": [
         {
           "id": "X1-cap-1",
-          "when": "Core flows not keyboard-operable",
+          "when": "Core flows (what the app is for, as its docs or main navigation present it) not keyboard-operable",
           "max": 4
         }
       ]
@@ -366,7 +366,7 @@
       "caps": [
         {
           "id": "X3-cap-1",
-          "when": "A demonstrable data race on shared mutable state",
+          "when": "A demonstrable data race: concurrent writes to shared mutable state that can corrupt or lose it (out-of-order async results that only show stale data are scored by their consequence, without this cap)",
           "max": 3
         }
       ]

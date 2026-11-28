@@ -1,0 +1,110 @@
+{
+  "_about": "A candidate golden repo: expected scores proposed from one reference grade, not yet reviewed. `calibration run` doesn't count it; see ../README.md.",
+  "reference": "karpathy/nanoGPT @ 93a43d9, graded with project.toml beside this file",
+  "repo": "https://github.com/karpathy/nanoGPT",
+  "commit": "93a43d9a5c22450bbf06e78da2cb6eeef084b717",
+  "set_by": "proposed from one reference grade on 2026-11-28 (Claude Opus 5.5 subagent at max effort, in a fresh session with a kit copy that had no calibration/ and no CHANGELOG): runs/run-1.json. Not yet reviewed by a person.",
+  "criteria": {
+    "within_tolerance_pct": 90,
+    "mae_max": 0.75,
+    "max_spread": 1
+  },
+  "expected": {
+    "A1": {
+      "score": 3
+    },
+    "A2": {
+      "score": 8
+    },
+    "A3": {
+      "score": 5
+    },
+    "A4": {
+      "score": 5
+    },
+    "A5": {
+      "score": 4
+    },
+    "B1": {
+      "score": 8
+    },
+    "B2": {
+      "score": 6
+    },
+    "B3": {
+      "score": 8
+    },
+    "B4": {
+      "score": 5
+    },
+    "B5": {
+      "score": 7
+    },
+    "B6": {
+      "score": 8
+    },
+    "C1": {
+      "score": 8
+    },
+    "C2": {
+      "score": 7
+    },
+    "C4": {
+      "score": 1
+    },
+    "D1": {
+      "score": 8
+    },
+    "D2": {
+      "score": 8
+    },
+    "D4": {
+      "score": 6
+    },
+    "E1": {
+      "score": 8
+    },
+    "E2": {
+      "score": 7
+    },
+    "E3": {
+      "score": 4
+    },
+    "F1": {
+      "score": 6,
+      "applicability": "limited"
+    },
+    "F2": {
+      "score": 1
+    },
+    "F3": {
+      "score": 6
+    },
+    "F4": {
+      "score": 8
+    },
+    "F5": {
+      "score": 6
+    },
+    "F6": {
+      "score": 3
+    },
+    "X1": {
+      "score": null,
+      "applicability": "not_applicable"
+    },
+    "X2": {
+      "score": null,
+      "applicability": "not_applicable"
+    },
+    "X3": {
+      "score": 8
+    },
+    "X4": {
+      "score": 8
+    },
+    "X5": {
+      "score": 6
+    }
+  }
+}

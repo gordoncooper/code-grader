@@ -1,0 +1,42 @@
+# Code Grading Suite: project configuration for a calibration golden repo
+# People own this file. Agents read it but don't change it.
+# Check it with:  python3 SUITE_DIR/tools/gradekit.py resolve --config projects/<name>/project.toml
+
+[project]
+name            = "nanogpt"
+description     = "A small, fast codebase for training and fine-tuning medium-sized GPT models in PyTorch, from character-level Shakespeare to GPT-2 on OpenWebText."
+code_repo       = "https://github.com/karpathy/nanoGPT"   # where the code lives (informational)
+suite           = "6"
+preset          = "default"   # default | service | web_app | library | oss_library | cli | internal_tool | prototype
+languages       = "Python"
+users           = "Researchers and learners who train or fine-tune GPT models, often by forking it"
+
+# Answers override the preset. Each one moves specific weights; see `gradekit resolve --explain ID`.
+[answers]
+data_sensitivity  = "none"   # What is the most sensitive data this code handles? (none | internal | personal | financial | regulated)
+audience          = "developers"   # Who uses it? (just_me | team | internal_org | public | developers)
+lifespan          = "years"   # How long will this code live? (throwaway | months | years | indefinite)
+failure_impact    = "degraded_work"   # What happens when it fails? (inconvenience | degraded_work | revenue_loss | safety_or_legal)
+team              = "open_source"   # Who works on it? (solo | small | large | open_source)
+change_rate       = "rare"   # How often does it change? (rare | regular | constant)
+delivery          = "mixed"   # cloned and run, or forked; no option fits exactly. How is it delivered? (mixed | service | website | package | installed_app | internal_script)
+scale             = "large"   # What load or data volume does it face? (small | moderate | large | massive)
+
+# Criticality zones: the first match wins, so list specific zones first.
+# hot = matters most (money, auth, data writes); cold = matters least (scripts, examples).
+
+[[zones]]
+name        = "model-and-training"
+paths       = ["model.py", "train.py"]
+criticality = "hot"
+why         = "The model and the training loop: what a run trains, evaluates and saves"
+
+[[zones]]
+name        = "notebooks-and-bench"
+paths       = ["*.ipynb", "bench.py", "assets/**"]
+criticality = "cold"
+why         = "Analysis notebooks, a benchmark script and images"
+
+# Where improving agents stop: proportional (default) | maximal | level:L3
+[targets]
+mode = "proportional"

@@ -1,0 +1,112 @@
+{
+  "_about": "A candidate golden repo: expected scores proposed from one reference grade, not yet reviewed. `calibration run` doesn't count it; see ../README.md.",
+  "reference": "sharkdp/hexyl @ 6ecc29b, graded with project.toml beside this file",
+  "repo": "https://github.com/sharkdp/hexyl",
+  "commit": "6ecc29b9c8c84d08a7e860f7f69c22b113b480ea",
+  "set_by": "proposed from one reference grade on 2026-11-28 (Claude Opus 5.5 subagent at max effort, in a fresh session with a kit copy that had no calibration/ and no CHANGELOG): runs/run-1.json. Not yet reviewed by a person.",
+  "criteria": {
+    "within_tolerance_pct": 90,
+    "mae_max": 0.75,
+    "max_spread": 1
+  },
+  "expected": {
+    "A1": {
+      "score": 7
+    },
+    "A2": {
+      "score": 8
+    },
+    "A3": {
+      "score": 4
+    },
+    "A4": {
+      "score": null,
+      "applicability": "not_applicable"
+    },
+    "A5": {
+      "score": null,
+      "applicability": "not_applicable"
+    },
+    "B1": {
+      "score": 8
+    },
+    "B2": {
+      "score": 7
+    },
+    "B3": {
+      "score": 8
+    },
+    "B4": {
+      "score": 6
+    },
+    "B5": {
+      "score": 8
+    },
+    "B6": {
+      "score": 8
+    },
+    "C1": {
+      "score": 7
+    },
+    "C2": {
+      "score": 6
+    },
+    "C4": {
+      "score": 7
+    },
+    "D1": {
+      "score": 8
+    },
+    "D2": {
+      "score": 8
+    },
+    "D4": {
+      "score": 8
+    },
+    "E1": {
+      "score": 8
+    },
+    "E2": {
+      "score": 5
+    },
+    "E3": {
+      "score": 7
+    },
+    "F1": {
+      "score": 4
+    },
+    "F2": {
+      "score": 7
+    },
+    "F3": {
+      "score": 7
+    },
+    "F4": {
+      "score": 8
+    },
+    "F5": {
+      "score": 8
+    },
+    "F6": {
+      "score": 6
+    },
+    "X1": {
+      "score": 8,
+      "applicability": "limited"
+    },
+    "X2": {
+      "score": 6
+    },
+    "X3": {
+      "score": null,
+      "applicability": "not_applicable"
+    },
+    "X4": {
+      "score": null,
+      "applicability": "not_applicable"
+    },
+    "X5": {
+      "score": 6
+    }
+  }
+}

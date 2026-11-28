@@ -1,0 +1,110 @@
+{
+  "_about": "A candidate golden repo: expected scores proposed from one reference grade, not yet reviewed. `calibration run` doesn't count it; see ../README.md.",
+  "reference": "gothinkster/angular-realworld-example-app @ a7a19c5, graded with project.toml beside this file",
+  "repo": "https://github.com/gothinkster/angular-realworld-example-app",
+  "commit": "a7a19c511b0b25aab1d929a4c0fe6ba55aaeff5c",
+  "set_by": "proposed from one reference grade on 2026-11-28 (Claude Opus 5.5 subagent at max effort, in a fresh session with a kit copy that had no calibration/ and no CHANGELOG): runs/run-1.json. Not yet reviewed by a person.",
+  "criteria": {
+    "within_tolerance_pct": 90,
+    "mae_max": 0.75,
+    "max_spread": 1
+  },
+  "expected": {
+    "A1": {
+      "score": 6
+    },
+    "A2": {
+      "score": 7
+    },
+    "A3": {
+      "score": 5
+    },
+    "A4": {
+      "score": 7
+    },
+    "A5": {
+      "score": 7,
+      "applicability": "limited"
+    },
+    "B1": {
+      "score": 7
+    },
+    "B2": {
+      "score": 7
+    },
+    "B3": {
+      "score": 8
+    },
+    "B4": {
+      "score": 7
+    },
+    "B5": {
+      "score": 7
+    },
+    "B6": {
+      "score": 7
+    },
+    "C1": {
+      "score": 7
+    },
+    "C2": {
+      "score": 8
+    },
+    "C4": {
+      "score": 4
+    },
+    "D1": {
+      "score": 8
+    },
+    "D2": {
+      "score": 6
+    },
+    "D4": {
+      "score": 7
+    },
+    "E1": {
+      "score": 8
+    },
+    "E2": {
+      "score": 7
+    },
+    "E3": {
+      "score": 5
+    },
+    "F1": {
+      "score": 6
+    },
+    "F2": {
+      "score": 6
+    },
+    "F3": {
+      "score": 5
+    },
+    "F4": {
+      "score": 7
+    },
+    "F5": {
+      "score": 7
+    },
+    "F6": {
+      "score": 5
+    },
+    "X1": {
+      "score": 4
+    },
+    "X2": {
+      "score": null,
+      "applicability": "not_applicable"
+    },
+    "X3": {
+      "score": 5
+    },
+    "X4": {
+      "score": null,
+      "applicability": "not_applicable"
+    },
+    "X5": {
+      "score": 7
+    }
+  }
+}
