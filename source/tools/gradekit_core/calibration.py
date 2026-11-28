@@ -247,6 +247,8 @@ def analysis_text(res: dict) -> str:
     out += ["", "Almost always limited or not_applicable (could be conditional, or go):"]
     out += [f"  {r['benchmark']}: {r['not_full_pct']}% of {r['runs']} runs" for r in res["rarely_full"]] or ["  none"]
     out += ["", "Move together across repos, after each repo's overall level is taken out (merge candidates; needs 3+ repos):"]
+    if res["move_together"] and len(res["goldens"]) < 8:   # with few repos, many of 400-odd pairs reach r 0.8 by chance
+        out.append(f"  (with {len(res['goldens'])} repos, many pairs reach this by chance: leads to look into, not evidence)")
     out += [f"  {'/'.join(x['pair'])}: r {x['r']} over {x['goldens']} repos" for x in res["move_together"][:12]] or ["  none"]
     out += ["", "The same code filed under different benchmarks by different graders (unclear boundaries):"]
     out += [f"  {'/'.join(c['pair'])}: {c['times']} times ({', '.join(c['goldens'])})" for c in res["filed_differently"][:12]] or ["  none"]

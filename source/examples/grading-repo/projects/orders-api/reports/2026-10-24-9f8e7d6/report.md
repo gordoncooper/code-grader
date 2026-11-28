@@ -181,7 +181,7 @@ Answers go in `decisions.json`: tick the boxes in this report's pull request (th
 ### A3 Robustness & Error Handling: 4 (target 10)
 
 - Finding A3-001 (critical, new): Stock reservation errors swallowed (`src/orders/service.py:16-17`: order is created even when stock reservation fails)
-- Limit: at most 4 while open critical finding A3-001; A3-cap-1: Catch-all blocks that swallow errors in core paths
+- Limit: at most 4 while open critical finding A3-001; A3-cap-1: Errors swallowed in core paths, by catch-all blocks or by error returns that are ignored (Go's `_ = f()`, Rust's `let _ =`)
 - Next: **A3-act-1** → 7 (effort S): In src/orders/service.py create_order, remove the bare except; let reserve_stock failures propagate as an OutOfStock error and return 409 from the API layer
 
 ### A4 Idempotence & Safe Retries: 5 (target 10)

@@ -1,7 +1,7 @@
 {
   "_about": "Written by `gradekit calibration run`. Don't edit: a kit test checks it matches the golden runs and the current scoring rules.",
   "scoring_version": "6.0.0",
-  "scoring_fingerprint": "64209db4b39cacfa",
+  "scoring_fingerprint": "95e1b730c3ce5904",
   "min_runs": 3,
   "pass": false,
   "goldens": [
@@ -85,6 +85,21 @@
           "run": "run-15",
           "graded": "2026-11-09T18:09:26Z",
           "rules_fingerprint": "a1ee448c030104bd"
+        },
+        {
+          "run": "run-16",
+          "graded": "2026-11-27T20:09:51Z",
+          "rules_fingerprint": "8efdf855283b43e3"
+        },
+        {
+          "run": "run-17",
+          "graded": "2026-11-27T20:11:23Z",
+          "rules_fingerprint": "8efdf855283b43e3"
+        },
+        {
+          "run": "run-18",
+          "graded": "2026-11-27T20:20:18Z",
+          "rules_fingerprint": "8efdf855283b43e3"
         }
       ],
       "runs_needed": 3,

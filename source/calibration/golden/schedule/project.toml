@@ -1,14 +1,12 @@
-# Code Grading Suite (v4.2.1): project configuration
+# Code Grading Suite: project configuration for a calibration golden repo
 # People own this file. Agents read it but don't change it.
-# Answers to decision questions go in decisions.json, accepted findings in dispositions.json.
 # Check it with:  python3 SUITE_DIR/tools/gradekit.py resolve --config projects/<name>/project.toml
-# Or use the "Set up a project" page on the suite's website.
 
 [project]
 name            = "schedule"
 description     = "Python job scheduling for humans: run functions periodically with a friendly API."
 code_repo       = "https://github.com/dbader/schedule"   # where the code lives (informational)
-suite           = "5"
+suite           = "6"
 preset          = "oss_library"   # default | service | web_app | library | oss_library | cli | internal_tool | prototype
 languages       = "Python"
 users           = "Python developers who embed it in scripts and services"

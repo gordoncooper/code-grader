@@ -790,7 +790,7 @@
       "confidence": "medium",
       "carried_forward": false,
       "caps_applied": [
-        "Catch-all blocks that swallow errors in core paths → max 4"
+        "A3-cap-1"
       ],
       "finding_ids": [
         "A3-001"
@@ -2731,6 +2731,20 @@
         "rank": 16
       },
       {
+        "action_id": "C4-act-1",
+        "benchmark_id": "C4",
+        "tier": 2,
+        "priority": 2.5,
+        "zone": "cold",
+        "gain": 5,
+        "effort": "M",
+        "requires_human_decision": false,
+        "decision_question": null,
+        "action": "Add tests for single-item orders, the discount, a failed stock reservation and a repeated idempotency key",
+        "decision": null,
+        "rank": 17
+      },
+      {
         "action_id": "C4-act-2",
         "benchmark_id": "C4",
         "tier": 2,
@@ -2742,7 +2756,7 @@
         "decision_question": null,
         "action": "Pass the clock into create_order (or inject one), so tests can pin the time",
         "decision": null,
-        "rank": 17
+        "rank": 18
       },
       {
         "action_id": "E3-act-1",
@@ -2756,7 +2770,7 @@
         "decision_question": null,
         "action": "Add a pyproject.toml that declares the project (name, version, Python requirement) and its dependencies, with a one-command test run",
         "decision": null,
-        "rank": 18
+        "rank": 19
       },
       {
         "action_id": "E3-act-2",
@@ -2770,7 +2784,7 @@
         "decision_question": null,
         "action": "Add AGENTS.md with the exact commands to install, test and lint",
         "decision": null,
-        "rank": 19
+        "rank": 20
       },
       {
         "action_id": "A1-act-2",
@@ -2784,7 +2798,7 @@
         "decision_question": null,
         "action": "Hold money as integer cents (or Decimal) from the request to the gateway call",
         "decision": null,
-        "rank": 20
+        "rank": 21
       },
       {
         "action_id": "A4-act-1",
@@ -2798,7 +2812,7 @@
         "decision_question": null,
         "action": "Rewrite scripts/seed.sql inserts as INSERT ... ON CONFLICT (id) DO NOTHING and add a CI step that runs the seed twice",
         "decision": null,
-        "rank": 21
+        "rank": 22
       },
       {
         "action_id": "D1-act-1",
@@ -2814,7 +2828,7 @@
         "decision": {
           "status": "pending"
         },
-        "rank": 22
+        "rank": 23
       },
       {
         "action_id": "F6-act-1",
@@ -2828,7 +2842,7 @@
         "decision_question": null,
         "action": "Pin the dependencies in a lock file and let Dependabot propose updates",
         "decision": null,
-        "rank": 23
+        "rank": 24
       },
       {
         "action_id": "X2-act-1",
@@ -2841,20 +2855,6 @@
         "requires_human_decision": false,
         "decision_question": null,
         "action": "Version the HTTP API (/v1/...) and keep a changelog of breaking changes",
-        "decision": null,
-        "rank": 24
-      },
-      {
-        "action_id": "C4-act-1",
-        "benchmark_id": "C4",
-        "tier": 2,
-        "priority": 2.5,
-        "zone": "cold",
-        "gain": 5,
-        "effort": "M",
-        "requires_human_decision": false,
-        "decision_question": null,
-        "action": "Add tests for single-item orders, the discount, a failed stock reservation and a repeated idempotency key",
         "decision": null,
         "rank": 25
       },
@@ -3020,7 +3020,7 @@
           {
             "kind": "cap",
             "max": 4,
-            "why": "A3-cap-1: Catch-all blocks that swallow errors in core paths"
+            "why": "A3-cap-1: Errors swallowed in core paths, by catch-all blocks or by error returns that are ignored (Go's `_ = f()`, Rust's `let _ =`)"
           }
         ]
       },

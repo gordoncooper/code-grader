@@ -13,7 +13,7 @@
   - **4–6:** Happy paths work; edge cases often mishandled.
   - **7–8:** Edge cases mostly handled; a few latent bugs found on careful reading.
   - **9–10:** No defects found on careful review; edge cases handled deliberately and covered by tests.
-- **Caps:** Failing build or tests → max 4 (`A1-cap-1`). A bug that corrupts or loses data → max 3 (`A1-cap-2`).
+- **Caps:** Failing build or tests: tests that run and fail, not a test command that runs none (that's C4's and E3's) → max 4 (`A1-cap-1`). A bug that corrupts or loses data the user keeps (records, files, saved state such as a training checkpoint) on a path the docs or config support → max 3 (`A1-cap-2`).
 - **Re-grade:** any source change
 
 ## A2. Security & Privacy
@@ -37,7 +37,7 @@
   - **4–6:** Handling is inconsistent; vague messages; missing timeouts.
   - **7–8:** Consistent strategy; errors carry context; external calls bounded; cleanup reliable.
   - **9–10:** A uniform error model; failures are contained, observable and recoverable; failure paths are tested, including injected faults.
-- **Caps:** Catch-all blocks that swallow errors in core paths → max 4 (`A3-cap-1`).
+- **Caps:** Errors swallowed in core paths, by catch-all blocks or by error returns that are ignored (Go's `_ = f()`, Rust's `let _ =`) → max 4 (`A3-cap-1`).
 - **Re-grade:** any source change
 
 ## A4. Idempotence & Safe Retries
@@ -54,10 +54,10 @@
 ## A5. Durability & Recoverability
 - **Measures:** Data and state survive crashes, restarts, deploys and power loss, and the system can recover. Covers atomic writes (write to a temp file then rename; fsync where it matters), transactions around multi-step writes, no important state held only in memory, crash-consistent file formats, versioned and reversible migrations, backups with a *tested* restore, defined RPO and RTO for production data, and clean resume after a restart (checkpointing for long jobs).
 - **Not this:** Schema design quality (B4). Concurrency races (X3).
-- **Assess:** Find every write path and every place state lives. Ask what happens if the process is killed between any two lines. Check for a backup and restore procedure and evidence it has been tested. If the project writes no data and keeps no state that must outlive its process (a library whose only state is what its host sets up again at startup), A5 is `not_applicable`: say so and name what would make it apply. Use `limited` when some state does need to survive but little depends on it.
+- **Assess:** Find every write path and every place state lives. Ask what happens if the process is killed between any two lines. Check for a backup and restore procedure and evidence it has been tested. If the project writes no data and keeps no state that must outlive its process (a library whose only state is what its host sets up again at startup), A5 is `not_applicable`: say so and name what would make it apply. Use `limited` when some state does need to survive but little depends on it. When the project ships no deployment of its own, grade whether its docs say where the data lives and how to back it up; `A5-cap-2` doesn't apply.
 - **Anchors:**
   - **1–3:** A crash can lose or corrupt important data.
   - **4–6:** Mostly safe; some non-atomic writes or in-memory-only state; backups untested.
   - **7–8:** Atomic, transactional writes; reliable resume; backups exist.
   - **9–10:** Crash-consistency is designed in and tested (kill tests, chaos tests); restore drills are documented and automated.
-- **Caps:** Important state written non-atomically or held only in memory → max 4 (`A5-cap-1`). Persistent production data with no backup → max 5 (`A5-cap-2`).
+- **Caps:** Important state written non-atomically or held only in memory → max 4 (`A5-cap-1`). Persistent production data with no backup, where the project runs or ships its own deployment → max 5 (`A5-cap-2`).

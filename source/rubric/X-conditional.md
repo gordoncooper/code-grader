@@ -13,7 +13,7 @@
 ## X1. Accessibility, UX & Internationalization (*UI code*)
 - **Measures:** Semantic markup; keyboard navigation; focus management; correct ARIA; color contrast; screen-reader labels; responsive layout; loading, empty and error states; text externalized for translation; locale-aware formatting; right-to-left readiness where relevant.
 - **Assess:** Run axe or Lighthouse, then do a keyboard-only pass through core flows.
-- **Caps:** Core flows not keyboard-operable → max 4 (`X1-cap-1`).
+- **Caps:** Core flows (what the app is for, as its docs or main navigation present it) not keyboard-operable → max 4 (`X1-cap-1`).
 
 ## X2. Public API Stability & Upgradeability (*libraries, SDKs, public APIs*)
 - **Measures:** Semantic versioning, a changelog that is honest about breaking changes, a deprecation policy with warnings, backward-compatibility tests, a minimal public surface, a clear split between public and internal code, and migration guides for breaking changes.
@@ -21,6 +21,7 @@
 - **Assess:** Do the same checks every time, so graders find the same things:
   - **Find the public API:** what the docs and the API reference present, plus what the language's conventions make public (names without a leading underscore in Python, exported names in Go and JavaScript or TypeScript, `pub` items in Rust), unless the project marks it internal.
   - **Compare it with the previous release's:** diff the public names and signatures between the last two release tags, and between the last tag and this commit. A public name that's removed, or whose signature or behavior changes incompatibly, is a breaking change; check that the version number and the changelog say so.
+  - **Before 1.0,** use the ecosystem's rule for what's a breaking release: Cargo and npm treat 0.16 → 0.17 as one, so a breaking change there is in order. Where the ecosystem has no rule, use the project's stated one, and if it states none, semantic versioning's (anything may change before 1.0).
   - Look for deprecation warnings that name a replacement and a removal version, and for tests that pin old behavior.
 - **Anchors:**
   - **1–3:** No versioning discipline: breaking changes arrive unannounced, and nothing separates public from internal.
@@ -31,8 +32,9 @@
 
 ## X3. Concurrency Safety (*concurrent, parallel or async code*)
 - **Measures:** Shared state is protected; no races, deadlocks or unawaited promises; no blocking the event loop; cancellation is propagated; parallelism is bounded. Race detectors or stress tests are used (`go test -race`, TSan, loom...).
+- **Not this:** Duplicate or lost writes from check-then-act on a database, whether from retries or from concurrent requests (A4).
 - **Assess:** `limited` for code that isn't concurrent itself but is commonly called from threads or async code, or whose docs show it used that way: grade what it promises about thread safety, and whether it says where it isn't safe. `not_applicable` only when neither the code nor its documented use is concurrent.
-- **Caps:** A demonstrable data race on shared mutable state → max 3 (`X3-cap-1`).
+- **Caps:** A demonstrable data race: concurrent writes to shared mutable state that can corrupt or lose it (out-of-order async results that only show stale data are scored by their consequence, without this cap) → max 3 (`X3-cap-1`).
 
 ## X4. Cost Efficiency (*code that runs on paid infrastructure or APIs*)
 - **Measures:** Operating cost and effort are proportional to the value delivered. Resources are right-sized; autoscaling and scale-to-zero where sensible; no runaway loops calling paid APIs; caching of expensive calls; storage lifecycle policies; resources tagged and costs visible; budget alerts.

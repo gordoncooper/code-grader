@@ -1,0 +1,712 @@
+{
+  "graded": "2026-11-28T01:07:42Z",
+  "commit": "de2be2ab883217c609a22b3872f200d9fad9cfb9",
+  "suite_version": "6.0.0",
+  "scoring_version": "6.0.0",
+  "grader": "Claude Code",
+  "model": "claude-opus-5-5",
+  "session": "https://claude.ai/code/session_01CznWn73sGpNhVB7QP3y4KQ",
+  "note": "reference grade (it set expected.json): Claude Opus 5.5 subagent, effort max, fresh session; kit copy without calibration/ or CHANGELOG",
+  "rules_fingerprint": "c8a21fd9c6318561",
+  "minutes": 67.9,
+  "scores": {
+    "A1": {
+      "score": 5,
+      "applicability": "full"
+    },
+    "A2": {
+      "score": 1,
+      "applicability": "full"
+    },
+    "A3": {
+      "score": 4,
+      "applicability": "full"
+    },
+    "A4": {
+      "score": 6,
+      "applicability": "full"
+    },
+    "A5": {
+      "score": 5,
+      "applicability": "full"
+    },
+    "B1": {
+      "score": 5,
+      "applicability": "full"
+    },
+    "B2": {
+      "score": 6,
+      "applicability": "full"
+    },
+    "B3": {
+      "score": 6,
+      "applicability": "full"
+    },
+    "B4": {
+      "score": 6,
+      "applicability": "full"
+    },
+    "B5": {
+      "score": 6,
+      "applicability": "full"
+    },
+    "B6": {
+      "score": 7,
+      "applicability": "full"
+    },
+    "C1": {
+      "score": 6,
+      "applicability": "full"
+    },
+    "C2": {
+      "score": 7,
+      "applicability": "full"
+    },
+    "C4": {
+      "score": 6,
+      "applicability": "full"
+    },
+    "D1": {
+      "score": 6,
+      "applicability": "full"
+    },
+    "D2": {
+      "score": 6,
+      "applicability": "full"
+    },
+    "D4": {
+      "score": 7,
+      "applicability": "full"
+    },
+    "E1": {
+      "score": 7,
+      "applicability": "full"
+    },
+    "E2": {
+      "score": 5,
+      "applicability": "full"
+    },
+    "E3": {
+      "score": 6,
+      "applicability": "full"
+    },
+    "F1": {
+      "score": 3,
+      "applicability": "full"
+    },
+    "F2": {
+      "score": 7,
+      "applicability": "full"
+    },
+    "F3": {
+      "score": 4,
+      "applicability": "full"
+    },
+    "F4": {
+      "score": 6,
+      "applicability": "full"
+    },
+    "F5": {
+      "score": 7,
+      "applicability": "full"
+    },
+    "F6": {
+      "score": 4,
+      "applicability": "full"
+    },
+    "X1": {
+      "score": null,
+      "applicability": "not_applicable"
+    },
+    "X2": {
+      "score": 4,
+      "applicability": "full"
+    },
+    "X3": {
+      "score": 7,
+      "applicability": "full"
+    },
+    "X4": {
+      "score": null,
+      "applicability": "not_applicable"
+    },
+    "X5": {
+      "score": 6,
+      "applicability": "full"
+    }
+  },
+  "findings": [
+    {
+      "benchmark": "A1",
+      "severity": "major",
+      "title": "Anonymous readers see favorited/following = true whenever anyone favorited the article or follows the author",
+      "places": [
+        "users/models.go:118-120",
+        "articles/models.go:80-82"
+      ]
+    },
+    {
+      "benchmark": "A1",
+      "severity": "major",
+      "title": "Usernames are not unique: PUT /api/user lets any user take an existing username",
+      "places": [
+        "users/models.go:18-19",
+        "users/routers.go:166-168",
+        "users/routers.go:97-98"
+      ]
+    },
+    {
+      "benchmark": "A1",
+      "severity": "major",
+      "title": "Saving an article whose slug has a -N suffix changes its slug on every PUT, even with the title unchanged",
+      "places": [
+        "articles/routers.go:155-157"
+      ]
+    },
+    {
+      "benchmark": "A1",
+      "severity": "minor",
+      "title": "List filters can't be combined: tag, author and favorited are an else-if chain, so extra filters are silently ignored",
+      "places": [
+        "articles/models.go:205"
+      ]
+    },
+    {
+      "benchmark": "A1",
+      "severity": "minor",
+      "title": "A title with no letters or digits gets an empty slug, so the article can't be fetched, edited or deleted",
+      "places": [
+        "articles/validators.go:37"
+      ]
+    },
+    {
+      "benchmark": "A1",
+      "severity": "minor",
+      "title": "Duplicate and empty tags are stored and returned as given",
+      "places": [
+        "articles/models.go:355-357",
+        "articles/unit_test.go:1352"
+      ]
+    },
+    {
+      "benchmark": "A1",
+      "severity": "minor",
+      "title": "Email uniqueness and login are case-sensitive, so one mailbox can hold several accounts",
+      "places": [
+        "users/models.go:19"
+      ]
+    },
+    {
+      "benchmark": "A2",
+      "severity": "critical",
+      "title": "Security & Privacy issue (details withheld)",
+      "places": []
+    },
+    {
+      "benchmark": "A2",
+      "severity": "major",
+      "title": "Reachable advisory in the JWT library: golang-jwt/jwt/v5 v5.2.1 allocates ~16x a malformed token's size before rejecting it (CVE-2025-30204)",
+      "places": [
+        "go.mod:8",
+        "users/middlewares.go:55"
+      ]
+    },
+    {
+      "benchmark": "A2",
+      "severity": "major",
+      "title": "Session tokens are accepted from the access_token query parameter, and the default access log writes full URLs, tokens included",
+      "places": [
+        "users/middlewares.go:20-22",
+        "hello.go:35"
+      ]
+    },
+    {
+      "benchmark": "A2",
+      "severity": "major",
+      "title": "No rate limiting, lockout or throttling on login",
+      "places": [
+        "users/routers.go:130"
+      ]
+    },
+    {
+      "benchmark": "A2",
+      "severity": "minor",
+      "title": "AuthMiddleware treats a validly signed token for a missing user as authenticated, and panics on a token without a numeric id claim",
+      "places": [
+        "users/middlewares.go:70-72",
+        "users/middlewares.go:33-34"
+      ]
+    },
+    {
+      "benchmark": "A2",
+      "severity": "minor",
+      "title": "Deleting an article only soft-deletes it: its content, comments and favorites stay in the database with no purge",
+      "places": [
+        "articles/models.go:382-384"
+      ]
+    },
+    {
+      "benchmark": "A3",
+      "severity": "major",
+      "title": "Database errors are ignored on core read paths and in article creation, so failures come back as 200 with empty or wrong data",
+      "places": [
+        "articles/models.go:286-288",
+        "articles/models.go:71-73",
+        "articles/validators.go:42"
+      ]
+    },
+    {
+      "benchmark": "A3",
+      "severity": "minor",
+      "title": "No HTTP server timeouts and no request-body size limit",
+      "places": [
+        "hello.go:67"
+      ]
+    },
+    {
+      "benchmark": "A3",
+      "severity": "minor",
+      "title": "Startup doesn't fail fast: database open and migration errors are printed and ignored until a nil-pointer panic",
+      "places": [
+        "common/database.go:62-64",
+        "hello.go:16-17"
+      ]
+    },
+    {
+      "benchmark": "A4",
+      "severity": "major",
+      "title": "Favorite and follow are check-then-insert with no unique constraint, so concurrent repeats store duplicates and inflate favoritesCount",
+      "places": [
+        "articles/models.go:132-134",
+        "articles/models.go:34-36"
+      ]
+    },
+    {
+      "benchmark": "A4",
+      "severity": "minor",
+      "title": "Creating an article or comment has no idempotency key or duplicate check, so a client retry after a timeout publishes it twice",
+      "places": []
+    },
+    {
+      "benchmark": "A5",
+      "severity": "major",
+      "title": "No backup or restore path for the SQLite file that holds every account, password hash and article",
+      "places": [
+        "common/database.go:24"
+      ]
+    },
+    {
+      "benchmark": "A5",
+      "severity": "minor",
+      "title": "Multi-step writes are not transactional: article updates commit fields and tags separately, and new tags are inserted before the article",
+      "places": [
+        "articles/routers.go:165",
+        "articles/routers.go:179",
+        "articles/models.go:361"
+      ]
+    },
+    {
+      "benchmark": "A5",
+      "severity": "minor",
+      "title": "Schema changes rely on AutoMigrate at every startup, with no versioned or reversible migrations",
+      "places": [
+        "hello.go:15"
+      ]
+    },
+    {
+      "benchmark": "B1",
+      "severity": "major",
+      "title": "Validators and serializers do database I/O: binding writes rows, and every response serializer runs its own queries",
+      "places": [
+        "articles/validators.go:41-42",
+        "users/serializers.go:46",
+        "articles/serializers.go:80-81"
+      ]
+    },
+    {
+      "benchmark": "B1",
+      "severity": "minor",
+      "title": "Articles, comments and favorites point at a lazily created ArticleUserModel shadow of each user, created by FirstOrCreate even on GET requests",
+      "places": [
+        "articles/models.go:24-26",
+        "articles/models.go:61-63",
+        "articles/serializers.go:145"
+      ]
+    },
+    {
+      "benchmark": "B2",
+      "severity": "minor",
+      "title": "One package-level *gorm.DB, read through common.GetDB() by every model function, with no injection seam",
+      "places": [
+        "common/database.go:17",
+        "common/database.go:97"
+      ]
+    },
+    {
+      "benchmark": "B2",
+      "severity": "minor",
+      "title": "articles depends on users' internals: it queries the users table directly and reads the user from gin.Context by a string key with unchecked type assertions",
+      "places": [
+        "articles/models.go:206-207",
+        "articles/routers.go:84"
+      ]
+    },
+    {
+      "benchmark": "B3",
+      "severity": "minor",
+      "title": "common is a junk drawer: JWT minting, random strings, error formatting, request binding, the DB connection and a JSON tri-state type",
+      "places": [
+        "common/utils.go:46",
+        "common/utils.go:138"
+      ]
+    },
+    {
+      "benchmark": "B3",
+      "severity": "minor",
+      "title": "Test-only helpers live in production files",
+      "places": [
+        "common/test_helpers.go:10-11",
+        "common/database.go:75-76"
+      ]
+    },
+    {
+      "benchmark": "B4",
+      "severity": "minor",
+      "title": "PUT /api/user skips the validation POST /api/users applies: bio length and image URL are unchecked on update",
+      "places": [
+        "users/validators.go:17-18",
+        "users/validators.go:57-58"
+      ]
+    },
+    {
+      "benchmark": "B4",
+      "severity": "minor",
+      "title": "Error contract is inconsistent across endpoints: raw driver messages under a database key, 404 for DB failures, and a body-less 401",
+      "places": [
+        "users/routers.go:190-191",
+        "articles/routers.go:73-74",
+        "articles/routers.go:86"
+      ]
+    },
+    {
+      "benchmark": "B4",
+      "severity": "minor",
+      "title": "Data-access helpers take interface{} conditions, and GORM silently drops zero-valued fields from them",
+      "places": [
+        "users/models.go:83",
+        "articles/models.go:151"
+      ]
+    },
+    {
+      "benchmark": "B5",
+      "severity": "minor",
+      "title": "Operational settings are hard-coded: token lifetime 24 h and the default page size, the latter twice",
+      "places": [
+        "common/utils.go:49",
+        "articles/models.go:189",
+        "articles/models.go:263"
+      ]
+    },
+    {
+      "benchmark": "B6",
+      "severity": "minor",
+      "title": "Three leftover RealWorld template docs at the repo root still say to delete them before publishing",
+      "places": [
+        "BACKEND_INSTRUCTIONS.md:1",
+        "FRONTEND_INSTRUCTIONS.md:1",
+        "MOBILE_INSTRUCTIONS.md:1"
+      ]
+    },
+    {
+      "benchmark": "B6",
+      "severity": "minor",
+      "title": "Unused and duplicate code: an unused Database type, a token-extraction helper that duplicates the middleware's, and commented-out code",
+      "places": [
+        "common/database.go:13-15",
+        "common/test_helpers.go:17",
+        "articles/routers.go:66",
+        "articles/serializers.go:77"
+      ]
+    },
+    {
+      "benchmark": "C1",
+      "severity": "minor",
+      "title": "Non-idiomatic, inconsistent naming from the 2017 code: snake_case identifiers, self receivers, and near-identical exported names",
+      "places": [
+        "common/utils.go:47",
+        "users/validators.go:24",
+        "users/routers.go:12"
+      ]
+    },
+    {
+      "benchmark": "C1",
+      "severity": "minor",
+      "title": "Stale or misleading comments in core and test code",
+      "places": [
+        "users/routers.go:97-98",
+        "users/models.go:13",
+        "articles/unit_test.go:1062",
+        "articles/unit_test.go:1351"
+      ]
+    },
+    {
+      "benchmark": "C2",
+      "severity": "minor",
+      "title": "Two complexity hotspots: ArticleUpdate (cyclomatic 19, 80 lines) and FindManyArticle (14, 73 lines)",
+      "places": [
+        "articles/routers.go:113",
+        "articles/models.go:178"
+      ]
+    },
+    {
+      "benchmark": "C2",
+      "severity": "minor",
+      "title": "Copy-paste between paired handlers and in limit/offset parsing",
+      "places": [
+        "articles/models.go:187-189",
+        "articles/models.go:261-263"
+      ]
+    },
+    {
+      "benchmark": "C4",
+      "severity": "major",
+      "title": "Many tests assert only status codes or key presence, and core behaviors are unpinned: the defects in A1 and A4 all pass the suite",
+      "places": [
+        "articles/unit_test.go:1038-1039",
+        "articles/unit_test.go:278"
+      ]
+    },
+    {
+      "benchmark": "C4",
+      "severity": "minor",
+      "title": "Tests depend on the environment and on each other: a permission-based test fails as root, and table tests share one database in sequence",
+      "places": [
+        "common/unit_test.go:35",
+        "common/unit_test.go:39"
+      ]
+    },
+    {
+      "benchmark": "D1",
+      "severity": "major",
+      "title": "Article bodies, descriptions and comments are capped at 2048 characters, so a normal-length blog post can't be published",
+      "places": [
+        "articles/validators.go:13-14",
+        "articles/validators.go:89"
+      ]
+    },
+    {
+      "benchmark": "D2",
+      "severity": "major",
+      "title": "No CORS support: browser frontends on another origin cannot call the API",
+      "places": []
+    },
+    {
+      "benchmark": "D4",
+      "severity": "minor",
+      "title": "A password over 72 bytes, which passes the 255-character validation limit, is rejected at registration as 'body is invalid'",
+      "places": [
+        "users/validators.go:32-34",
+        "common/utils.go:102-103"
+      ]
+    },
+    {
+      "benchmark": "D4",
+      "severity": "minor",
+      "title": "The spec-test script silently deletes the default development database",
+      "places": [
+        "scripts/run-spec-tests.sh:59-60"
+      ]
+    },
+    {
+      "benchmark": "E1",
+      "severity": "minor",
+      "title": "The install steps tell adopters to run go mod tidy, which rewrites go.mod and go.sum",
+      "places": [
+        "readme.md:114-116"
+      ]
+    },
+    {
+      "benchmark": "E1",
+      "severity": "minor",
+      "title": "No runnable request examples or container setup for adopters",
+      "places": []
+    },
+    {
+      "benchmark": "E2",
+      "severity": "major",
+      "title": "README says a .env file works with source, but .env.example has no export lines, so the server silently ignores it",
+      "places": [
+        "readme.md:87",
+        ".env.example:2"
+      ]
+    },
+    {
+      "benchmark": "E2",
+      "severity": "minor",
+      "title": "README has two coverage tables that disagree with each other and with the code",
+      "places": [
+        "readme.md:35",
+        "readme.md:176"
+      ]
+    },
+    {
+      "benchmark": "E2",
+      "severity": "minor",
+      "title": "Stale structure in the README: the directory tree shows gorm.db at the root, and an orphaned 'or' follows the spec-test section",
+      "places": [
+        "readme.md:62",
+        "readme.md:157"
+      ]
+    },
+    {
+      "benchmark": "E3",
+      "severity": "major",
+      "title": "AGENTS.md's lint command fails with a current golangci-lint: the config is in the retired v1 format and CI pins v1.61",
+      "places": [
+        "AGENTS.md:62",
+        ".golangci.yml:1",
+        ".github/workflows/ci.yml:71"
+      ]
+    },
+    {
+      "benchmark": "E3",
+      "severity": "minor",
+      "title": "CI runs tests through a bespoke per-directory coverage loop instead of the standard go test -coverprofile ./...",
+      "places": [
+        "scripts/coverage.sh:9-11",
+        ".github/workflows/ci.yml:41"
+      ]
+    },
+    {
+      "benchmark": "E3",
+      "severity": "minor",
+      "title": "No contribution guide, task runner or seed data for local development",
+      "places": []
+    },
+    {
+      "benchmark": "F1",
+      "severity": "major",
+      "title": "No deployment path at all: no container image, release artifact, deploy docs or runbook",
+      "places": []
+    },
+    {
+      "benchmark": "F1",
+      "severity": "major",
+      "title": "Configuration isn't externalized for secrets: only the port, run mode and SQLite paths can be set per environment",
+      "places": []
+    },
+    {
+      "benchmark": "F1",
+      "severity": "minor",
+      "title": "Health route answers only at /api/ping/ with a trailing slash, the example config runs in debug mode, and there is no graceful shutdown",
+      "places": [
+        "hello.go:54-56",
+        ".env.example:3"
+      ]
+    },
+    {
+      "benchmark": "F2",
+      "severity": "minor",
+      "title": "The security scan never fails the build: gosec runs with -no-fail",
+      "places": [
+        ".github/workflows/ci.yml:94"
+      ]
+    },
+    {
+      "benchmark": "F2",
+      "severity": "minor",
+      "title": "The Bruno CLI used by a CI job is installed unpinned",
+      "places": [
+        ".github/workflows/ci.yml:153"
+      ]
+    },
+    {
+      "benchmark": "F3",
+      "severity": "major",
+      "title": "No structured logs, request IDs or metrics, and handler errors are returned to clients without being logged",
+      "places": [
+        "common/database.go:54"
+      ]
+    },
+    {
+      "benchmark": "F3",
+      "severity": "minor",
+      "title": "GORM's default logger records every expected lookup miss as an error, with the SQL and bound values, so logs are noisy and carry emails",
+      "places": [
+        "common/database.go:57-58"
+      ]
+    },
+    {
+      "benchmark": "F4",
+      "severity": "minor",
+      "title": "List and comment responses run a following query per item (N+1), and serializing can write rows",
+      "places": [
+        "articles/serializers.go:117",
+        "articles/serializers.go:182"
+      ]
+    },
+    {
+      "benchmark": "F4",
+      "severity": "minor",
+      "title": "No indexes on the foreign keys every request filters by",
+      "places": [
+        "articles/models.go:19",
+        "articles/models.go:27",
+        "articles/models.go:49"
+      ]
+    },
+    {
+      "benchmark": "F4",
+      "severity": "minor",
+      "title": "Page size has no upper bound, and a negative limit disables it",
+      "places": [
+        "articles/models.go:247"
+      ]
+    },
+    {
+      "benchmark": "F5",
+      "severity": "minor",
+      "title": "The SQLite driver requires cgo: a CGO_ENABLED=0 build compiles but fails at startup",
+      "places": [
+        "common/database.go:8",
+        "readme.md:54"
+      ]
+    },
+    {
+      "benchmark": "F6",
+      "severity": "major",
+      "title": "Toolchain targets are end-of-life: go.mod says go 1.21 and CI tests only Go 1.21-1.23, with dependencies held back to keep them",
+      "places": [
+        "go.mod:3",
+        ".github/workflows/ci.yml:20",
+        "readme.md:52"
+      ]
+    },
+    {
+      "benchmark": "F6",
+      "severity": "minor",
+      "title": "No automated dependency updates",
+      "places": []
+    },
+    {
+      "benchmark": "X2",
+      "severity": "major",
+      "title": "No release discipline for the API: the last tag is from 2017 and client-visible behavior changes since then have no version or changelog",
+      "places": [
+        "readme.md:24-26"
+      ]
+    },
+    {
+      "benchmark": "X3",
+      "severity": "minor",
+      "title": "Concurrency is never exercised by tests: no race detector in CI and no concurrent tests",
+      "places": []
+    },
+    {
+      "benchmark": "X5",
+      "severity": "minor",
+      "title": "Dependency licenses are not checked and no SBOM is produced",
+      "places": []
+    }
+  ]
+}

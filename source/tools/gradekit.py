@@ -9,8 +9,14 @@ Python 3.11+; standard library only.
 """
 import hashlib
 import importlib.util
+import os
 import sys
+import tempfile
 from pathlib import Path
+
+if __name__ == "__main__" and sys.pycache_prefix is None:
+    # Run as a command: keep the kit's folders as they were copied, with bytecode cached in a temporary folder.
+    sys.pycache_prefix = os.path.join(tempfile.gettempdir(), "gradekit-pycache")
 
 
 def _load_core():

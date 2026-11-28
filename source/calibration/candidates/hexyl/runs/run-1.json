@@ -1,0 +1,510 @@
+{
+  "graded": "2026-11-28T00:49:19Z",
+  "commit": "6ecc29b9c8c84d08a7e860f7f69c22b113b480ea",
+  "suite_version": "6.0.0",
+  "scoring_version": "6.0.0",
+  "grader": "Claude Code",
+  "model": "claude-opus-5-5",
+  "note": "reference grade (it set expected.json): Claude Opus 5.5 subagent, effort max, fresh session; kit copy without calibration/ or CHANGELOG",
+  "rules_fingerprint": "64209db4b39cacfa",
+  "minutes": 49.5,
+  "scores": {
+    "A1": {
+      "score": 7,
+      "applicability": "full"
+    },
+    "A2": {
+      "score": 8,
+      "applicability": "full"
+    },
+    "A3": {
+      "score": 4,
+      "applicability": "full"
+    },
+    "A4": {
+      "score": null,
+      "applicability": "not_applicable"
+    },
+    "A5": {
+      "score": null,
+      "applicability": "not_applicable"
+    },
+    "B1": {
+      "score": 8,
+      "applicability": "full"
+    },
+    "B2": {
+      "score": 7,
+      "applicability": "full"
+    },
+    "B3": {
+      "score": 8,
+      "applicability": "full"
+    },
+    "B4": {
+      "score": 6,
+      "applicability": "full"
+    },
+    "B5": {
+      "score": 8,
+      "applicability": "full"
+    },
+    "B6": {
+      "score": 8,
+      "applicability": "full"
+    },
+    "C1": {
+      "score": 7,
+      "applicability": "full"
+    },
+    "C2": {
+      "score": 6,
+      "applicability": "full"
+    },
+    "C4": {
+      "score": 7,
+      "applicability": "full"
+    },
+    "D1": {
+      "score": 8,
+      "applicability": "full"
+    },
+    "D2": {
+      "score": 8,
+      "applicability": "full"
+    },
+    "D4": {
+      "score": 8,
+      "applicability": "full"
+    },
+    "E1": {
+      "score": 8,
+      "applicability": "full"
+    },
+    "E2": {
+      "score": 5,
+      "applicability": "full"
+    },
+    "E3": {
+      "score": 7,
+      "applicability": "full"
+    },
+    "F1": {
+      "score": 4,
+      "applicability": "full"
+    },
+    "F2": {
+      "score": 7,
+      "applicability": "full"
+    },
+    "F3": {
+      "score": 7,
+      "applicability": "full"
+    },
+    "F4": {
+      "score": 8,
+      "applicability": "full"
+    },
+    "F5": {
+      "score": 8,
+      "applicability": "full"
+    },
+    "F6": {
+      "score": 6,
+      "applicability": "full"
+    },
+    "X1": {
+      "score": 8,
+      "applicability": "limited"
+    },
+    "X2": {
+      "score": 6,
+      "applicability": "full"
+    },
+    "X3": {
+      "score": null,
+      "applicability": "not_applicable"
+    },
+    "X4": {
+      "score": null,
+      "applicability": "not_applicable"
+    },
+    "X5": {
+      "score": 6,
+      "applicability": "full"
+    }
+  },
+  "findings": [
+    {
+      "benchmark": "A1",
+      "severity": "major",
+      "title": "A --block-size written in hex makes hexyl print nothing and exit 0",
+      "places": [
+        "src/main.rs:301-302",
+        "src/main.rs:307"
+      ]
+    },
+    {
+      "benchmark": "A1",
+      "severity": "major",
+      "title": "The codepage-1047 character table shows the wrong glyph for 15 of the 256 byte values",
+      "places": [
+        "src/colors.rs:172",
+        "src/colors.rs:179",
+        "tests/integration_tests.rs:761"
+      ]
+    },
+    {
+      "benchmark": "A1",
+      "severity": "minor",
+      "title": "Empty input: the 'No content' row ignores the border style, the panel count and --plain",
+      "places": [
+        "src/lib.rs:813",
+        "src/lib.rs:817-819",
+        "src/lib.rs:824"
+      ]
+    },
+    {
+      "benchmark": "A1",
+      "severity": "minor",
+      "title": "Offsets of 4 GiB and above widen the position column and push every row out of line",
+      "places": [
+        "src/lib.rs:517-519"
+      ]
+    },
+    {
+      "benchmark": "A1",
+      "severity": "minor",
+      "title": "C include mode (-i) emits an invalid identifier when the file name starts with a digit",
+      "places": [
+        "src/lib.rs:689-691"
+      ]
+    },
+    {
+      "benchmark": "A3",
+      "severity": "major",
+      "title": "Read errors are swallowed in print_all: the dump shows bytes that are not in the input, and a lasting error loops forever",
+      "places": [
+        "src/lib.rs:715",
+        "src/lib.rs:725"
+      ]
+    },
+    {
+      "benchmark": "A3",
+      "severity": "minor",
+      "title": "Invalid HEXYL_COLOR_* values are silently replaced by the defaults",
+      "places": [
+        "src/colors.rs:23-25"
+      ]
+    },
+    {
+      "benchmark": "B2",
+      "severity": "minor",
+      "title": "Colors are hidden global state: the library reads HEXYL_COLOR_* from the process environment into statics",
+      "places": [
+        "src/colors.rs:5-6",
+        "src/colors.rs:21-22",
+        "src/lib.rs:113"
+      ]
+    },
+    {
+      "benchmark": "B2",
+      "severity": "minor",
+      "title": "C-include output is a second output format special-cased inside Printer::print_all",
+      "places": [
+        "src/lib.rs:683-684",
+        "src/lib.rs:706-708"
+      ]
+    },
+    {
+      "benchmark": "B4",
+      "severity": "major",
+      "title": "The public PrinterBuilder accepts group sizes and panel counts it can't render: group_size(0) panics, group_size(3) breaks the frame, num_panels(0) never returns",
+      "places": [
+        "src/lib.rs:325",
+        "src/lib.rs:330",
+        "src/lib.rs:443",
+        "src/lib.rs:462"
+      ]
+    },
+    {
+      "benchmark": "B4",
+      "severity": "minor",
+      "title": "--base is a hand-parsed String while every other enumerated option is a clap ValueEnum",
+      "places": [
+        "src/main.rs:192-193",
+        "src/main.rs:412"
+      ]
+    },
+    {
+      "benchmark": "B6",
+      "severity": "minor",
+      "title": "const_format and its proc-macro crate are runtime dependencies used once, to turn the constant 512 into a string",
+      "places": [
+        "Cargo.toml:17",
+        "src/main.rs:89"
+      ]
+    },
+    {
+      "benchmark": "C1",
+      "severity": "minor",
+      "title": "Opaque or misleading names in the printer core: a stale 'gray color' comment and undocumented Squeezer states",
+      "places": [
+        "src/lib.rs:417-418",
+        "src/lib.rs:84-86",
+        "src/lib.rs:87-88"
+      ]
+    },
+    {
+      "benchmark": "C1",
+      "severity": "minor",
+      "title": "Layout constants are bare literals repeated across lib.rs and main.rs (8 bytes per panel, column widths)",
+      "places": [
+        "src/lib.rs:363",
+        "src/lib.rs:453",
+        "src/lib.rs:558",
+        "src/main.rs:401"
+      ]
+    },
+    {
+      "benchmark": "C2",
+      "severity": "major",
+      "title": "print_all is a 175-line hot-zone function with nested read loops, loop expressions used as values, and squeezer state changed from three methods",
+      "places": [
+        "src/lib.rs:678",
+        "src/lib.rs:724",
+        "src/lib.rs:554"
+      ]
+    },
+    {
+      "benchmark": "C2",
+      "severity": "minor",
+      "title": "run() in main.rs is a 251-line function that parses, validates and wires every option inline",
+      "places": [
+        "src/main.rs:269"
+      ]
+    },
+    {
+      "benchmark": "C2",
+      "severity": "minor",
+      "title": "The base-to-digit-width mapping and the panel-width formula are written twice, in lib.rs and main.rs",
+      "places": [
+        "src/lib.rs:392-394",
+        "src/main.rs:434-436",
+        "src/lib.rs:442-444",
+        "src/lib.rs:445",
+        "src/main.rs:401"
+      ]
+    },
+    {
+      "benchmark": "C4",
+      "severity": "major",
+      "title": "Failure paths and non-default layouts are untested, and the defects in this report sit in them",
+      "places": []
+    },
+    {
+      "benchmark": "D1",
+      "severity": "minor",
+      "title": "--print-color-table ignores --color=never, NO_COLOR and --color-scheme",
+      "places": [
+        "src/main.rs:272-273",
+        "src/main.rs:565"
+      ]
+    },
+    {
+      "benchmark": "D4",
+      "severity": "minor",
+      "title": "The default --color=always writes ANSI escape codes into pipes and files",
+      "places": [
+        "src/main.rs:224-226"
+      ]
+    },
+    {
+      "benchmark": "D4",
+      "severity": "minor",
+      "title": "A missing input file is reported without its name",
+      "places": [
+        "src/main.rs:293"
+      ]
+    },
+    {
+      "benchmark": "E1",
+      "severity": "minor",
+      "title": "README says Rust 1.56 is enough to install from source; the crate requires 1.88",
+      "places": [
+        "README.md:148",
+        "Cargo.toml:13"
+      ]
+    },
+    {
+      "benchmark": "E1",
+      "severity": "minor",
+      "title": "README has no usage section: usage is shown only as screenshots hosted on imgur",
+      "places": [
+        "README.md:10-12"
+      ]
+    },
+    {
+      "benchmark": "E2",
+      "severity": "major",
+      "title": "Negative --display-offset is documented as valid but rejected",
+      "places": [
+        "src/main.rs:50",
+        "doc/hexyl.1.md:100-101",
+        "src/main.rs:355"
+      ]
+    },
+    {
+      "benchmark": "E2",
+      "severity": "minor",
+      "title": "The man page shipped in release archives and the .deb is stale: its header says 0.12.0 and 14 options are missing",
+      "places": [
+        "doc/hexyl.1.md:1",
+        ".github/workflows/CICD.yml:170"
+      ]
+    },
+    {
+      "benchmark": "E2",
+      "severity": "minor",
+      "title": "The library's public API is almost entirely undocumented",
+      "places": [
+        "src/lib.rs:265"
+      ]
+    },
+    {
+      "benchmark": "E3",
+      "severity": "minor",
+      "title": "CONTRIBUTING.md covers only changelog etiquette: no build, test, lint or format commands, and no agent instructions",
+      "places": [
+        "CONTRIBUTING.md:7",
+        "CONTRIBUTING.md:26"
+      ]
+    },
+    {
+      "benchmark": "F1",
+      "severity": "major",
+      "title": "Publishing to crates.io, with the version bump and tag, is a manual step documented nowhere",
+      "places": [
+        ".github/workflows/CICD.yml:325",
+        ".github/workflows/CICD.yml:329"
+      ]
+    },
+    {
+      "benchmark": "F1",
+      "severity": "minor",
+      "title": "The generated .deb is described as 'A command-line benchmarking tool' and labels 32-bit x86 as i686, not Debian's i386",
+      "places": [
+        ".github/workflows/CICD.yml:299",
+        ".github/workflows/CICD.yml:224"
+      ]
+    },
+    {
+      "benchmark": "F2",
+      "severity": "minor",
+      "title": "Clippy runs in CI, but its warnings don't fail the job",
+      "places": [
+        ".github/workflows/CICD.yml:61"
+      ]
+    },
+    {
+      "benchmark": "F2",
+      "severity": "minor",
+      "title": "No build caching in CI",
+      "places": []
+    },
+    {
+      "benchmark": "F5",
+      "severity": "minor",
+      "title": "ARM targets run only the unit tests; the integration tests that pin the CLI's output are skipped there",
+      "places": [
+        ".github/workflows/CICD.yml:159"
+      ]
+    },
+    {
+      "benchmark": "F6",
+      "severity": "minor",
+      "title": "No automated dependency updates: the lockfile lags far behind its own version ranges",
+      "places": []
+    },
+    {
+      "benchmark": "F6",
+      "severity": "minor",
+      "title": "CI actions are pinned to old major tags and a moving branch",
+      "places": [
+        ".github/workflows/CICD.yml:21",
+        ".github/workflows/CICD.yml:309",
+        ".github/workflows/CICD.yml:329"
+      ]
+    },
+    {
+      "benchmark": "A2",
+      "severity": "minor",
+      "title": "No dependency vulnerability scan in CI",
+      "places": []
+    },
+    {
+      "benchmark": "X2",
+      "severity": "minor",
+      "title": "v0.17.0 changed the types of the public COLOR_* items without a changelog entry",
+      "places": [
+        "CHANGELOG.md:87-89"
+      ]
+    },
+    {
+      "benchmark": "X2",
+      "severity": "minor",
+      "title": "The library re-exports internals wholesale, and most public enums can't grow without a breaking change",
+      "places": [
+        "src/lib.rs:4-5",
+        "src/lib.rs:11",
+        "src/lib.rs:27"
+      ]
+    },
+    {
+      "benchmark": "X5",
+      "severity": "minor",
+      "title": "The CP1047 table carries an Eclipse Public License notice that the package's license metadata and Debian copyright file don't mention",
+      "places": [
+        "src/colors.rs:157-159",
+        "Cargo.toml:7",
+        ".github/workflows/CICD.yml:254"
+      ]
+    },
+    {
+      "benchmark": "X5",
+      "severity": "minor",
+      "title": "The license field uses the legacy 'MIT/Apache-2.0' form, not an SPDX expression",
+      "places": [
+        "Cargo.toml:7"
+      ]
+    },
+    {
+      "benchmark": "B3",
+      "severity": "minor",
+      "title": "src/tests.rs is the binary's test module, though beside lib.rs it reads as the library's",
+      "places": [
+        "src/main.rs:29-30",
+        "src/tests.rs:4"
+      ]
+    },
+    {
+      "benchmark": "F4",
+      "severity": "minor",
+      "title": "Every output line clones the line buffer, and each byte's color is looked up up to three times",
+      "places": [
+        "src/lib.rs:664",
+        "src/lib.rs:616-618"
+      ]
+    },
+    {
+      "benchmark": "B1",
+      "severity": "minor",
+      "title": "The library depends on the CLI framework: its public enums derive clap::ValueEnum and carry clap attributes",
+      "places": [
+        "src/lib.rs:9",
+        "src/lib.rs:34",
+        "src/lib.rs:47"
+      ]
+    }
+  ]
+}

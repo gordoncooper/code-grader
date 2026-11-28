@@ -542,6 +542,8 @@ def cmd_report_score(args) -> int:
         c = resolve_cap(v, b["id"], caps)
         if c is None or (c["id"] and c["benchmark"] != b["id"]):
             die(f"{v}: not one of {b['id']}'s caps ({', '.join(k for k, c in caps.items() if c['benchmark'] == b['id']) or 'it has none'})")
+    if args.clear_gaming_flags:
+        b["gaming_flags"] = []
     for key, vals in (("caps_applied", args.cap), ("gaming_flags", args.gaming_flag)):
         for v in vals or []:
             if v not in b[key]:
@@ -1247,6 +1249,8 @@ def add_report_score(rsub):
     q.add_argument("--cap", action="append", metavar="CAP_ID",
                    help="a rubric cap that holds for this benchmark, e.g. E1-cap-1 (repeatable). Better: put it on the finding that triggers it")
     q.add_argument("--gaming-flag", action="append", help="a gaming pattern you found (repeatable)")
+    q.add_argument("--clear-gaming-flags", action="store_true",
+                   help="drop the benchmark's gaming flags first (then give the ones that stand with --gaming-flag)")
     q.set_defaults(fn=cmd_report_score)
 
 

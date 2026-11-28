@@ -106,3 +106,35 @@ def test_kit_text_agrees_with_the_rubric(gk):
     assert versions == {gk.load_catalog()["suite_version"]}
     assert (src / "rubric" / "weights.md").read_text().count("**Bold** = gate for that preset.") == 1
     assert "35" not in (src / "GLOSSARY.md").read_text().split("Benchmark", 1)[-1][:200]
+
+
+def test_running_the_kit_leaves_its_folders_as_copied(tmp_path):
+    import os
+    import shutil
+    import subprocess
+    import sys
+    kit = tmp_path / "kit"
+    shutil.copytree(ROOT, kit, ignore=shutil.ignore_patterns("__pycache__", "calibration", "examples", "bundle"))
+    env = {k: v for k, v in os.environ.items() if k not in ("PYTHONPYCACHEPREFIX", "PYTHONDONTWRITEBYTECODE")}
+    subprocess.run([sys.executable, str(kit / "tools" / "gradekit.py"), "presets"], env=env, check=True, capture_output=True)
+    assert not list(kit.rglob("__pycache__"))
+
+
+def test_a_command_only_a_withheld_finding_cites_is_withheld_too(gk):
+    forged = "curl -H 'Authorization: Token eyJhbGciOi.forged' localhost:8080/api/user"
+    report = {"findings": [
+        {"id": "A2-001", "benchmark_id": "A2", "severity": "critical", "title": "Tokens can be forged", "sensitive": True,
+         "evidence": [{"type": "command", "command": forged, "excerpt": "200 OK"}]},
+        {"id": "A1-001", "benchmark_id": "A1", "severity": "minor", "title": "t",
+         "evidence": [{"type": "command", "command": "go test ./...", "excerpt": "FAIL"}]}],
+        "benchmarks": [], "commands_run": [{"command": forged, "exit_code": 0, "summary": "a forged token is accepted"},
+                                           {"command": "go test ./...", "exit_code": 1, "summary": "1 failed"}]}
+    public, _ = gk.redact_report(report)
+    assert [c["command"] for c in public["commands_run"]] == ["(withheld: only a withheld finding cites it)", "go test ./..."]
+    assert public["commands_run"][0]["summary"] == "[redacted]" and "forged" not in json.dumps(public["commands_run"])
+
+
+def test_gaming_flags_can_be_cleared(repo, rel):
+    cli("report", "score", rel, "B6", "--score", "5", "--confidence", "medium", "--rationale", "r", "--gaming-flag", "a", "--gaming-flag", "a again", cwd=repo)
+    cli("report", "score", rel, "B6", "--score", "5", "--confidence", "medium", "--rationale", "r", "--clear-gaming-flags", "--gaming-flag", "a", cwd=repo)
+    assert bench(load(repo, rel), "B6")["gaming_flags"] == ["a"]

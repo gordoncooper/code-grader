@@ -95,7 +95,7 @@ def test_a_benchmark_cap_must_be_its_own(repo, rel):
 def test_a_finding_cap_must_be_its_benchmarks(repo, rel):
     r = cli("report", "finding", "add", rel, "--benchmark", "A1", "--title", "x", "--severity", "minor", "--cap", "E1-cap-1",
            "--absence", "a", "--method", "b", cwd=repo, code=1)
-    assert "not one of A1's caps (A1-cap-1: Failing build or tests → max 4; A1-cap-2:" in r.stderr
+    assert "not one of A1's caps (A1-cap-1: Failing build or tests" in r.stderr and "→ max 4; A1-cap-2:" in r.stderr
 
 
 def test_a_critical_gap_caps_gap_coverage(gk, repo, rel):

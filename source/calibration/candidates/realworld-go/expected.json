@@ -1,0 +1,109 @@
+{
+  "_about": "A candidate golden repo: expected scores proposed from one reference grade, not yet reviewed. `calibration run` doesn't count it; see ../README.md.",
+  "reference": "gothinkster/golang-gin-realworld-example-app @ de2be2a, graded with project.toml beside this file",
+  "repo": "https://github.com/gothinkster/golang-gin-realworld-example-app",
+  "commit": "de2be2ab883217c609a22b3872f200d9fad9cfb9",
+  "set_by": "proposed from one reference grade on 2026-11-28 (Claude Opus 5.5 subagent at max effort, in a fresh session with a kit copy that had no calibration/ and no CHANGELOG): runs/run-1.json. Not yet reviewed by a person.",
+  "criteria": {
+    "within_tolerance_pct": 90,
+    "mae_max": 0.75,
+    "max_spread": 1
+  },
+  "expected": {
+    "A1": {
+      "score": 5
+    },
+    "A2": {
+      "score": 1
+    },
+    "A3": {
+      "score": 4
+    },
+    "A4": {
+      "score": 6
+    },
+    "A5": {
+      "score": 5
+    },
+    "B1": {
+      "score": 5
+    },
+    "B2": {
+      "score": 6
+    },
+    "B3": {
+      "score": 6
+    },
+    "B4": {
+      "score": 6
+    },
+    "B5": {
+      "score": 6
+    },
+    "B6": {
+      "score": 7
+    },
+    "C1": {
+      "score": 6
+    },
+    "C2": {
+      "score": 7
+    },
+    "C4": {
+      "score": 6
+    },
+    "D1": {
+      "score": 6
+    },
+    "D2": {
+      "score": 6
+    },
+    "D4": {
+      "score": 7
+    },
+    "E1": {
+      "score": 7
+    },
+    "E2": {
+      "score": 5
+    },
+    "E3": {
+      "score": 6
+    },
+    "F1": {
+      "score": 3
+    },
+    "F2": {
+      "score": 7
+    },
+    "F3": {
+      "score": 4
+    },
+    "F4": {
+      "score": 6
+    },
+    "F5": {
+      "score": 7
+    },
+    "F6": {
+      "score": 4
+    },
+    "X1": {
+      "score": null,
+      "applicability": "not_applicable"
+    },
+    "X2": {
+      "score": 4
+    },
+    "X3": {
+      "score": 7
+    },
+    "X4": {
+      "score": null,
+      "applicability": "not_applicable"
+    },
+    "X5": {
+      "score": 6
+    }
+  }
+}
